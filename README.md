@@ -2,6 +2,8 @@
 
 Aplicación compartida de documentos contables con Supabase, construida a partir del HTML original. Conserva su CSS, logo Base64, cuatro bloques desplegables, reglas de estados, semáforos, indicadores y exportación de cuatro hojas.
 
+La aplicación de producción está disponible en https://kardex-digital-santa-anita.vercel.app/. El acceso utiliza cuentas confirmadas e incluidas en la lista privada de miembros.
+
 ## Consulta e importación
 
 - Búsqueda parcial o exacta de facturas, con coincidencias resaltadas y datos de Kardex, cargo, requerimiento, ubicación y estado.

@@ -5,7 +5,7 @@ Fecha: 14 de octubre de 2026.
 ## Resultado local
 
 - 23 pruebas automatizadas aprobadas con Node, PGlite, JSDOM, ExcelJS y SheetJS.
-- Las dos migraciones se ejecutaron en PostgreSQL embebido con roles y esquemas de autenticación y Storage de prueba.
+- Las migraciones se ejecutaron en PostgreSQL embebido con roles y esquemas de autenticación y Storage de prueba.
 - RLS, membresía confirmada, correlativos, asignación y capacidad de cajas, liberación por clave foránea, restablecimiento y edición simultánea comprobados.
 - Importación por lotes: exige el respaldo original, no expone datos mientras se prepara, revierte lotes incompletos o referencias inválidas, conserva identidades y vínculos, y actualiza sin eliminar registros ajenos a la importación.
 - Reimportación histórica: conserva los datos operativos editados. La actualización desde un Kardex permite corregirlos y mantiene la procedencia original. Identificadores que apuntan a documentos diferentes se rechazan.
@@ -18,12 +18,16 @@ Fecha: 14 de octubre de 2026.
 - El build rechaza configuración ausente, claves secretas y JWT de `service_role`.
 - `npm audit`: cero vulnerabilidades reportadas en las dependencias verificadas.
 
-## Verificación externa pendiente
+## Verificación en producción
 
-La organización Supabase está verificada en el panel y utiliza el plan gratuito. El formulario del proyecto está preparado con la región São Paulo y exposición automática de tablas desactivada. La creación requiere que el propietario complete la nueva contraseña de la base de datos. No se han aplicado migraciones ni importado registros en un proyecto real.
+Las migraciones están aplicadas en el proyecto Supabase dedicado. Se comprobó la importación completa del histórico, su respaldo original privado, SHA-256, conteos, identidad de los registros y correlativos. La importación fue confirmada en una transacción y sus lotes temporales quedaron eliminados.
 
-El error 403 de Vercel se resolvió usando el contexto de la cuenta autenticada en las operaciones de la integración. Se creó y verificó el proyecto `kardex-digital-santa-anita` en la cuenta prevista. El despliegue sigue pendiente de configurar las credenciales públicas reales de Supabase; no se ha publicado un build con valores ficticios.
+La búsqueda exacta sobre un código real devolvió el Kardex y cargo correctos. La consulta devuelve metadatos y coincidencias sin enviar al navegador todas las facturas o el JSON de origen. La conexión anónima a la tabla de documentos devuelve HTTP 401.
 
-GitHub permite acceder al repositorio vinculado y publicar el código. Los datos del Excel se conservan fuera del repositorio.
+RLS está habilitado y ambas tablas, junto con los eventos pequeños de invalidación, están publicadas para Realtime. Las tablas privadas de miembros, contadores e historial tienen RLS sin políticas de cliente: su acceso permanece cerrado intencionalmente. Se revocó la ejecución de cliente de la función interna de RLS automático del proveedor y se verificaron sus permisos.
 
-Los resultados locales no sustituyen la comprobación del acceso real, Storage, Realtime entre dos computadoras, rendimiento sobre la base completa, ni la ejecución de fórmulas dentro de Microsoft Excel. Estas comprobaciones deben completarse una vez disponibles los recursos reales.
+Vercel confirmó el despliegue de producción como READY, desde la rama main del repositorio vinculado. La página se abrió en el navegador con el logo y estructura previstos. Supabase Auth tiene la URL del sitio y un retorno exacto configurados para la aplicación de producción. Solo se configuraron claves públicas de Supabase.
+
+La asignación del primer administrador de la aplicación sigue pendiente de aprobación explícita del propietario: la revisión automática bloqueó esa asignación. No se han creado contraseñas ni enviado invitaciones a otros usuarios. Hasta habilitar una identidad confirmada, los documentos permanecen inaccesibles desde el cliente web.
+
+El flujo de una identidad autorizada y Realtime entre dos computadoras aún deben verificarse después de aprobar el acceso. La ejecución de fórmulas dentro de Microsoft Excel también permanece pendiente; el ciclo de exportación e importación sí está verificado con ExcelJS y SheetJS.
