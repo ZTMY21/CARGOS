@@ -57,6 +57,8 @@ export class HistoricalAccumulator {
     if(group.unknown) this.stats.sin_cargo++;
   }
   addRow(row,cells) {
+    // Detect the unified table by its columns in every year; keep legacy matrices supported.
+    if(row===1 && ['Fecha','Cargo','Codigo'].every(header=>cells.some(c=>String(c.value).trim()===header))) this.flat=true;
     if(this.flat) {
       if(row===1) {this.headers=Object.fromEntries(cells.map(c=>[c.col,String(c.value)]));return;}
       if(!cells.length) return;
