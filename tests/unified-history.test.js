@@ -2,6 +2,17 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {HistoricalAccumulator} from '../src/historical.js';
 
+test('source labels are retained as metadata and separator typos do not become invoice tokens',async()=>{
+ const a=new HistoricalAccumulator();a.beginSheet('Cargos enviados 2024');
+ a.addRow(1,[{col:1,value:'Fecha'},{col:2,value:'Cargo'},{col:4,value:'Codigo'}]);
+ a.addRow(2,[{col:2,value:'5036'},{col:4,value:',TV0300083055'}]);
+ a.addRow(3,[{col:2,value:'5036'},{col:4,value:'CARGO JESUS.xlsx · FF21,FF23,FF24,FF01,FF03,FF OTM'}]);
+ const r=await a.finish();assert.equal(r.docs[0].facturas,'TV0300083055');
+ assert.equal(r.stats.celdas_documentos,1);
+ assert.equal(r.docs[0].datosOrigen.registros[0].Codigo,',TV0300083055');
+ assert.match(r.docs[0].datosOrigen.registros[1].Codigo,/CARGO JESUS/);
+});
+
 test('unified historical tables keep invoices, dates, leading zeroes and source rows across all years', async()=>{
  const a=new HistoricalAccumulator();
  for(let year=2020;year<=2026;year++) {

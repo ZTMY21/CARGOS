@@ -65,9 +65,13 @@ export class HistoricalAccumulator {
       const data=Object.fromEntries(cells.map(c=>[this.headers?.[c.col]||`Columna ${c.col}`,
         c.value instanceof Date ? sourceDate(c.value) : String(c.value??'')]));
       data._fila_excel=row;
-      const code=String(data.Codigo??'').trim();
+      const rawCode=String(data.Codigo??'').trim();
+      const sourceLabel=/\.(?:xlsx|xlsm|xls)\s*·/i.test(rawCode);
+      const code=sourceLabel?'':rawCode.replace(/^[,;\s]+|[,;\s]+$/g,'');
       const cargo=String(data.Cargo??'').trim();
       const group=this.group(cargo,'',cargo?'':String(row));
+      if(sourceLabel)group.annotations.push([row,4,`Encabezado de archivo en Codigo: ${rawCode}`]);
+      else if(rawCode!==code)group.annotations.push([row,4,'Se retiró un separador inicial/final del código; el valor original se conserva en los datos de origen.']);
       const date=sourceDate(data.Fecha);if(date)group.dates.add(date);
       for(const field of ['Observaciones','ESTADO_REGULARIZADO']) {
         const note=String(data[field]||'').trim();
