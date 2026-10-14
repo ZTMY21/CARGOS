@@ -1,0 +1,26 @@
+.connection-row{display:flex;align-items:center;gap:10px;justify-content:flex-end;margin:-10px 0 18px;font-size:12px;color:var(--muted);flex-wrap:wrap;}
+.connection-dot{width:7px;height:7px;border-radius:50%;background:var(--gray);display:inline-block;}
+.connection-dot.online{background:var(--green);}
+.connection-dot.error{background:var(--red);}
+.connection-action{font-size:11px;padding:4px 8px;}
+.auth-overlay{position:fixed;inset:0;background:rgba(18,50,77,.42);display:flex;align-items:center;justify-content:center;z-index:100;padding:20px;}
+.auth-overlay[hidden]{display:none;}
+.auth-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:28px;max-width:440px;width:100%;box-shadow:0 12px 50px rgba(18,50,77,.2);}
+.auth-card h2{margin:0 0 10px;font-size:20px;color:var(--navy-dark);}
+.auth-card p{font-size:13px;color:var(--muted);line-height:1.5;}
+.auth-card .field{margin-bottom:12px;}
+.auth-card button{width:100%;margin-top:6px;}
+.auth-message{font-size:12px;line-height:1.5;min-height:18px;}
+button:disabled{opacity:.55;cursor:wait;}
+.cond-field[hidden]{display:none;}
+mark{background:var(--yellow-bg);color:var(--navy-dark);font-weight:700;border-radius:2px;padding:1px 2px;}
+.search-count{font-size:12px;color:var(--muted);margin:10px 0;}
+.invoice-results{max-width:260px;white-space:normal;word-break:break-word;line-height:1.4;}
+.origin-label{display:block;font-size:10px;color:var(--muted);max-width:240px;white-space:normal;margin-top:3px;}
+.pagination{display:flex;gap:10px;align-items:center;justify-content:flex-end;margin-top:14px;font-size:12px;color:var(--muted);}
+.pagination button{font-size:12px;padding:6px 10px;}
+.import-progress{font-size:12px;line-height:1.5;color:var(--navy);margin-top:10px;}
+.quick-requirements{margin-top:18px;}
+.sustento-viewer{border:1px solid var(--border);border-radius:10px;color:var(--navy-dark);max-width:95vw;}
+.sustento-viewer::backdrop{background:rgba(18,50,77,.42);}
+.sustento-viewer img{display:block;max-width:85vw;max-height:70vh;margin:12px 0;}

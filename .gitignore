@@ -1,0 +1,15 @@
+node_modules/
+dist/
+.vercel/
+supabase/.temp/
+supabase/.branches/
+.env
+.env.*
+!.env.example
+coverage/
+.DS_Store
+*.log
+private-import/
+*.xlsm
+*.xlsx
+*.xls

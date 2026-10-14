@@ -1,0 +1,61 @@
+import { computeReqEstado, computeDocEstado, escapeHtml } from './rules.js';
+
+export function normalizeSearch(value = '') {
+  return String(value ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .toLowerCase().replace(/[^a-z0-9]/g,'');
+}
+export function searchTerms(value = '') {
+  return String(value).trim().split(/\s+/).map(normalizeSearch).filter(Boolean);
+}
+export function highlightMatch(value, query) {
+  const source=String(value ?? ''), map=[], normalized=[];
+  for(let index=0;index<source.length;index++) {
+    const fragment=normalizeSearch(source[index]);
+    for(const char of fragment) {normalized.push(char);map.push(index);}
+  }
+  const text=normalized.join(''), ranges=[];
+  for(const term of searchTerms(query)) {
+    let start=0, match;
+    while((match=text.indexOf(term,start))!==-1) {
+      ranges.push([map[match],map[match+term.length-1]+1]);start=match+term.length;
+    }
+  }
+  const merged=[];
+  for(const range of ranges.sort((a,b)=>a[0]-b[0])) {
+    const last=merged.at(-1);
+    if(last && range[0]<=last[1]) last[1]=Math.max(last[1],range[1]);
+    else merged.push([...range]);
+  }
+  let cursor=0,result='';
+  for(const [start,end] of merged) {
+    result+=escapeHtml(source.slice(cursor,start))+`<mark>${escapeHtml(source.slice(start,end))}</mark>`;
+    cursor=end;
+  }
+  return result+escapeHtml(source.slice(cursor));
+}
+export function filterDocuments(documents, requirements, filters, now=new Date()) {
+  const reqs=new Map(requirements.map(r=>[r.id,r.numero]));
+  const terms=searchTerms(filters.query);
+  return documents.map(d=>({...d,...computeDocEstado(d,now)})).filter(d=>{
+    const fields=[d.kardex,...(d.cargos||[]),d.facturas,reqs.get(d.cajaAsignada),d.sustento,d.obs,d.usuario,d.tipoDoc,d.hojaOrigen].map(normalizeSearch);
+    const periodYear=d.periodo?.slice(0,4);
+    const year=filters.year||'';
+    const matchesYear=!year || (year==='sin-periodo' && !d.periodo)
+      || (year.startsWith('origen:') && String(d.anioOrigen)===year.slice(7))
+      || (!year.includes(':') && periodYear===year);
+    const matchesInvoice=!filters.invoiceExact||!normalizeSearch(filters.query)
+      || (d.facturas||'').split(/[,;\n]/).some(number=>normalizeSearch(number)===normalizeSearch(filters.query));
+    return matchesInvoice&&terms.every(t=>fields.some(field=>field.includes(t)))
+      && (!filters.state||d.estado===filters.state)
+      && (!filters.type||d.tipoDoc===filters.type)
+      && (!filters.location||d.ubicacion===filters.location||(filters.location==='sin-dato'&&!d.ubicacion))
+      && matchesYear;
+  });
+}
+export function filterRequirements(requirements, documents, query) {
+  const terms=searchTerms(query);
+  return requirements.filter(r=>{
+    const fields=[r.numero,r.tipo,r.numerosCargo,r.usuario,computeReqEstado(r,documents),r.fechaSolicitud,r.fechaRecepcion,r.fechaDevolucion].map(normalizeSearch);
+    return terms.every(term=>fields.some(field=>field.includes(term)));
+  });
+}
