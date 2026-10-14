@@ -20,9 +20,9 @@ Fecha: 14 de octubre de 2026.
 
 ## Verificación externa pendiente
 
-La integración Supabase no muestra proyectos disponibles y las operaciones de cotización y confirmación de creación no están disponibles en su servidor. El panel del navegador solicita iniciar sesión. No se han aplicado migraciones ni importado registros en un proyecto real.
+La organización Supabase está verificada en el panel y utiliza el plan gratuito. El formulario del proyecto está preparado con la región São Paulo y exposición automática de tablas desactivada. La creación requiere que el propietario complete la nueva contraseña de la base de datos. No se han aplicado migraciones ni importado registros en un proyecto real.
 
-La integración Vercel devuelve 403 al acceder al espacio de la cuenta identificado. No hay credenciales CLI alternativas en este entorno. No se ha desplegado una instalación de producción.
+El error 403 de Vercel se resolvió usando el contexto de la cuenta autenticada en las operaciones de la integración. Se creó y verificó el proyecto `kardex-digital-santa-anita` en la cuenta prevista. El despliegue sigue pendiente de configurar las credenciales públicas reales de Supabase; no se ha publicado un build con valores ficticios.
 
 GitHub permite acceder al repositorio vinculado y publicar el código. Los datos del Excel se conservan fuera del repositorio.
 
