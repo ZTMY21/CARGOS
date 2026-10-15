@@ -122,7 +122,15 @@
     <p>Completa Fecha, Cargo y Codigo. Las filas incompletas quedarán pendientes para la siguiente revisión.</p>
     <p id="googleSyncStatus" aria-live="polite">Consultando estado…</p>
     <button id="btnToggleGoogleSync" type="button" disabled>Pausar sincronización</button>
-    <button id="btnRefreshGoogleSync" type="button" class="secondary">Consultar estado</button>
+    <button id="btnRefreshGoogleSync" type="button" class="secondary">Ver estado de sincronización</button>
+    <p class="hint">Este botón muestra el estado. Para editar cargos, usa «Abrir Excel principal en Google».</p>
+    <dialog id="googleSyncDialog" aria-labelledby="googleSyncDialogTitle">
+      <h2 id="googleSyncDialogTitle">Estado de sincronización</h2>
+      <p id="googleSyncDialogStatus" aria-live="polite"></p>
+      <p id="googleSyncDialogDetails"></p>
+      <p>La revisión automática se realiza cada hora. Consultar el estado no inicia una nueva importación.</p>
+      <form method="dialog"><button type="submit">Cerrar</button></form>
+    </dialog>
   </section>
   <p id="readOnlyNotice" hidden>Invitado · Solo consulta de cargos y facturas</p>
   <details class="group" id="grp-resumen" open>

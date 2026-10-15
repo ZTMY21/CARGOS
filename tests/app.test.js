@@ -18,6 +18,7 @@ async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recov
   const source=(await readFile(new URL('../src/app.js',import.meta.url),'utf8')).replace(/^import .*;\n/gm,'');
   const dom=new JSDOM(html,{url:'https://kardex.example.test'+(recovery?'#type=recovery':''),runScripts:'outside-only'});
   dom.window.HTMLElement.prototype.scrollIntoView=()=>{};
+  dom.window.HTMLDialogElement.prototype.showModal=function(){this.open=true;};
   const state={reqs:[structuredClone(reqRow)],docs:[structuredClone(docRow)],updates:[],snapshots:0,events:[],status:null,authCallback:null};
   state.session=signedIn?{user:{id:'owner',email:'owner@example.test'}}:null;
   state.authCalls=[];state.exportCalls=[];
@@ -26,6 +27,7 @@ async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recov
   const client={
     channel:()=>({on(event,filter,callback){state.events.push({filter,callback});return this;},subscribe(callback){state.status=callback;callback('SUBSCRIBED');return this;}}),
     removeChannel:async()=>{},
+    from:()=>({select(){return this;},eq(){return this;},async single(){return {data:{enabled:true,status:'Revisión completada',last_checked_at:'2026-10-15T02:00:00Z',last_result:{groups:276,pending_rows:1480}},error:null};}}),
     rpc:async()=>({data:[],error:null}),
     auth:{getSession:async()=>({data:{session:state.session},error:null}),
       onAuthStateChange:callback=>{state.authCallback=callback;},
@@ -210,4 +212,18 @@ test('admin and guest export only the selected cargo with its complete invoices'
    assert.match(a.state.downloadName,/Cargo_C001_SA-00001/);
   }finally{a.close();}
  }
+});
+
+test('consulting sync status opens a visible dialog with the last results only for admin',async()=>{
+ const a=await app();try{
+  assert.equal(a.node('googleSyncDialog').open,false);
+  a.node('btnRefreshGoogleSync').click();assert.equal(a.node('googleSyncDialog').open,true);await flush();
+  assert.match(a.node('googleSyncDialogStatus').textContent,/Revisión completada/);
+  assert.match(a.node('googleSyncDialogDetails').textContent,/276 cargos revisados/);
+  assert.match(a.node('googleSyncDialogDetails').textContent,/1480 filas pendientes/);
+ }finally{a.close();}
+ const guest=await app({isAdmin:false});try{
+  assert.equal(guest.node('googleSyncPanel').hidden,true);guest.node('btnRefreshGoogleSync').click();await flush();
+  assert.equal(guest.node('googleSyncDialog').open,false);
+ }finally{guest.close();}
 });

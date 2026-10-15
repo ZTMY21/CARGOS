@@ -34,3 +34,7 @@ mark{background:var(--yellow-bg);color:var(--navy-dark);font-weight:700;border-r
 #guestManagement .group-body{padding:20px}
 #guestList li{margin:12px 0}
 #registerHelp{font-size:12px;color:var(--muted)}
+
+#googleSyncDialog{max-width:540px;width:calc(100% - 48px);border:1px solid var(--border);border-radius:12px;padding:24px;color:var(--navy-dark)}
+#googleSyncDialog::backdrop{background:rgba(0,0,0,.4)}
+#googleSyncDialog p{line-height:1.6}
