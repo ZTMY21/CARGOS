@@ -69,7 +69,7 @@ function setStatus(value, state = '') {
 }
 function setAvailability() {
   document.getElementById('appShell').classList.toggle('read-only', !isAdmin);
-  ['grp-resumen','grp-requerimientos','grp-documentos','guestManagement','btnExportar','btnImportar','btnReset'].forEach(id=>document.getElementById(id).hidden=!isAdmin);
+  ['grp-resumen','grp-requerimientos','grp-documentos','btnExportar','btnImportar','btnReset'].forEach(id=>document.getElementById(id).hidden=!isAdmin);
   document.getElementById('readOnlyNotice').hidden=!appReady||isAdmin;
 
   document.querySelectorAll('.group button').forEach(b => b.disabled = !appReady || mutationBusy);
@@ -722,7 +722,7 @@ async function handleSession(session) {
     if (generation !== authGeneration) return;
     if (!access.allowed) {
       appReady = false; isAdmin = false;
-      message('authMessage','Esta cuenta no está autorizada. Solicita acceso al administrador.',true);
+      message('authMessage','Esta cuenta no está autorizada todavía. Confirma tu correo electrónico para ingresar como invitado.',true);
       showAuthPage(true);
       setStatus('Cuenta sin autorización','error'); setAvailability(); return;
     }
@@ -733,7 +733,6 @@ async function handleSession(session) {
     showAuthPage(false);
     message('authMessage','');
     document.getElementById('sessionUser').textContent = user.email + (isAdmin ? ' · Administrador' : ' · Invitado');
-    if(isAdmin) loadGuests();
     document.getElementById('btnSignOut').hidden = false;
     await subscribeRealtime(); setAvailability();
   } catch (error) {
@@ -834,26 +833,6 @@ if (!supabase) {
   else if (!currentUserId) await handleSession(data.session);
 }
 
-async function loadGuests(action='list', email=null) {
-  if(!appReady || !isAdmin)return;
-  try {
-    const {data,error}=await supabase.rpc('kardex_guests',{action,guest_email:email});
-    if(error)throw error;
-    const list=document.getElementById('guestList');list.replaceChildren();
-    for(const guest of data){
-      const li=document.createElement('li');li.textContent=guest.email+' · Solo consulta ';
-      const button=document.createElement('button');button.textContent='Retirar acceso';button.type='button';
-      button.addEventListener('click',()=>{if(confirm('¿Retirar el acceso de '+guest.email+'?'))loadGuests('remove',guest.email);});
-      li.append(button);list.append(li);
-    }
-    message('guestMessage',action==='add'?'Correo autorizado. El invitado ya puede crear su cuenta.':action==='remove'?'Acceso retirado.':'');
-  }catch(error){message('guestMessage',readableError(error),true);}
-}
-document.getElementById('guestForm').addEventListener('submit',async ev=>{
-  ev.preventDefault();if(!isAdmin||!appReady)return;
-  const input=document.getElementById('guestEmail');if(!input.reportValidity())return;
-  await loadGuests('add',input.value.trim().toLowerCase());
-});
 document.getElementById('btnRegister').addEventListener('click',async ev=>{
   if(!supabase)return;
   const input=document.getElementById('authEmail'),password=document.getElementById('authPassword').value;
@@ -864,7 +843,7 @@ document.getElementById('btnRegister').addEventListener('click',async ev=>{
     const {error}=await supabase.auth.signUp({email:input.value.trim().toLowerCase(),password,options:{emailRedirectTo:window.location.origin+'/'}});
     if(error)throw error;
     document.getElementById('authPassword').value='';
-    message('authMessage','Revisa tu correo para confirmar tu cuenta. Solo los correos autorizados por el administrador pueden entrar.');
+    message('authMessage','Revisa tu correo y confirma tu cuenta. Al abrir el enlace entrarás automáticamente como invitado de solo consulta.');
   }catch(error){message('authMessage',readableError(error),true);}
   finally{button.disabled=false;}
 });

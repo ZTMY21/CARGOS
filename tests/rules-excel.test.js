@@ -36,12 +36,12 @@ test('document status precedence and five/six/seven-month boundary use Lima date
   for(const [periodo,months] of [['2026-05-13',5],['2026-04-13',6],['2026-03-13',7],['2026-04-14',5]])
     assert.equal(computeDocEstado({...documentBase,periodo},now).antiguedad,months);
 });
-test('CSS and logo preserve the baseline alongside the new guest management group',async()=>{
+test('CSS and logo preserve the baseline and original groups',async()=>{
   const html=await readFile(new URL('../index.html',import.meta.url),'utf8');
   const hash=s=>createHash('sha256').update(s).digest('hex');
   assert.equal(hash(html.match(/<style>([\s\S]*?)<\/style>/)[1]),'178aa536195e5684f40469632e61b74c0993b5dcbf51008ee66ce6155f5726df');
   assert.equal(hash(html.match(/<img[^>]+src="(data:[^"]+)"/)[1]),'3d9a0f7a2ea7f7b877732a10deb358760d12fe05293aa5159184b5b23617dbfc');
-  assert.equal((html.match(/<details class="group"/g)||[]).length,5);
+  assert.equal((html.match(/<details class="group"/g)||[]).length,4);
   assert.ok(!html.includes('storageWarning')); assert.ok(!html.includes('artefacto compartido'));
   assert.equal(escapeHtml('<img src=x onerror="alert(1)">'),'&lt;img src=x onerror=&quot;alert(1)&quot;&gt;');
 });

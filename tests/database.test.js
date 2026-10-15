@@ -33,12 +33,13 @@ before(async()=>{
     insert into auth.users values
       ('${owner}','owner@example.test',now(),false),
       ('${editor}','editor@example.test',now(),false),
-      ('${stranger}','stranger@example.test',now(),false);
+      ('${stranger}','stranger@example.test',null,false);
   `);
   const file=(await readdir(new URL('../supabase/migrations/',import.meta.url))).find(n=>n.endsWith('_kardex_initial.sql'));
   await db.exec(await readFile(new URL(`../supabase/migrations/${file}`,import.meta.url),'utf8'));
   await db.exec("insert into private.kardex_miembros(email,rol) values ('owner@example.test','admin'),('editor@example.test','editor');");
   await db.exec(await readFile(new URL('../db/guest-access.sql',import.meta.url),'utf8'));
+  await db.exec(await readFile(new URL('../db/automatic-guests.sql',import.meta.url),'utf8'));
   await login();
 });
 after(async()=>{await db?.close();});
@@ -91,7 +92,6 @@ test('RLS denies anonymous and unapproved users, editors share records but canno
   await assert.rejects(createDoc(),/row-level security/);
   assert.deepEqual(await query("update public.documentos set obs='forbidden' returning id"),[]);
   assert.deepEqual(await query('delete from public.documentos returning id'),[]);
-  await assert.rejects(query("select public.kardex_guests('add','evil@example.test')"),/administrador/);
   await assert.rejects(query('select public.kardex_reset()'),/administrador/);
   await assert.rejects(query("select public.kardex_import('[]','[]')"),/administrador/);
   await assert.rejects(query("select private.kardex_set_counters(0,0)"),/administrador/);
@@ -121,22 +121,23 @@ test('Realtime publication includes both tables and public functions never bypas
   const published=await query("select tablename from pg_publication_tables where pubname='supabase_realtime' order by tablename");
   assert.deepEqual(published.map(r=>r.tablename),['documentos','requerimientos']);
   const functions=await query("select p.proname,p.prosecdef from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname like 'kardex_%'");
-  assert.equal(functions.length,5); assert.ok(functions.every(f=>f.prosecdef===false));
+  assert.equal(functions.length,4); assert.ok(functions.every(f=>f.prosecdef===false));
   await login();
 });
 
-test('only admin manages guests, protected owner cannot be changed, revocation removes read access',async()=>{
-  await login();
-  await query("select public.kardex_guests('add',' STRANGER@EXAMPLE.TEST ')");
-  await assert.rejects(query("select public.kardex_guests('remove','owner@example.test')"),/administrador/);
+test('confirmed accounts automatically read without membership and never gain write access',async()=>{
+  await db.exec('reset role');
+  await db.query('update auth.users set email_confirmed_at=now() where id=$1',[stranger]);
   await login(stranger);
   assert.deepEqual((await query('select public.kardex_access() as access'))[0].access,{allowed:true,is_admin:false});
   assert.ok((await query('select * from public.documentos')).length);
+  await assert.rejects(createDoc(),/row-level security/);
   await assert.rejects(createReq(),/row-level security/);
-  assert.deepEqual(await query("update public.requerimientos set usuario='Otro' returning id"),[]);
-  assert.deepEqual(await query('delete from public.requerimientos returning id'),[]);
-  await assert.rejects(query("select public.kardex_guests('list')"),/administrador/);
-  await login();await query("select public.kardex_guests('remove','stranger@example.test')");
+  assert.deepEqual(await query("update public.documentos set obs='forbidden' returning id"),[]);
+  assert.deepEqual(await query('delete from public.documentos returning id'),[]);
+  await assert.rejects(query('select public.kardex_reset()'),/administrador/);
+  await db.exec('reset role');
+  await db.query('update auth.users set email_confirmed_at=null where id=$1',[stranger]);
   await login(stranger);assert.deepEqual(await query('select * from public.documentos'),[]);
   await login();
 });
