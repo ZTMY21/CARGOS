@@ -24,9 +24,11 @@ async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recov
   const client={
     channel:()=>({on(event,filter,callback){state.events.push({filter,callback});return this;},subscribe(callback){state.status=callback;callback('SUBSCRIBED');return this;}}),
     removeChannel:async()=>{},
+    rpc:async()=>({data:[],error:null}),
     auth:{getSession:async()=>({data:{session:state.session},error:null}),
       onAuthStateChange:callback=>{state.authCallback=callback;},
       signInWithPassword:async input=>{state.authCalls.push(['login',input]);if(loginError)return {error:loginError};state.session={user:{id:'owner',email:input.email}};state.authCallback('SIGNED_IN',state.session);return {error:null};},
+      signUp:async input=>{state.authCalls.push(['signup',input]);return {error:null};},
       signInWithOtp:async input=>{state.authCalls.push(['link',input]);return {error:null};},
       resetPasswordForEmail:async(email,options)=>{state.authCalls.push(['recovery',email,options]);return {error:null};},
       updateUser:async input=>{state.authCalls.push(['updatePassword',input]);return {error:null};},
@@ -168,7 +170,7 @@ test('unauthorized accounts remain blocked and editor cannot reset/import',async
   const denied=await app({allowed:false});
   try {assert.equal(denied.node('authOverlay').hidden,false);assert.equal(denied.node('btnGuardar').disabled,true);assert.ok(denied.node('authMessage').textContent.includes('no está autorizada'));}finally{denied.close();}
   const editor=await app({isAdmin:false});
-  try {assert.equal(editor.node('btnGuardar').disabled,false);assert.equal(editor.node('btnReset').disabled,true);assert.equal(editor.node('btnImportar').disabled,true);}finally{editor.close();}
+  try {assert.equal(editor.node('btnGuardar').disabled,true);assert.equal(editor.node('grp-documentos').hidden,true);assert.equal(editor.node('guestManagement').hidden,true);assert.equal(editor.node('tbody').querySelector('[data-edit]'),null);assert.ok(editor.node('tbody').textContent.includes('F-001'));assert.equal(editor.node('btnReset').disabled,true);assert.equal(editor.node('btnImportar').disabled,true);}finally{editor.close();}
 });
 test('repository update always filters by the original timestamp and asks Supabase to confirm the result',async()=>{
   const calls=[];
@@ -176,4 +178,15 @@ test('repository update always filters by the original timestamp and asks Supaba
   const repo=new KardexRepository({from:table=>{calls.push(['from',table]);return builder;}});
   await assert.rejects(repo.saveDoc(docFromDb(docRow),{id:docRow.id,updatedAt:docRow.updated_at}),/Otro usuario/);
   assert.deepEqual(calls.filter(c=>c[0]==='eq'),[['eq','id',docRow.id],['eq','updated_at',docRow.updated_at]]);
+});
+
+test('guest registration requires a password and does not authorize the account',async()=>{
+ const a=await app({signedIn:false});
+ try{
+  a.node('authEmail').value='GUEST@EXAMPLE.TEST';a.node('authPassword').value='short';
+  a.node('btnRegister').click();await flush();assert.equal(a.state.authCalls.length,0);
+  a.node('authPassword').value='test-password';a.node('btnRegister').click();await flush();
+  assert.equal(a.state.authCalls[0][0],'signup');assert.equal(a.state.authCalls[0][1].email,'guest@example.test');
+  assert.equal(a.node('appShell').hidden,true);assert.equal(a.state.snapshots,0);
+ }finally{a.close();}
 });

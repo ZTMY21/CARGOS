@@ -29,3 +29,8 @@ mark{background:var(--yellow-bg);color:var(--navy-dark);font-weight:700;border-r
 .sustento-viewer{border:1px solid var(--border);border-radius:10px;color:var(--navy-dark);max-width:95vw;}
 .sustento-viewer::backdrop{background:rgba(18,50,77,.42);}
 .sustento-viewer img{display:block;max-width:85vw;max-height:70vh;margin:12px 0;}
+
+#appShell [hidden]{display:none!important}
+#guestManagement .group-body{padding:20px}
+#guestList li{margin:12px 0}
+#registerHelp{font-size:12px;color:var(--muted)}

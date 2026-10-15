@@ -115,6 +115,15 @@
     <button id="btnReconnect" class="secondary connection-action">Actualizar</button>
     <button id="btnSignOut" class="secondary connection-action" hidden>Salir</button>
   </div>
+  <details class="group" id="guestManagement" hidden>
+    <summary>Invitados — Solo consulta</summary>
+    <div class="group-body">
+      <p>Autoriza el correo del invitado. Luego podrá crear su cuenta y confirmar su correo en la pantalla de inicio. Solo podrá consultar cargos y facturas.</p>
+      <form id="guestForm"><label for="guestEmail">Correo del invitado</label><input id="guestEmail" type="email" required placeholder="correo@ejemplo.com"><button type="submit">Autorizar invitado</button></form>
+      <p id="guestMessage" aria-live="polite"></p><ul id="guestList"></ul>
+    </div>
+  </details>
+  <p id="readOnlyNotice" hidden>Invitado · Solo consulta de cargos y facturas</p>
   <details class="group" id="grp-resumen" open>
     <summary><span class="stitle">Resumen<small>Indicadores generales, se actualizan solos</small></span><span class="chev">▶</span></summary>
     <div class="group-body">
@@ -290,6 +299,8 @@
       <div class="field"><label for="authPassword">Contraseña</label><input id="authPassword" type="password" autocomplete="current-password" required></div>
       <button id="btnLogin" type="submit">Ingresar</button>
     </form>
+    <button id="btnRegister" type="button" class="secondary">Crear cuenta de invitado</button>
+    <p id="registerHelp">Para crear tu cuenta, escribe tu correo y una contraseña de al menos 8 caracteres. El administrador debe autorizar tu correo.</p>
     <form id="resetPasswordForm" hidden>
       <div class="field"><label for="newPassword">Nueva contraseña</label><input id="newPassword" type="password" autocomplete="new-password" minlength="8" required></div>
       <div class="field"><label for="confirmPassword">Confirmar contraseña</label><input id="confirmPassword" type="password" autocomplete="new-password" minlength="8" required></div>
