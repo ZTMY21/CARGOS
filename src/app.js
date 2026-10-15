@@ -6,6 +6,8 @@ import { highlightMatch, filterDocuments, filterRequirements } from './search.js
 import './connection.css';
 
 const configuration = { url: __SUPABASE_URL__, key: __SUPABASE_ANON_KEY__ };
+// Capture recovery mode before the client consumes the email callback fragment.
+let passwordRecovery = new URLSearchParams(window.location.hash.slice(1)).get('type') === 'recovery';
 const supabase = configuration.url && configuration.key ? createClient(configuration.url, configuration.key) : null;
 const repository = supabase ? new KardexRepository(supabase) : null;
 let appReady = false, isAdmin = false, mutationBusy = false, channelReady = false;
@@ -73,6 +75,18 @@ function setAvailability() {
   document.getElementById('btnPaginaSiguiente').disabled=!appReady||mutationBusy||total<=(currentPage+1)*PAGE_SIZE;
 }
 function readableError(error) {
+  const authErrors = {
+    invalid_credentials: 'Correo o contraseña incorrectos. Revisa tus datos o pulsa «Olvidé mi contraseña».',
+    email_not_confirmed: 'Confirma tu correo electrónico antes de ingresar.',
+    email_address_invalid: 'Escribe un correo electrónico válido.',
+    over_email_send_rate_limit: 'Se enviaron varios correos. Espera unos minutos antes de solicitar otro.',
+    over_request_rate_limit: 'Demasiados intentos. Espera unos minutos y vuelve a intentarlo.',
+    email_address_not_authorized: 'El servicio de correo no permite enviar a esta cuenta. Contacta al administrador.',
+    otp_expired: 'El enlace venció o ya fue utilizado. Solicita uno nuevo.',
+    same_password: 'Elige una contraseña diferente de la anterior.',
+    weak_password: 'Elige una contraseña más segura, de al menos 8 caracteres.'
+  };
+  if (authErrors[error?.code]) return authErrors[error.code];
   if (error?.code === '42501') return 'Tu cuenta no tiene permisos para esta operación.';
   if (error?.code === '23505') return 'El identificador ya existe. Actualiza los datos y vuelve a intentarlo.';
   return error?.message || 'No se pudo conectar. Revisa tu conexión y vuelve a intentarlo.';
@@ -650,21 +664,46 @@ async function subscribeRealtime() {
       }
     });
 }
+function showAuthPage(visible) {
+  document.getElementById('authOverlay').hidden = !visible;
+  document.getElementById('appShell').hidden = visible;
+  document.getElementById('appShell').inert = visible;
+}
+function showRecoveryForm(recovering) {
+  document.getElementById('authForm').hidden = recovering;
+  document.getElementById('resetPasswordForm').hidden = !recovering;
+  document.getElementById('btnForgotPassword').hidden = recovering;
+  document.getElementById('btnMagicLink').hidden = recovering;
+  document.getElementById('authTitle').textContent = recovering ? 'Crear nueva contraseña' : 'Iniciar sesión';
+  document.getElementById('authDescription').textContent = recovering
+    ? 'Elige una nueva contraseña de al menos 8 caracteres para volver al Kardex.'
+    : 'Ingresa a Kardex Digital con tu correo electrónico y contraseña.';
+}
 async function handleSession(session) {
   const generation = ++authGeneration;
   const user = session?.user;
+  showRecoveryForm(passwordRecovery && !!user);
+  if (passwordRecovery && user) {
+    appReady = isAdmin = dataReady = false;
+    showAuthPage(true);
+    document.getElementById('btnAuthSignOut').hidden = false;
+    setAvailability(); return;
+  }
   if (user && currentUserId !== user.id) {
     appReady = isAdmin = dataReady = false;
     reqs = []; docs = []; renderReqs(); renderDocs(); setAvailability();
-    document.getElementById('authOverlay').hidden = false;
+    showAuthPage(true);
   }
   if (!user) {
+    if (passwordRecovery) message('authMessage','El enlace de recuperación no es válido. Solicita uno nuevo.',true);
+    passwordRecovery = false;
+    showRecoveryForm(false);
     currentUserId = null; appReady = isAdmin = dataReady = channelReady = false;
     clearTimeout(refreshTimer);
     if (realtimeChannel) { await supabase.removeChannel(realtimeChannel); realtimeChannel = null; }
     queryResults=null;queryError='';searchController?.abort();currentPage=0;
     reqs = []; docs = []; cancelarEdicionDoc(); cancelarEdicionReq(); renderReqs(); renderDocs();
-    document.getElementById('authOverlay').hidden = false;
+    showAuthPage(true);
     document.getElementById('sessionUser').textContent = '';
     document.getElementById('btnSignOut').hidden = true;
     document.getElementById('btnAuthSignOut').hidden = true;
@@ -678,19 +717,21 @@ async function handleSession(session) {
     if (!access.allowed) {
       appReady = false; isAdmin = false;
       message('authMessage','Esta cuenta no está autorizada. Solicita acceso al administrador.',true);
-      document.getElementById('authOverlay').hidden = false;
+      showAuthPage(true);
       setStatus('Cuenta sin autorización','error'); setAvailability(); return;
     }
     isAdmin = access.is_admin;
     await refreshData();
     if (generation !== authGeneration) return;
     appReady = true;
-    document.getElementById('authOverlay').hidden = true;
+    showAuthPage(false);
+    message('authMessage','');
     document.getElementById('sessionUser').textContent = user.email;
     document.getElementById('btnSignOut').hidden = false;
     await subscribeRealtime(); setAvailability();
   } catch (error) {
     appReady = false; setAvailability();
+    showAuthPage(true);
     message('authMessage',readableError(error),true);
     setStatus('No se pudo cargar la información','error');
   }
@@ -702,23 +743,51 @@ document.getElementById('authForm').addEventListener('submit', async ev => {
   message('authMessage','Validando cuenta…');
   try {
     const {error} = await supabase.auth.signInWithPassword({
-      email:document.getElementById('authEmail').value.trim(), password:document.getElementById('authPassword').value
+      email:document.getElementById('authEmail').value.trim().toLowerCase(), password:document.getElementById('authPassword').value
     });
     document.getElementById('authPassword').value = '';
     if (error) throw error;
+    message('authMessage','Cargando tu aplicativo…');
   } catch (error) { message('authMessage',readableError(error),true); }
   finally { button.disabled = false; }
 });
 document.getElementById('btnMagicLink').addEventListener('click', async ev => {
-  const email = document.getElementById('authEmail').value.trim();
+  const email = document.getElementById('authEmail').value.trim().toLowerCase();
   if (!supabase || !document.getElementById('authEmail').reportValidity()) return;
   const button = ev.currentTarget; button.disabled = true;
   try {
-    const {error} = await supabase.auth.signInWithOtp({email,options:{emailRedirectTo:window.location.origin,shouldCreateUser:true}});
+    const {error} = await supabase.auth.signInWithOtp({email,options:{emailRedirectTo:window.location.origin+'/',shouldCreateUser:false}});
     if (error) throw error;
     message('authMessage','Revisa tu correo y abre el enlace de acceso en esta computadora.');
   } catch(error) { message('authMessage',readableError(error),true); }
   finally { button.disabled = false; }
+});
+document.getElementById('btnForgotPassword').addEventListener('click',async ev=>{
+  const input=document.getElementById('authEmail');
+  if(!supabase || !input.reportValidity()) return;
+  const button=ev.currentTarget;button.disabled=true;
+  message('authMessage','Solicitando recuperación…');
+  try {
+    const {error}=await supabase.auth.resetPasswordForEmail(input.value.trim().toLowerCase(),{redirectTo:window.location.origin+'/'});
+    if(error)throw error;
+    message('authMessage','Si el correo está registrado, recibirás un enlace para crear una nueva contraseña. Revisa también Spam.');
+  }catch(error){message('authMessage',readableError(error),true);}
+  finally{button.disabled=false;}
+});
+document.getElementById('resetPasswordForm').addEventListener('submit',async ev=>{
+  ev.preventDefault();if(!supabase || !passwordRecovery)return;
+  const password=document.getElementById('newPassword').value;
+  if(password.length<8){message('authMessage','Usa al menos 8 caracteres.',true);return;}
+  if(password!==document.getElementById('confirmPassword').value){message('authMessage','Las contraseñas no coinciden.',true);return;}
+  const button=document.getElementById('btnUpdatePassword');button.disabled=true;
+  try{
+    const {error}=await supabase.auth.updateUser({password});if(error)throw error;
+    passwordRecovery=false;document.getElementById('resetPasswordForm').reset();
+    showRecoveryForm(false);message('authMessage','Contraseña actualizada. Cargando tu aplicativo…');
+    const {data,error:sessionError}=await supabase.auth.getSession();if(sessionError)throw sessionError;
+    await handleSession(data.session);
+  }catch(error){message('authMessage',readableError(error),true);}
+  finally{button.disabled=false;}
 });
 async function signOut() {
   const {error} = await supabase.auth.signOut({scope:'local'});
@@ -742,12 +811,14 @@ updateReqCondFields(); renderReqs(); renderDocs(); setAvailability();
 if (!supabase) {
   document.getElementById('authForm').hidden = true;
   document.getElementById('btnMagicLink').hidden = true;
+  document.getElementById('btnForgotPassword').hidden = true;
   message('authMessage','La conexión de esta instalación está pendiente de configuración.',true);
   setStatus('Configuración pendiente','error');
 } else {
   // Do not await other Supabase calls inside an auth callback (the auth lock is held).
   supabase.auth.onAuthStateChange((event,session)=>{
     if (event === 'INITIAL_SESSION') return;
+    if (event === 'PASSWORD_RECOVERY') passwordRecovery = true;
     if (event === 'TOKEN_REFRESHED' && currentUserId === session?.user?.id) { scheduleRefresh(); return; }
     setTimeout(()=>handleSession(session),0);
   });

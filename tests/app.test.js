@@ -13,17 +13,24 @@ const flush=()=>new Promise(resolve=>setTimeout(resolve,20));
 const reqRow={id:randomUUID(),numero:'REQ-00001',tipo:'Cajas nuevas para acondicionar',fecha_solicitud:'2026-10-01',cantidad_cajas:2,numeros_cargo:'',fecha_recepcion:'2026-10-02',fecha_devolucion:null,usuario:'Juan',updated_at:'2026-10-13T00:00:00.123456Z'};
 const docRow={id:randomUUID(),kardex:'SA-00001',fecha_registro:'2026-10-13',tipo_doc:'Facturas-Guia',periodo:'2026-01-01',ubicacion:'Santa Anita',folios:30,cargos:['C001'],caja_asignada:reqRow.id,f_envio:null,sustento:'',sustento_imagen:'',usuario:'Juan',facturas:'F-001',obs:'',updated_at:'2026-10-13T00:00:00.123456Z'};
 
-async function app({allowed=true,isAdmin=true,failSave=false}={}) {
+async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recovery=false,loginError=null}={}) {
   const html=await readFile(new URL('../index.html',import.meta.url),'utf8');
   const source=(await readFile(new URL('../src/app.js',import.meta.url),'utf8')).replace(/^import .*;\n/gm,'');
-  const dom=new JSDOM(html,{url:'https://kardex.example.test',runScripts:'outside-only'});
+  const dom=new JSDOM(html,{url:'https://kardex.example.test'+(recovery?'#type=recovery':''),runScripts:'outside-only'});
   dom.window.HTMLElement.prototype.scrollIntoView=()=>{};
   const state={reqs:[structuredClone(reqRow)],docs:[structuredClone(docRow)],updates:[],snapshots:0,events:[],status:null,authCallback:null};
+  state.session=signedIn?{user:{id:'owner',email:'owner@example.test'}}:null;
+  state.authCalls=[];
   const client={
     channel:()=>({on(event,filter,callback){state.events.push({filter,callback});return this;},subscribe(callback){state.status=callback;callback('SUBSCRIBED');return this;}}),
     removeChannel:async()=>{},
-    auth:{getSession:async()=>({data:{session:{user:{id:'owner',email:'owner@example.test'}}},error:null}),
-      onAuthStateChange:callback=>{state.authCallback=callback;},signOut:async()=>{state.authCallback('SIGNED_OUT',null);return {error:null};}}
+    auth:{getSession:async()=>({data:{session:state.session},error:null}),
+      onAuthStateChange:callback=>{state.authCallback=callback;},
+      signInWithPassword:async input=>{state.authCalls.push(['login',input]);if(loginError)return {error:loginError};state.session={user:{id:'owner',email:input.email}};state.authCallback('SIGNED_IN',state.session);return {error:null};},
+      signInWithOtp:async input=>{state.authCalls.push(['link',input]);return {error:null};},
+      resetPasswordForEmail:async(email,options)=>{state.authCalls.push(['recovery',email,options]);return {error:null};},
+      updateUser:async input=>{state.authCalls.push(['updatePassword',input]);return {error:null};},
+      signOut:async()=>{state.session=null;state.authCallback('SIGNED_OUT',null);return {error:null};}}
   };
   class FakeRepository {
     async access(){return {allowed,is_admin:isAdmin};}
@@ -46,6 +53,58 @@ async function app({allowed=true,isAdmin=true,failSave=false}={}) {
   const node=id=>dom.window.document.getElementById(id);
   return {dom,state,node,close(){dom.window.close();}};
 }
+
+test('blank login page hides the entire Kardex until successful authentication and hides it on sign-out',async()=>{
+ const a=await app({signedIn:false});
+ try{
+  assert.equal(a.node('appShell').hidden,true);assert.equal(a.node('authOverlay').hidden,false);
+  assert.equal(a.node('authEmail').value,'');assert.equal(a.node('authPassword').value,'');
+  assert.equal(a.state.snapshots,0);
+  a.node('authEmail').value='JUANALEXIS717@GMAIL.COM';a.node('authPassword').value='test-password';
+  a.node('authForm').dispatchEvent(new a.dom.window.Event('submit',{cancelable:true}));await flush();
+  assert.equal(a.state.authCalls[0][1].email,'juanalexis717@gmail.com');
+  assert.equal(a.node('authPassword').value,'');assert.equal(a.node('appShell').hidden,false);
+  a.node('btnSignOut').click();await flush();
+  assert.equal(a.node('appShell').hidden,true);assert.equal(a.node('authOverlay').hidden,false);
+ }finally{a.close();}
+});
+
+test('invalid credentials explain recovery and leave the application hidden',async()=>{
+ const a=await app({signedIn:false,loginError:{code:'invalid_credentials',message:'Invalid login credentials'}});
+ try{
+  a.node('authEmail').value='owner@example.test';a.node('authPassword').value='incorrect';
+  a.node('authForm').dispatchEvent(new a.dom.window.Event('submit',{cancelable:true}));await flush();
+  assert.match(a.node('authMessage').textContent,/Olvidé mi contraseña/);
+  assert.equal(a.node('appShell').hidden,true);assert.equal(a.state.snapshots,0);
+ }finally{a.close();}
+});
+
+test('recovery and email links use normalized email and never create new users',async()=>{
+ const a=await app({signedIn:false});
+ try{
+  a.node('authEmail').value='OWNER@EXAMPLE.TEST';a.node('btnForgotPassword').click();await flush();
+  assert.equal(a.state.authCalls[0][0],'recovery');assert.equal(a.state.authCalls[0][1],'owner@example.test');
+  assert.equal(a.state.authCalls[0][2].redirectTo,'https://kardex.example.test/');
+  assert.match(a.node('authMessage').textContent,/Spam/);
+  a.node('btnMagicLink').click();await flush();
+  assert.equal(a.state.authCalls[1][1].options.shouldCreateUser,false);
+ }finally{a.close();}
+});
+
+test('recovery callback requires matching new passwords before loading the authorized application',async()=>{
+ const a=await app({recovery:true});
+ try{
+  assert.equal(a.node('appShell').hidden,true);assert.equal(a.node('resetPasswordForm').hidden,false);
+  assert.equal(a.state.snapshots,0);
+  a.node('newPassword').value='new-password';a.node('confirmPassword').value='different';
+  a.node('resetPasswordForm').dispatchEvent(new a.dom.window.Event('submit',{cancelable:true}));await flush();
+  assert.match(a.node('authMessage').textContent,/no coinciden/);assert.equal(a.state.authCalls.length,0);
+  a.node('confirmPassword').value='new-password';
+  a.node('resetPasswordForm').dispatchEvent(new a.dom.window.Event('submit',{cancelable:true}));await flush();
+  assert.equal(a.state.authCalls[0][0],'updatePassword');assert.equal(a.node('appShell').hidden,false);
+  assert.equal(a.node('newPassword').value,'');assert.equal(a.node('confirmPassword').value,'');
+ }finally{a.close();}
+});
 
 test('connected screen preserves conditional fields, live indicators, search and XSS protection',async()=>{
   const a=await app();
