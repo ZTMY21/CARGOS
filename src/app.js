@@ -883,17 +883,9 @@ document.getElementById('btnRegister').addEventListener('click',async ev=>{
   finally{button.disabled=false;}
 });
 
-async function refreshGoogleSync(showDetails=false){
+async function refreshGoogleSync(){
   if(!appReady||!isAdmin)return;
   const button=document.getElementById('btnToggleGoogleSync');button.disabled=true;
-  const refreshButton=document.getElementById('btnRefreshGoogleSync');refreshButton.disabled=true;
-  const dialog=document.getElementById('googleSyncDialog');
-  if(showDetails){
-    document.getElementById('googleSyncDialogStatus').textContent='Consultando estado…';
-    document.getElementById('googleSyncDialogDetails').textContent='';
-    if(!dialog.open)dialog.showModal();
-  }
-
   try{
     const {data,error}=await supabase.from('kardex_google_sync').select().eq('id',true).single();
     if(error)throw error;
@@ -902,18 +894,17 @@ async function refreshGoogleSync(showDetails=false){
     const last=data.last_checked_at?new Date(data.last_checked_at).toLocaleString('es-PE',{timeZone:'America/Lima'}):'Pendiente';
     const status=`${data.enabled?'Activa':'Pausada'} · ${data.status} · Última revisión: ${last} (Lima)`;
     document.getElementById('googleSyncStatus').textContent=status;
-    document.getElementById('googleSyncDialogStatus').textContent=status;
     const result=data.last_result||{};
-    document.getElementById('googleSyncDialogDetails').textContent=`Último procesamiento: ${result.groups??0} cargos revisados; ${result.cargos_nuevos??0} nuevos; ${result.cargos_actualizados??0} actualizados; ${result.pending_rows??0} filas pendientes; ${result.conflictos??0} conflictos.`;
+    document.getElementById('googleSyncDetails').textContent=`Último procesamiento: ${result.groups??0} cargos revisados; ${result.cargos_nuevos??0} nuevos; ${result.cargos_actualizados??0} actualizados; ${result.pending_rows??0} filas pendientes; ${result.conflictos??0} conflictos.`;
 
   }catch(error){
     const text='No se pudo consultar el estado: '+readableError(error);
     document.getElementById('googleSyncStatus').textContent=text;
-    document.getElementById('googleSyncDialogStatus').textContent=text;
   }
-  finally{button.disabled=!appReady||!isAdmin;refreshButton.disabled=!appReady||!isAdmin;}
+  finally{button.disabled=!appReady||!isAdmin;}
 }
-document.getElementById('btnRefreshGoogleSync').addEventListener('click',()=>refreshGoogleSync(true));
+setInterval(()=>{if(!document.hidden)refreshGoogleSync();},60000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshGoogleSync();});
 document.getElementById('btnToggleGoogleSync').addEventListener('click',async ev=>{
   if(!appReady||!isAdmin)return;
   ev.currentTarget.disabled=true;

@@ -35,11 +35,12 @@ mark{background:var(--yellow-bg);color:var(--navy-dark);font-weight:700;border-r
 #guestList li{margin:12px 0}
 #registerHelp{font-size:12px;color:var(--muted)}
 
-#googleSyncDialog{max-width:540px;width:calc(100% - 48px);border:1px solid var(--border);border-radius:12px;padding:24px;color:var(--navy-dark)}
-#googleSyncDialog::backdrop{background:rgba(0,0,0,.4)}
-#googleSyncDialog p{line-height:1.6}
 
 .table-top-scroll { overflow-x: auto; overflow-y: hidden; height: 20px; margin-top: 10px; }
 .table-top-scroll > div { height: 1px; }
 #docsTableScroll { margin-top: 0; }
 .table-top-scroll:focus-visible { outline: 2px solid var(--blue, #1f4e78); }
+
+.excel-link-button{display:inline-block;box-sizing:border-box;padding:10px 14px;border:1px solid var(--border);border-radius:6px;background:white;color:var(--navy-dark);font:inherit;text-decoration:none;vertical-align:middle}
+.excel-link-button:hover{background:#f3f6fa}
+.excel-link-button:focus-visible{outline:2px solid #1f4e78;outline-offset:2px}

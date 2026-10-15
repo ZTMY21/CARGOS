@@ -214,17 +214,18 @@ test('admin and guest export only the selected cargo with its complete invoices'
  }
 });
 
-test('consulting sync status opens a visible dialog with the last results only for admin',async()=>{
+test('sync status is inline and the Excel button opens the original file for admins',async()=>{
  const a=await app();try{
-  assert.equal(a.node('googleSyncDialog').open,false);
-  a.node('btnRefreshGoogleSync').click();assert.equal(a.node('googleSyncDialog').open,true);await flush();
-  assert.match(a.node('googleSyncDialogStatus').textContent,/Revisión completada/);
-  assert.match(a.node('googleSyncDialogDetails').textContent,/276 cargos revisados/);
-  assert.match(a.node('googleSyncDialogDetails').textContent,/1480 filas pendientes/);
+  assert.equal(a.node('btnRefreshGoogleSync'),null);
+  assert.equal(a.node('googleSyncDialog'),null);
+  assert.equal(a.node('btnOpenGoogleExcel').textContent,'Abrir Excel');
+  assert.match(a.node('btnOpenGoogleExcel').href,/1GvTelpW7OQnt4sl_e-AfmWnNdSFQnL7E/);
+  assert.equal(a.node('btnOpenGoogleExcel').target,'_blank');
+  assert.match(a.node('googleSyncStatus').textContent,/Revisión completada/);
+  assert.match(a.node('googleSyncDetails').textContent,/276 cargos revisados/);
  }finally{a.close();}
  const guest=await app({isAdmin:false});try{
-  assert.equal(guest.node('googleSyncPanel').hidden,true);guest.node('btnRefreshGoogleSync').click();await flush();
-  assert.equal(guest.node('googleSyncDialog').open,false);
+  assert.equal(guest.node('googleSyncPanel').hidden,true);
  }finally{guest.close();}
 });
 
