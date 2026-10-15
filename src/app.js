@@ -68,8 +68,9 @@ function setStatus(value, state = '') {
   document.getElementById('connectionDot').className = `connection-dot ${state}`;
 }
 function setAvailability() {
+  document.getElementById('btnExportar').hidden=true;
   document.getElementById('appShell').classList.toggle('read-only', !isAdmin);
-  ['grp-resumen','grp-requerimientos','grp-documentos','btnExportar','btnImportar','btnReset'].forEach(id=>document.getElementById(id).hidden=!isAdmin);
+  ['grp-resumen','grp-requerimientos','grp-documentos','btnImportar','btnReset'].forEach(id=>document.getElementById(id).hidden=!isAdmin);
   document.getElementById('readOnlyNotice').hidden=!appReady||isAdmin;
 
   document.querySelectorAll('.group button').forEach(b => b.disabled = !appReady || mutationBusy);
@@ -410,6 +411,7 @@ function renderDocs(){
         <td class="${alertaClass}">${alertaTxt}</td>
         <td>${highlightMatch(d.usuario||'',search)}${d.hojaOrigen?`<span class="origin-label">${escapeHtml(d.hojaOrigen)}</span>`:''}</td>
         <td>
+          <button class="secondary" data-export-cargo="${d.id}" ${!d.cargos?.length?'disabled title="Este registro no tiene cargo asignado"':''}>Exportar este cargo</button>
           ${isAdmin ? `<button class="link" data-edit="${d.id}">Editar</button>
           <button class="danger" data-id="${d.id}">Eliminar</button>` : 'Solo consulta'}
         </td>
@@ -429,6 +431,9 @@ function renderDocs(){
   });
   tbody.querySelectorAll('button.link[data-edit]').forEach(btn=>{
     btn.addEventListener('click', ()=> cargarDocParaEditar(btn.dataset.edit));
+  });
+  tbody.querySelectorAll('[data-export-cargo]').forEach(button=>{
+    button.addEventListener('click',()=>exportCargo(button.dataset.exportCargo,button));
   });
   tbody.querySelectorAll('button.link[data-image]').forEach(btn=>{
     btn.addEventListener('click',async()=>{
@@ -607,21 +612,24 @@ document.getElementById('btnReset').addEventListener('click', async ev => {
   });
 });
 
-document.getElementById('btnExportar').addEventListener('click', async ev => {
-  if (!lastFiltered.length && !reqs.length) { alert('No hay datos para exportar.'); return; }
-  ev.currentTarget.disabled = true;
+async function exportCargo(id,button) {
+  if(!appReady)return;
+  button.disabled=true;
   try {
-    const exportDocs=repository.exportRows?await repository.exportRows(currentFilters()):lastFiltered;
-    const wb = await buildWorkbook(reqs, exportDocs, docs);
-    const buffer = await wb.xlsx.writeBuffer();
-    const url = URL.createObjectURL(new Blob([buffer], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
-    const a = document.createElement('a');
-    a.href = url; a.download = `Kardex_Santa_Anita_${new Date().toISOString().slice(0,10)}.xlsx`;
-    document.body.appendChild(a); a.click(); a.remove();
+    // Fetch the complete selected record, not the truncated search result or the full catalog.
+    const cargo=await repository.fetchDoc(id);
+    if(!cargo.cargos?.length)throw new Error('Este registro no tiene cargo asignado.');
+    const linkedReqs=reqs.filter(r=>r.id===cargo.cajaAsignada);
+    const wb=await buildWorkbook(linkedReqs,[cargo],[cargo]);
+    const buffer=await wb.xlsx.writeBuffer();
+    const url=URL.createObjectURL(new Blob([buffer],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
+    const a=document.createElement('a');a.href=url;
+    a.download=`Cargo_${cargo.cargos.join('_')}_${cargo.kardex}.xlsx`.replace(/[\\/:*?"<>|]/g,'_');
+    document.body.appendChild(a);a.click();a.remove();
     setTimeout(()=>URL.revokeObjectURL(url),1000);
-  } catch (error) { alert(`No se pudo exportar: ${readableError(error)}`); }
-  finally { setAvailability(); }
-});
+  }catch(error){alert(`No se pudo exportar el cargo: ${readableError(error)}`);}
+  finally{button.disabled=false;}
+}
 document.getElementById('btnImportar').addEventListener('click', ()=>document.getElementById('fileImportar').click());
 document.getElementById('fileImportar').addEventListener('change', async ev => {
   const input = ev.target, file = input.files[0];

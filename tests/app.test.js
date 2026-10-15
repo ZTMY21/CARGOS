@@ -20,7 +20,9 @@ async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recov
   dom.window.HTMLElement.prototype.scrollIntoView=()=>{};
   const state={reqs:[structuredClone(reqRow)],docs:[structuredClone(docRow)],updates:[],snapshots:0,events:[],status:null,authCallback:null};
   state.session=signedIn?{user:{id:'owner',email:'owner@example.test'}}:null;
-  state.authCalls=[];
+  state.authCalls=[];state.exportCalls=[];
+  dom.window.URL.createObjectURL=()=> 'blob:test';dom.window.URL.revokeObjectURL=()=>{};
+  dom.window.HTMLAnchorElement.prototype.click=function(){state.downloadName=this.download;};
   const client={
     channel:()=>({on(event,filter,callback){state.events.push({filter,callback});return this;},subscribe(callback){state.status=callback;callback('SUBSCRIBED');return this;}}),
     removeChannel:async()=>{},
@@ -35,6 +37,7 @@ async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recov
       signOut:async()=>{state.session=null;state.authCallback('SIGNED_OUT',null);return {error:null};}}
   };
   class FakeRepository {
+    async fetchDoc(id){state.fetchedId=id;return docFromDb({...state.docs.find(d=>d.id===id),facturas:'F-001, F-002, F-003, F-004'});}
     async access(){return {allowed,is_admin:isAdmin};}
     async snapshot(){state.snapshots++;return structuredClone({requerimientos:state.reqs,documentos:state.docs});}
     async saveDoc(data,editing){
@@ -49,7 +52,7 @@ async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recov
     }
   }
   const context=dom.getInternalVMContext();
-  Object.assign(context,{createClient:()=>client,KardexRepository:FakeRepository,reqFromDb,docFromDb,reqEstado,docEstado,fmtDate,escapeHtml,buildWorkbook,parseWorkbook,highlightMatch,filterDocuments,filterRequirements,
+  Object.assign(context,{createClient:()=>client,KardexRepository:FakeRepository,reqFromDb,docFromDb,reqEstado,docEstado,fmtDate,escapeHtml,buildWorkbook:async(...args)=>{state.exportCalls.push(args);return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},parseWorkbook,highlightMatch,filterDocuments,filterRequirements,
     __SUPABASE_URL__:'https://example.supabase.co',__SUPABASE_ANON_KEY__:'sb_publishable_test',confirm:()=>true,alert:()=>{}});
   await vm.runInContext(`(async()=>{${source}})()`,context);
   const node=id=>dom.window.document.getElementById(id);
@@ -189,4 +192,22 @@ test('guest registration requires a password and does not authorize the account'
   assert.equal(a.state.authCalls[0][0],'signup');assert.equal(a.state.authCalls[0][1].email,'guest@example.test');
   assert.equal(a.node('appShell').hidden,true);assert.equal(a.state.snapshots,0);
  }finally{a.close();}
+});
+
+test('admin and guest export only the selected cargo with its complete invoices',async()=>{
+ for(const isAdmin of [true,false]){
+  const a=await app({isAdmin});
+  try {
+   a.state.docs.push({...docRow,id:randomUUID(),kardex:'SA-99999',cargos:['UNRELATED']});
+   assert.equal(a.node('btnExportar').hidden,true);
+   const button=a.node('tbody').querySelector('[data-export-cargo]');assert.ok(button);assert.equal(button.disabled,false);
+   button.click();await flush();
+   assert.equal(a.state.fetchedId,docRow.id);assert.equal(a.state.exportCalls.length,1);
+   const [requirements,documents,allDocs]=a.state.exportCalls[0];
+   assert.equal(documents.length,1);assert.equal(allDocs.length,1);assert.equal(documents[0].id,docRow.id);
+   assert.equal(documents[0].facturas,'F-001, F-002, F-003, F-004');
+   assert.ok(requirements.every(r=>r.id===docRow.caja_asignada));
+   assert.match(a.state.downloadName,/Cargo_C001_SA-00001/);
+  }finally{a.close();}
+ }
 });
