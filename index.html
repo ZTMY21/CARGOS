@@ -276,8 +276,9 @@
       <div id="conteoResultados" class="search-count" aria-live="polite"></div>
       <div id="importProgress" class="import-progress" aria-live="polite"></div>
       <div class="hint">Busca la factura y pulsa «Exportar este cargo» en el resultado correspondiente. El Excel incluye únicamente ese cargo y todas sus facturas. Si aparece en varios cargos, puedes exportar cada uno por separado.</div>
-      <div class="table-wrap">
-        <table>
+      <div id="docsTopScroll" class="table-top-scroll" tabindex="0" role="region" aria-label="Desplazar la tabla de cargos horizontalmente"><div id="docsTopScrollWidth"></div></div>
+      <div class="table-wrap" id="docsTableScroll">
+        <table id="docsTable">
           <thead><tr>
             <th>Kardex</th><th>Fecha Reg.</th><th>Tipo Doc.</th><th>Período</th><th>Ubicación</th>
             <th>Cargos</th><th>Facturas</th><th>Caja Asignada</th><th>F. Envío</th><th>Sustento</th><th>Estado</th><th>Antigüedad (meses)</th><th>Usuario</th><th></th>

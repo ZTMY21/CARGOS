@@ -18,6 +18,29 @@ let authGeneration = 0, currentUserId = null;
 let pendingReqId = null, pendingDocId = null;
 let queryResults = null, queryError = '', searchEpoch = 0, searchTimer = null, searchController = null;
 let currentPage = 0;
+const browseOrder = new Map();
+function showRandomCargos(filters=currentFilters()) {
+  return docs.length>0 && docs.every(d=>d.cargos?.length) &&
+    !filters.query && !filters.state && !filters.type && !filters.location && !filters.year;
+}
+function randomCargoOrder(a,b) {
+  for(const d of [a,b]) if(!browseOrder.has(d.id))browseOrder.set(d.id,Math.random());
+  return browseOrder.get(a.id)-browseOrder.get(b.id);
+}
+function setupTableScrolling() {
+  const top=document.getElementById('docsTopScroll');
+  const bottom=document.getElementById('docsTableScroll');
+  const table=document.getElementById('docsTable');
+  const syncWidth=()=>{document.getElementById('docsTopScrollWidth').style.width=table.scrollWidth+'px';top.scrollLeft=bottom.scrollLeft;};
+  top.addEventListener('scroll',()=>{if(bottom.scrollLeft!==top.scrollLeft)bottom.scrollLeft=top.scrollLeft;});
+  bottom.addEventListener('scroll',()=>{if(top.scrollLeft!==bottom.scrollLeft)top.scrollLeft=bottom.scrollLeft;});
+  if(typeof ResizeObserver!=='undefined') {const observer=new ResizeObserver(syncWidth);observer.observe(table);observer.observe(bottom);}
+  window.addEventListener('resize',syncWidth);
+  document.querySelectorAll('details').forEach(d=>d.addEventListener('toggle',syncWidth));
+  new MutationObserver(syncWidth).observe(table,{childList:true,subtree:true});
+  syncWidth();
+}
+setupTableScrolling();
 const PAGE_SIZE = 100;
 function currentFilters() {
   return {query:document.getElementById('buscar').value.trim(),state:document.getElementById('filtroEstado').value,
@@ -36,6 +59,7 @@ function populateYearOptions() {
 }
 async function fetchSearchResults(render=true) {
   if(!repository?.search||!currentUserId) {queryResults=null;return;}
+  if(showRandomCargos()) {searchEpoch++;searchController?.abort();queryResults=null;queryError='';if(render){renderDocs();setAvailability();}return;}
   const epoch=++searchEpoch;
   searchController?.abort();searchController=new AbortController();
   document.getElementById('conteoResultados').textContent='Buscando…';
@@ -373,13 +397,14 @@ function renderDocs(){
   `;
 
   let filtered=queryResults?.rows?.map(d=>({...d,...computeDocEstado(d)}))
-    ?? filterDocuments(docs,reqs,filters).sort((a,b)=>b.kardex.localeCompare(a.kardex));
+    ?? filterDocuments(docs,reqs,filters).sort(showRandomCargos(filters)?randomCargoOrder:(a,b)=>b.kardex.localeCompare(a.kardex));
   lastFiltered=filtered;
+  const pendingCargo=docs.filter(d=>!d.cargos?.length).length;
   const total=queryResults?.total??filtered.length;
   const folios=queryResults?.folios??filtered.reduce((sum,d)=>sum+(Number(d.folios)||0),0);
   const unknown=queryResults?.folios_sin_dato??filtered.filter(d=>d.folios==='').length;
   document.getElementById('conteoResultados').textContent=queryError
-    || `${fmtNum(total)} registros · ${fmtNum(folios)} folios registrados${unknown?` · ${fmtNum(unknown)} registros sin folios informados`:''}`;
+    || `${showRandomCargos(filters)?'Cargos aleatorios · ':''}${fmtNum(total)} registros${pendingCargo?` · ${fmtNum(pendingCargo)} registros pendientes de cargo`:''} · ${fmtNum(folios)} folios registrados${unknown?` · ${fmtNum(unknown)} registros sin folios informados`:''}`;
   document.getElementById('paginaActual').textContent=`Página ${currentPage+1} de ${Math.max(1,Math.ceil(total/PAGE_SIZE))}`;
   if(!queryResults)filtered=filtered.slice(currentPage*PAGE_SIZE,(currentPage+1)*PAGE_SIZE);
 
@@ -403,7 +428,7 @@ function renderDocs(){
         <td>${escapeHtml(d.tipoDoc||'')}</td>
         <td>${fmtDate(d.periodo)||'Sin dato'}${d.fechaOrigen?`<span class="origin-label">Fecha en origen: ${fmtDate(d.fechaOrigen)}</span>`:''}</td>
         <td>${escapeHtml(d.ubicacion||'Sin dato')}</td>
-        <td>${highlightMatch((d.cargos||[]).join(', ')||'Sin dato',search)}</td>
+        <td>${highlightMatch((d.cargos||[]).join(', ')||'Sin cargo asignado',search)}</td>
         <td class="invoice-results">${(d.facturasEncontradas?.length?d.facturasEncontradas:(d.facturas||'').split(/[,;\n]/).map(v=>v.trim()).filter(Boolean).slice(0,3)).map(v=>highlightMatch(v,search)).join('<br>')}${d.cantidadFacturas?`<span class="origin-label">${fmtNum(d.cantidadFacturas)} códigos en este registro</span>`:''}</td>
         <td>${highlightMatch(cajaTxt,search)}</td>
         <td>${fmtDate(d.fEnvio)}</td>

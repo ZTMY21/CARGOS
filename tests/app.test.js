@@ -227,3 +227,25 @@ test('consulting sync status opens a visible dialog with the last results only f
   assert.equal(guest.node('googleSyncDialog').open,false);
  }finally{guest.close();}
 });
+
+test('top scrollbar stays synchronized with the retained bottom scrollbar',async()=>{
+ const a=await app();
+ try {
+  const top=a.node('docsTopScroll'),bottom=a.node('docsTableScroll');
+  assert.ok(top && bottom);
+  top.scrollLeft=420;top.dispatchEvent(new a.dom.window.Event('scroll'));
+  assert.equal(bottom.scrollLeft,420);
+  bottom.scrollLeft=175;bottom.dispatchEvent(new a.dom.window.Event('scroll'));
+  assert.equal(top.scrollLeft,175);
+ }finally{a.close();}
+});
+
+ test('unfiltered browsing shows random cargos and searching keeps real match results',async()=>{
+ const a=await app();
+ try {
+  assert.match(a.node('conteoResultados').textContent,/Cargos aleatorios/);
+  a.node('buscar').value='NO-EXISTE-999';a.node('buscar').dispatchEvent(new a.dom.window.Event('input'));await flush();
+  assert.doesNotMatch(a.node('conteoResultados').textContent,/Cargos aleatorios/);
+  assert.match(a.node('tbody').textContent,/Sin registros/);
+ }finally{a.close();}
+});
