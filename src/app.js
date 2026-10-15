@@ -10,6 +10,7 @@ const configuration = { url: __SUPABASE_URL__, key: __SUPABASE_ANON_KEY__ };
 let passwordRecovery = new URLSearchParams(window.location.hash.slice(1)).get('type') === 'recovery';
 const supabase = configuration.url && configuration.key ? createClient(configuration.url, configuration.key) : null;
 const repository = supabase ? new KardexRepository(supabase) : null;
+let googleSyncEnabled=true;
 let appReady = false, isAdmin = false, mutationBusy = false, channelReady = false;
 let dataReady = false, realtimeChannel = null, refreshTimer = null, refreshPromise = null;
 let refreshRequested = false;
@@ -70,7 +71,7 @@ function setStatus(value, state = '') {
 function setAvailability() {
   document.getElementById('btnExportar').hidden=true;
   document.getElementById('appShell').classList.toggle('read-only', !isAdmin);
-  ['grp-resumen','grp-requerimientos','grp-documentos','btnImportar','btnReset'].forEach(id=>document.getElementById(id).hidden=!isAdmin);
+  ['googleSyncPanel','grp-resumen','grp-requerimientos','grp-documentos','btnImportar','btnReset'].forEach(id=>document.getElementById(id).hidden=!isAdmin);
   document.getElementById('readOnlyNotice').hidden=!appReady||isAdmin;
 
   document.querySelectorAll('.group button').forEach(b => b.disabled = !appReady || mutationBusy);
@@ -738,6 +739,7 @@ async function handleSession(session) {
     await refreshData();
     if (generation !== authGeneration) return;
     appReady = true;
+    if(isAdmin) refreshGoogleSync();
     showAuthPage(false);
     message('authMessage','');
     document.getElementById('sessionUser').textContent = user.email + (isAdmin ? ' · Administrador' : ' · Invitado');
@@ -854,4 +856,27 @@ document.getElementById('btnRegister').addEventListener('click',async ev=>{
     message('authMessage','Revisa tu correo y confirma tu cuenta. Al abrir el enlace entrarás automáticamente como invitado de solo consulta.');
   }catch(error){message('authMessage',readableError(error),true);}
   finally{button.disabled=false;}
+});
+
+async function refreshGoogleSync(){
+  if(!appReady||!isAdmin)return;
+  const button=document.getElementById('btnToggleGoogleSync');button.disabled=true;
+  try{
+    const {data,error}=await supabase.from('kardex_google_sync').select().eq('id',true).single();
+    if(error)throw error;
+    googleSyncEnabled=data.enabled;
+    button.textContent=data.enabled?'Pausar sincronización':'Activar sincronización';
+    const last=data.last_checked_at?new Date(data.last_checked_at).toLocaleString('es-PE',{timeZone:'America/Lima'}):'Pendiente';
+    document.getElementById('googleSyncStatus').textContent=`${data.enabled?'Activa':'Pausada'} · ${data.status} · Última revisión: ${last} (Lima)`;
+  }catch(error){document.getElementById('googleSyncStatus').textContent=readableError(error);}
+  finally{button.disabled=!appReady||!isAdmin;}
+}
+document.getElementById('btnRefreshGoogleSync').addEventListener('click',refreshGoogleSync);
+document.getElementById('btnToggleGoogleSync').addEventListener('click',async ev=>{
+  if(!appReady||!isAdmin)return;
+  ev.currentTarget.disabled=true;
+  try{
+    const {error}=await supabase.from('kardex_google_sync').update({enabled:!googleSyncEnabled}).eq('id',true);
+    if(error)throw error;await refreshGoogleSync();
+  }catch(error){document.getElementById('googleSyncStatus').textContent=readableError(error);ev.currentTarget.disabled=false;}
 });

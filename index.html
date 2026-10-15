@@ -115,6 +115,15 @@
     <button id="btnReconnect" class="secondary connection-action">Actualizar</button>
     <button id="btnSignOut" class="secondary connection-action" hidden>Salir</button>
   </div>
+  <section id="googleSyncPanel" hidden class="subcard">
+    <h2>Sincronización automática con Google</h2>
+    <p>Revisión cada hora. Agrega cargos y facturas nuevos sin borrar el histórico ni modificar tus datos manuales.</p>
+    <p><a href="https://docs.google.com/spreadsheets/d/1GvTelpW7OQnt4sl_e-AfmWnNdSFQnL7E/edit" target="_blank" rel="noopener">Abrir Excel principal en Google</a></p>
+    <p>Completa Fecha, Cargo y Codigo. Las filas incompletas quedarán pendientes para la siguiente revisión.</p>
+    <p id="googleSyncStatus" aria-live="polite">Consultando estado…</p>
+    <button id="btnToggleGoogleSync" type="button" disabled>Pausar sincronización</button>
+    <button id="btnRefreshGoogleSync" type="button" class="secondary">Consultar estado</button>
+  </section>
   <p id="readOnlyNotice" hidden>Invitado · Solo consulta de cargos y facturas</p>
   <details class="group" id="grp-resumen" open>
     <summary><span class="stitle">Resumen<small>Indicadores generales, se actualizan solos</small></span><span class="chev">▶</span></summary>
