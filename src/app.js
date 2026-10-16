@@ -402,9 +402,8 @@ function renderDocs(){
   const pendingCargo=docs.filter(d=>!d.cargos?.length).length;
   const total=queryResults?.total??filtered.length;
   const folios=queryResults?.folios??filtered.reduce((sum,d)=>sum+(Number(d.folios)||0),0);
-  const unknown=queryResults?.folios_sin_dato??filtered.filter(d=>d.folios==='').length;
   document.getElementById('conteoResultados').textContent=queryError
-    || `${showRandomCargos(filters)?'Cargos aleatorios · ':''}${fmtNum(total)} registros${pendingCargo?` · ${fmtNum(pendingCargo)} registros pendientes de cargo`:''} · ${fmtNum(folios)} folios registrados${unknown?` · ${fmtNum(unknown)} registros sin folios informados`:''}`;
+    || `${showRandomCargos(filters)?'Cargos aleatorios · ':''}${fmtNum(total)} registros${pendingCargo?` · ${fmtNum(pendingCargo)} registros pendientes de cargo`:''} · ${fmtNum(folios)} folios registrados`;
   document.getElementById('paginaActual').textContent=`Página ${currentPage+1} de ${Math.max(1,Math.ceil(total/PAGE_SIZE))}`;
   if(!queryResults)filtered=filtered.slice(currentPage*PAGE_SIZE,(currentPage+1)*PAGE_SIZE);
 
