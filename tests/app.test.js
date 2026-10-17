@@ -287,6 +287,31 @@ test('loading shell hides login before JavaScript and authenticated loading neve
   assert.deepEqual(a.state.loadingDuringAccess,{loading:true,login:false});
  }finally{a.close();}
 });
+test('admin summary groups Excel cargo years and refreshes 2026 after Google-sync events',async()=>{
+  const a=await app({isAdmin:true});
+  try {
+    const base=a.state.docs[0];
+    const historical=(year,cargos)=>({...structuredClone(base),id:randomUUID(),periodo:null,
+      anio_origen:year,hoja_origen:'Cargos enviados '+year,cargos});
+    const current=(cargo)=>({...structuredClone(base),id:randomUUID(),periodo:null,
+      anio_origen:2026,hoja_origen:'CARGOS NUEVOS 2026',cargos:[cargo]});
+    a.state.docs=[historical(2020,['H1']),historical(2024,['H2','H3']),
+      historical(2025,['H4']),current('N1')];
+    const notify=a.state.events.find(x=>x.filter.table==='kardex_eventos').callback;
+    const refresh=async()=>{notify();await new Promise(resolve=>setTimeout(resolve,270));};
+    const rows=()=>[...a.dom.window.document.querySelectorAll('.periodo-box .periodo-fila')]
+      .map(row=>row.textContent.replace(/\s+/g,' ').trim());
+    await refresh();
+    assert.deepEqual(rows(),['2020 1 cargos','2024 2 cargos','2025 1 cargos','2026 1 cargos']);
+    assert.match(a.node('resumenTablas').textContent,/Cargos por Año/);
+    assert.match(a.node('resumenTablas').textContent,/2026 se actualiza desde Google Sheets/);
+    a.state.docs.push(current('N2'));
+    await refresh();
+    assert.deepEqual(rows(),['2020 1 cargos','2024 2 cargos','2025 1 cargos','2026 2 cargos']);
+    assert.match(a.node('resumenTablas').querySelector('.kpis .kpi .n').textContent,/^6\b/);
+  }finally{a.close();}
+});
+
 test('only Buscar runs the query; typing, Enter and filter changes wait for the button',async()=>{
  const a=await app({enableSearch:true});try{
   assert.equal(a.node('btnBuscar').nextElementSibling,a.node('btnLimpiarFiltros'));
