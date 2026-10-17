@@ -8,6 +8,7 @@ import {computeReqEstado as reqEstado,computeDocEstado as docEstado,fmtDate,esca
 import {reqFromDb,docFromDb,KardexRepository} from '../src/repository.js';
 import {buildWorkbook,parseWorkbook} from '../src/excel.js';
 import {highlightMatch,filterDocuments,filterRequirements} from '../src/search.js';
+import {cargoYear,invoiceLocation,locationLabel,groupsForCodes} from '../src/cargo-details.js';
 
 const flush=()=>new Promise(resolve=>setTimeout(resolve,20));
 const reqRow={id:randomUUID(),numero:'REQ-00001',tipo:'Cajas nuevas para acondicionar',fecha_solicitud:'2026-10-01',cantidad_cajas:2,numeros_cargo:'',fecha_recepcion:'2026-10-02',fecha_devolucion:null,usuario:'Juan',updated_at:'2026-10-13T00:00:00.123456Z'};
@@ -54,7 +55,7 @@ async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recov
     }
   }
   const context=dom.getInternalVMContext();
-  Object.assign(context,{createClient:()=>client,KardexRepository:FakeRepository,reqFromDb,docFromDb,reqEstado,docEstado,fmtDate,escapeHtml,buildWorkbook:async(...args)=>{state.exportCalls.push(args);return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},parseWorkbook,highlightMatch,filterDocuments,filterRequirements,
+  Object.assign(context,{createClient:()=>client,KardexRepository:FakeRepository,reqFromDb,docFromDb,reqEstado,docEstado,fmtDate,escapeHtml,buildWorkbook:async(...args)=>{state.exportCalls.push(args);return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},buildCargoWorkbook:async(cargo)=>{state.guestExport=cargo;return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},parseWorkbook,highlightMatch,filterDocuments,filterRequirements,cargoYear,invoiceLocation,locationLabel,groupsForCodes,
     __SUPABASE_URL__:'https://example.supabase.co',__SUPABASE_ANON_KEY__:'sb_publishable_test',confirm:()=>true,alert:()=>{}});
   await vm.runInContext(`(async()=>{${source}})()`,context);
   const node=id=>dom.window.document.getElementById(id);
@@ -204,11 +205,8 @@ test('admin and guest export only the selected cargo with its complete invoices'
    assert.equal(a.node('btnExportar').hidden,true);
    const button=a.node('tbody').querySelector('[data-export-cargo]');assert.ok(button);assert.equal(button.disabled,false);
    button.click();await flush();
-   assert.equal(a.state.fetchedId,docRow.id);assert.equal(a.state.exportCalls.length,1);
-   const [requirements,documents,allDocs]=a.state.exportCalls[0];
-   assert.equal(documents.length,1);assert.equal(allDocs.length,1);assert.equal(documents[0].id,docRow.id);
-   assert.equal(documents[0].facturas,'F-001, F-002, F-003, F-004');
-   assert.ok(requirements.every(r=>r.id===docRow.caja_asignada));
+   assert.equal(a.state.fetchedId,docRow.id);
+   assert.equal(a.state.exportCalls.length,0);assert.equal(a.state.guestExport.id,docRow.id);assert.equal(a.state.guestExport.facturas,'F-001, F-002, F-003, F-004');
    assert.match(a.state.downloadName,/Cargo_C001_SA-00001/);
   }finally{a.close();}
  }
@@ -249,4 +247,20 @@ test('top scrollbar stays synchronized with the retained bottom scrollbar',async
   assert.doesNotMatch(a.node('conteoResultados').textContent,/Cargos aleatorios/);
   assert.match(a.node('tbody').textContent,/Sin registros/);
  }finally{a.close();}
+});
+
+ test('admin and guest periods show only year and search locations follow each invoice without sustento',async()=>{
+ for(const isAdmin of [true,false]){
+ const a=await app({isAdmin});try{
+  Object.assign(a.state.docs[0],{periodo:null,anio_origen:2023,fecha_origen:'2023-08-28',sustento:'PRIVATE-SUPPORT',ubicaciones_codigo:{f001:['2','17']}});
+  a.node('btnReconnect').click();await flush();
+  a.node('buscar').value='F-001';a.node('buscar').dispatchEvent(new a.dom.window.Event('input'));await flush();
+  const cells=a.node('tbody').querySelector('tr').cells;
+  assert.equal(cells[3].textContent,'2023');assert.equal(cells.length,13);
+  assert.match(cells[4].textContent,/Grupo 2, Grupo 17/);
+  assert.match(cells[6].textContent,/Ubicación: Grupo 2, Grupo 17/);
+  assert.equal(a.node('sustentoHeader'),null);
+  assert.doesNotMatch(a.node('tbody').textContent,/PRIVATE-SUPPORT|Fecha en origen/);
+ }finally{a.close();}
+ }
 });

@@ -31,6 +31,11 @@ test('Google sync adds only new invoices, preserves admin fields, is idempotent 
  assert.equal((await run(payload)).cargos_nuevos,1);
  await db.exec("update public.documentos set obs='Manual',ubicacion='Iron Mountain',anio_origen=2027");
  assert.equal((await run(payload)).cargos_actualizados,0);
+ const withGroups=JSON.stringify([{year:2026,cargo:'653',date:'2026-01-06',codes:['F001-1'],code_groups:{'F001-1':['2','17']}}]);
+ assert.equal((await run(withGroups)).cargos_actualizados,1);
+ assert.equal((await run(withGroups)).cargos_actualizados,0);
+ const stored=(await db.query("select datos_origen->'grupos_por_codigo' as groups from public.documentos")).rows[0].groups;
+ assert.deepEqual(stored,{'f0011':['2','17']});
  const second=JSON.stringify([{year:2026,cargo:'653',date:'2026-01-06',codes:['F0011','F001-2']}]);
  assert.equal((await run(second)).cargos_actualizados,1);
  const row=(await db.query('select * from public.documentos')).rows[0];

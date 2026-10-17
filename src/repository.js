@@ -1,4 +1,5 @@
 import { safeImage } from './rules.js';
+import { cargoLocations } from './cargo-details.js';
 
 const nullable = value => value === '' || value === undefined ? null : value;
 export function reqFromDb(row) {
@@ -17,6 +18,7 @@ export function docFromDb(row) {
     sustentoImagen: safeImage(row.sustento_imagen), usuario: row.usuario,
     facturas: row.facturas || '', obs: row.obs || '', updatedAt: row.updated_at,
     facturasEncontradas: row.facturas_encontradas || [], cantidadFacturas: row.cantidad_facturas,
+    ubicacionesCodigo: row.ubicaciones_codigo, errorUbicacion: row.error_ubicacion,
     tieneSustentoImagen: row.tiene_sustento_imagen || !!row.sustento_imagen,
     claveOrigen: row.clave_origen || '', hojaOrigen: row.hoja_origen || '',
     fechaOrigen: row.fecha_origen || '', anioOrigen: row.anio_origen,
@@ -67,7 +69,27 @@ export class KardexRepository {
       page_offset:offset,page_limit:limit
     });
     if(signal) query=query.abortSignal(signal);
-    return checked(await query);
+    const result = checked(await query);
+    // Load original rows only for this search page, without images or the full catalog.
+    if (filters.query?.trim() && result.rows.length) {
+      try {
+        for (let offset=0; offset<result.rows.length; offset+=20) {
+          const page=result.rows.slice(offset,offset+20);
+          let request=this.client.from('documentos').select('id,datos_origen').in('id',page.map(d=>d.id));
+          if(signal)request=request.abortSignal(signal);
+          const sources=checked(await request);
+          for(const row of page) {
+            const source=sources.find(d=>d.id===row.id);
+            if (!source) throw new Error('No se pudo leer el grupo');
+            row.ubicaciones_codigo=await cargoLocations(source.datos_origen);
+          }
+        }
+      } catch(error) {
+        if(signal?.aborted)throw error;
+        for(const row of result.rows)if(!row.ubicaciones_codigo)row.error_ubicacion='No se pudo consultar el grupo. Actualiza los datos.';
+      }
+    }
+    return result;
   }
   async exportRows(filters) {
     const ids=[];

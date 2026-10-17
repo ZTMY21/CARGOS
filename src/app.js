@@ -1,9 +1,10 @@
 import { createClient } from '@supabase/supabase-js';
 import { computeReqEstado as reqEstado, computeDocEstado as docEstado, fmtDate, escapeHtml } from './rules.js';
 import { KardexRepository, reqFromDb, docFromDb } from './repository.js';
-import { buildWorkbook, parseWorkbook } from './excel-api.js';
+import { buildCargoWorkbook, parseWorkbook } from './excel-api.js';
 import { highlightMatch, filterDocuments, filterRequirements } from './search.js';
 import './connection.css';
+import { cargoYear, invoiceLocation, locationLabel, groupsForCodes } from './cargo-details.js';
 
 const configuration = { url: __SUPABASE_URL__, key: __SUPABASE_ANON_KEY__ };
 // Capture recovery mode before the client consumes the email callback fragment.
@@ -409,7 +410,7 @@ function renderDocs(){
 
   const tbody = document.getElementById('tbody');
   if(filtered.length === 0){
-    tbody.innerHTML = `<tr><td colspan="14" class="empty">${escapeHtml(queryError||'Sin registros que coincidan con la consulta actual.')}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="13" class="empty">${escapeHtml(queryError||'Sin registros que coincidan con la consulta actual.')}</td></tr>`;
   } else {
     tbody.innerHTML = filtered.map(d=>{
       const alertaTxt = (typeof d.antiguedad === 'number') ? d.antiguedad : d.antiguedad;
@@ -417,21 +418,18 @@ function renderDocs(){
         : (typeof d.antiguedad === 'number' && d.antiguedad >= 5) ? 'alerta-warn' : 'alerta-pos';
       const req = reqs.find(r=>r.id===d.cajaAsignada);
       const cajaTxt = req ? req.numero : '—';
-      const sustentoTxt = [d.sustento||'', (d.sustentoImagen||d.tieneSustentoImagen) ? '📷' : ''].filter(Boolean).join(' ');
-      const sustentoCell = d.sustentoImagen||d.tieneSustentoImagen
-        ? `<button class="link" data-image="${d.id}" title="Ver imagen de sustento">${escapeHtml(sustentoTxt||'📷')}</button>`
-        : escapeHtml(sustentoTxt || '');
+      const invoiceCodes=d.facturasEncontradas?.length?d.facturasEncontradas:(d.facturas||'').split(/[,;\n]/).map(v=>v.trim()).filter(Boolean).slice(0,3);
+      const groupLocation=d.ubicacionesCodigo ? locationLabel(groupsForCodes(d.ubicacionesCodigo,invoiceCodes.length?invoiceCodes:Object.keys(d.ubicacionesCodigo))) : d.errorUbicacion || (search?'Consultando grupo…':'Busca un documento o cargo');
       return `<tr>
         <td>${highlightMatch(d.kardex,search)}</td>
         <td>${fmtDate(d.fechaRegistro)}</td>
         <td>${escapeHtml(d.tipoDoc||'')}</td>
-        <td>${fmtDate(d.periodo)||'Sin dato'}${d.fechaOrigen?`<span class="origin-label">Fecha en origen: ${fmtDate(d.fechaOrigen)}</span>`:''}</td>
-        <td>${escapeHtml(d.ubicacion||'Sin dato')}</td>
+        <td>${escapeHtml(cargoYear(d))}</td>
+        <td>${escapeHtml(groupLocation)}</td>
         <td>${highlightMatch((d.cargos||[]).join(', ')||'Sin cargo asignado',search)}</td>
-        <td class="invoice-results">${(d.facturasEncontradas?.length?d.facturasEncontradas:(d.facturas||'').split(/[,;\n]/).map(v=>v.trim()).filter(Boolean).slice(0,3)).map(v=>highlightMatch(v,search)).join('<br>')}${d.cantidadFacturas?`<span class="origin-label">${fmtNum(d.cantidadFacturas)} códigos en este registro</span>`:''}</td>
+        <td class="invoice-results">${invoiceCodes.map(v=>`<div>${highlightMatch(v,search)}${search?`<span class="origin-label">Ubicación: ${escapeHtml(invoiceLocation(d,v))}</span>`:''}</div>`).join('')}${d.cantidadFacturas?`<span class="origin-label">${fmtNum(d.cantidadFacturas)} códigos en este registro</span>`:''}</td>
         <td>${highlightMatch(cajaTxt,search)}</td>
         <td>${fmtDate(d.fEnvio)}</td>
-        <td>${sustentoCell}</td>
         <td><span class="badge ${docBadgeClass(d.estado)}">${d.estado}</span>${d.estadoOrigen?`<span class="origin-label">${escapeHtml(d.estadoOrigen)}</span>`:''}</td>
         <td class="${alertaClass}">${alertaTxt}</td>
         <td>${highlightMatch(d.usuario||'',search)}${d.hojaOrigen?`<span class="origin-label">${escapeHtml(d.hojaOrigen)}</span>`:''}</td>
@@ -644,8 +642,7 @@ async function exportCargo(id,button) {
     // Fetch the complete selected record, not the truncated search result or the full catalog.
     const cargo=await repository.fetchDoc(id);
     if(!cargo.cargos?.length)throw new Error('Este registro no tiene cargo asignado.');
-    const linkedReqs=reqs.filter(r=>r.id===cargo.cajaAsignada);
-    const wb=await buildWorkbook(linkedReqs,[cargo],[cargo]);
+    const wb=await buildCargoWorkbook(cargo);
     const buffer=await wb.xlsx.writeBuffer();
     const url=URL.createObjectURL(new Blob([buffer],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
     const a=document.createElement('a');a.href=url;

@@ -32,7 +32,10 @@ def prepare(source, output):
             if len(pending)<20:pending.append({'row':row,'reason':'Falta fecha, cargo o código válido'})
             continue
         year=int(date[:4]);key=f'{year}|{cargo}'
-        g=groups.setdefault(key,{'year':year,'cargo':cargo,'date':date,'codes':set()});g['codes'].add(code);stats['valid_rows']+=1
+        g=groups.setdefault(key,{'year':year,'cargo':cargo,'date':date,'codes':set(),'code_groups':{}});g['codes'].add(code);stats['valid_rows']+=1
+        group=cells.get('C','').strip()
+        g['code_groups'].setdefault(code,set())
+        if group:g['code_groups'][code].add(group)
     output=pathlib.Path(output);output.mkdir(parents=True,exist_ok=True)
     batch=[];size=0;number=0
     def flush():
@@ -42,7 +45,7 @@ def prepare(source, output):
         (output/f'{number:04d}.sql').write_text("select public.kardex_google_append('"+payload.replace("'","''")+"'::jsonb) as result;",encoding='utf8')
         number+=1;batch=[];size=0
     for key in sorted(groups):
-        g=groups[key];g['codes']=sorted(g['codes']);encoded=json.dumps(g,ensure_ascii=False)
+        g=groups[key];g['codes']=sorted(g['codes']);g['code_groups']={k:sorted(v) for k,v in g['code_groups'].items()};encoded=json.dumps(g,ensure_ascii=False)
         if batch and (size+len(encoded.encode())>180000 or len(batch)>=50):flush()
         batch.append(g);size+=len(encoded.encode())
     flush()

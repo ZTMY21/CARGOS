@@ -14,7 +14,7 @@ insert into public.kardex_google_sync(id) values(true);
 -- Connector-only ingestion: never exposed to guests or the browser.
 create or replace function public.kardex_google_append(groups_data jsonb) returns jsonb
 language plpgsql security invoker set search_path='' as $$
-declare g jsonb; target uuid; candidates integer; yr integer; cargo text; new_codes text; inserted integer:=0; changed integer:=0; conflicts integer:=0;
+declare g jsonb; target uuid; candidates integer; yr integer; cargo text; new_codes text; new_groups jsonb; groups_changed boolean; inserted integer:=0; changed integer:=0; conflicts integer:=0;
 begin
  if not private.kardex_has_access(true) then raise exception 'Solo el administrador' using errcode='42501'; end if;
  perform pg_catalog.pg_advisory_xact_lock(1170196,1);
@@ -37,12 +37,28 @@ begin
   )
   select string_agg(i.code,', ' order by i.code) into new_codes from incoming i
   where i.normalized<>'' and not exists(select 1 from existing e where e.normalized=i.normalized);
-  if new_codes is null then continue;end if;
+  new_groups:=null; groups_changed:=false;
+  if g ? 'code_groups' then
+   if jsonb_typeof(g->'code_groups')<>'object' then raise exception 'Grupos inválidos'; end if;
+   select coalesce(jsonb_object_agg(private.kardex_normalize(key),value),'{}'::jsonb) into new_groups
+   from jsonb_each(g->'code_groups');
+   if target is not null then
+    update public.documentos set datos_origen=jsonb_set(datos_origen,'{grupos_por_codigo}',
+      coalesce(datos_origen->'grupos_por_codigo','{}'::jsonb)||new_groups)
+    where id=target and coalesce(datos_origen->'grupos_por_codigo','{}'::jsonb) is distinct from
+      coalesce(datos_origen->'grupos_por_codigo','{}'::jsonb)||new_groups;
+    groups_changed:=found;
+   end if;
+  end if;
+  if new_codes is null then
+   if groups_changed then changed:=changed+1;end if;
+   continue;
+  end if;
   if target is null then
    insert into public.documentos(tipo_doc,periodo,ubicacion,cargos,usuario,facturas,clave_origen,hoja_origen,anio_origen,fecha_origen,datos_origen)
    values('Fact / GR / BV',null,null,array[cargo],'Sincronización Google Drive',new_codes,
      'google-drive|1GvTelpW7OQnt4sl_e-AfmWnNdSFQnL7E|'||yr||'|'||cargo,'Reporte Consolidado',yr,(g->>'date')::date,
-     jsonb_build_object('google_drive_file','1GvTelpW7OQnt4sl_e-AfmWnNdSFQnL7E'));
+     jsonb_build_object('google_drive_file','1GvTelpW7OQnt4sl_e-AfmWnNdSFQnL7E','grupos_por_codigo',coalesce(new_groups,'{}'::jsonb)));
    inserted:=inserted+1;
   else
    update public.documentos set facturas=concat_ws(', ',nullif(facturas,''),new_codes) where id=target;

@@ -2,6 +2,9 @@
 export async function buildWorkbook(...args) {
   return (await import('./excel.js')).buildWorkbook(...args);
 }
+export async function buildCargoWorkbook(...args) {
+  return (await import('./cargo-export.js')).buildCargoWorkbook(...args);
+}
 export async function parseWorkbook(...args) {
   const buffer=args[0];
   if(typeof Worker==='undefined')return (await import('./import-parser.js')).parseImport(buffer);
