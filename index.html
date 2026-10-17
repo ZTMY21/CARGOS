@@ -54,6 +54,7 @@
   .periodo-box{flex:0 0 290px;width:290px;}
   .periodo-fila{display:flex;justify-content:space-between;font-size:13px;font-weight:700;color:#1F2937;padding:4px 0;border-bottom:1px solid var(--border);}
   .periodo-fila:last-child{border-bottom:none;}
+  .google-excel-links{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px;}
   .periodo-nota{font-size:11px;line-height:1.4;color:var(--muted);margin-top:9px;}
   .kpi-color{text-align:left;}
   .kpi-color .l{font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;}
@@ -127,7 +128,10 @@
     <p id="googleSyncStatus" aria-live="polite">Consultando estado…</p>
     <p id="googleSyncDetails" class="hint"></p>
     <button id="btnToggleGoogleSync" type="button" disabled>Pausar sincronización</button>
-    <a id="btnOpenGoogleExcel" class="excel-link-button" href="https://docs.google.com/spreadsheets/d/1GvTelpW7OQnt4sl_e-AfmWnNdSFQnL7E/edit" target="_blank" rel="noopener noreferrer">Abrir Excel</a>
+    <div class="google-excel-links" aria-label="Archivos de cargos de Google Drive">
+      <a id="btnOpenGoogleExcel" class="excel-link-button" href="https://docs.google.com/spreadsheets/d/1GvTelpW7OQnt4sl_e-AfmWnNdSFQnL7E/edit" target="_blank" rel="noopener noreferrer">Cargos Actuales</a>
+      <a id="btnOpenIronMountainExcel" class="excel-link-button" href="https://docs.google.com/spreadsheets/d/1ap1GzGd3HBvkV2N7p6dvkFIYwHS_cIqO/edit?usp=drivesdk&amp;ouid=101835988006141638443&amp;rtpof=true&amp;sd=true" target="_blank" rel="noopener noreferrer">Cargos Enviados</a>
+    </div>
   </section>
   <p id="readOnlyNotice" hidden>Invitado · Solo consulta de cargos y facturas</p>
   <details class="group" id="grp-resumen" open>
