@@ -353,7 +353,7 @@ function renderDocs(){
     const cantidad = (d.cargos||[]).length;
     if(!cantidad) return;
     const anioOrigen = cargoYear(d);
-    const anio = /^\\d{4}$/.test(anioOrigen) ? anioOrigen : 'Sin año';
+    const anio = /^\d{4}$/.test(anioOrigen) ? anioOrigen : 'Sin año';
     cargosPorAnio.set(anio, (cargosPorAnio.get(anio)||0) + cantidad);
   });
   const aniosOrdenados = [...cargosPorAnio.keys()].sort((a,b)=>
