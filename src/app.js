@@ -68,8 +68,13 @@ function populateYearOptions() {
 }
 async function fetchSearchResults(render=true) {
   if(!repository?.search||!currentUserId) {queryResults=null;return;}
-  if(!appliedFilters.query && !appliedFilters.state && !appliedFilters.type &&
-    !appliedFilters.location && !appliedFilters.year && !appliedFilters.invoiceExact) {
+  const noOtherFilters = !appliedFilters.query && !appliedFilters.type &&
+    !appliedFilters.location && !appliedFilters.year && !appliedFilters.invoiceExact;
+  // When filtering only by Estado, use the complete synchronized snapshot.
+  // This shares computeDocEstado with the red/green badges and avoids
+  // mismatches between the table, the counts, and paginated SQL results.
+  // Only the Buscar button changes appliedFilters; changing the select does nothing.
+  if(noOtherFilters) {
     searchEpoch++;searchController?.abort();queryResults=null;queryError='';
     if(render){renderDocs();setAvailability();}
     return;
