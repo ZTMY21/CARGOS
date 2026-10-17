@@ -312,6 +312,29 @@ test('admin summary groups Excel cargo years and refreshes 2026 after Google-syn
   }finally{a.close();}
 });
 
+test('administrator and guest both display reconciled Iron Mountain box, sent date and responsible',async()=>{
+  for(const isAdmin of [true,false]){
+    const a=await app({isAdmin});try{
+      Object.assign(a.state.docs[0],{
+        periodo:null,anio_origen:2023,cargos:['3384A'],
+        im_confirmado:true,im_codigo_caja:'2032192096',
+        im_fecha_envio:'2024-06-12',im_responsable:'BILLY SALVADOR'
+      });
+      a.node('btnReconnect').click();await flush();
+      const cells=a.node('tbody').querySelector('tr').cells;
+      assert.equal(cells[5].textContent.trim(),'3384A');
+      assert.equal(cells[7].textContent.trim(),'2032192096');
+      assert.equal(cells[8].textContent.trim(),'12/06/2024');
+      assert.match(cells[9].textContent,/Enviado/);
+      assert.match(cells[9].querySelector('.badge').className,/b-enviado/);
+      assert.match(cells[11].textContent,/BILLY SALVADOR/);
+      assert.match(a.node('resumenTablas').textContent,/Enviado Iron Mountain[\\s\\S]*1/);
+      assert.match(a.node('resumenTablas').textContent,/Pendiente de Envío a IM[\\s\\S]*0/);
+      assert.match(a.dom.window.document.querySelector('#docsTable thead').textContent,/Responsable/);
+    }finally{a.close();}
+  }
+});
+
 test('only Buscar runs the query; typing, Enter and filter changes wait for the button',async()=>{
  const a=await app({enableSearch:true});try{
   assert.equal(a.node('btnBuscar').nextElementSibling,a.node('btnLimpiarFiltros'));
