@@ -255,11 +255,11 @@
       <div class="filters">
         <input id="buscar" aria-label="Buscar documentos" placeholder="Buscar factura, Kardex, cargo, caja, sustento, observaciones o usuario...">
         <select id="filtroFactura" aria-label="Modo de búsqueda de factura"><option value="">Coincidencia parcial</option><option value="exacta">Factura exacta</option></select>
-        <select id="filtroEstado">
+        <select id="filtroEstado" aria-label="Filtrar por estado del cargo">
           <option value="">Todos los estados</option>
-          <option>Pendiente de Envío</option>
-          <option>En Proceso de Acondicionamiento</option>
-          <option>Enviado a Iron Mountain</option>
+          <option value="Pendiente de Envío">Pendiente de envío</option>
+          <option value="Enviado a Iron Mountain">Enviado</option>
+          <option value="En Proceso de Acondicionamiento">En proceso de acondicionamiento</option>
         </select>
         <select id="filtroTipo" aria-label="Filtrar por tipo de documento">
           <option value="">Todos los tipos</option><option>Facturas-Guia</option><option>Boletas de Venta</option><option>Guías de Remisión</option><option>Fact / GR / BV</option>
