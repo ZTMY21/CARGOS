@@ -223,7 +223,10 @@ test('sync status is inline and the Excel button opens the original file for adm
  const a=await app();try{
   assert.equal(a.node('btnRefreshGoogleSync'),null);
   assert.equal(a.node('googleSyncDialog'),null);
-  assert.equal(a.node('btnOpenGoogleExcel').textContent,'Abrir Excel');
+  assert.equal(a.node('btnOpenGoogleExcel').textContent,'Cargos Actuales');
+  assert.equal(a.node('btnOpenIronMountainExcel').textContent,'Cargos Enviados');
+  assert.match(a.node('btnOpenIronMountainExcel').href,/1ap1GzGd3HBvkV2N7p6dvkFIYwHS_cIqO/);
+  assert.equal(a.node('btnOpenIronMountainExcel').target,'_blank');
   assert.match(a.node('btnOpenGoogleExcel').href,/1GvTelpW7OQnt4sl_e-AfmWnNdSFQnL7E/);
   assert.equal(a.node('btnOpenGoogleExcel').target,'_blank');
   assert.match(a.node('googleSyncStatus').textContent,/Revisión completada/);
