@@ -338,6 +338,52 @@ test('administrator and guest both display reconciled Iron Mountain box, sent da
   }
 });
 
+test('admin and guest status filter matches pending red and Iron Mountain sent green only on Buscar',async()=>{
+  for (const isAdmin of [true,false]) {
+    const a=await app({isAdmin,enableSearch:true});
+    try {
+      const pending={...structuredClone(a.state.docs[0]),caja_asignada:null,im_confirmado:false};
+      const sent={...structuredClone(pending),id:randomUUID(),kardex:'SA-00002',
+        cargos:['3384A'],im_confirmado:true,im_codigo_caja:'2032192096',
+        im_fecha_envio:'2024-06-12',im_responsable:'BILLY SALVADOR'};
+      a.state.docs=[pending,sent];
+      a.node('btnReconnect').click();await flush();
+
+      const options=[...a.node('filtroEstado').options].map(o=>[o.textContent,o.value]);
+      assert.deepEqual(options.slice(0,3),[
+        ['Todos los estados',''],
+        ['Pendiente de envío','Pendiente de Envío'],
+        ['Enviado','Enviado a Iron Mountain']
+      ]);
+
+      const filter=a.node('filtroEstado');
+      filter.value='Pendiente de Envío';
+      filter.dispatchEvent(new a.dom.window.Event('change'));
+      await flush();
+      assert.equal(a.state.searchCalls.length,0);
+      a.node('btnBuscar').click();await flush();
+      assert.equal(a.state.searchCalls.at(-1).state,'Pendiente de Envío');
+      assert.equal(a.node('tbody').rows.length,1);
+      assert.match(a.node('tbody').textContent,/SA-00001/);
+      assert.doesNotMatch(a.node('tbody').textContent,/SA-00002/);
+      assert.match(a.node('tbody').querySelector('.badge').className,/b-pendiente/);
+
+      filter.value='Enviado a Iron Mountain';
+      filter.dispatchEvent(new a.dom.window.Event('change'));
+      await flush();
+      assert.equal(a.state.searchCalls.length,1);
+      assert.match(a.node('tbody').textContent,/SA-00001/);
+      a.node('btnBuscar').click();await flush();
+      assert.equal(a.state.searchCalls.at(-1).state,'Enviado a Iron Mountain');
+      assert.equal(a.node('tbody').rows.length,1);
+      assert.match(a.node('tbody').textContent,/SA-00002/);
+      assert.doesNotMatch(a.node('tbody').textContent,/SA-00001/);
+      assert.equal(a.node('tbody').querySelector('.badge').textContent.trim(),'Enviado');
+      assert.match(a.node('tbody').querySelector('.badge').className,/b-enviado/);
+    }finally{a.close();}
+  }
+});
+
 test('only Buscar runs the query; typing, Enter and filter changes wait for the button',async()=>{
  const a=await app({enableSearch:true});try{
   assert.equal(a.node('btnBuscar').nextElementSibling,a.node('btnLimpiarFiltros'));
