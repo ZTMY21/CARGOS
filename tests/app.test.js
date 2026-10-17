@@ -15,7 +15,7 @@ const flush=()=>new Promise(resolve=>setTimeout(resolve,20));
 const reqRow={id:randomUUID(),numero:'REQ-00001',tipo:'Cajas nuevas para acondicionar',fecha_solicitud:'2026-10-01',cantidad_cajas:2,numeros_cargo:'',fecha_recepcion:'2026-10-02',fecha_devolucion:null,usuario:'Juan',updated_at:'2026-10-13T00:00:00.123456Z'};
 const docRow={id:randomUUID(),kardex:'SA-00001',fecha_registro:'2026-10-13',tipo_doc:'Facturas-Guia',periodo:'2026-01-01',ubicacion:'Santa Anita',folios:30,cargos:['C001'],caja_asignada:reqRow.id,f_envio:null,sustento:'',sustento_imagen:'',usuario:'Juan',facturas:'F-001',obs:'',updated_at:'2026-10-13T00:00:00.123456Z'};
 
-async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recovery=false,loginError=null}={}) {
+async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recovery=false,loginError=null,enableSearch=false}={}) {
   const html=await readFile(new URL('../index.html',import.meta.url),'utf8');
   const source=(await readFile(new URL('../src/app.js',import.meta.url),'utf8')).replace(/^import .*;\n/gm,'');
   const dom=new JSDOM(html,{url:'https://kardex.example.test'+(recovery?'#type=recovery':''),runScripts:'outside-only'});
@@ -23,7 +23,7 @@ async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recov
   dom.window.HTMLDialogElement.prototype.showModal=function(){this.open=true;};
   const state={reqs:[structuredClone(reqRow)],docs:[structuredClone(docRow)],updates:[],snapshots:0,events:[],status:null,authCallback:null};
   state.session=signedIn?{user:{id:'owner',email:'owner@example.test'}}:null;
-  state.authCalls=[];state.exportCalls=[];state.now=Date.now();
+  state.authCalls=[];state.exportCalls=[];state.searchCalls=[];state.now=Date.now();
   dom.window.URL.createObjectURL=()=> 'blob:test';dom.window.URL.revokeObjectURL=()=>{};
   dom.window.HTMLAnchorElement.prototype.click=function(){state.downloadName=this.download;};
   const client={
@@ -55,6 +55,12 @@ async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recov
       else state.docs=state.docs.filter(d=>d.id!==row.id);
     }
   }
+  if(enableSearch) FakeRepository.prototype.search=async(filters,offset,limit)=>{
+    state.searchCalls.push({...filters});
+    const found=filterDocuments(state.docs.map(docFromDb),state.reqs.map(reqFromDb),filters);
+    const selected=found.slice(offset,offset+limit);
+    return {rows:selected.map(row=>({...state.docs.find(d=>d.id===row.id)})),total:found.length,folios:found.reduce((n,d)=>n+(Number(d.folios)||0),0)};
+  };
   const context=dom.getInternalVMContext();
   Object.assign(context,{createIdleSession:options=>createIdleSession({...options,now:()=>state.now}),createClient:()=>client,KardexRepository:FakeRepository,reqFromDb,docFromDb,reqEstado,docEstado,fmtDate,escapeHtml,buildWorkbook:async(...args)=>{state.exportCalls.push(args);return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},buildCargoWorkbook:async(cargo)=>{state.guestExport=cargo;return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},parseWorkbook,highlightMatch,filterDocuments,filterRequirements,cargoYear,invoiceLocation,locationLabel,groupsForCodes,
     __SUPABASE_URL__:'https://example.supabase.co',__SUPABASE_ANON_KEY__:'sb_publishable_test',confirm:()=>true,alert:()=>{}});
@@ -128,11 +134,11 @@ test('connected screen preserves conditional fields, live indicators, search and
     assert.equal(a.node('rq_wrap_cargos').hidden,false);
     assert.equal(a.node('rq_wrap_devolucion').hidden,false);
     assert.ok(a.node('resumenTablas').textContent.includes('30 folios'));
-    a.node('buscar').value='F-001';a.node('buscar').dispatchEvent(new a.dom.window.Event('input'));
+    a.node('buscar').value='F-001';a.node('btnBuscar').click();
     assert.ok(a.node('tbody').textContent.includes('SA-00001'));
-    a.node('buscar').value='no existe';a.node('buscar').dispatchEvent(new a.dom.window.Event('input'));
+    a.node('buscar').value='no existe';a.node('btnBuscar').click();
     assert.ok(a.node('tbody').textContent.includes('Sin registros'));
-    a.node('buscar').value='';
+    a.node('btnLimpiarFiltros').click();
     a.state.docs[0].usuario='<img src=x onerror=alert(1)>';
     a.node('btnReconnect').click();await flush();
     assert.equal(a.node('tbody').querySelectorAll('img').length,0);
@@ -245,6 +251,9 @@ test('top scrollbar stays synchronized with the retained bottom scrollbar',async
  try {
   assert.match(a.node('conteoResultados').textContent,/Cargos aleatorios/);
   a.node('buscar').value='NO-EXISTE-999';a.node('buscar').dispatchEvent(new a.dom.window.Event('input'));await flush();
+  assert.match(a.node('conteoResultados').textContent,/Cargos aleatorios/);
+  assert.equal(a.state.searchCalls.length,0);
+  a.node('btnBuscar').click();await flush();
   assert.doesNotMatch(a.node('conteoResultados').textContent,/Cargos aleatorios/);
   assert.match(a.node('tbody').textContent,/Sin registros/);
  }finally{a.close();}
@@ -255,7 +264,7 @@ test('top scrollbar stays synchronized with the retained bottom scrollbar',async
  const a=await app({isAdmin});try{
   Object.assign(a.state.docs[0],{periodo:null,anio_origen:2023,fecha_origen:'2023-08-28',sustento:'PRIVATE-SUPPORT',ubicaciones_codigo:{f001:['2','17']}});
   a.node('btnReconnect').click();await flush();
-  a.node('buscar').value='F-001';a.node('buscar').dispatchEvent(new a.dom.window.Event('input'));await flush();
+  a.node('buscar').value='F-001';a.node('btnBuscar').click();await flush();
   const cells=a.node('tbody').querySelector('tr').cells;
   assert.equal(cells[3].textContent,'2023');assert.equal(cells.length,13);
   assert.match(cells[4].textContent,/Grupo 2, Grupo 17/);
@@ -278,13 +287,35 @@ test('loading shell hides login before JavaScript and authenticated loading neve
   assert.deepEqual(a.state.loadingDuringAccess,{loading:true,login:false});
  }finally{a.close();}
 });
-test('Buscar precedes Limpiar filtros and click or Enter runs the current search',async()=>{
- const a=await app();try{
+test('only Buscar runs the query; typing, Enter and filter changes wait for the button',async()=>{
+ const a=await app({enableSearch:true});try{
   assert.equal(a.node('btnBuscar').nextElementSibling,a.node('btnLimpiarFiltros'));
-  a.node('buscar').value='NO-MATCH';a.node('btnBuscar').click();
-  assert.match(a.node('tbody').textContent,/Sin registros/);
-  a.node('buscar').value='F-001';a.node('buscar').dispatchEvent(new a.dom.window.KeyboardEvent('keydown',{key:'Enter',bubbles:true}));
+  a.node('buscar').value='NO-MATCH';
+  a.node('buscar').dispatchEvent(new a.dom.window.Event('input'));
+  a.node('buscar').dispatchEvent(new a.dom.window.KeyboardEvent('keydown',{key:'Enter',bubbles:true}));
+  a.node('filtroEstado').value='En Proceso de Acondicionamiento';
+  a.node('filtroEstado').dispatchEvent(new a.dom.window.Event('change'));
+  await new Promise(resolve=>setTimeout(resolve,180));
   assert.match(a.node('tbody').textContent,/SA-00001/);
+  assert.match(a.node('conteoResultados').textContent,/Cargos aleatorios/);
+  assert.equal(a.state.searchCalls.length,0);
+  a.node('btnBuscar').click();await flush();
+  assert.match(a.node('tbody').textContent,/Sin registros/);
+  a.node('buscar').value='F-001';
+  a.node('buscar').dispatchEvent(new a.dom.window.Event('input'));
+  assert.match(a.node('tbody').textContent,/Sin registros/);
+  assert.equal(a.state.searchCalls.length,1);
+  a.node('btnBuscar').click();await flush();
+  assert.equal(a.state.searchCalls.length,2);
+  assert.match(a.node('tbody').textContent,/SA-00001/);
+  a.state.events.find(x=>x.filter.table==='kardex_eventos').callback();
+  await new Promise(resolve=>setTimeout(resolve,240));
+  assert.equal(a.state.searchCalls.length,2);
+  a.node('buscar').value='not found';a.node('btnLimpiarFiltros').click();
+  assert.equal(a.state.searchCalls.length,2);
+  assert.equal(a.node('buscar').value,'');
+  assert.match(a.node('tbody').textContent,/SA-00001/);
+  assert.match(a.node('conteoResultados').textContent,/Cargos aleatorios/);
  }finally{a.close();}
 });
 

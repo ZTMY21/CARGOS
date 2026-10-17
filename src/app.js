@@ -24,10 +24,11 @@ let dataReady = false, realtimeChannel = null, refreshTimer = null, refreshPromi
 let refreshRequested = false;
 let authGeneration = 0, currentUserId = null;
 let pendingReqId = null, pendingDocId = null;
-let queryResults = null, queryError = '', searchEpoch = 0, searchTimer = null, searchController = null;
+let queryResults = null, queryError = '', searchEpoch = 0, searchController = null;
 let currentPage = 0;
+let appliedFilters = {query:'',state:'',type:'',location:'',year:'',invoiceExact:false};
 const browseOrder = new Map();
-function showRandomCargos(filters=currentFilters()) {
+function showRandomCargos(filters=appliedFilters) {
   return docs.length>0 && docs.every(d=>d.cargos?.length) &&
     !filters.query && !filters.state && !filters.type && !filters.location && !filters.year;
 }
@@ -67,12 +68,17 @@ function populateYearOptions() {
 }
 async function fetchSearchResults(render=true) {
   if(!repository?.search||!currentUserId) {queryResults=null;return;}
-  if(showRandomCargos()) {searchEpoch++;searchController?.abort();queryResults=null;queryError='';if(render){renderDocs();setAvailability();}return;}
+  if(!appliedFilters.query && !appliedFilters.state && !appliedFilters.type &&
+    !appliedFilters.location && !appliedFilters.year && !appliedFilters.invoiceExact) {
+    searchEpoch++;searchController?.abort();queryResults=null;queryError='';
+    if(render){renderDocs();setAvailability();}
+    return;
+  }
   const epoch=++searchEpoch;
   searchController?.abort();searchController=new AbortController();
   document.getElementById('conteoResultados').textContent='Buscando…';
   try {
-    const result=await repository.search(currentFilters(),currentPage*PAGE_SIZE,PAGE_SIZE,searchController.signal);
+    const result=await repository.search(appliedFilters,currentPage*PAGE_SIZE,PAGE_SIZE,searchController.signal);
     if(epoch!==searchEpoch)return;
     queryResults={...result,rows:result.rows.map(docFromDb)};queryError='';
     if(render) {renderDocs();setAvailability();}
@@ -83,14 +89,6 @@ async function fetchSearchResults(render=true) {
     if(render)renderDocs();
   }
 }
-function scheduleSearch() {
-  currentPage=0;
-  clearTimeout(searchTimer);searchController?.abort();
-  if(!repository?.search) {queryResults=null;renderDocs();return;}
-  document.getElementById('conteoResultados').textContent='Buscando…';
-  searchTimer=setTimeout(()=>fetchSearchResults(),120);
-}
-
 function message(id, value, error = false) {
   const node = document.getElementById(id);
   node.textContent = value;
@@ -144,7 +142,6 @@ async function refreshData() {
       await loadReqs(snapshot);
       await loadDocs(snapshot);
       populateYearOptions();
-      await fetchSearchResults(false);
       renderReqs(); renderDocs();
       const selected = document.getElementById('f_cajaAsignada').value;
       populateCajaAsignadaOptions(selected);
@@ -324,7 +321,7 @@ async function loadDocs(snapshot){
   docs = data.documentos.map(docFromDb);
 }
 function renderDocs(){
-  const filters=currentFilters();
+  const filters=appliedFilters;
   const search=filters.query;
   const enriched = docs.map(d => ({...d, ...computeDocEstado(d)}));
 
@@ -681,22 +678,19 @@ document.getElementById('fileImportar').addEventListener('change', async ev => {
   } catch (error) { alert(`No se pudo importar. ${readableError(error)}`); }
   finally { input.value = ''; document.getElementById('importProgress').textContent=''; setAvailability(); }
 });
-document.getElementById('buscar').addEventListener('input',scheduleSearch);
 function searchNow(){
-  clearTimeout(searchTimer);currentPage=0;
+  appliedFilters=currentFilters();currentPage=0;
   if(!repository?.search){queryResults=null;renderDocs();return;}
   void fetchSearchResults();
 }
 document.getElementById('btnBuscar').addEventListener('click',searchNow);
-document.getElementById('buscar').addEventListener('keydown',event=>{
-  if(event.key==='Enter'){event.preventDefault();searchNow();}
-});
-['filtroEstado','filtroTipo','filtroUbicacion','filtroAnio','filtroFactura'].forEach(id=>document.getElementById(id).addEventListener('change',scheduleSearch));
 document.getElementById('buscarReq').addEventListener('input',renderReqs);
 document.getElementById('btnLimpiarFiltros').addEventListener('click',()=>{
  document.getElementById('buscar').value='';
  ['filtroEstado','filtroTipo','filtroUbicacion','filtroAnio','filtroFactura'].forEach(id=>document.getElementById(id).value='');
- scheduleSearch();
+ // Reset the local listing without launching a search request.
+ appliedFilters=currentFilters();currentPage=0;searchEpoch++;searchController?.abort();
+ queryResults=null;queryError='';renderDocs();setAvailability();
 });
 document.getElementById('btnPaginaAnterior').addEventListener('click',()=>{if(currentPage>0){currentPage--;fetchSearchResults();}});
 document.getElementById('btnPaginaSiguiente').addEventListener('click',()=>{currentPage++;fetchSearchResults();});
