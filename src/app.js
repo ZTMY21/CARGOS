@@ -4,6 +4,7 @@ import { KardexRepository, reqFromDb, docFromDb } from './repository.js';
 import { buildCargoWorkbook, parseWorkbook } from './excel-api.js';
 import { highlightMatch, filterDocuments, filterRequirements } from './search.js';
 import './connection.css';
+import { createIdleSession } from './idle-session.js';
 import { cargoYear, invoiceLocation, locationLabel, groupsForCodes } from './cargo-details.js';
 
 const configuration = { url: __SUPABASE_URL__, key: __SUPABASE_ANON_KEY__ };
@@ -11,6 +12,12 @@ const configuration = { url: __SUPABASE_URL__, key: __SUPABASE_ANON_KEY__ };
 let passwordRecovery = new URLSearchParams(window.location.hash.slice(1)).get('type') === 'recovery';
 const supabase = configuration.url && configuration.key ? createClient(configuration.url, configuration.key) : null;
 const repository = supabase ? new KardexRepository(supabase) : null;
+const idleSession = createIdleSession({window, onExpire: async()=>{
+  // Lock the interface immediately, including when the network is unavailable.
+  await handleSession(null);
+  message('authMessage','Tu sesión se cerró por una hora de inactividad. Vuelve a ingresar.');
+  try { await supabase.auth.signOut({scope:'local'}); } catch { /* The expired local deadline keeps the app locked. */ }
+}});
 let googleSyncEnabled=true;
 let appReady = false, isAdmin = false, mutationBusy = false, channelReady = false;
 let dataReady = false, realtimeChannel = null, refreshTimer = null, refreshPromise = null;
@@ -675,6 +682,15 @@ document.getElementById('fileImportar').addEventListener('change', async ev => {
   finally { input.value = ''; document.getElementById('importProgress').textContent=''; setAvailability(); }
 });
 document.getElementById('buscar').addEventListener('input',scheduleSearch);
+function searchNow(){
+  clearTimeout(searchTimer);currentPage=0;
+  if(!repository?.search){queryResults=null;renderDocs();return;}
+  void fetchSearchResults();
+}
+document.getElementById('btnBuscar').addEventListener('click',searchNow);
+document.getElementById('buscar').addEventListener('keydown',event=>{
+  if(event.key==='Enter'){event.preventDefault();searchNow();}
+});
 ['filtroEstado','filtroTipo','filtroUbicacion','filtroAnio','filtroFactura'].forEach(id=>document.getElementById(id).addEventListener('change',scheduleSearch));
 document.getElementById('buscarReq').addEventListener('input',renderReqs);
 document.getElementById('btnLimpiarFiltros').addEventListener('click',()=>{
@@ -698,7 +714,14 @@ async function subscribeRealtime() {
       }
     });
 }
+function showSessionLoading(){
+  document.getElementById('sessionLoading').hidden=false;
+  document.getElementById('authOverlay').hidden=true;
+  document.getElementById('appShell').hidden=true;
+  document.getElementById('appShell').inert=true;
+}
 function showAuthPage(visible) {
+  document.getElementById('sessionLoading').hidden=true;
   document.getElementById('authOverlay').hidden = !visible;
   document.getElementById('appShell').hidden = visible;
   document.getElementById('appShell').inert = visible;
@@ -728,9 +751,11 @@ async function handleSession(session) {
   if (user && currentUserId !== user.id) {
     appReady = isAdmin = dataReady = false;
     reqs = []; docs = []; renderReqs(); renderDocs(); setAvailability();
-    showAuthPage(true);
+    showSessionLoading();
   }
   if (!user) {
+    idleSession.stop();
+    showAuthPage(true);
     if (passwordRecovery) message('authMessage','El enlace de recuperación no es válido. Solicita uno nuevo.',true);
     passwordRecovery = false;
     showRecoveryForm(false);
@@ -745,6 +770,7 @@ async function handleSession(session) {
     document.getElementById('btnAuthSignOut').hidden = true;
     setStatus('Inicia sesión para conectar'); setAvailability(); return;
   }
+  if(!idleSession.start(session))return;
   currentUserId = user.id;
   document.getElementById('btnAuthSignOut').hidden = false;
   try {
@@ -846,6 +872,7 @@ window.addEventListener('online',()=>{if(currentUserId){subscribeRealtime();sche
 document.addEventListener('visibilitychange',()=>{if(!document.hidden && currentUserId && appReady)scheduleRefresh();});
 updateReqCondFields(); renderReqs(); renderDocs(); setAvailability();
 if (!supabase) {
+  showAuthPage(true);
   document.getElementById('authForm').hidden = true;
   document.getElementById('btnMagicLink').hidden = true;
   document.getElementById('btnForgotPassword').hidden = true;
@@ -856,12 +883,14 @@ if (!supabase) {
   supabase.auth.onAuthStateChange((event,session)=>{
     if (event === 'INITIAL_SESSION') return;
     if (event === 'PASSWORD_RECOVERY') passwordRecovery = true;
-    if (event === 'TOKEN_REFRESHED' && currentUserId === session?.user?.id) { scheduleRefresh(); return; }
+    if (event === 'TOKEN_REFRESHED' && currentUserId === session?.user?.id) { if(idleSession.check())scheduleRefresh(); return; }
     setTimeout(()=>handleSession(session),0);
   });
-  const {data,error} = await supabase.auth.getSession();
-  if (error) message('authMessage',readableError(error),true);
-  else if (!currentUserId) await handleSession(data.session);
+  try {
+    const {data,error} = await supabase.auth.getSession();
+    if(error)throw error;
+    if(!currentUserId)await handleSession(data.session);
+  }catch(error){showAuthPage(true);message('authMessage',readableError(error),true);}
 }
 
 document.getElementById('btnRegister').addEventListener('click',async ev=>{

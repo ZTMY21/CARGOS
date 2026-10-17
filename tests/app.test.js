@@ -8,6 +8,7 @@ import {computeReqEstado as reqEstado,computeDocEstado as docEstado,fmtDate,esca
 import {reqFromDb,docFromDb,KardexRepository} from '../src/repository.js';
 import {buildWorkbook,parseWorkbook} from '../src/excel.js';
 import {highlightMatch,filterDocuments,filterRequirements} from '../src/search.js';
+import {createIdleSession} from '../src/idle-session.js';
 import {cargoYear,invoiceLocation,locationLabel,groupsForCodes} from '../src/cargo-details.js';
 
 const flush=()=>new Promise(resolve=>setTimeout(resolve,20));
@@ -22,7 +23,7 @@ async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recov
   dom.window.HTMLDialogElement.prototype.showModal=function(){this.open=true;};
   const state={reqs:[structuredClone(reqRow)],docs:[structuredClone(docRow)],updates:[],snapshots:0,events:[],status:null,authCallback:null};
   state.session=signedIn?{user:{id:'owner',email:'owner@example.test'}}:null;
-  state.authCalls=[];state.exportCalls=[];
+  state.authCalls=[];state.exportCalls=[];state.now=Date.now();
   dom.window.URL.createObjectURL=()=> 'blob:test';dom.window.URL.revokeObjectURL=()=>{};
   dom.window.HTMLAnchorElement.prototype.click=function(){state.downloadName=this.download;};
   const client={
@@ -41,7 +42,7 @@ async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recov
   };
   class FakeRepository {
     async fetchDoc(id){state.fetchedId=id;return docFromDb({...state.docs.find(d=>d.id===id),facturas:'F-001, F-002, F-003, F-004'});}
-    async access(){return {allowed,is_admin:isAdmin};}
+    async access(){state.loadingDuringAccess={loading:!dom.window.document.getElementById('sessionLoading').hidden,login:!dom.window.document.getElementById('authOverlay').hidden};return {allowed,is_admin:isAdmin};}
     async snapshot(){state.snapshots++;return structuredClone({requerimientos:state.reqs,documentos:state.docs});}
     async saveDoc(data,editing){
       state.updates.push({data,editing});if(failSave)throw new Error('Servidor no disponible');
@@ -55,7 +56,7 @@ async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recov
     }
   }
   const context=dom.getInternalVMContext();
-  Object.assign(context,{createClient:()=>client,KardexRepository:FakeRepository,reqFromDb,docFromDb,reqEstado,docEstado,fmtDate,escapeHtml,buildWorkbook:async(...args)=>{state.exportCalls.push(args);return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},buildCargoWorkbook:async(cargo)=>{state.guestExport=cargo;return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},parseWorkbook,highlightMatch,filterDocuments,filterRequirements,cargoYear,invoiceLocation,locationLabel,groupsForCodes,
+  Object.assign(context,{createIdleSession:options=>createIdleSession({...options,now:()=>state.now}),createClient:()=>client,KardexRepository:FakeRepository,reqFromDb,docFromDb,reqEstado,docEstado,fmtDate,escapeHtml,buildWorkbook:async(...args)=>{state.exportCalls.push(args);return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},buildCargoWorkbook:async(cargo)=>{state.guestExport=cargo;return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},parseWorkbook,highlightMatch,filterDocuments,filterRequirements,cargoYear,invoiceLocation,locationLabel,groupsForCodes,
     __SUPABASE_URL__:'https://example.supabase.co',__SUPABASE_ANON_KEY__:'sb_publishable_test',confirm:()=>true,alert:()=>{}});
   await vm.runInContext(`(async()=>{${source}})()`,context);
   const node=id=>dom.window.document.getElementById(id);
@@ -263,4 +264,38 @@ test('top scrollbar stays synchronized with the retained bottom scrollbar',async
   assert.doesNotMatch(a.node('tbody').textContent,/PRIVATE-SUPPORT|Fecha en origen/);
  }finally{a.close();}
  }
+});
+
+test('loading shell hides login before JavaScript and authenticated loading never shows the login panel',async()=>{
+ const html=await readFile(new URL('../index.html',import.meta.url),'utf8');
+ const dom=new JSDOM(html);try{
+  assert.equal(dom.window.document.getElementById('authOverlay').hidden,true);
+  assert.equal(dom.window.document.getElementById('sessionLoading').hidden,false);
+ }finally{dom.window.close();}
+ const a=await app();try{
+  assert.equal(a.node('sessionLoading').hidden,true);
+  assert.equal(a.node('authOverlay').hidden,true);
+  assert.deepEqual(a.state.loadingDuringAccess,{loading:true,login:false});
+ }finally{a.close();}
+});
+test('Buscar precedes Limpiar filtros and click or Enter runs the current search',async()=>{
+ const a=await app();try{
+  assert.equal(a.node('btnBuscar').nextElementSibling,a.node('btnLimpiarFiltros'));
+  a.node('buscar').value='NO-MATCH';a.node('btnBuscar').click();
+  assert.match(a.node('tbody').textContent,/Sin registros/);
+  a.node('buscar').value='F-001';a.node('buscar').dispatchEvent(new a.dom.window.KeyboardEvent('keydown',{key:'Enter',bubbles:true}));
+  assert.match(a.node('tbody').textContent,/SA-00001/);
+ }finally{a.close();}
+});
+
+test('one hour of inactivity signs out the account and hides data before another interaction',async()=>{
+ const a=await app();try{
+  a.state.now+=3600000;
+  a.dom.window.dispatchEvent(new a.dom.window.Event('focus'));
+  assert.equal(a.node('appShell').hidden,true);
+  await flush();
+  assert.equal(a.state.session,null);
+  assert.equal(a.node('authOverlay').hidden,false);
+  assert.match(a.node('authMessage').textContent,/una hora de inactividad/);
+ }finally{a.close();}
 });
