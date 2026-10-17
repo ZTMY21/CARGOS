@@ -448,7 +448,7 @@ function renderDocs(){
         <td class="invoice-results">${invoiceCodes.map(v=>`<div>${highlightMatch(v,search)}${search?`<span class="origin-label">Ubicación: ${escapeHtml(invoiceLocation(d,v))}</span>`:''}</div>`).join('')}${d.cantidadFacturas?`<span class="origin-label">${fmtNum(d.cantidadFacturas)} códigos en este registro</span>`:''}</td>
         <td>${highlightMatch(cajaTxt,search)}</td>
         <td>${fmtDate(fechaEnvioTxt)}</td>
-        <td><span class="badge ${docBadgeClass(d.estado)}">${escapeHtml(estadoTxt)}</span>${d.estadoOrigen?`<span class="origin-label">${escapeHtml(d.estadoOrigen)}</span>`:''}</td>
+        <td><span class="badge ${docBadgeClass(d.estado)}">${escapeHtml(estadoTxt)}</span></td>
         <td class="${alertaClass}">${alertaTxt}</td>
         <td>${highlightMatch(responsableTxt||'',search)}${d.hojaOrigen?`<span class="origin-label">${escapeHtml(d.hojaOrigen)}</span>`:''}</td>
         <td>
