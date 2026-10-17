@@ -346,16 +346,22 @@ function renderDocs(){
 
   const pct = (n, base) => base > 0 ? Math.round((n/base)*100) + '%' : '0%';
 
-  const cargosPorAnio = {};
+  // Historical Excel rows use anioOrigen rather than periodo; current 2026
+  // rows are kept up to date in documentos by Google Sheets synchronization.
+  const cargosPorAnio = new Map();
   enriched.forEach(d=>{
-    if(!d.periodo) return;
-    const anio = d.periodo.slice(0,4);
-    cargosPorAnio[anio] = (cargosPorAnio[anio]||0) + (d.cargos||[]).length;
+    const cantidad = (d.cargos||[]).length;
+    if(!cantidad) return;
+    const anioOrigen = cargoYear(d);
+    const anio = /^\\d{4}$/.test(anioOrigen) ? anioOrigen : 'Sin año';
+    cargosPorAnio.set(anio, (cargosPorAnio.get(anio)||0) + cantidad);
   });
-  const aniosOrdenados = Object.keys(cargosPorAnio).sort();
+  const aniosOrdenados = [...cargosPorAnio.keys()].sort((a,b)=>
+    a==='Sin año' ? 1 : b==='Sin año' ? -1 : Number(a)-Number(b));
   const porPeriodoHtml = aniosOrdenados.length
-    ? aniosOrdenados.map(a=>`<div class="periodo-fila"><span>${a}</span><span>${cargosPorAnio[a]} cargos</span></div>`).join('')
-    : '<div class="periodo-fila" style="color:var(--muted)">Sin datos de período</div>';
+    ? aniosOrdenados.map(a=>`<div class="periodo-fila"><span>${escapeHtml(a)}</span><span>${fmtNum(cargosPorAnio.get(a))} cargos</span></div>`).join('')
+      + (cargosPorAnio.has('2026') ? '<div class="periodo-nota">2026 se actualiza desde Google Sheets</div>' : '')
+    : '<div class="periodo-fila" style="color:var(--muted)">Sin cargos registrados</div>';
 
   document.getElementById('resumenTablas').innerHTML = `
     <div class="kpis">
@@ -395,7 +401,7 @@ function renderDocs(){
         </div>
       </div>
       <div class="kpi periodo-box">
-        <div class="l" style="color:#1F2937">Cargos por Período</div>
+        <div class="l" style="color:#1F2937">Cargos por Año</div>
         ${porPeriodoHtml}
       </div>
     </div>
