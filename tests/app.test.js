@@ -338,7 +338,7 @@ test('administrator and guest both display reconciled Iron Mountain box, sent da
   }
 });
 
-test('admin and guest status filter matches pending red and Iron Mountain sent green only on Buscar',async()=>{
+test('admin and guest filter only pending red and sent green via the full synchronized snapshot on Buscar',async()=>{
   for (const isAdmin of [true,false]) {
     const a=await app({isAdmin,enableSearch:true});
     try {
@@ -348,38 +348,49 @@ test('admin and guest status filter matches pending red and Iron Mountain sent g
         im_fecha_envio:'2024-06-12',im_responsable:'BILLY SALVADOR'};
       a.state.docs=[pending,sent];
       a.node('btnReconnect').click();await flush();
-
-      const options=[...a.node('filtroEstado').options].map(o=>[o.textContent,o.value]);
-      assert.deepEqual(options.slice(0,3),[
+      const filter=a.node('filtroEstado');
+      assert.deepEqual([...filter.options].slice(0,3).map(o=>[o.textContent,o.value]),[
         ['Todos los estados',''],
         ['Pendiente de envío','Pendiente de Envío'],
         ['Enviado','Enviado a Iron Mountain']
       ]);
-
-      const filter=a.node('filtroEstado');
+      const assertOne=(kardex,badge,count)=>{
+        assert.equal(a.node('tbody').rows.length,1);
+        assert.match(a.node('tbody').textContent,new RegExp(kardex));
+        assert.match(a.node('tbody').querySelector('.badge').className,new RegExp(badge));
+        assert.match(a.node('conteoResultados').textContent,new RegExp(count+' registros'));
+      };
       filter.value='Pendiente de Envío';
       filter.dispatchEvent(new a.dom.window.Event('change'));
       await flush();
-      assert.equal(a.state.searchCalls.length,0);
-      a.node('btnBuscar').click();await flush();
-      assert.equal(a.state.searchCalls.at(-1).state,'Pendiente de Envío');
-      assert.equal(a.node('tbody').rows.length,1);
       assert.match(a.node('tbody').textContent,/SA-00001/);
+      assert.match(a.node('tbody').textContent,/SA-00002/);
+      a.node('btnBuscar').click();await flush();
+      assert.equal(a.state.searchCalls.length,0);
+      assertOne('SA-00001','b-pendiente',1);
       assert.doesNotMatch(a.node('tbody').textContent,/SA-00002/);
-      assert.match(a.node('tbody').querySelector('.badge').className,/b-pendiente/);
 
       filter.value='Enviado a Iron Mountain';
       filter.dispatchEvent(new a.dom.window.Event('change'));
       await flush();
-      assert.equal(a.state.searchCalls.length,1);
       assert.match(a.node('tbody').textContent,/SA-00001/);
       a.node('btnBuscar').click();await flush();
-      assert.equal(a.state.searchCalls.at(-1).state,'Enviado a Iron Mountain');
-      assert.equal(a.node('tbody').rows.length,1);
-      assert.match(a.node('tbody').textContent,/SA-00002/);
+      assert.equal(a.state.searchCalls.length,0);
+      assertOne('SA-00002','b-enviado',1);
       assert.doesNotMatch(a.node('tbody').textContent,/SA-00001/);
       assert.equal(a.node('tbody').querySelector('.badge').textContent.trim(),'Enviado');
-      assert.match(a.node('tbody').querySelector('.badge').className,/b-enviado/);
+
+      // Combined cargo-number + state searches still use the server.
+      a.node('buscar').value='3384A';
+      a.node('btnBuscar').click();await flush();
+      assert.equal(a.state.searchCalls.length,1);
+      assert.equal(a.state.searchCalls[0].state,'Enviado a Iron Mountain');
+      assertOne('SA-00002','b-enviado',1);
+      a.node('btnLimpiarFiltros').click();
+      assert.equal(a.state.searchCalls.length,1);
+      assert.equal(filter.value,'');
+      assert.match(a.node('tbody').textContent,/SA-00001/);
+      assert.match(a.node('tbody').textContent,/SA-00002/);
     }finally{a.close();}
   }
 });
