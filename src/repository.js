@@ -16,6 +16,8 @@ export function docFromDb(row) {
     periodo: row.periodo, ubicacion: row.ubicacion, folios: row.folios ?? '', cargos: row.cargos || [],
     cajaAsignada: row.caja_asignada || '', fEnvio: row.f_envio || '', sustento: row.sustento || '',
     sustentoImagen: safeImage(row.sustento_imagen), usuario: row.usuario,
+    imConfirmado: !!row.im_confirmado, imCodigoCaja: row.im_codigo_caja || '',
+    imFechaEnvio: row.im_fecha_envio || '', imResponsable: row.im_responsable || '',
     facturas: row.facturas || '', obs: row.obs || '', updatedAt: row.updated_at,
     facturasEncontradas: row.facturas_encontradas || [], cantidadFacturas: row.cantidad_facturas,
     ubicacionesCodigo: row.ubicaciones_codigo, errorUbicacion: row.error_ubicacion,
