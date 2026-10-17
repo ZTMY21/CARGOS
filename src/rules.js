@@ -34,7 +34,7 @@ export function computeReqEstado(r, docs = []) {
 export function computeDocEstado(d, now = new Date()) {
   let estado = 'Pendiente de Envío';
   if (d.cajaAsignada) estado = 'En Proceso de Acondicionamiento';
-  if (d.fEnvio && (d.sustento || d.sustentoImagen || d.tieneSustentoImagen)) estado = 'Enviado a Iron Mountain';
+  if (d.imConfirmado || (d.fEnvio && (d.sustento || d.sustentoImagen || d.tieneSustentoImagen))) estado = 'Enviado a Iron Mountain';
   const today = new Date(`${limaDate(now)}T00:00:00`);
   const antiguedad = d.periodo && estado !== 'Enviado a Iron Mountain'
     ? monthsBetween(new Date(`${d.periodo}T00:00:00`), today) : '-';

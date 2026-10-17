@@ -427,7 +427,10 @@ function renderDocs(){
       const alertaClass = (typeof d.antiguedad === 'number' && d.antiguedad > 6) ? 'alerta-neg'
         : (typeof d.antiguedad === 'number' && d.antiguedad >= 5) ? 'alerta-warn' : 'alerta-pos';
       const req = reqs.find(r=>r.id===d.cajaAsignada);
-      const cajaTxt = req ? req.numero : '—';
+      const cajaTxt = d.imConfirmado ? d.imCodigoCaja : (req ? req.numero : '—');
+      const fechaEnvioTxt = d.imConfirmado ? d.imFechaEnvio : d.fEnvio;
+      const responsableTxt = d.imConfirmado ? d.imResponsable : d.usuario;
+      const estadoTxt = d.imConfirmado ? 'Enviado' : d.estado;
       const invoiceCodes=d.facturasEncontradas?.length?d.facturasEncontradas:(d.facturas||'').split(/[,;\n]/).map(v=>v.trim()).filter(Boolean).slice(0,3);
       const groupLocation=d.ubicacionesCodigo ? locationLabel(groupsForCodes(d.ubicacionesCodigo,invoiceCodes.length?invoiceCodes:Object.keys(d.ubicacionesCodigo))) : d.errorUbicacion || (search?'Consultando grupo…':'Busca un documento o cargo');
       return `<tr>
@@ -439,10 +442,10 @@ function renderDocs(){
         <td>${highlightMatch((d.cargos||[]).join(', ')||'Sin cargo asignado',search)}</td>
         <td class="invoice-results">${invoiceCodes.map(v=>`<div>${highlightMatch(v,search)}${search?`<span class="origin-label">Ubicación: ${escapeHtml(invoiceLocation(d,v))}</span>`:''}</div>`).join('')}${d.cantidadFacturas?`<span class="origin-label">${fmtNum(d.cantidadFacturas)} códigos en este registro</span>`:''}</td>
         <td>${highlightMatch(cajaTxt,search)}</td>
-        <td>${fmtDate(d.fEnvio)}</td>
-        <td><span class="badge ${docBadgeClass(d.estado)}">${d.estado}</span>${d.estadoOrigen?`<span class="origin-label">${escapeHtml(d.estadoOrigen)}</span>`:''}</td>
+        <td>${fmtDate(fechaEnvioTxt)}</td>
+        <td><span class="badge ${docBadgeClass(d.estado)}">${escapeHtml(estadoTxt)}</span>${d.estadoOrigen?`<span class="origin-label">${escapeHtml(d.estadoOrigen)}</span>`:''}</td>
         <td class="${alertaClass}">${alertaTxt}</td>
-        <td>${highlightMatch(d.usuario||'',search)}${d.hojaOrigen?`<span class="origin-label">${escapeHtml(d.hojaOrigen)}</span>`:''}</td>
+        <td>${highlightMatch(responsableTxt||'',search)}${d.hojaOrigen?`<span class="origin-label">${escapeHtml(d.hojaOrigen)}</span>`:''}</td>
         <td>
           <button class="secondary" data-export-cargo="${d.id}" ${!d.cargos?.length?'disabled title="Este registro no tiene cargo asignado"':''}>Exportar este cargo</button>
           ${isAdmin ? `<button class="link" data-edit="${d.id}">Editar</button>
