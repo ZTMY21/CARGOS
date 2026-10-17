@@ -300,7 +300,7 @@ test('admin summary groups Excel cargo years and refreshes 2026 after Google-syn
     const notify=a.state.events.find(x=>x.filter.table==='kardex_eventos').callback;
     const refresh=async()=>{notify();await new Promise(resolve=>setTimeout(resolve,270));};
     const rows=()=>[...a.dom.window.document.querySelectorAll('.periodo-box .periodo-fila')]
-      .map(row=>row.textContent.replace(/\\s+/g,' ').trim());
+      .map(row=>row.textContent.replace(/\s+/g,' ').trim());
     await refresh();
     assert.deepEqual(rows(),['2020 1 cargos','2024 2 cargos','2025 1 cargos','2026 1 cargos']);
     assert.match(a.node('resumenTablas').textContent,/Cargos por Año/);
@@ -308,7 +308,7 @@ test('admin summary groups Excel cargo years and refreshes 2026 after Google-syn
     a.state.docs.push(current('N2'));
     await refresh();
     assert.deepEqual(rows(),['2020 1 cargos','2024 2 cargos','2025 1 cargos','2026 2 cargos']);
-    assert.match(a.dom.window.document.querySelector('.resumenTablas .kpi .n')?.textContent||a.node('resumenTablas').textContent,/6/);
+    assert.match(a.node('resumenTablas').querySelector('.kpis .kpi .n').textContent,/^6\b/);
   }finally{a.close();}
 });
 
