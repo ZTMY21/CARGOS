@@ -19,6 +19,10 @@ La aplicación de producción está disponible en https://kardex-digital-santa-a
 
 ## Datos y acceso
 
+El resumen administrativo calcula **Cargos por Vencer** y **Cargos Vencidos** únicamente para cargos de 2025 y 2026 pendientes de envío. Usa el período contable cuando está registrado y, en su defecto, la fecha de origen del cargo; la fecha de importación no sustituye una fecha faltante. El plazo es de seis meses calendario, ajustado al último día del mes cuando corresponde: el día en que se cumplen seis meses sigue en «por vencer» y al día siguiente pasa a «vencido», según la fecha de Lima.
+
+Cada indicador abre una hoja dentro del aplicativo, con listas intercambiables, una fila por cargo, fechas, antigüedad y meses/días vencidos o restantes. Los conteos y el detalle usan la misma información sincronizada, independientemente de los filtros de búsqueda. Los cargos sin fecha válida se identifican aparte y no se clasifican con una fecha supuesta.
+
 Las tablas `requerimientos` y `documentos` usan RLS y una lista privada de miembros confirmados. No se permite consultar documentos de forma anónima. Los editores comparten consultas, creación, edición, eliminación y exportación; los administradores también importan y restablecen datos.
 
 Los correlativos `REQ-XXXXX` y `SA-XXXXX` se asignan en PostgreSQL con un bloqueo transaccional que evita colisiones entre usuarios y protege las importaciones. La clave foránea de caja asignada utiliza `ON DELETE SET NULL`. Las ediciones y eliminaciones comprueban el `updated_at` leído para detectar cambios simultáneos.
