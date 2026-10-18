@@ -315,6 +315,36 @@ test('admin summary groups Excel cargo years and refreshes 2026 after Google-syn
   }finally{a.close();}
 });
 
+test('search hides irrelevant locations, uses Sin Responsable, and clarifies guest export-only access',async()=>{
+  for (const isAdmin of [true,false]) {
+    const a=await app({isAdmin});
+    try {
+      const locations=[...a.node('filtroUbicacion').options].map(o=>o.textContent.trim());
+      assert.deepEqual(locations,[
+        'Todas las ubicaciones','Santa Anita','Iron Mountain','Sin ubicación registrada'
+      ]);
+      assert.equal(a.node('existenciasSubtitulo').textContent,
+        isAdmin ? 'Consulta, búsqueda, exportación e importación de documentos'
+          : 'Consulta, búsqueda y exportación de documentos');
+
+      a.state.docs[0].usuario='Importación Excel';
+      a.node('btnReconnect').click();await flush();
+      assert.equal(a.node('tbody').querySelector('tr').cells[11].textContent.trim(),'Sin Responsable');
+
+      a.state.docs[0].usuario='Importacion Excel';
+      a.node('btnReconnect').click();await flush();
+      assert.equal(a.node('tbody').querySelector('tr').cells[11].textContent.trim(),'Sin Responsable');
+
+      a.state.docs[0].usuario='RESPONSABLE REAL';
+      a.node('btnReconnect').click();await flush();
+      assert.equal(a.node('tbody').querySelector('tr').cells[11].textContent.trim(),'RESPONSABLE REAL');
+      if (isAdmin) {
+        assert.ok([...a.node('f_ubicacion').options].some(o=>o.value==='CD Arequipa'));
+      }
+    } finally { a.close(); }
+  }
+});
+
 test('administrator and guest both display reconciled Iron Mountain box, sent date and responsible',async()=>{
   for(const isAdmin of [true,false]){
     const a=await app({isAdmin});try{
