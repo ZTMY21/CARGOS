@@ -949,9 +949,6 @@ async function refreshGoogleSync(){
     document.getElementById('googleSyncRegistered').textContent=groups;
     document.getElementById('googleSyncPending').textContent=pending;
     document.getElementById('googleSyncConflicts').textContent=conflicts;
-    document.getElementById('googleSyncRegisteredNote').textContent='Total revisados: '+groups;
-    document.getElementById('googleSyncPendingNote').textContent='Incompletas: '+pending;
-    document.getElementById('googleSyncConflictsNote').textContent='Conflictos: '+conflicts;
     const checkedAt=data.last_checked_at ? new Date(data.last_checked_at) : null;
     const last=checkedAt && Number.isFinite(checkedAt.getTime())
       ? checkedAt.toLocaleString('es-PE',{timeZone:'America/Lima'})
