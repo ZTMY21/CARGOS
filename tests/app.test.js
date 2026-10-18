@@ -7,7 +7,7 @@ import {JSDOM} from 'jsdom';
 import {computeReqEstado as reqEstado,computeDocEstado as docEstado,fmtDate,escapeHtml,limaDate} from '../src/rules.js';
 import {reqFromDb,docFromDb,KardexRepository} from '../src/repository.js';
 import {buildWorkbook,parseWorkbook} from '../src/excel.js';
-import {highlightMatch,filterDocuments,filterRequirements} from '../src/search.js';
+import {highlightMatch,filterDocuments,filterRequirements,invoiceSearchPresentation} from '../src/search.js';
 import {createIdleSession} from '../src/idle-session.js';
 import {cargoYear,invoiceLocation,locationLabel,groupsForCodes} from '../src/cargo-details.js';
 import {cargoExpiryGroups,formatCargoDuration} from '../src/cargo-expiry.js';
@@ -72,7 +72,7 @@ async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recov
   context.setInterval=(callback,delay)=>{state.intervals.push({callback,delay});return scheduleInterval(callback,delay);};
   context.Date=class extends Date {constructor(...args){super(...(args.length?args:[state.now]));}static now(){return state.now;}};
   Object.assign(context,{cargoExpiryGroups,formatCargoDuration,limaDate});
-  Object.assign(context,{createIdleSession:options=>createIdleSession({...options,now:()=>state.now}),createClient:()=>client,KardexRepository:FakeRepository,reqFromDb,docFromDb,reqEstado,docEstado,fmtDate,escapeHtml,buildWorkbook:async(...args)=>{state.exportCalls.push(args);return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},buildCargoWorkbook:async(cargo)=>{state.guestExport=cargo;return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},parseWorkbook,highlightMatch,filterDocuments,filterRequirements,cargoYear,invoiceLocation,locationLabel,groupsForCodes,
+  Object.assign(context,{createIdleSession:options=>createIdleSession({...options,now:()=>state.now}),createClient:()=>client,KardexRepository:FakeRepository,reqFromDb,docFromDb,reqEstado,docEstado,fmtDate,escapeHtml,invoiceSearchPresentation,buildWorkbook:async(...args)=>{state.exportCalls.push(args);return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},buildCargoWorkbook:async(cargo)=>{state.guestExport=cargo;return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},parseWorkbook,highlightMatch,filterDocuments,filterRequirements,cargoYear,invoiceLocation,locationLabel,groupsForCodes,
     __SUPABASE_URL__:'https://example.supabase.co',__SUPABASE_ANON_KEY__:'sb_publishable_test',confirm:()=>true,alert:()=>{}});
   await vm.runInContext(`(async()=>{${source}})()`,context);
   const node=id=>dom.window.document.getElementById(id);
@@ -347,11 +347,53 @@ test('top scrollbar stays synchronized with the retained bottom scrollbar',async
   const cells=a.node('tbody').querySelector('tr').cells;
   assert.equal(cells[3].textContent,'2023');assert.equal(cells.length,13);
   assert.match(cells[4].textContent,/Grupo 2, Grupo 17/);
-  assert.match(cells[6].textContent,/Ubicación: Grupo 2, Grupo 17/);
+  assert.equal(cells[6].textContent,'F-001');
+  assert.equal(cells[6].querySelectorAll('mark').length,1);
+  assert.doesNotMatch(cells[6].textContent,/Ubicación|códigos en este registro/);
   assert.equal(a.node('sustentoHeader'),null);
   assert.doesNotMatch(a.node('tbody').textContent,/PRIVATE-SUPPORT|Fecha en origen/);
  }finally{a.close();}
  }
+});
+
+test('Facturas column shows only matching invoice, GR or BV; cargo queries show only the total, for both roles',async()=>{
+ for(const isAdmin of [true,false]){
+  const a=await app({isAdmin,enableSearch:true});
+  try {
+   Object.assign(a.state.docs[0],{
+    cargos:['3388A'],facturas:'F-001, GR-002, BV-003, F-004',cantidad_facturas:4,
+    ubicaciones_codigo:{f001:['2','17'],gr002:['14'],bv003:['21'],f004:['4']}
+   });
+   a.node('btnReconnect').click();await flush();
+   a.node('buscar').value='3388A';a.node('btnBuscar').click();await flush();
+   let cells=a.node('tbody').querySelector('tr').cells;
+   assert.equal(cells[6].textContent,'4 códigos en este registro');
+   assert.doesNotMatch(cells[6].textContent,/F-001|GR-002|BV-003|Ubicación/);
+   assert.equal(cells[4].textContent,'Grupo 2, Grupo 4, Grupo 14, Grupo 17, Grupo 21');
+   for(const [query,code,group] of [
+    ['F-001','F-001','Grupo 2, Grupo 17'],
+    ['GR-002','GR-002','Grupo 14'],
+    ['BV-003','BV-003','Grupo 21']
+   ]){
+    a.node('buscar').value=query;a.node('btnBuscar').click();await flush();
+    cells=a.node('tbody').querySelector('tr').cells;
+    assert.equal(cells[6].textContent,code);
+    assert.equal(cells[6].querySelectorAll('mark').length,1);
+    assert.doesNotMatch(cells[6].textContent,/Ubicación|códigos en este registro|F-004/);
+    assert.equal(cells[4].textContent,group);
+   }
+  } finally {a.close();}
+ }
+});
+
+test('search summaries respect server-side document counts without downloading full invoice lists',()=>{
+ const document={cargos:['3388A'],facturas:'',facturasEncontradas:['F-001','GR-002','BV-003'],
+  cantidadFacturas:156};
+ assert.deepEqual(invoiceSearchPresentation(document,'3388A'),{kind:'cargo',codes:[],total:156});
+ assert.deepEqual(invoiceSearchPresentation(document,'GR-002'),{kind:'invoice',codes:['GR-002'],total:156});
+ assert.deepEqual(invoiceSearchPresentation(document,'BV003'),{kind:'invoice',codes:['BV-003'],total:156});
+ assert.deepEqual(invoiceSearchPresentation(document,'SA-00001'),{kind:'other',codes:[],total:156});
+ assert.deepEqual(invoiceSearchPresentation(document,''),{kind:'browse',codes:['F-001','GR-002','BV-003'],total:156});
 });
 
 test('loading shell hides login before JavaScript and authenticated loading never shows the login panel',async()=>{
