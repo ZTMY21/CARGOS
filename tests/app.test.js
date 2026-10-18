@@ -383,6 +383,8 @@ test('administrator summary shows white colored cards and transparent heart logo
     assert.match(html,/background:#fff/);
     assert.match(html,/background:url\("\/farmacias-heart\.svg"\)/);
     assert.match(html,/#grp-resumen \.year-grid\{/);
+    assert.match(html,/#grp-resumen \.kpi-summary-total\{--accent:#111111;\}/);
+    assert.match(html,/#grp-resumen \.kpi-summary-process\{--accent:#0284c7;\}/);
   } finally {dom.window.close();}
 
   const admin=await app({isAdmin:true});
