@@ -459,6 +459,19 @@ test('administrator summary shows white colored cards and transparent heart logo
     assert.equal(admin.node('resumenTablas').querySelectorAll('.kpi-summary-sent').length,1);
     assert.equal(admin.node('resumenTablas').querySelectorAll('.kpi-summary-process').length,1);
     assert.equal(admin.node('resumenTablas').querySelectorAll('.kpi-summary-pending').length,1);
+    const summary=admin.node('grp-resumen');
+    assert.equal(summary.querySelector('summary .stitle').textContent,'ResumenIndicadores generales');
+    assert.doesNotMatch(summary.querySelector('summary').textContent,/se actualizan solos/i);
+    const total=summary.querySelector('.kpi-summary-total .n');
+    const sent=summary.querySelector('.kpi-summary-sent .n');
+    const process=summary.querySelector('.kpi-summary-process .n');
+    const pending=summary.querySelector('.kpi-summary-pending .n');
+    assert.match(total.textContent,/folios/);
+    assert.match(pending.textContent,/folios/);
+    assert.doesNotMatch(sent.textContent,/folios/);
+    assert.doesNotMatch(process.textContent,/folios/);
+    assert.equal(sent.querySelector('.folios-inline'),null);
+    assert.equal(process.querySelector('.folios-inline'),null);
     assert.equal(admin.node('resumenTablas').querySelectorAll('.year-grid .periodo-fila').length,1);
   }finally{admin.close();}
   const guest=await app({isAdmin:false});

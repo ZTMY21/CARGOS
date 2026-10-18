@@ -347,8 +347,8 @@ function renderDocs(){
   const grupoEnviado = enriched.filter(d=>d.estado==='Enviado a Iron Mountain');
   const grupoProceso = enriched.filter(d=>d.estado==='En Proceso de Acondicionamiento');
   const grupoPendiente = enriched.filter(d=>d.estado==='Pendiente de Envío');
-  const cargosEnviados = cargosDe(grupoEnviado), foliosEnviados = foliosDe(grupoEnviado);
-  const cargosEnProceso = cargosDe(grupoProceso), foliosEnProceso = foliosDe(grupoProceso);
+  const cargosEnviados = cargosDe(grupoEnviado);
+  const cargosEnProceso = cargosDe(grupoProceso);
   const cargosPendientes = cargosDe(grupoPendiente), foliosPendientes = foliosDe(grupoPendiente);
 
   expiryGroups = cargoExpiryGroups(docs, new Date());
@@ -391,12 +391,12 @@ function renderDocs(){
       </div>
       <div class="kpi kpi-color kpi-summary-sent">
         <div class="l">Enviado Iron Mountain</div>
-        <div class="n">${fmtNum(cargosEnviados)}<span class="folios-inline"> (${fmtNum(foliosEnviados)} folios)</span></div>
+        <div class="n">${fmtNum(cargosEnviados)}</div>
         <div class="pct-txt">${pct(cargosEnviados,totalCargos)}</div>
       </div>
       <div class="kpi kpi-color kpi-summary-process">
         <div class="l">En Proceso de Acondicionamiento</div>
-        <div class="n">${fmtNum(cargosEnProceso)}<span class="folios-inline"> (${fmtNum(foliosEnProceso)} folios)</span></div>
+        <div class="n">${fmtNum(cargosEnProceso)}</div>
         <div class="pct-txt">${pct(cargosEnProceso,totalCargos)}</div>
       </div>
       <div class="kpi kpi-color kpi-summary-pending">
