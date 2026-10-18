@@ -271,11 +271,11 @@
       <span>Estado de sincronización</span>
     </div>
     <h2 id="googleSyncTitle">Sincronización automática con Google Sheets</h2>
-    <p class="sync-intro">Revisión cada hora. Agrega cargos y facturas nuevos sin borrar el histórico ni modificar tus datos manuales.</p>
-    <p class="sync-intro">Completa Fecha, Cargo y Código. Las filas incompletas quedarán pendientes para la siguiente revisión.</p>
+    <p class="sync-intro">Registro por edición en la hoja nativa. Envía cada cargo completo a Supabase sin reimportar el histórico (hasta 932).</p>
+    <p class="sync-intro">Completa Fecha, Cargo, Grupo y Código en la hoja «CARGOS NUEVOS». La activación requiere autorizar una vez el disparador onEdit en Apps Script.</p>
     <div class="sync-stats" aria-label="Resultados de la última sincronización">
       <article class="sync-stat">
-        <span class="sync-stat-label">Cargos Actuales 2026</span>
+        <span class="sync-stat-label">Cargos nuevos registrados</span>
         <strong id="googleSyncRegistered" class="sync-stat-value">—</strong>
       </article>
       <article class="sync-stat sync-stat-pending">
@@ -296,7 +296,7 @@
       <div class="sync-panel-actions">
         <button id="btnToggleGoogleSync" type="button" disabled>Pausar sincronización</button>
         <div class="google-excel-links" aria-label="Archivos de cargos de Google Drive">
-          <a id="btnOpenGoogleExcel" class="excel-link-button" href="https://docs.google.com/spreadsheets/d/1ySVaQI9Oegn4bea8pvTrd0ReDfsN8dIr/edit" target="_blank" rel="noopener noreferrer">Cargos Actuales</a>
+          <a id="btnOpenGoogleExcel" class="excel-link-button" href="https://docs.google.com/spreadsheets/d/18TbKWiVUWKfkJOXvR0kGEMb5eVKTDCfoXAUtD5rCxts/edit" target="_blank" rel="noopener noreferrer">Cargos Nuevos</a>
           <a id="btnOpenIronMountainExcel" class="excel-link-button" href="https://docs.google.com/spreadsheets/d/1ap1GzGd3HBvkV2N7p6dvkFIYwHS_cIqO/edit?usp=drivesdk&amp;ouid=101835988006141638443&amp;rtpof=true&amp;sd=true" target="_blank" rel="noopener noreferrer">Cargos Enviados</a>
         </div>
       </div>
