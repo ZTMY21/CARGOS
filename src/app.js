@@ -450,7 +450,7 @@ function renderDocs(){
         <td>${fmtDate(fechaEnvioTxt)}</td>
         <td><span class="badge ${docBadgeClass(d.estado)}">${escapeHtml(estadoTxt)}</span></td>
         <td class="${alertaClass}">${alertaTxt}</td>
-        <td>${highlightMatch(responsableTxt||'',search)}${d.hojaOrigen?`<span class="origin-label">${escapeHtml(d.hojaOrigen)}</span>`:''}</td>
+        <td>${highlightMatch(responsableTxt||'',search)}</td>
         <td>
           <button class="secondary" data-export-cargo="${d.id}" ${!d.cargos?.length?'disabled title="Este registro no tiene cargo asignado"':''}>Exportar este cargo</button>
           ${isAdmin ? `<button class="link" data-edit="${d.id}">Editar</button>
