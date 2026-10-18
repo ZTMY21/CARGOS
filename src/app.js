@@ -113,6 +113,7 @@ function setAvailability() {
   document.getElementById('btnExportar').hidden=true;
   document.getElementById('appShell').classList.toggle('read-only', !isAdmin);
   ['googleSyncPanel','grp-resumen','grp-requerimientos','grp-documentos','btnImportar','btnReset'].forEach(id=>document.getElementById(id).hidden=!isAdmin);
+  document.getElementById('btnRefreshNewCargos').hidden=!isAdmin;
   document.getElementById('readOnlyNotice').hidden=!appReady||isAdmin;
   document.getElementById('existenciasSubtitulo').textContent = isAdmin
     ? 'Consulta, búsqueda, exportación e importación de documentos'
@@ -1014,6 +1015,29 @@ document.getElementById('btnReconnect').addEventListener('click',async ()=>{
     if (error) throw error;
     await handleSession(data.session);
   } catch(error) { setStatus(readableError(error),'error'); }
+});
+document.getElementById('btnRefreshNewCargos').addEventListener('click',async event=>{
+  if(!appReady||!isAdmin||!currentUserId||!repository)return;
+  const button=event.currentTarget;
+  button.disabled=true;
+  button.textContent='Refrescando…';
+  const previous=cargoTotals2026().total;
+  try {
+    await refreshData();
+    const filters=appliedFilters;
+    if(repository.search && (filters.query||filters.state||filters.type||filters.location||filters.year||filters.invoiceExact))
+      await fetchSearchResults();
+    const current=cargoTotals2026().total;
+    await refreshGoogleSync();
+    setStatus(current===previous
+      ? `Cargos verificados: ${fmtNum(current)} de 2026. Si falta una factura, revisa el resultado de envío en Google Sheets.`
+      : `Cargos 2026 actualizados: ${fmtNum(previous)} → ${fmtNum(current)}.`, 'online');
+  } catch(error) {
+    setStatus('No se pudo refrescar: '+readableError(error),'error');
+  } finally {
+    button.textContent='↻ Refrescar cargos nuevos';
+    button.disabled=false;
+  }
 });
 window.addEventListener('offline',()=>{channelReady=false;setStatus('Sin conexión — Los cambios requieren conexión en línea','error');});
 window.addEventListener('online',()=>{if(currentUserId){subscribeRealtime();scheduleRefresh();}});
