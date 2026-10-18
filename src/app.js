@@ -157,6 +157,7 @@ async function refreshData() {
       await loadDocs(snapshot);
       populateYearOptions();
       renderReqs(); renderDocs();
+      if(isAdmin) void refreshGoogleSync();
       const selected = document.getElementById('f_cajaAsignada').value;
       populateCajaAsignadaOptions(selected);
       dataReady = true;
@@ -334,6 +335,24 @@ async function loadDocs(snapshot){
   const data = snapshot || await repository.snapshot();
   docs = data.documentos.map(docFromDb);
 }
+// Total 2026 = cargos históricos del Excel + nuevos de la hoja nativa.
+// Una factura adicional para el mismo cargo no aumenta el contador.
+function cargoTotals2026(){
+  const todos=new Set(),historicos=new Set(),nuevos=new Set();
+  for(const d of docs) {
+    if(cargoYear(d)!=='2026') continue;
+    const origen=String(d.claveOrigen||'');
+    for(const value of d.cargos||[]){
+      const cargo=String(value??'').trim().replace(/\\.0+$/,'').replace(/^0+(?=\\d)/,'');
+      if(!cargo)continue;
+      todos.add(cargo);
+      if(origen.startsWith('google-live|')) nuevos.add(cargo);
+      else historicos.add(cargo);
+    }
+  }
+  return {total:todos.size,historicos:historicos.size,
+    nuevos:[...nuevos].filter(c=>!historicos.has(c)).length};
+}
 function renderDocs(){
   const filters=appliedFilters;
   const search=filters.query;
@@ -370,6 +389,8 @@ function renderDocs(){
     const anio = /^\d{4}$/.test(anioOrigen) ? anioOrigen : 'Sin año';
     cargosPorAnio.set(anio, (cargosPorAnio.get(anio)||0) + cantidad);
   });
+  const conteo2026=cargoTotals2026();
+  if(cargosPorAnio.has('2026')) cargosPorAnio.set('2026',conteo2026.total);
   const aniosOrdenados = [...cargosPorAnio.keys()].sort((a,b)=>
     a==='Sin año' ? 1 : b==='Sin año' ? -1 : Number(a)-Number(b));
   const porPeriodoHtml = aniosOrdenados.length
@@ -379,7 +400,7 @@ function renderDocs(){
        </div>`).join('')
     : '<div class="year-empty">Sin cargos registrados</div>';
   const notaOrigen = cargosPorAnio.has('2026')
-    ? '<div class="periodo-nota">2026 se actualiza desde Google Sheets · Cargos Actuales</div>'
+    ? `<div class="periodo-nota">2026 se actualiza desde Google Sheets · Cargos Actuales — ${fmtNum(conteo2026.historicos)} del Excel base + ${fmtNum(conteo2026.nuevos)} nuevos = ${fmtNum(conteo2026.total)} cargos</div>`
     : '';
 
   document.getElementById('resumenTablas').innerHTML = `
@@ -1061,7 +1082,8 @@ async function refreshGoogleSync(){
       badge.dataset.status=!data.enabled?'paused':activated?'active':'loading';
       document.getElementById('googleSyncBadgeText').textContent=!data.enabled?'PAUSADA':activated?'EN TIEMPO REAL':'POR ACTIVAR';
     }
-    const groups=syncMetric(result.groups);
+    const conteo2026=cargoTotals2026();
+    const groups=syncMetric(onEditMode?conteo2026.total:result.groups);
     const pending=syncMetric(result.pending_rows);
     const conflicts=syncMetric(result.conflictos);
     document.getElementById('googleSyncRegistered').textContent=groups;
@@ -1076,7 +1098,7 @@ async function refreshGoogleSync(){
       : 'Última revisión: '+last+' (Lima)';
     document.getElementById('googleSyncStatus').textContent=data.status||'Sin estado informado';
     document.getElementById('googleSyncDetails').textContent=onEditMode
-      ? `Hoja nueva: ${groups} cargos incorporados; sin reimportar el histórico. Los errores por fila aparecen en las columnas Estado y Detalle de Google Sheets.`
+      ? `Cargos de 2026: ${fmtNum(conteo2026.historicos)} del Excel base + ${fmtNum(conteo2026.nuevos)} incorporados desde Google Sheets = ${groups} cargos únicos. Los errores se registran en las columnas técnicas ocultas de la hoja.`
       : `Último procesamiento: ${groups} cargos revisados; ${syncMetric(result.cargos_nuevos)} nuevos; ${syncMetric(result.cargos_actualizados)} actualizados; ${pending} filas pendientes; ${conflicts} conflictos.`;
   }catch(error){
     document.getElementById('googleSyncBadge').dataset.status='error';
