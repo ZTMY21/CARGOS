@@ -162,6 +162,8 @@
   button:hover{background:var(--navy-dark);}
   button.secondary{background:#fff;color:var(--navy);border:1px solid var(--border);}
   button.secondary:hover{background:var(--bg);}
+  #btnRefreshNewCargos{padding:6px 11px;border-radius:20px;font-size:12px;white-space:nowrap;border-color:#cbd7e4;color:#1d5271;}
+  #btnRefreshNewCargos:disabled{opacity:.6;cursor:wait;}
   button.danger{background:#fff;color:var(--red);border:1px solid var(--red);padding:4px 10px;font-size:12px;}
   button.link{background:#fff;color:var(--navy);border:1px solid var(--border);padding:4px 10px;font-size:12px;}
   .msg{font-size:12px;color:var(--green);}
@@ -261,6 +263,7 @@
     <span id="connectionDot" class="connection-dot"></span>
     <span id="connectionStatus">Conexión pendiente</span>
     <button id="btnReconnect" class="secondary connection-action">Actualizar</button>
+    <button id="btnRefreshNewCargos" type="button" class="secondary connection-action" hidden title="Volver a consultar los cargos nuevos que ya recibió Supabase">↻ Refrescar cargos nuevos</button>
     <button id="btnSignOut" class="secondary connection-action" hidden>Salir</button>
   </div>
   <section id="googleSyncPanel" hidden class="sync-panel" aria-labelledby="googleSyncTitle">
