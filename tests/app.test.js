@@ -369,7 +369,8 @@ test('Facturas column shows only matching invoice, GR or BV; cargo queries show 
    let cells=a.node('tbody').querySelector('tr').cells;
    assert.equal(cells[6].textContent,'4 códigos en este registro');
    assert.doesNotMatch(cells[6].textContent,/F-001|GR-002|BV-003|Ubicación/);
-   assert.equal(cells[4].textContent,'Grupo 2, Grupo 4, Grupo 14, Grupo 17, Grupo 21');
+   assert.equal(cells[4].textContent,''); // Cargo: Ubicación queda completamente vacía.
+   assert.equal(cells.length,13); // No desplazar las demás columnas.
    for(const [query,code,group] of [
     ['F-001','F-001','Grupo 2, Grupo 17'],
     ['GR-002','GR-002','Grupo 14'],

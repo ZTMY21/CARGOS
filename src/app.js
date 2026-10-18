@@ -456,10 +456,10 @@ function renderDocs(){
         ? 'Sin Responsable' : responsableOrigen;
       const estadoTxt = d.imConfirmado ? 'Enviado' : d.estado;
       const invoiceView=invoiceSearchPresentation(d,search);
-      // When looking up a document, show only the groups of matching codes.
-      // For a cargo, show its groups in Ubicación and only its document count in Facturas.
+      // Only document-code searches (facturas, guías, boletas) need group details.
+      // Keep the location table cell empty for cargo matches without shifting columns.
       const codesForGroups=invoiceView.kind==='invoice'?invoiceView.codes:Object.keys(d.ubicacionesCodigo||{});
-      const groupLocation=d.ubicacionesCodigo
+      const groupLocation=invoiceView.kind==='cargo' ? '' : d.ubicacionesCodigo
         ? locationLabel(groupsForCodes(d.ubicacionesCodigo,codesForGroups))
         : d.errorUbicacion || (search?'Consultando grupo…':'Busca un documento o cargo');
       const invoiceCell=invoiceView.kind==='invoice'
