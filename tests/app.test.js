@@ -369,6 +369,37 @@ test('loading shell hides login before JavaScript and authenticated loading neve
   assert.deepEqual(a.state.loadingDuringAccess,{loading:true,login:false});
  }finally{a.close();}
 });
+test('administrator summary shows white colored cards and transparent heart logo, without changing guest access',async()=>{
+  const html=await readFile(new URL('../index.html',import.meta.url),'utf8');
+  const svg=await readFile(new URL('../public/farmacias-heart.svg',import.meta.url),'utf8');
+  const dom=new JSDOM(html);
+  try {
+    assert.equal(dom.window.document.querySelector('#appShell img.header-logo').getAttribute('src'),'/farmacias-heart.svg');
+    assert.match(svg,/viewBox="0 50 512 400"/);
+    assert.match(svg,/fill="#e30613"/);
+    assert.match(svg,/fill="#878786"/);
+    assert.doesNotMatch(svg,/<rect[^>]+fill="#000"/);
+    assert.match(html,/#grp-resumen \.kpi\{/);
+    assert.match(html,/background:#fff/);
+    assert.match(html,/background:url\("\/farmacias-heart\.svg"\)/);
+    assert.match(html,/#grp-resumen \.year-grid\{/);
+  } finally {dom.window.close();}
+
+  const admin=await app({isAdmin:true});
+  try {
+    const cards=admin.node('resumenTablas').querySelectorAll('.kpis > .kpi');
+    assert.equal(cards.length,6);
+    assert.equal(admin.node('resumenTablas').querySelectorAll('.kpi-summary-total').length,1);
+    assert.equal(admin.node('resumenTablas').querySelectorAll('.kpi-summary-sent').length,1);
+    assert.equal(admin.node('resumenTablas').querySelectorAll('.kpi-summary-process').length,1);
+    assert.equal(admin.node('resumenTablas').querySelectorAll('.kpi-summary-pending').length,1);
+    assert.equal(admin.node('resumenTablas').querySelectorAll('.year-grid .periodo-fila').length,1);
+  }finally{admin.close();}
+  const guest=await app({isAdmin:false});
+  try {assert.equal(guest.node('grp-resumen').hidden,true);}
+  finally{guest.close();}
+});
+
 test('admin summary groups Excel cargo years and refreshes 2026 after Google-sync events',async()=>{
   const a=await app({isAdmin:true});
   try {

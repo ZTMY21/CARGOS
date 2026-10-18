@@ -367,52 +367,58 @@ function renderDocs(){
   const aniosOrdenados = [...cargosPorAnio.keys()].sort((a,b)=>
     a==='Sin año' ? 1 : b==='Sin año' ? -1 : Number(a)-Number(b));
   const porPeriodoHtml = aniosOrdenados.length
-    ? aniosOrdenados.map(a=>`<div class="periodo-fila"><span>${escapeHtml(a)}</span><span>${fmtNum(cargosPorAnio.get(a))} cargos</span></div>`).join('')
-      + (cargosPorAnio.has('2026') ? '<div class="periodo-nota">2026 se actualiza desde Google Sheets</div>' : '')
-    : '<div class="periodo-fila" style="color:var(--muted)">Sin cargos registrados</div>';
+    ? aniosOrdenados.map(a=>`<div class="periodo-fila ${a==='2026'?'year-current':''}">
+         <span class="year-label">${escapeHtml(a)}</span>
+         <span class="year-value">${fmtNum(cargosPorAnio.get(a))} <span class="year-unit">cargos</span></span>
+       </div>`).join('')
+    : '<div class="year-empty">Sin cargos registrados</div>';
+  const notaOrigen = cargosPorAnio.has('2026')
+    ? '<div class="periodo-nota">2026 se actualiza desde Google Sheets · Cargos Actuales</div>'
+    : '';
 
   document.getElementById('resumenTablas').innerHTML = `
-    <div class="kpis">
-      <div class="kpi kpi-color">
-        <div class="l" style="color:#1F2937">Total de Cargos</div>
-        <div class="n" style="color:#1F2937">${totalCargos}<span class="folios-inline"> (${fmtNum(totalFolios)} folios)</span></div>
-        <div class="pct-txt" style="color:#1F2937">${pct(totalCargos,totalCargos)}</div>
+    <div class="kpis" aria-label="Estado de todos los cargos">
+      <div class="kpi kpi-color kpi-summary-total">
+        <div class="l">Total de Cargos</div>
+        <div class="n">${fmtNum(totalCargos)}<span class="folios-inline"> (${fmtNum(totalFolios)} folios)</span></div>
+        <div class="pct-txt">${pct(totalCargos,totalCargos)}</div>
       </div>
-      <div class="kpi kpi-color">
-        <div class="l" style="color:#2E7D46">Enviado Iron Mountain</div>
-        <div class="n" style="color:#2E7D46">${cargosEnviados}<span class="folios-inline"> (${fmtNum(foliosEnviados)} folios)</span></div>
-        <div class="pct-txt" style="color:#2E7D46">${pct(cargosEnviados,totalCargos)}</div>
+      <div class="kpi kpi-color kpi-summary-sent">
+        <div class="l">Enviado Iron Mountain</div>
+        <div class="n">${fmtNum(cargosEnviados)}<span class="folios-inline"> (${fmtNum(foliosEnviados)} folios)</span></div>
+        <div class="pct-txt">${pct(cargosEnviados,totalCargos)}</div>
       </div>
-      <div class="kpi kpi-color">
-        <div class="l" style="color:#1F4E78">En Proceso de Acondicionamiento</div>
-        <div class="n" style="color:#1F4E78">${cargosEnProceso}<span class="folios-inline"> (${fmtNum(foliosEnProceso)} folios)</span></div>
-        <div class="pct-txt" style="color:#1F4E78">${pct(cargosEnProceso,totalCargos)}</div>
+      <div class="kpi kpi-color kpi-summary-process">
+        <div class="l">En Proceso de Acondicionamiento</div>
+        <div class="n">${fmtNum(cargosEnProceso)}<span class="folios-inline"> (${fmtNum(foliosEnProceso)} folios)</span></div>
+        <div class="pct-txt">${pct(cargosEnProceso,totalCargos)}</div>
       </div>
-      <div class="kpi kpi-color">
-        <div class="l" style="color:#C00000">Pendiente de Envío a IM</div>
-        <div class="n" style="color:#C00000">${cargosPendientes}<span class="folios-inline"> (${fmtNum(foliosPendientes)} folios)</span></div>
-        <div class="pct-txt" style="color:#C00000">${pct(cargosPendientes,totalCargos)}</div>
+      <div class="kpi kpi-color kpi-summary-pending">
+        <div class="l">Pendiente de Envío a IM</div>
+        <div class="n">${fmtNum(cargosPendientes)}<span class="folios-inline"> (${fmtNum(foliosPendientes)} folios)</span></div>
+        <div class="pct-txt">${pct(cargosPendientes,totalCargos)}</div>
       </div>
     </div>
     <div class="resumen-titulo-alerta">Alerta que cuenta sólo lo que está por enviar</div>
     <div class="alerta-row">
-      <div class="kpis" style="max-width:600px">
-        <div class="kpi kpi-color">
-          <div class="l" style="color:#1F4E78">Cargos por Vencer</div>
-          <div class="n" style="color:#1F4E78">${cargosPorVencer}<span class="folios-inline"> (${fmtNum(foliosPorVencer)} folios)</span></div>
-          <div class="pct-txt" style="color:#1F4E78">${pct(cargosPorVencer,baseAlerta)}</div>
+      <div class="kpis" aria-label="Alertas de cargos pendientes">
+        <div class="kpi kpi-color kpi-summary-expiring">
+          <div class="l">Cargos por Vencer</div>
+          <div class="n">${fmtNum(cargosPorVencer)}<span class="folios-inline"> (${fmtNum(foliosPorVencer)} folios)</span></div>
+          <div class="pct-txt">${pct(cargosPorVencer,baseAlerta)}</div>
         </div>
-        <div class="kpi kpi-color">
-          <div class="l" style="color:#C00000">Cargos Vencidos</div>
-          <div class="n" style="color:#C00000">${cargosVencidos}<span class="folios-inline"> (${fmtNum(foliosVencidos)} folios)</span></div>
-          <div class="pct-txt" style="color:#C00000">${pct(cargosVencidos,baseAlerta)}</div>
+        <div class="kpi kpi-color kpi-summary-overdue">
+          <div class="l">Cargos Vencidos</div>
+          <div class="n">${fmtNum(cargosVencidos)}<span class="folios-inline"> (${fmtNum(foliosVencidos)} folios)</span></div>
+          <div class="pct-txt">${pct(cargosVencidos,baseAlerta)}</div>
         </div>
-      </div>
-      <div class="kpi periodo-box">
-        <div class="l" style="color:#1F2937">Cargos por Año</div>
-        ${porPeriodoHtml}
       </div>
     </div>
+    <section class="year-section periodo-box" aria-labelledby="year-summary-heading">
+      <h3 class="year-heading" id="year-summary-heading">Cargos por Año</h3>
+      <div class="year-grid" aria-live="polite">${porPeriodoHtml}</div>
+      ${notaOrigen}
+    </section>
   `;
 
   let filtered=queryResults?.rows?.map(d=>({...d,...computeDocEstado(d)}))
