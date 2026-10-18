@@ -108,6 +108,9 @@ function setAvailability() {
   document.getElementById('appShell').classList.toggle('read-only', !isAdmin);
   ['googleSyncPanel','grp-resumen','grp-requerimientos','grp-documentos','btnImportar','btnReset'].forEach(id=>document.getElementById(id).hidden=!isAdmin);
   document.getElementById('readOnlyNotice').hidden=!appReady||isAdmin;
+  document.getElementById('existenciasSubtitulo').textContent = isAdmin
+    ? 'Consulta, búsqueda, exportación e importación de documentos'
+    : 'Consulta, búsqueda y exportación de documentos';
 
   document.querySelectorAll('.group button').forEach(b => b.disabled = !appReady || mutationBusy);
   ['btnReset','btnImportar','btnGuardar','btnGuardarReq'].forEach(id => document.getElementById(id).disabled = !appReady || !isAdmin || mutationBusy);
@@ -434,7 +437,9 @@ function renderDocs(){
       const req = reqs.find(r=>r.id===d.cajaAsignada);
       const cajaTxt = d.imConfirmado ? d.imCodigoCaja : (req ? req.numero : '—');
       const fechaEnvioTxt = d.imConfirmado ? d.imFechaEnvio : d.fEnvio;
-      const responsableTxt = d.imConfirmado ? d.imResponsable : d.usuario;
+      const responsableOrigen = d.imConfirmado ? d.imResponsable : d.usuario;
+      const responsableTxt = !String(responsableOrigen||'').trim() || /^importaci[oó]n excel$/i.test(String(responsableOrigen).trim())
+        ? 'Sin Responsable' : responsableOrigen;
       const estadoTxt = d.imConfirmado ? 'Enviado' : d.estado;
       const invoiceCodes=d.facturasEncontradas?.length?d.facturasEncontradas:(d.facturas||'').split(/[,;\n]/).map(v=>v.trim()).filter(Boolean).slice(0,3);
       const groupLocation=d.ubicacionesCodigo ? locationLabel(groupsForCodes(d.ubicacionesCodigo,invoiceCodes.length?invoiceCodes:Object.keys(d.ubicacionesCodigo))) : d.errorUbicacion || (search?'Consultando grupo…':'Busca un documento o cargo');
