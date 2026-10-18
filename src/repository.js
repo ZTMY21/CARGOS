@@ -18,6 +18,8 @@ export function docFromDb(row) {
     sustentoImagen: safeImage(row.sustento_imagen), usuario: row.usuario,
     imConfirmado: !!row.im_confirmado, imCodigoCaja: row.im_codigo_caja || '',
     imFechaEnvio: row.im_fecha_envio || '', imResponsable: row.im_responsable || '',
+    imPreparado: !!row.im_preparado, imCajaPreparada: row.im_caja_preparada || '',
+    imResponsablePreparacion: row.im_responsable_preparacion || '',
     facturas: row.facturas || '', obs: row.obs || '', updatedAt: row.updated_at,
     facturasEncontradas: row.facturas_encontradas || [], cantidadFacturas: row.cantidad_facturas,
     ubicacionesCodigo: row.ubicaciones_codigo, errorUbicacion: row.error_ubicacion,
