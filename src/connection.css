@@ -43,6 +43,7 @@ mark{background:var(--yellow-bg);color:var(--navy-dark);font-weight:700;border-r
 .search-count{font-size:12px;color:var(--muted);margin:10px 0;}
 .invoice-results{max-width:260px;white-space:normal;word-break:break-word;line-height:1.4;}
 .origin-label{display:block;font-size:10px;color:var(--muted);max-width:240px;white-space:normal;margin-top:3px;}
+.invoice-count{font-weight:600;color:var(--navy);}
 .pagination{display:flex;gap:10px;align-items:center;justify-content:flex-end;margin-top:14px;font-size:12px;color:var(--muted);}
 .pagination button{font-size:12px;padding:6px 10px;}
 .import-progress{font-size:12px;line-height:1.5;color:var(--navy);margin-top:10px;}
