@@ -2,10 +2,10 @@ import { createClient } from '@supabase/supabase-js';
 import { computeReqEstado as reqEstado, computeDocEstado as docEstado, fmtDate, escapeHtml, limaDate } from './rules.js';
 import { KardexRepository, reqFromDb, docFromDb } from './repository.js';
 import { buildCargoWorkbook, parseWorkbook } from './excel-api.js';
-import { highlightMatch, filterDocuments, filterRequirements } from './search.js';
+import { highlightMatch, filterDocuments, filterRequirements, invoiceSearchPresentation } from './search.js';
 import './connection.css';
 import { createIdleSession } from './idle-session.js';
-import { cargoYear, invoiceLocation, locationLabel, groupsForCodes } from './cargo-details.js';
+import { cargoYear, locationLabel, groupsForCodes } from './cargo-details.js';
 import { cargoExpiryGroups, formatCargoDuration } from './cargo-expiry.js';
 
 const configuration = { url: __SUPABASE_URL__, key: __SUPABASE_ANON_KEY__ };
@@ -455,8 +455,19 @@ function renderDocs(){
       const responsableTxt = !String(responsableOrigen||'').trim() || /^importaci[oó]n excel$/i.test(String(responsableOrigen).trim())
         ? 'Sin Responsable' : responsableOrigen;
       const estadoTxt = d.imConfirmado ? 'Enviado' : d.estado;
-      const invoiceCodes=d.facturasEncontradas?.length?d.facturasEncontradas:(d.facturas||'').split(/[,;\n]/).map(v=>v.trim()).filter(Boolean).slice(0,3);
-      const groupLocation=d.ubicacionesCodigo ? locationLabel(groupsForCodes(d.ubicacionesCodigo,invoiceCodes.length?invoiceCodes:Object.keys(d.ubicacionesCodigo))) : d.errorUbicacion || (search?'Consultando grupo…':'Busca un documento o cargo');
+      const invoiceView=invoiceSearchPresentation(d,search);
+      // When looking up a document, show only the groups of matching codes.
+      // For a cargo, show its groups in Ubicación and only its document count in Facturas.
+      const codesForGroups=invoiceView.kind==='invoice'?invoiceView.codes:Object.keys(d.ubicacionesCodigo||{});
+      const groupLocation=d.ubicacionesCodigo
+        ? locationLabel(groupsForCodes(d.ubicacionesCodigo,codesForGroups))
+        : d.errorUbicacion || (search?'Consultando grupo…':'Busca un documento o cargo');
+      const invoiceCell=invoiceView.kind==='invoice'
+        ? invoiceView.codes.map(code=>`<div>${highlightMatch(code,search)}</div>`).join('')
+        : invoiceView.kind==='browse'
+          ? invoiceView.codes.map(code=>`<div>${escapeHtml(code)}</div>`).join('')
+            + (invoiceView.total ? `<span class="origin-label">${fmtNum(invoiceView.total)} códigos en este registro</span>` : '')
+          : `<span class="invoice-count">${fmtNum(invoiceView.total)} códigos en este registro</span>`;
       return `<tr>
         <td>${highlightMatch(d.kardex,search)}</td>
         <td>${fmtDate(d.fechaRegistro)}</td>
@@ -464,7 +475,7 @@ function renderDocs(){
         <td>${escapeHtml(cargoYear(d))}</td>
         <td>${escapeHtml(groupLocation)}</td>
         <td>${highlightMatch((d.cargos||[]).join(', ')||'Sin cargo asignado',search)}</td>
-        <td class="invoice-results">${invoiceCodes.map(v=>`<div>${highlightMatch(v,search)}${search?`<span class="origin-label">Ubicación: ${escapeHtml(invoiceLocation(d,v))}</span>`:''}</div>`).join('')}${d.cantidadFacturas?`<span class="origin-label">${fmtNum(d.cantidadFacturas)} códigos en este registro</span>`:''}</td>
+        <td class="invoice-results">${invoiceCell}</td>
         <td>${highlightMatch(cajaTxt,search)}</td>
         <td>${fmtDate(fechaEnvioTxt)}</td>
         <td><span class="badge ${docBadgeClass(d.estado)}">${escapeHtml(estadoTxt)}</span></td>
