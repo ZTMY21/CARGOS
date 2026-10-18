@@ -3,19 +3,40 @@
 .connection-dot.online{background:var(--green);}
 .connection-dot.error{background:var(--red);}
 .connection-action{font-size:11px;padding:4px 8px;}
-.auth-overlay{min-height:100dvh;box-sizing:border-box;background:#fff;display:flex;align-items:center;justify-content:center;padding:32px 20px;}
+/* Pantalla de acceso Farmacias Peruanas: centrada, clara y adaptable. */
+.auth-overlay{min-height:100dvh;box-sizing:border-box;background:#fff;display:flex;align-items:center;justify-content:center;padding:26px 20px 30px;overflow-y:auto;}
 .auth-overlay[hidden]{display:none;}
-.auth-card{background:#fff;max-width:380px;width:100%;}
-.auth-brand{font-size:11px!important;font-weight:700;letter-spacing:2px;color:var(--navy)!important;margin:0 0 20px;}
-.auth-card input{box-sizing:border-box;width:100%;min-height:44px;}
-.auth-card button{min-height:42px;}
-.auth-text-button{background:none;color:var(--navy);border:0;font-size:13px;text-align:left;padding:8px 0;}
+.auth-card{background:#fff;width:100%;max-width:350px;margin:auto 0;color:#1b2533;}
+.auth-logo{display:block;width:min(244px,82%);height:auto;object-fit:contain;margin:0 auto 24px;}
+.auth-brand{font-size:10px!important;font-weight:700;letter-spacing:1.8px;color:#475569!important;margin:0 0 9px!important;}
+.auth-card h2{margin:0 0 9px;font-size:22px;font-weight:700;line-height:1.2;color:#111827;}
+.auth-card p{font-size:12px;color:#707987;line-height:1.5;}
+.auth-card #authDescription{margin:0 0 13px;}
+.auth-card label{font-size:12px;color:#64748b;margin-bottom:5px;}
+.auth-card .field{margin-bottom:13px;}
+.auth-card input{box-sizing:border-box;width:100%;height:44px;min-height:44px;border:1px solid #dce1e7;border-radius:5px;background:#fff;padding:10px 12px;font-size:13px;}
+.auth-card input:focus{outline:2px solid #e78079;outline-offset:1px;border-color:#d6271b;}
+.auth-card button{box-sizing:border-box;width:100%;min-height:40px;margin-top:6px;padding:10px 14px;border-radius:5px;font-size:13px;transition:background .15s ease,border-color .15s ease;}
+.auth-card #btnLogin,.auth-card #btnUpdatePassword{background:#d9291e;color:#fff;border:1px solid #d9291e;font-weight:600;}
+.auth-card #btnLogin:hover,.auth-card #btnUpdatePassword:hover{background:#bd241b;border-color:#bd241b;}
+.auth-card button.secondary{background:#fff;color:#b82b25;border:1px solid #d48f8c;}
+.auth-card button.secondary:hover{background:#fff4f3;border-color:#bf4037;}
+.auth-card #registerHelp{margin:10px 0 12px;font-size:11px;line-height:1.5;}
+.auth-card .auth-text-button{display:block;width:auto;min-height:32px;margin:10px 0 7px;padding:5px 0;text-align:left;background:transparent;color:#ad342d;border:0;font-size:12px;}
+.auth-card .auth-text-button:hover{background:transparent;color:#8f231d;text-decoration:underline;}
+.auth-card .auth-text-button:focus-visible,.auth-card button:focus-visible{outline:2px solid #d9291e;outline-offset:2px;}
 #appShell[hidden],.auth-card [hidden]{display:none!important;}
-.auth-card h2{margin:0 0 10px;font-size:20px;color:var(--navy-dark);}
-.auth-card p{font-size:13px;color:var(--muted);line-height:1.5;}
-.auth-card .field{margin-bottom:12px;}
-.auth-card button{width:100%;margin-top:6px;}
-.auth-message{font-size:12px;line-height:1.5;min-height:18px;}
+.auth-card #resetPasswordForm{margin-top:12px;}
+.auth-card #btnAuthSignOut{margin-top:8px;}
+.auth-card .auth-message{margin:10px 0 0;font-size:12px;line-height:1.45;color:#475569;overflow-wrap:anywhere;}
+.auth-card .auth-message:empty{display:none;}
+.auth-decoration{display:block;width:154px;max-width:55%;height:auto;margin:23px auto 0;pointer-events:none;user-select:none;}
+@media(max-width:480px){
+  .auth-overlay{padding:22px 20px 26px;}
+  .auth-card{max-width:340px;}
+  .auth-logo{width:min(220px,80%);margin-bottom:19px;}
+  .auth-decoration{width:126px;margin-top:20px;}
+}
 button:disabled{opacity:.55;cursor:wait;}
 .cond-field[hidden]{display:none;}
 mark{background:var(--yellow-bg);color:var(--navy-dark);font-weight:700;border-radius:2px;padding:1px 2px;}

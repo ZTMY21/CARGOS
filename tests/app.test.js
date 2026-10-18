@@ -87,6 +87,33 @@ test('blank login page hides the entire Kardex until successful authentication a
  }finally{a.close();}
 });
 
+test('login uses Farmacias Peruanas reference layout without changing access actions',async()=>{
+ const html=await readFile(new URL('../index.html',import.meta.url),'utf8');
+ const css=await readFile(new URL('../src/connection.css',import.meta.url),'utf8');
+ const dom=new JSDOM(html);
+ try {
+   const d=dom.window.document;
+   assert.equal(d.getElementById('authOverlay').hidden,true);
+   assert.equal(d.querySelector('#authOverlay .auth-card').getAttribute('aria-labelledby'),'authTitle');
+   const logo=d.getElementById('authLogo');
+   assert.equal(logo.alt,'Farmacias Peruanas');
+   assert.equal(logo.getAttribute('src'),d.querySelector('#sessionLoading .loading-brand').getAttribute('src'));
+   assert.match(d.querySelector('.auth-brand').textContent,/CD SANTA ANITA/);
+   assert.equal(d.getElementById('authTitle').textContent,'Iniciar sesión');
+   assert.equal(d.getElementById('btnLogin').textContent,'Ingresar');
+   assert.equal(d.getElementById('btnRegister').textContent,'Crear cuenta de invitado');
+   assert.equal(d.getElementById('btnForgotPassword').textContent,'Olvidé mi contraseña');
+   assert.equal(d.getElementById('btnMagicLink').textContent,'Recibir enlace de acceso por correo');
+   assert.equal(d.querySelectorAll('#authOverlay .auth-decoration').length,1);
+   assert.equal(d.querySelector('.auth-decoration').getAttribute('aria-hidden'),'true');
+   assert.ok(d.getElementById('resetPasswordForm').hidden);
+   assert.match(css,/\.auth-overlay\{[^}]*background:#fff/);
+   assert.match(css,/\.auth-logo\{[^}]*margin:0 auto/);
+   assert.match(css,/#btnLogin[^}]*background:#d9291e/);
+   assert.match(css,/@media\(max-width:480px\)/);
+ } finally {dom.window.close();}
+});
+
 test('invalid credentials explain recovery and leave the application hidden',async()=>{
  const a=await app({signedIn:false,loginError:{code:'invalid_credentials',message:'Invalid login credentials'}});
  try{
