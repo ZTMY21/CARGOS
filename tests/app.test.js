@@ -842,3 +842,21 @@ test('botón de refrescar cargos nuevos es exclusivo del administrador y consult
  try{assert.equal(guest.node('btnRefreshNewCargos').hidden,true);}
  finally{guest.close();}
 });
+
+
+test('panel distingue altas recibidas de bajas no confirmadas y da instrucciones',async()=>{
+ const a=await app({isAdmin:true});
+ try {
+  a.state.syncRow.last_result={mode:'onedit',verified:true,delete_verified:false,
+    groups:1,total_2026:277,cargos_nuevos:1};
+  Object.defineProperty(a.dom.window.document,'hidden',{configurable:true,value:false});
+  a.dom.window.document.dispatchEvent(new a.dom.window.Event('visibilitychange'));
+  await flush();
+  assert.equal(a.node('googleSyncBadgeText').textContent,'BAJAS POR ACTIVAR');
+  assert.match(a.node('googleSyncStatus').textContent,/NO se ha confirmado/);
+  a.state.syncRow.last_result.delete_verified=true;
+  a.dom.window.document.dispatchEvent(new a.dom.window.Event('visibilitychange'));
+  await flush();
+  assert.equal(a.node('googleSyncBadgeText').textContent,'ALTAS Y BAJAS ACTIVAS');
+ } finally {a.close();}
+});
