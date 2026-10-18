@@ -142,14 +142,15 @@
 <body>
 <style>
 #authOverlay[hidden],#sessionLoading[hidden]{display:none!important}
-#sessionLoading{position:fixed;inset:0;z-index:10000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;background:#000;color:#fff;padding:24px;text-align:center}
-#sessionLoading .loading-brand{display:block;width:min(706px,100%);height:auto;object-fit:contain}
+#sessionLoading{position:fixed;inset:0;z-index:10000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;background:#fff;color:#111;padding:24px;text-align:center}
+#sessionLoading .loading-brand{display:block;width:min(240px,70vw);height:auto;object-fit:contain}
 #sessionLoading .loading-dots{display:flex;align-items:center;justify-content:center;gap:11px;min-height:18px}
 #sessionLoading .loading-dots span{display:block;width:11px;height:11px;border-radius:50%;background:#db291c;animation:kardex-loading-dot 1.15s ease-in-out infinite}
 #sessionLoading .loading-dots span:nth-child(2){animation-delay:.16s}
 #sessionLoading .loading-dots span:nth-child(3){animation-delay:.32s}
 #sessionLoading .loading-only-a11y{position:absolute;clip-path:inset(50%);width:1px;height:1px;overflow:hidden;white-space:nowrap}
 @keyframes kardex-loading-dot{0%,65%,100%{transform:translateY(0);opacity:.4}33%{transform:translateY(-9px);opacity:1}}
+@media(max-width:768px){#sessionLoading .loading-brand{width:min(180px,65vw)}}
 @media(prefers-reduced-motion:reduce){#sessionLoading .loading-dots span{animation:none;opacity:1}}
 </style>
 <div id="sessionLoading" role="status" aria-live="polite" aria-label="Cargando Kardex Digital">

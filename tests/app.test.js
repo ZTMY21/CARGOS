@@ -330,6 +330,9 @@ test('loading shell hides login before JavaScript and authenticated loading neve
   assert.equal(loading.querySelector('img.loading-brand').getAttribute('alt'),'Farmacias Peruanas');
   assert.ok(loading.querySelector('img.loading-brand').getAttribute('src').startsWith('data:image/png;base64,'));
   assert.equal(loading.querySelectorAll('.loading-dots span').length,3);
+  assert.match(html,/#sessionLoading\{[^}]*background:#fff/);
+  assert.match(html,/#sessionLoading \.loading-brand\{[^}]*width:min\(240px,70vw\)/);
+  assert.match(html,/@media\(max-width:768px\)\{#sessionLoading \.loading-brand\{width:min\(180px,65vw\)/);
   assert.match(html,/@keyframes kardex-loading-dot/);
   assert.match(html,/prefers-reduced-motion:reduce/);
  }finally{dom.window.close();}
