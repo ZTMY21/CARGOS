@@ -321,7 +321,9 @@ test('administrator and guest both display reconciled Iron Mountain box, sent da
       Object.assign(a.state.docs[0],{
         periodo:null,anio_origen:2023,cargos:['3384A'],
         im_confirmado:true,im_codigo_caja:'2032192096',
-        im_fecha_envio:'2024-06-12',im_responsable:'BILLY SALVADOR'
+        im_fecha_envio:'2024-06-12',im_responsable:'BILLY SALVADOR',
+        estado_origen:'La hoja de origen declara cargos enviados',
+        hoja_origen:'Cargos enviados 2023'
       });
       a.node('btnReconnect').click();await flush();
       const cells=a.node('tbody').querySelector('tr').cells;
@@ -330,7 +332,9 @@ test('administrator and guest both display reconciled Iron Mountain box, sent da
       assert.equal(cells[8].textContent.trim(),'12/06/2024');
       assert.match(cells[9].textContent,/Enviado/);
       assert.match(cells[9].querySelector('.badge').className,/b-enviado/);
-      assert.match(cells[11].textContent,/BILLY SALVADOR/);
+      assert.equal(cells[9].textContent.trim(),'Enviado');
+      assert.equal(cells[11].textContent.trim(),'BILLY SALVADOR');
+      assert.doesNotMatch(a.node('tbody').textContent,/La hoja de origen declara cargos enviados|Cargos enviados 2023/);
       assert.match(a.node('resumenTablas').textContent,/Enviado Iron Mountain[\\s\\S]*1/);
       assert.match(a.node('resumenTablas').textContent,/Pendiente de Envío a IM[\\s\\S]*0/);
       assert.match(a.dom.window.document.querySelector('#docsTable thead').textContent,/Responsable/);
