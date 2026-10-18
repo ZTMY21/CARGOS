@@ -80,8 +80,9 @@
   #grp-resumen .kpi:after{
     content:"";position:absolute;right:12px;bottom:8px;width:62px;height:62px;
     background:url("/farmacias-heart.svg") center/contain no-repeat;opacity:.09;
-    pointer-events:none;z-index:-1;
+    pointer-events:none;z-index:0;
   }
+  #grp-resumen .kpi > *{position:relative;z-index:1;}
   #grp-resumen .kpi .l{
     color:#536273;font-size:11px;font-weight:750;line-height:1.35;
     text-transform:uppercase;letter-spacing:.045em;margin:0 0 10px;
