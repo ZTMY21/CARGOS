@@ -251,10 +251,10 @@ test('admin sync cards always use the latest Supabase readings and account heade
     assert.equal(a.node('googleSyncPanel').hidden,false);
     assert.equal(a.node('googleSyncBadgeText').textContent,'ACTIVA');
     assert.equal(a.node('googleSyncRegistered').textContent,'276');
-    assert.equal(a.node('googleSyncPending').textContent,'1480');
+    assert.equal(a.node('googleSyncPending').textContent,'1,480');
     assert.equal(a.node('googleSyncConflicts').textContent,'0');
     assert.match(a.node('googleSyncLastReview').textContent,/Última revisión:.*Lima/);
-    assert.match(a.node('googleSyncDetails').textContent,/276 cargos revisados; 0 nuevos; 0 actualizados; 1480 filas pendientes; 0 conflictos/);
+    assert.match(a.node('googleSyncDetails').textContent,/276 cargos revisados; 0 nuevos; 0 actualizados; 1,480 filas pendientes; 0 conflictos/);
 
     a.state.syncRow.last_result={groups:281,pending_rows:1320,conflictos:2,cargos_nuevos:5,cargos_actualizados:1};
     a.state.syncRow.enabled=false;
@@ -263,9 +263,9 @@ test('admin sync cards always use the latest Supabase readings and account heade
     await flush();
     assert.equal(a.node('googleSyncBadgeText').textContent,'PAUSADA');
     assert.equal(a.node('googleSyncRegistered').textContent,'281');
-    assert.equal(a.node('googleSyncPending').textContent,'1320');
+    assert.equal(a.node('googleSyncPending').textContent,'1,320');
     assert.equal(a.node('googleSyncConflicts').textContent,'2');
-    assert.match(a.node('googleSyncDetails').textContent,/281 cargos revisados; 5 nuevos; 1 actualizados; 1320 filas pendientes; 2 conflictos/);
+    assert.match(a.node('googleSyncDetails').textContent,/281 cargos revisados; 5 nuevos; 1 actualizados; 1,320 filas pendientes; 2 conflictos/);
   }finally{a.close();}
   const guest=await app({isAdmin:false});
   try{
