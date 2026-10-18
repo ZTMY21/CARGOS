@@ -328,7 +328,7 @@ test('loading shell hides login before JavaScript and authenticated loading neve
   assert.equal(loading.hidden,false);
   assert.equal(loading.getAttribute('aria-label'),'Cargando Kardex Digital');
   assert.equal(loading.querySelector('img.loading-brand').getAttribute('alt'),'Farmacias Peruanas');
-  assert.match(loading.querySelector('img.loading-brand').getAttribute('src'),/^data:image\\/png;base64,/);
+  assert.ok(loading.querySelector('img.loading-brand').getAttribute('src').startsWith('data:image/png;base64,'));
   assert.equal(loading.querySelectorAll('.loading-dots span').length,3);
   assert.match(html,/@keyframes kardex-loading-dot/);
   assert.match(html,/prefers-reduced-motion:reduce/);
