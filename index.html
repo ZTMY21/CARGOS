@@ -465,6 +465,31 @@
 </div>
 
 
+<dialog id="cargoExpirySheet" class="expiry-sheet" aria-labelledby="cargoExpiryTitle" aria-describedby="cargoExpiryRule">
+  <div class="expiry-sheet-header">
+    <div><p class="expiry-eyebrow">Administración · Cargos 2025 y 2026</p><h2 id="cargoExpiryTitle">Detalle de vencimientos</h2></div>
+    <button id="btnCloseCargoExpiry" type="button" class="secondary" autofocus>Cerrar</button>
+  </div>
+  <p id="cargoExpiryRule" class="expiry-rule">Solo cargos pendientes de envío a Iron Mountain. Vencen al superar 6 meses desde el período contable o, si no está registrado, desde la fecha de origen del cargo.</p>
+  <div class="expiry-switch" role="group" aria-label="Ver cargos vencidos o por vencer">
+    <button id="btnExpiryOverdue" type="button" data-expiry="overdue" aria-pressed="false">Cargos Vencidos</button>
+    <button id="btnExpiryUpcoming" type="button" data-expiry="upcoming" aria-pressed="false">Cargos por Vencer</button>
+  </div>
+  <p id="cargoExpiryCount" class="search-count" aria-live="polite"></p>
+  <div class="expiry-table-wrap" tabindex="0" role="region" aria-label="Detalle de cargos con vencimiento">
+    <table>
+      <thead><tr><th scope="col">Cargo</th><th scope="col">Año</th><th scope="col">Kardex</th><th scope="col">Fecha del cargo</th><th scope="col">Cumple 6 meses</th><th scope="col">Antigüedad</th><th id="cargoExpiryTimeHeading" scope="col">Tiempo</th><th scope="col">Estado</th></tr></thead>
+      <tbody id="cargoExpiryBody"></tbody>
+    </table>
+  </div>
+  <p id="cargoExpiryUnknown" class="expiry-note" hidden></p>
+  <div class="pagination">
+    <button id="btnExpiryPrevious" type="button" class="secondary">Anterior</button>
+    <span id="cargoExpiryPage" aria-live="polite"></span>
+    <button id="btnExpiryNext" type="button" class="secondary">Siguiente</button>
+  </div>
+</dialog>
+
 <dialog id="sustentoViewer" class="sustento-viewer" aria-labelledby="sustentoViewerTitle">
   <h3 id="sustentoViewerTitle">Imagen de sustento</h3>
   <img id="sustentoViewerImage" alt="Imagen de sustento del documento">

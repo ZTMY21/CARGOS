@@ -39,8 +39,9 @@ test('document status precedence and five/six/seven-month boundary use Lima date
 test('CSS and logo preserve the baseline and original groups',async()=>{
   const html=await readFile(new URL('../index.html',import.meta.url),'utf8');
   const hash=s=>createHash('sha256').update(s).digest('hex');
-  assert.equal(hash(html.match(/<style>([\s\S]*?)<\/style>/)[1]),'178aa536195e5684f40469632e61b74c0993b5dcbf51008ee66ce6155f5726df');
-  assert.equal(hash(html.match(/<img[^>]+src="(data:[^"]+)"/)[1]),'3d9a0f7a2ea7f7b877732a10deb358760d12fe05293aa5159184b5b23617dbfc');
+  // Current Farmacias Peruanas design, already present in main at bd0f4bc.
+  assert.equal(hash(html.match(/<style>([\s\S]*?)<\/style>/)[1]),'eccbf14e7de77ac2f8d1a1087b0584478ed1b044fcb139a966418453da2f6473');
+  assert.equal(hash(html.match(/<img[^>]+src="(data:[^"]+)"/)[1]),'2b0f4c7c4290cfffce848938d000897bc790b635a366d415eeafa04036bfb266');
   assert.equal((html.match(/<details class="group"/g)||[]).length,4);
   assert.ok(!html.includes('storageWarning')); assert.ok(!html.includes('artefacto compartido'));
   assert.equal(escapeHtml('<img src=x onerror="alert(1)">'),'&lt;img src=x onerror=&quot;alert(1)&quot;&gt;');

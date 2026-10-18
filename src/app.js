@@ -1,11 +1,12 @@
 import { createClient } from '@supabase/supabase-js';
-import { computeReqEstado as reqEstado, computeDocEstado as docEstado, fmtDate, escapeHtml } from './rules.js';
+import { computeReqEstado as reqEstado, computeDocEstado as docEstado, fmtDate, escapeHtml, limaDate } from './rules.js';
 import { KardexRepository, reqFromDb, docFromDb } from './repository.js';
 import { buildCargoWorkbook, parseWorkbook } from './excel-api.js';
 import { highlightMatch, filterDocuments, filterRequirements } from './search.js';
 import './connection.css';
 import { createIdleSession } from './idle-session.js';
 import { cargoYear, invoiceLocation, locationLabel, groupsForCodes } from './cargo-details.js';
+import { cargoExpiryGroups, formatCargoDuration } from './cargo-expiry.js';
 
 const configuration = { url: __SUPABASE_URL__, key: __SUPABASE_ANON_KEY__ };
 // Capture recovery mode before the client consumes the email callback fragment.
@@ -26,6 +27,8 @@ let authGeneration = 0, currentUserId = null;
 let pendingReqId = null, pendingDocId = null;
 let queryResults = null, queryError = '', searchEpoch = 0, searchController = null;
 let currentPage = 0;
+let expiryGroups = {today:'', overdue:[], upcoming:[], unknown:[]};
+let activeExpiryGroup = null, expiryPage = 0, expiryReturnButton = '';
 let appliedFilters = {query:'',state:'',type:'',location:'',year:'',invoiceExact:false};
 const browseOrder = new Map();
 function showRandomCargos(filters=appliedFilters) {
@@ -104,6 +107,7 @@ function setStatus(value, state = '') {
   document.getElementById('connectionDot').className = `connection-dot ${state}`;
 }
 function setAvailability() {
+  if (!appReady || !isAdmin) closeCargoExpiry();
   document.getElementById('btnExportar').hidden=true;
   document.getElementById('appShell').classList.toggle('read-only', !isAdmin);
   ['googleSyncPanel','grp-resumen','grp-requerimientos','grp-documentos','btnImportar','btnReset'].forEach(id=>document.getElementById(id).hidden=!isAdmin);
@@ -345,9 +349,9 @@ function renderDocs(){
   const cargosEnProceso = cargosDe(grupoProceso), foliosEnProceso = foliosDe(grupoProceso);
   const cargosPendientes = cargosDe(grupoPendiente), foliosPendientes = foliosDe(grupoPendiente);
 
-  const noEnviados = enriched.filter(d=> d.estado!=='Enviado a Iron Mountain' && typeof d.antiguedad==='number');
-  const grupoPorVencer = noEnviados.filter(d=> d.antiguedad<=6);
-  const grupoVencidos = noEnviados.filter(d=> d.antiguedad>6);
+  expiryGroups = cargoExpiryGroups(docs, new Date());
+  const grupoPorVencer = expiryGroups.upcoming;
+  const grupoVencidos = expiryGroups.overdue;
   const cargosPorVencer = cargosDe(grupoPorVencer), foliosPorVencer = foliosDe(grupoPorVencer);
   const cargosVencidos = cargosDe(grupoVencidos), foliosVencidos = foliosDe(grupoVencidos);
   const baseAlerta = cargosPorVencer + cargosVencidos;
@@ -399,27 +403,29 @@ function renderDocs(){
         <div class="pct-txt">${pct(cargosPendientes,totalCargos)}</div>
       </div>
     </div>
-    <div class="resumen-titulo-alerta">Alerta que cuenta sólo lo que está por enviar</div>
+    <div class="resumen-titulo-alerta">Cargos de 2025 y 2026 pendientes de envío · Plazo de 6 meses</div>
     <div class="alerta-row">
       <div class="kpis" aria-label="Alertas de cargos pendientes">
         <div class="kpi kpi-color kpi-summary-expiring">
-          <div class="l">Cargos por Vencer</div>
+          <div class="expiry-card-heading"><div class="l">Cargos por Vencer</div><button id="btnCargosPorVencer" type="button" class="expiry-detail-button" data-expiry="upcoming" aria-label="Ver detalle de cargos por vencer" aria-haspopup="dialog" aria-controls="cargoExpirySheet">Ver detalle</button></div>
           <div class="n">${fmtNum(cargosPorVencer)}<span class="folios-inline"> (${fmtNum(foliosPorVencer)} folios)</span></div>
           <div class="pct-txt">${pct(cargosPorVencer,baseAlerta)}</div>
         </div>
         <div class="kpi kpi-color kpi-summary-overdue">
-          <div class="l">Cargos Vencidos</div>
+          <div class="expiry-card-heading"><div class="l">Cargos Vencidos</div><button id="btnCargosVencidos" type="button" class="expiry-detail-button" data-expiry="overdue" aria-label="Ver detalle de cargos vencidos" aria-haspopup="dialog" aria-controls="cargoExpirySheet">Ver detalle</button></div>
           <div class="n">${fmtNum(cargosVencidos)}<span class="folios-inline"> (${fmtNum(foliosVencidos)} folios)</span></div>
           <div class="pct-txt">${pct(cargosVencidos,baseAlerta)}</div>
         </div>
       </div>
     </div>
+    ${expiryGroups.unknown.length ? `<p class="expiry-note">${fmtNum(cargosDe(expiryGroups.unknown))} cargos de 2025/2026 sin fecha válida para calcular el vencimiento; no se incluyen en estas alertas.</p>` : ''}
     <section class="year-section periodo-box" aria-labelledby="year-summary-heading">
       <h3 class="year-heading" id="year-summary-heading">Cargos por Año</h3>
       <div class="year-grid" aria-live="polite">${porPeriodoHtml}</div>
       ${notaOrigen}
     </section>
   `;
+  if (activeExpiryGroup) renderCargoExpiry();
 
   let filtered=queryResults?.rows?.map(d=>({...d,...computeDocEstado(d)}))
     ?? filterDocuments(docs,reqs,filters).sort(showRandomCargos(filters)?randomCargoOrder:(a,b)=>b.kardex.localeCompare(a.kardex));
@@ -499,6 +505,86 @@ function renderDocs(){
       } catch(error){document.getElementById('conteoResultados').textContent=readableError(error);}
       finally{btn.disabled=false;}
     });
+  });
+}
+
+function closeCargoExpiry() {
+  const sheet = document.getElementById('cargoExpirySheet');
+  if (sheet.open) sheet.close();
+  activeExpiryGroup = null;
+  expiryPage = 0;
+  document.getElementById('cargoExpiryBody').textContent = '';
+  document.getElementById('cargoExpiryCount').textContent = '';
+  document.getElementById('cargoExpiryUnknown').textContent = '';
+}
+function renderCargoExpiry() {
+  if (!isAdmin || !activeExpiryGroup) return;
+  const overdue = activeExpiryGroup === 'overdue';
+  const count = rows => rows.reduce((sum,doc) => sum + doc.cargos.length, 0);
+  const rows = expiryGroups[activeExpiryGroup].flatMap(doc => doc.cargos.map(cargo => ({doc, cargo})));
+  const pages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+  expiryPage = Math.min(expiryPage, pages - 1);
+  document.getElementById('cargoExpiryTitle').textContent = overdue ? 'Cargos Vencidos' : 'Cargos por Vencer';
+  document.getElementById('cargoExpiryTimeHeading').textContent = overdue ? 'Tiempo vencido' : 'Falta para vencer';
+  for (const [id, group, label] of [['btnExpiryOverdue','overdue','Cargos Vencidos'],['btnExpiryUpcoming','upcoming','Cargos por Vencer']]) {
+    const button = document.getElementById(id);
+    button.textContent = `${label} (${fmtNum(count(expiryGroups[group]))})`;
+    button.setAttribute('aria-pressed', String(group === activeExpiryGroup));
+  }
+  const start = expiryPage * PAGE_SIZE;
+  const selected = rows.slice(start, start + PAGE_SIZE);
+  document.getElementById('cargoExpiryCount').textContent = `Al ${fmtDate(expiryGroups.today)} · ${fmtNum(rows.length)} cargos${rows.length ? ` · Mostrando ${fmtNum(start + 1)}–${fmtNum(start + selected.length)}` : ''} · Ordenados por fecha de vencimiento`;
+  document.getElementById('cargoExpiryBody').innerHTML = selected.length ? selected.map(({doc, cargo}) => {
+    const expiry = doc.expiry;
+    const remaining = !overdue && expiry.dueDate === expiryGroups.today ? '0 meses · Cumple 6 meses hoy' : formatCargoDuration(expiry.time);
+    return `<tr>
+      <td class="expiry-cargo">${escapeHtml(cargo)}</td><td>${escapeHtml(expiry.year)}</td><td>${escapeHtml(doc.kardex)}</td>
+      <td>${fmtDate(expiry.baseDate)}</td><td>${fmtDate(expiry.dueDate)}</td><td>${formatCargoDuration(expiry.age)}</td>
+      <td class="${overdue ? 'alerta-neg' : 'expiry-remaining'}">${remaining}</td>
+      <td><span class="badge ${docBadgeClass(doc.estado)}">${escapeHtml(doc.estado)}</span></td>
+    </tr>`;
+  }).join('') : `<tr><td colspan="8" class="empty">No hay cargos ${overdue ? 'vencidos' : 'por vencer'} de 2025 y 2026 pendientes de envío.</td></tr>`;
+  const unknown = document.getElementById('cargoExpiryUnknown');
+  unknown.hidden = !expiryGroups.unknown.length;
+  unknown.textContent = expiryGroups.unknown.length
+    ? `${fmtNum(count(expiryGroups.unknown))} cargos sin fecha válida no se incluyen en el cálculo. Cargos: ${expiryGroups.unknown.map(doc => `${doc.cargos.join(', ')} (${cargoYear(doc)})`).join('; ')}.` : '';
+  document.getElementById('cargoExpiryPage').textContent = `Página ${expiryPage + 1} de ${pages}`;
+  document.getElementById('btnExpiryPrevious').disabled = expiryPage === 0;
+  document.getElementById('btnExpiryNext').disabled = expiryPage >= pages - 1;
+}
+function openCargoExpiry(group) {
+  if (!appReady || !isAdmin || !['overdue','upcoming'].includes(group)) return;
+  activeExpiryGroup = group;
+  expiryPage = 0;
+  renderDocs();
+  const sheet = document.getElementById('cargoExpirySheet');
+  if (!sheet.open) {
+    expiryReturnButton = group === 'overdue' ? 'btnCargosVencidos' : 'btnCargosPorVencer';
+    sheet.showModal();
+  }
+  sheet.querySelector('.expiry-table-wrap').scrollTop = 0;
+}
+document.getElementById('resumenTablas').addEventListener('click', event => {
+  const button = event.target.closest('button[data-expiry]');
+  if (button) openCargoExpiry(button.dataset.expiry);
+});
+document.getElementById('cargoExpirySheet').addEventListener('click', event => {
+  const button = event.target.closest('button[data-expiry]');
+  if (button) openCargoExpiry(button.dataset.expiry);
+});
+document.getElementById('btnCloseCargoExpiry').addEventListener('click', closeCargoExpiry);
+document.getElementById('cargoExpirySheet').addEventListener('close', () => {
+  const buttonId = expiryReturnButton;
+  expiryReturnButton = '';
+  closeCargoExpiry();
+  if (appReady && isAdmin) document.getElementById(buttonId)?.focus();
+});
+for (const [id, delta] of [['btnExpiryPrevious',-1], ['btnExpiryNext',1]]) {
+  document.getElementById(id).addEventListener('click', () => {
+    if (!appReady || !isAdmin || !activeExpiryGroup) return;
+    expiryPage = Math.max(0, expiryPage + delta);
+    renderCargoExpiry();
+    document.querySelector('#cargoExpirySheet .expiry-table-wrap').scrollTop = 0;
   });
 }
 
@@ -969,7 +1055,12 @@ async function refreshGoogleSync(){
   }
   finally{button.disabled=!appReady||!isAdmin;}
 }
-setInterval(()=>{if(!document.hidden)refreshGoogleSync();},60000);
+setInterval(()=>{
+  if(!document.hidden) {
+    refreshGoogleSync();
+    if(appReady && isAdmin && expiryGroups.today !== limaDate(new Date())) renderDocs();
+  }
+},60000);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshGoogleSync();});
 document.getElementById('btnToggleGoogleSync').addEventListener('click',async ev=>{
   if(!appReady||!isAdmin)return;

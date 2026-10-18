@@ -4,29 +4,31 @@ import {readFile} from 'node:fs/promises';
 import vm from 'node:vm';
 import {randomUUID} from 'node:crypto';
 import {JSDOM} from 'jsdom';
-import {computeReqEstado as reqEstado,computeDocEstado as docEstado,fmtDate,escapeHtml} from '../src/rules.js';
+import {computeReqEstado as reqEstado,computeDocEstado as docEstado,fmtDate,escapeHtml,limaDate} from '../src/rules.js';
 import {reqFromDb,docFromDb,KardexRepository} from '../src/repository.js';
 import {buildWorkbook,parseWorkbook} from '../src/excel.js';
 import {highlightMatch,filterDocuments,filterRequirements} from '../src/search.js';
 import {createIdleSession} from '../src/idle-session.js';
 import {cargoYear,invoiceLocation,locationLabel,groupsForCodes} from '../src/cargo-details.js';
+import {cargoExpiryGroups,formatCargoDuration} from '../src/cargo-expiry.js';
 
 const flush=()=>new Promise(resolve=>setTimeout(resolve,20));
 const reqRow={id:randomUUID(),numero:'REQ-00001',tipo:'Cajas nuevas para acondicionar',fecha_solicitud:'2026-10-01',cantidad_cajas:2,numeros_cargo:'',fecha_recepcion:'2026-10-02',fecha_devolucion:null,usuario:'Juan',updated_at:'2026-10-13T00:00:00.123456Z'};
 const docRow={id:randomUUID(),kardex:'SA-00001',fecha_registro:'2026-10-13',tipo_doc:'Facturas-Guia',periodo:'2026-01-01',ubicacion:'Santa Anita',folios:30,cargos:['C001'],caja_asignada:reqRow.id,f_envio:null,sustento:'',sustento_imagen:'',usuario:'Juan',facturas:'F-001',obs:'',updated_at:'2026-10-13T00:00:00.123456Z'};
 
-async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recovery=false,loginError=null,enableSearch=false}={}) {
+async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recovery=false,loginError=null,enableSearch=false,now=Date.now()}={}) {
   const html=await readFile(new URL('../index.html',import.meta.url),'utf8');
   const source=(await readFile(new URL('../src/app.js',import.meta.url),'utf8')).replace(/^import .*;\n/gm,'');
   const dom=new JSDOM(html,{url:'https://kardex.example.test'+(recovery?'#type=recovery':''),runScripts:'outside-only'});
   dom.window.HTMLElement.prototype.scrollIntoView=()=>{};
   dom.window.HTMLDialogElement.prototype.showModal=function(){this.open=true;};
+  dom.window.HTMLDialogElement.prototype.close=function(){if(this.open){this.open=false;this.dispatchEvent(new dom.window.Event('close'));}};
   const state={reqs:[structuredClone(reqRow)],docs:[structuredClone(docRow)],updates:[],snapshots:0,events:[],status:null,authCallback:null};
   state.session=signedIn?{user:{id:'owner',email:'owner@example.test'}}:null;
   state.syncRow={enabled:true,status:'Revisión completada: 276 cargos ya registrados. 1480 filas pendientes.',
     last_checked_at:'2026-10-17T03:09:17Z',
     last_result:{groups:276,pending_rows:1480,conflictos:0,cargos_nuevos:0,cargos_actualizados:0}};
-  state.authCalls=[];state.exportCalls=[];state.searchCalls=[];state.now=Date.now();
+  state.authCalls=[];state.exportCalls=[];state.searchCalls=[];state.now=now;
   dom.window.URL.createObjectURL=()=> 'blob:test';dom.window.URL.revokeObjectURL=()=>{};
   dom.window.HTMLAnchorElement.prototype.click=function(){state.downloadName=this.download;};
   const client={
@@ -65,6 +67,8 @@ async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recov
     return {rows:selected.map(row=>({...state.docs.find(d=>d.id===row.id)})),total:found.length,folios:found.reduce((n,d)=>n+(Number(d.folios)||0),0)};
   };
   const context=dom.getInternalVMContext();
+  context.Date=class extends Date {constructor(...args){super(...(args.length?args:[state.now]));}static now(){return state.now;}};
+  Object.assign(context,{cargoExpiryGroups,formatCargoDuration,limaDate});
   Object.assign(context,{createIdleSession:options=>createIdleSession({...options,now:()=>state.now}),createClient:()=>client,KardexRepository:FakeRepository,reqFromDb,docFromDb,reqEstado,docEstado,fmtDate,escapeHtml,buildWorkbook:async(...args)=>{state.exportCalls.push(args);return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},buildCargoWorkbook:async(cargo)=>{state.guestExport=cargo;return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},parseWorkbook,highlightMatch,filterDocuments,filterRequirements,cargoYear,invoiceLocation,locationLabel,groupsForCodes,
     __SUPABASE_URL__:'https://example.supabase.co',__SUPABASE_ANON_KEY__:'sb_publishable_test',confirm:()=>true,alert:()=>{}});
   await vm.runInContext(`(async()=>{${source}})()`,context);
@@ -427,6 +431,88 @@ test('admin summary groups Excel cargo years and refreshes 2026 after Google-syn
   }finally{a.close();}
 });
 
+test('expiry cards and in-app sheet share 2025/2026 counts and update after shipment',async()=>{
+  const a=await app({now:Date.parse('2026-10-18T08:25:00Z')});
+  try {
+    const base=a.state.docs[0];
+    const cargo=(code,date,extra={})=>({...structuredClone(base),id:randomUUID(),cargos:[code],
+      periodo:null,fecha_origen:date,anio_origen:2026,...extra});
+    a.state.docs=[cargo('OLD','2024-01-01',{anio_origen:2024}),
+      cargo('001A','2025-08-18',{anio_origen:2025}),cargo('LATE','2026-04-17'),
+      cargo('TODAY','2026-04-18'),cargo('NEXT','2026-09-18'),
+      cargo('SENT','2026-01-01',{im_confirmado:true}),cargo('NO-DATE',null)];
+    a.node('btnReconnect').click();await flush();
+    const number=selector=>a.node('resumenTablas').querySelector(selector+' .n').textContent;
+    assert.match(number('.kpi-summary-overdue'),/^2\b/);
+    assert.match(number('.kpi-summary-expiring'),/^2\b/);
+    assert.match(a.node('resumenTablas').textContent,/1 cargos de 2025\/2026 sin fecha válida/);
+    // A search filter must not shrink the global alert counts or detail list.
+    a.node('buscar').value='no-match';a.node('btnBuscar').click();
+    a.node('btnCargosVencidos').click();
+    assert.equal(a.node('cargoExpirySheet').open,true);
+    assert.equal(a.node('cargoExpiryTitle').textContent,'Cargos Vencidos');
+    assert.equal(a.node('cargoExpiryBody').rows.length,2);
+    assert.match(a.node('cargoExpiryBody').textContent,/001A/);
+    assert.match(a.node('cargoExpiryBody').textContent,/8 meses/);
+    assert.match(a.node('cargoExpiryBody').textContent,/0 meses y 1 día/);
+    assert.doesNotMatch(a.node('cargoExpiryBody').textContent,/OLD|SENT|NO-DATE|NEXT/);
+    assert.match(a.node('cargoExpiryUnknown').textContent,/NO-DATE \(2026\)/);
+    a.node('btnExpiryUpcoming').click();
+    assert.equal(a.node('cargoExpiryTimeHeading').textContent,'Falta para vencer');
+    assert.equal(a.node('btnExpiryUpcoming').getAttribute('aria-pressed'),'true');
+    assert.equal(a.node('cargoExpiryBody').rows.length,2);
+    assert.match(a.node('cargoExpiryBody').textContent,/Cumple 6 meses hoy/);
+    assert.match(a.node('cargoExpiryBody').textContent,/5 meses/);
+    a.state.docs.find(d=>d.cargos[0]==='TODAY').im_confirmado=true;
+    a.state.events.find(x=>x.filter.table==='kardex_eventos').callback();
+    await new Promise(resolve=>setTimeout(resolve,270));
+    assert.equal(a.node('cargoExpiryBody').rows.length,1);
+    assert.match(number('.kpi-summary-expiring'),/^1\b/);
+    a.node('btnCloseCargoExpiry').click();
+    assert.equal(a.node('cargoExpirySheet').open,false);
+    assert.equal(a.dom.window.document.activeElement.id,'btnCargosVencidos');
+    a.node('btnCargosPorVencer').click();
+    assert.equal(a.node('cargoExpiryTitle').textContent,'Cargos por Vencer');
+    a.node('btnSignOut').click();await flush();
+    assert.equal(a.node('cargoExpirySheet').open,false);
+    assert.equal(a.node('cargoExpiryBody').textContent,'');
+  } finally {a.close();}
+  const guest=await app({isAdmin:false});
+  try {
+    guest.node('btnCargosVencidos').click();
+    assert.equal(guest.node('cargoExpirySheet').open,false);
+    assert.equal(guest.node('cargoExpiryBody').textContent,'');
+  } finally {guest.close();}
+});
+
+test('expiry detail paginates every cargo, escapes source values and refreshes at the six-month boundary',async()=>{
+  const a=await app({now:Date.parse('2026-10-18T08:25:00Z')});
+  try {
+    const base=a.state.docs[0];
+    a.state.docs=Array.from({length:101},(_,i)=>({...structuredClone(base),id:randomUUID(),
+      kardex:`SA-${String(i).padStart(5,'0')}`,periodo:null,anio_origen:2026,fecha_origen:'2026-04-18',
+      cargos:[i===100?'<img src=x onerror=alert(1)>':`C${i}`]}));
+    a.node('btnReconnect').click();await flush();
+    a.node('btnCargosPorVencer').click();
+    assert.equal(a.node('cargoExpiryBody').rows.length,100);
+    assert.equal(a.node('cargoExpiryPage').textContent,'Página 1 de 2');
+    assert.equal(a.node('btnExpiryPrevious').disabled,true);
+    a.node('btnExpiryNext').click();
+    assert.equal(a.node('cargoExpiryBody').rows.length,1);
+    assert.equal(a.node('cargoExpiryPage').textContent,'Página 2 de 2');
+    assert.equal(a.node('btnExpiryNext').disabled,true);
+    assert.equal(a.node('cargoExpiryBody').querySelectorAll('img').length,0);
+    assert.match(a.node('cargoExpiryBody').textContent,/<img src=x/);
+    a.state.now=Date.parse('2026-10-19T05:00:00Z');
+    a.node('btnExpiryOverdue').click();
+    assert.match(a.node('cargoExpiryCount').textContent,/101 cargos/);
+    assert.match(a.node('cargoExpiryBody').textContent,/0 meses y 1 día/);
+    a.node('btnExpiryUpcoming').click();
+    assert.match(a.node('cargoExpiryBody').textContent,/No hay cargos por vencer/);
+    assert.equal(a.node('btnExpiryNext').disabled,true);
+  } finally {a.close();}
+});
+
 test('search hides irrelevant locations, uses Sin Responsable, and clarifies guest export-only access',async()=>{
   for (const isAdmin of [true,false]) {
     const a=await app({isAdmin});
@@ -477,8 +563,8 @@ test('administrator and guest both display reconciled Iron Mountain box, sent da
       assert.equal(cells[9].textContent.trim(),'Enviado');
       assert.equal(cells[11].textContent.trim(),'BILLY SALVADOR');
       assert.doesNotMatch(a.node('tbody').textContent,/La hoja de origen declara cargos enviados|Cargos enviados 2023/);
-      assert.match(a.node('resumenTablas').textContent,/Enviado Iron Mountain[\\s\\S]*1/);
-      assert.match(a.node('resumenTablas').textContent,/Pendiente de Envío a IM[\\s\\S]*0/);
+      assert.match(a.node('resumenTablas').querySelector('.kpi-summary-sent .n').textContent,/^1\b/);
+      assert.match(a.node('resumenTablas').querySelector('.kpi-summary-pending .n').textContent,/^0\b/);
       assert.match(a.dom.window.document.querySelector('#docsTable thead').textContent,/Responsable/);
     }finally{a.close();}
   }
