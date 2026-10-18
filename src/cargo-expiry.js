@@ -41,10 +41,13 @@ export function cargoExpiryGroups(docs, now = new Date()) {
       continue;
     }
     const dueDate = addMonths(baseDate, 6);
+    const daysRemaining = Math.round((Date.parse(`${dueDate}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / DAY);
     // Exactly six calendar months is still current; the following day is overdue.
     const status = today > dueDate ? 'overdue' : 'upcoming';
+    // Red takes precedence throughout the last seven days and after expiry.
+    const color = daysRemaining <= 7 ? 'red' : today <= addMonths(baseDate, 3) ? 'green' : 'yellow';
     groups[status].push({ ...doc, estado, expiry: {
-      year, baseDate, dueDate, status,
+      year, baseDate, dueDate, status, color, daysRemaining,
       age: duration(baseDate, today),
       time: status === 'overdue' ? duration(dueDate, today) : duration(today, dueDate)
     } });

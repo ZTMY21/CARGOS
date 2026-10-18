@@ -60,3 +60,35 @@ test('an explicit accounting period takes precedence; the source year and full c
   assert.deepEqual(groups.upcoming[0].expiry.time,{months:4,days:11});
   assert.equal(formatCargoDuration({months:1,days:2}),'1 mes y 2 días');
 });
+
+test('color thresholds include three calendar months, the fifth month, and exactly seven remaining days', () => {
+  const cases=[
+    ['2026-10-18','green',182], // Newly synchronized today.
+    ['2026-07-18','green',92],  // Exactly three months old.
+    ['2026-07-17','yellow',91], // Three months plus one day.
+    ['2026-05-18','yellow',31], // Exactly five months old.
+    ['2026-04-26','yellow',8],
+    ['2026-04-25','red',7],
+    ['2026-04-18','red',0],
+    ['2026-04-17','red',-1]
+  ];
+  for (const [date,color,days] of cases) {
+    const groups=cargoExpiryGroups([doc(date)],now);
+    const row=[...groups.upcoming,...groups.overdue][0];
+    assert.equal(row.expiry.color,color,date);
+    assert.equal(row.expiry.daysRemaining,days,date);
+    assert.equal(groups.overdue.length,days<0?1:0,date);
+  }
+});
+
+test('green and red boundaries respect clamped month ends and Lima dates', () => {
+  const cargo=doc('2026-07-31');
+  let groups=cargoExpiryGroups([cargo],new Date('2026-11-01T04:59:59Z'));
+  assert.equal(groups.upcoming[0].expiry.color,'green');
+  groups=cargoExpiryGroups([cargo],new Date('2026-11-01T05:00:00Z'));
+  assert.equal(groups.upcoming[0].expiry.color,'yellow');
+  const august=doc('2025-08-31',{anioOrigen:2025});
+  groups=cargoExpiryGroups([august],new Date('2026-02-21T05:00:00Z'));
+  assert.equal(groups.upcoming[0].expiry.daysRemaining,7);
+  assert.equal(groups.upcoming[0].expiry.color,'red');
+});
