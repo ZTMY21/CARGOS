@@ -861,3 +861,45 @@ test('panel distingue altas recibidas de bajas no confirmadas y da instrucciones
   assert.equal(a.node('googleSyncBadgeText').textContent,'ALTAS Y BAJAS ACTIVAS');
  } finally {a.close();}
 });
+
+
+test('Solo cargos busca por numero de cargo, no por numero de factura ni guia',()=>{
+ const cargo=(number,invoice,extras={})=>({
+   id:number,cargos:[number],facturas:invoice,fechaOrigen:'2026-09-01',
+   anioOrigen:2026,tipoDoc:'Facturas-Guia',periodo:null,ubicacion:null,...extras
+ });
+ const records=[cargo('490','F-100'),cargo('1490','F-200'),cargo('300','F-490')];
+ const filters={query:'490',state:'',type:'solo-cargos',location:'',year:'',invoiceExact:false};
+ assert.deepEqual(filterDocuments(records,[],filters).map(d=>d.cargos[0]),['490']);
+ assert.deepEqual(filterDocuments(records,[],{...filters,query:'999'}),[]);
+ assert.deepEqual(filterDocuments(records,[],{...filters,query:'49'}).map(d=>d.cargos[0]),['490','1490']);
+ assert.deepEqual(filterDocuments(records,[],{...filters,query:'',invoiceExact:true}).map(d=>d.cargos[0]),
+   ['490','1490','300']);
+ assert.deepEqual(filterDocuments(records,[],{...filters,query:'490',year:'origen:2025'}),[]);
+});
+
+test('Solo cargos permite revisar enviado, responsable, y alertas se reducen al enviar',async()=>{
+ const a=await app({isAdmin:true,enableSearch:true,now:Date.parse('2026-10-18T12:00:00Z')});
+ try {
+  const raw={...structuredClone(docRow),id:randomUUID(),periodo:null,fecha_origen:'2026-03-01',
+    anio_origen:2026,cargos:['490'],facturas:'F-999999',caja_asignada:null,
+    im_confirmado:false,im_responsable:'',usuario:'Importación Excel'};
+  a.state.docs=[raw];
+  const event=a.state.events.find(e=>e.filter.table==='kardex_eventos');
+  event?.callback();
+  await new Promise(resolve=>setTimeout(resolve,280));
+  a.node('filtroTipo').value='solo-cargos';
+  a.node('buscar').value='490';
+  a.node('btnBuscar').click();
+  await flush();
+  assert.equal(a.state.searchCalls.length,0,'La busqueda de cargos usa el snapshot, no la consulta de facturas');
+  assert.match(a.node('tbody').textContent,/Pendiente de Envío/);
+  assert.match(a.node('resumenTablas').textContent,/Cargos Vencidos/);
+  raw.im_confirmado=true;raw.im_codigo_caja='TEST-CAJA';raw.im_fecha_envio='2026-10-18';
+  raw.im_responsable='ENTREGA DE PRUEBA';
+  event?.callback();await new Promise(resolve=>setTimeout(resolve,280));
+  assert.match(a.node('tbody').textContent,/Enviado/);
+  assert.match(a.node('tbody').textContent,/ENTREGA DE PRUEBA/);
+  assert.match(a.node('tbody').textContent,/TEST-CAJA/);
+ } finally {a.close();}
+});
