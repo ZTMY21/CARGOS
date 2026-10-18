@@ -262,7 +262,8 @@ test('sync status is inline and the Excel button opens the original file for adm
   assert.equal(a.node('googleSyncDialog'),null);
   assert.equal(a.node('btnOpenGoogleExcel').textContent,'CARGOS ACTUALES');
   assert.equal(a.node('btnOpenIronMountainExcel').textContent,'Cargos Enviados');
-  assert.match(a.node('btnOpenIronMountainExcel').href,/1ap1GzGd3HBvkV2N7p6dvkFIYwHS_cIqO/);
+  assert.match(a.node('btnOpenIronMountainExcel').href,/1aWqIoj5UXAeyKhNN1paoYnTa4jdfN8LhDEcdH_lQ4mk/);
+  assert.match(a.node('btnOpenIronMountainHistorical').href,/1ap1GzGd3HBvkV2N7p6dvkFIYwHS_cIqO/);
   assert.equal(a.node('btnOpenIronMountainExcel').target,'_blank');
   assert.match(a.node('btnOpenGoogleExcel').href,/18TbKWiVUWKfkJOXvR0kGEMb5eVKTDCfoXAUtD5rCxts/);
   assert.equal(a.node('btnOpenGoogleExcel').target,'_blank');
