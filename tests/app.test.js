@@ -250,6 +250,7 @@ test('admin sync cards always use the latest Supabase readings and account heade
     assert.doesNotMatch(a.node('sessionProfile').textContent,/Administrador|Invitado|20[0-9]{2}/);
     assert.equal(a.node('googleSyncPanel').hidden,false);
     assert.equal(a.node('googleSyncBadgeText').textContent,'ACTIVA');
+    assert.equal(a.node('googleSyncRegistered').previousElementSibling.textContent,'Cargos Actuales 2026');
     assert.equal(a.node('googleSyncRegistered').textContent,'276');
     assert.equal(a.node('googleSyncPending').textContent,'1,480');
     assert.equal(a.node('googleSyncConflicts').textContent,'0');
