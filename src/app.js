@@ -1055,6 +1055,12 @@ async function refreshGoogleSync(){
     document.getElementById('googleSyncBadgeText').textContent=data.enabled?'ACTIVA':'PAUSADA';
 
     const result=data.last_result||{};
+    const onEditMode=result.mode==='onedit';
+    if(onEditMode) {
+      const activated=!!data.enabled && result.verified===true;
+      badge.dataset.status=!data.enabled?'paused':activated?'active':'loading';
+      document.getElementById('googleSyncBadgeText').textContent=!data.enabled?'PAUSADA':activated?'EN TIEMPO REAL':'POR ACTIVAR';
+    }
     const groups=syncMetric(result.groups);
     const pending=syncMetric(result.pending_rows);
     const conflicts=syncMetric(result.conflictos);
@@ -1065,9 +1071,13 @@ async function refreshGoogleSync(){
     const last=checkedAt && Number.isFinite(checkedAt.getTime())
       ? checkedAt.toLocaleString('es-PE',{timeZone:'America/Lima'})
       : 'Pendiente';
-    document.getElementById('googleSyncLastReview').textContent='Última revisión: '+last+' (Lima)';
+    document.getElementById('googleSyncLastReview').textContent=onEditMode
+      ? (result.verified?'Último cargo recibido: '+last+' (Lima)':'Aguardando primera edición autorizada en Apps Script')
+      : 'Última revisión: '+last+' (Lima)';
     document.getElementById('googleSyncStatus').textContent=data.status||'Sin estado informado';
-    document.getElementById('googleSyncDetails').textContent=`Último procesamiento: ${groups} cargos revisados; ${syncMetric(result.cargos_nuevos)} nuevos; ${syncMetric(result.cargos_actualizados)} actualizados; ${pending} filas pendientes; ${conflicts} conflictos.`;
+    document.getElementById('googleSyncDetails').textContent=onEditMode
+      ? `Hoja nueva: ${groups} cargos incorporados; sin reimportar el histórico. Los errores por fila aparecen en las columnas Estado y Detalle de Google Sheets.`
+      : `Último procesamiento: ${groups} cargos revisados; ${syncMetric(result.cargos_nuevos)} nuevos; ${syncMetric(result.cargos_actualizados)} actualizados; ${pending} filas pendientes; ${conflicts} conflictos.`;
   }catch(error){
     document.getElementById('googleSyncBadge').dataset.status='error';
     document.getElementById('googleSyncBadgeText').textContent='SIN CONEXIÓN';
