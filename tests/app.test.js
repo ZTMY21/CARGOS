@@ -23,13 +23,16 @@ async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recov
   dom.window.HTMLDialogElement.prototype.showModal=function(){this.open=true;};
   const state={reqs:[structuredClone(reqRow)],docs:[structuredClone(docRow)],updates:[],snapshots:0,events:[],status:null,authCallback:null};
   state.session=signedIn?{user:{id:'owner',email:'owner@example.test'}}:null;
+  state.syncRow={enabled:true,status:'Revisión completada: 276 cargos ya registrados. 1480 filas pendientes.',
+    last_checked_at:'2026-10-17T03:09:17Z',
+    last_result:{groups:276,pending_rows:1480,conflictos:0,cargos_nuevos:0,cargos_actualizados:0}};
   state.authCalls=[];state.exportCalls=[];state.searchCalls=[];state.now=Date.now();
   dom.window.URL.createObjectURL=()=> 'blob:test';dom.window.URL.revokeObjectURL=()=>{};
   dom.window.HTMLAnchorElement.prototype.click=function(){state.downloadName=this.download;};
   const client={
     channel:()=>({on(event,filter,callback){state.events.push({filter,callback});return this;},subscribe(callback){state.status=callback;callback('SUBSCRIBED');return this;}}),
     removeChannel:async()=>{},
-    from:()=>({select(){return this;},eq(){return this;},async single(){return {data:{enabled:true,status:'Revisión completada',last_checked_at:'2026-10-15T02:00:00Z',last_result:{groups:276,pending_rows:1480}},error:null};}}),
+    from:()=>({select(){return this;},eq(){return this;},update(next){Object.assign(state.syncRow,next);return this;},async single(){return {data:structuredClone(state.syncRow),error:null};}}),
     rpc:async()=>({data:[],error:null}),
     auth:{getSession:async()=>({data:{session:state.session},error:null}),
       onAuthStateChange:callback=>{state.authCallback=callback;},
@@ -235,6 +238,40 @@ test('sync status is inline and the Excel button opens the original file for adm
  const guest=await app({isAdmin:false});try{
   assert.equal(guest.node('googleSyncPanel').hidden,true);
  }finally{guest.close();}
+});
+
+test('admin sync cards always use the latest Supabase readings and account header shows email only',async()=>{
+  const a=await app({isAdmin:true});
+  try {
+    await flush();
+    assert.equal(a.node('sessionProfile').hidden,false);
+    assert.equal(a.node('sessionUser').textContent,'owner@example.test');
+    assert.equal(a.node('sessionProfile').querySelectorAll('svg').length,1);
+    assert.doesNotMatch(a.node('sessionProfile').textContent,/Administrador|Invitado|20[0-9]{2}/);
+    assert.equal(a.node('googleSyncPanel').hidden,false);
+    assert.equal(a.node('googleSyncBadgeText').textContent,'ACTIVA');
+    assert.equal(a.node('googleSyncRegistered').textContent,'276');
+    assert.equal(a.node('googleSyncPending').textContent,'1,480');
+    assert.equal(a.node('googleSyncConflicts').textContent,'0');
+    assert.match(a.node('googleSyncLastReview').textContent,/Última revisión:.*Lima/);
+    assert.match(a.node('googleSyncDetails').textContent,/276 cargos revisados; 0 nuevos; 0 actualizados; 1,480 filas pendientes; 0 conflictos/);
+
+    a.state.syncRow.last_result={groups:281,pending_rows:1320,conflictos:2,cargos_nuevos:5,cargos_actualizados:1};
+    a.state.syncRow.enabled=false;
+    Object.defineProperty(a.dom.window.document,'hidden',{configurable:true,value:false});
+    a.dom.window.document.dispatchEvent(new a.dom.window.Event('visibilitychange'));
+    await flush();
+    assert.equal(a.node('googleSyncBadgeText').textContent,'PAUSADA');
+    assert.equal(a.node('googleSyncRegistered').textContent,'281');
+    assert.equal(a.node('googleSyncPending').textContent,'1,320');
+    assert.equal(a.node('googleSyncConflicts').textContent,'2');
+    assert.match(a.node('googleSyncDetails').textContent,/281 cargos revisados; 5 nuevos; 1 actualizados; 1,320 filas pendientes; 2 conflictos/);
+  }finally{a.close();}
+  const guest=await app({isAdmin:false});
+  try{
+    assert.equal(guest.node('sessionUser').textContent,'owner@example.test');
+    assert.equal(guest.node('googleSyncPanel').hidden,true);
+  }finally{guest.close();}
 });
 
 test('top scrollbar stays synchronized with the retained bottom scrollbar',async()=>{

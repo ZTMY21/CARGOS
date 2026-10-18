@@ -101,6 +101,43 @@
   .loading{padding:20px;text-align:center;color:var(--muted);font-size:13px;}
   .editing-banner{display:none;font-size:12px;background:var(--blue-bg);color:var(--blue);border:1px solid #BCD6EA;border-radius:6px;padding:8px 12px;margin-bottom:14px;}
   .subcard{border:1px dashed var(--border);border-radius:10px;padding:16px;margin-top:18px;background:#FBFCFD;}
+  /* Account: only the avatar and the authenticated email are shown in the header. */
+  .header-row h1{flex:1;min-width:0;}
+  .session-profile{margin-left:auto;display:flex;align-items:center;gap:9px;min-width:0;max-width:330px;color:var(--navy-dark);font-size:12px;}
+  .session-profile svg{width:30px;height:30px;flex-shrink:0;color:var(--navy-dark);}
+  .session-profile-email{overflow-wrap:anywhere;line-height:1.4;font-weight:600;}
+  /* Admin-only Google synchronization dashboard. Data is supplied from Supabase. */
+  .sync-panel{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:22px 24px;margin:12px 0 22px;box-shadow:0 2px 6px #12324d0b;}
+  .sync-status-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px;font-size:13px;color:var(--text);}
+  .sync-status-pill{display:inline-flex;align-items:center;gap:7px;border:1px solid #b1dfbc;background:var(--green-bg);color:var(--green);border-radius:999px;padding:6px 12px;font-weight:700;}
+  .sync-status-pill[data-status="paused"]{background:var(--yellow-bg);color:var(--yellow);border-color:#f0d998;}
+  .sync-status-pill[data-status="error"]{background:var(--red-bg);color:var(--red);border-color:#ebc7c7;}
+  .sync-panel h2{margin:0 0 7px;font-size:21px;color:var(--navy-dark);letter-spacing:-.025em;}
+  .sync-intro{margin:3px 0;font-size:13px;line-height:1.5;color:var(--text);}
+  .sync-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:20px;}
+  .sync-stat{background:#fff;border:1px solid var(--border);border-radius:10px;padding:16px;min-width:0;}
+  .sync-stat-label{font-size:13px;color:var(--muted);display:block;}
+  .sync-stat-value{font-size:30px;font-weight:750;line-height:1.2;display:block;color:var(--navy-dark);margin-top:3px;letter-spacing:-.03em;}
+  .sync-stat-pending .sync-stat-value{color:var(--yellow);}
+  .sync-stat-conflict .sync-stat-value{color:var(--red);}
+  .sync-stat-detail{display:block;font-size:12px;color:var(--text);line-height:1.4;margin-top:3px;overflow-wrap:anywhere;}
+  .sync-panel-footer{border-top:1px solid var(--border);margin-top:20px;padding-top:17px;display:flex;justify-content:space-between;gap:20px;align-items:flex-start;flex-wrap:wrap;}
+  .sync-panel-info{flex:1 1 350px;min-width:0;color:var(--muted);font-size:12px;line-height:1.5;}
+  .sync-panel-info p{margin:0 0 4px;overflow-wrap:anywhere;}
+  .sync-panel-info #googleSyncLastReview{font-weight:600;color:var(--text);}
+  .sync-panel-actions{display:flex;align-items:flex-end;flex-direction:column;gap:10px;min-width:0;}
+  .sync-panel-actions #btnToggleGoogleSync{background:var(--navy-dark);border-color:var(--navy-dark);white-space:nowrap;}
+  .sync-panel-actions .google-excel-links{margin-top:0;justify-content:flex-end;}
+  .sync-panel .excel-link-button{background:#24864a;border-color:#24864a;color:#fff;font-weight:600;}
+  .sync-panel .excel-link-button:hover{background:#1c6e3b;border-color:#1c6e3b;color:#fff;}
+  @media(max-width:720px){
+    .header-row{flex-wrap:wrap;}
+    .session-profile{margin-left:0;max-width:100%;}
+    .sync-panel{padding:16px;}
+    .sync-stats{grid-template-columns:1fr;}
+    .sync-panel-actions{width:100%;align-items:stretch;}
+    .sync-panel-actions .google-excel-links{justify-content:flex-start;}
+  }
 </style>
 </head>
 <body>
@@ -110,27 +147,60 @@
   <div class="header-row">
     <img src="data:image/png;base64,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" alt="Logo Farmacias Peruanas" class="header-logo">
     <h1>Kardex Digital — Control de Existencias Documentos Contables (CD Santa Anita)</h1>
+    <div id="sessionProfile" class="session-profile" hidden aria-label="Cuenta conectada">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="8.5" r="3.2"></circle><path d="M5.6 19a7.1 7.1 0 0 1 12.8 0"></path>
+      </svg>
+      <span id="sessionUser" class="session-profile-email"></span>
+    </div>
   </div>
 
   <div class="connection-row" aria-live="polite">
     <span id="connectionDot" class="connection-dot"></span>
     <span id="connectionStatus">Conexión pendiente</span>
-    <span id="sessionUser"></span>
     <button id="btnReconnect" class="secondary connection-action">Actualizar</button>
     <button id="btnSignOut" class="secondary connection-action" hidden>Salir</button>
   </div>
-  <section id="googleSyncPanel" hidden class="subcard">
-    <h2>Sincronización automática con Google</h2>
-    <p>Revisión cada hora. Agrega cargos y facturas nuevos sin borrar el histórico ni modificar tus datos manuales.</p>
-    <p>Completa Fecha, Cargo y Codigo. Las filas incompletas quedarán pendientes para la siguiente revisión.</p>
-    <h3>Estado de sincronización</h3>
-    <p class="hint">Los cargos se sincronizan automáticamente cada hora. Este estado se actualiza automáticamente mientras tienes el aplicativo abierto.</p>
-    <p id="googleSyncStatus" aria-live="polite">Consultando estado…</p>
-    <p id="googleSyncDetails" class="hint"></p>
-    <button id="btnToggleGoogleSync" type="button" disabled>Pausar sincronización</button>
-    <div class="google-excel-links" aria-label="Archivos de cargos de Google Drive">
-      <a id="btnOpenGoogleExcel" class="excel-link-button" href="https://docs.google.com/spreadsheets/d/1GvTelpW7OQnt4sl_e-AfmWnNdSFQnL7E/edit" target="_blank" rel="noopener noreferrer">Cargos Actuales</a>
-      <a id="btnOpenIronMountainExcel" class="excel-link-button" href="https://docs.google.com/spreadsheets/d/1ap1GzGd3HBvkV2N7p6dvkFIYwHS_cIqO/edit?usp=drivesdk&amp;ouid=101835988006141638443&amp;rtpof=true&amp;sd=true" target="_blank" rel="noopener noreferrer">Cargos Enviados</a>
+  <section id="googleSyncPanel" hidden class="sync-panel" aria-labelledby="googleSyncTitle">
+    <div class="sync-status-row">
+      <span id="googleSyncBadge" class="sync-status-pill" data-status="loading">
+        <span aria-hidden="true">●</span> <span id="googleSyncBadgeText">Consultando</span>
+      </span>
+      <span>Estado de sincronización</span>
+    </div>
+    <h2 id="googleSyncTitle">Sincronización automática con Google Sheets</h2>
+    <p class="sync-intro">Revisión cada hora. Agrega cargos y facturas nuevos sin borrar el histórico ni modificar tus datos manuales.</p>
+    <p class="sync-intro">Completa Fecha, Cargo y Código. Las filas incompletas quedarán pendientes para la siguiente revisión.</p>
+    <div class="sync-stats" aria-label="Resultados de la última sincronización">
+      <article class="sync-stat">
+        <span class="sync-stat-label">Cargos registrados</span>
+        <strong id="googleSyncRegistered" class="sync-stat-value">—</strong>
+        <span id="googleSyncRegisteredNote" class="sync-stat-detail">Consultando cargos revisados…</span>
+      </article>
+      <article class="sync-stat sync-stat-pending">
+        <span class="sync-stat-label">Filas pendientes</span>
+        <strong id="googleSyncPending" class="sync-stat-value">—</strong>
+        <span id="googleSyncPendingNote" class="sync-stat-detail">Consultando filas incompletas…</span>
+      </article>
+      <article class="sync-stat sync-stat-conflict">
+        <span class="sync-stat-label">Filas con conflictos</span>
+        <strong id="googleSyncConflicts" class="sync-stat-value">—</strong>
+        <span id="googleSyncConflictsNote" class="sync-stat-detail">Consultando conflictos…</span>
+      </article>
+    </div>
+    <div class="sync-panel-footer">
+      <div class="sync-panel-info">
+        <p id="googleSyncLastReview">Última revisión: Consultando…</p>
+        <p id="googleSyncDetails">Último procesamiento: Consultando…</p>
+        <p id="googleSyncStatus" aria-live="polite">Consultando estado de sincronización…</p>
+      </div>
+      <div class="sync-panel-actions">
+        <button id="btnToggleGoogleSync" type="button" disabled>Pausar sincronización</button>
+        <div class="google-excel-links" aria-label="Archivos de cargos de Google Drive">
+          <a id="btnOpenGoogleExcel" class="excel-link-button" href="https://docs.google.com/spreadsheets/d/1GvTelpW7OQnt4sl_e-AfmWnNdSFQnL7E/edit" target="_blank" rel="noopener noreferrer">Cargos Actuales</a>
+          <a id="btnOpenIronMountainExcel" class="excel-link-button" href="https://docs.google.com/spreadsheets/d/1ap1GzGd3HBvkV2N7p6dvkFIYwHS_cIqO/edit?usp=drivesdk&amp;ouid=101835988006141638443&amp;rtpof=true&amp;sd=true" target="_blank" rel="noopener noreferrer">Cargos Enviados</a>
+        </div>
+      </div>
     </div>
   </section>
   <p id="readOnlyNotice" hidden>Invitado · Solo consulta de cargos y facturas</p>
