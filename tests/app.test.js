@@ -67,6 +67,9 @@ async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recov
     return {rows:selected.map(row=>({...state.docs.find(d=>d.id===row.id)})),total:found.length,folios:found.reduce((n,d)=>n+(Number(d.folios)||0),0)};
   };
   const context=dom.getInternalVMContext();
+  const scheduleInterval=dom.window.setInterval.bind(dom.window);
+  state.intervals=[];
+  context.setInterval=(callback,delay)=>{state.intervals.push({callback,delay});return scheduleInterval(callback,delay);};
   context.Date=class extends Date {constructor(...args){super(...(args.length?args:[state.now]));}static now(){return state.now;}};
   Object.assign(context,{cargoExpiryGroups,formatCargoDuration,limaDate});
   Object.assign(context,{createIdleSession:options=>createIdleSession({...options,now:()=>state.now}),createClient:()=>client,KardexRepository:FakeRepository,reqFromDb,docFromDb,reqEstado,docEstado,fmtDate,escapeHtml,buildWorkbook:async(...args)=>{state.exportCalls.push(args);return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},buildCargoWorkbook:async(cargo)=>{state.guestExport=cargo;return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},parseWorkbook,highlightMatch,filterDocuments,filterRequirements,cargoYear,invoiceLocation,locationLabel,groupsForCodes,
@@ -451,15 +454,20 @@ test('expiry cards and in-app sheet share 2025/2026 counts and update after ship
     a.node('btnCargosVencidos').click();
     assert.equal(a.node('cargoExpirySheet').open,true);
     assert.equal(a.node('cargoExpiryTitle').textContent,'Cargos Vencidos');
+    assert.equal(a.node('cargoExpiryLegend').hidden,true);
+    assert.equal(a.node('cargoExpirySheet').querySelectorAll('button[data-expiry]').length,0);
     assert.equal(a.node('cargoExpiryBody').rows.length,2);
     assert.match(a.node('cargoExpiryBody').textContent,/001A/);
     assert.match(a.node('cargoExpiryBody').textContent,/8 meses/);
     assert.match(a.node('cargoExpiryBody').textContent,/0 meses y 1 día/);
     assert.doesNotMatch(a.node('cargoExpiryBody').textContent,/OLD|SENT|NO-DATE|NEXT/);
     assert.match(a.node('cargoExpiryUnknown').textContent,/NO-DATE \(2026\)/);
-    a.node('btnExpiryUpcoming').click();
+    a.node('btnCloseCargoExpiry').click();
+    assert.equal(a.dom.window.document.activeElement.id,'btnCargosVencidos');
+    a.node('btnCargosPorVencer').click();
     assert.equal(a.node('cargoExpiryTimeHeading').textContent,'Falta para vencer');
-    assert.equal(a.node('btnExpiryUpcoming').getAttribute('aria-pressed'),'true');
+    assert.equal(a.node('cargoExpiryLegend').hidden,false);
+    assert.equal(a.node('cargoExpirySheet').querySelectorAll('button[data-expiry]').length,0);
     assert.equal(a.node('cargoExpiryBody').rows.length,2);
     assert.match(a.node('cargoExpiryBody').textContent,/Cumple 6 meses hoy/);
     assert.match(a.node('cargoExpiryBody').textContent,/5 meses/);
@@ -470,7 +478,7 @@ test('expiry cards and in-app sheet share 2025/2026 counts and update after ship
     assert.match(number('.kpi-summary-expiring'),/^1\b/);
     a.node('btnCloseCargoExpiry').click();
     assert.equal(a.node('cargoExpirySheet').open,false);
-    assert.equal(a.dom.window.document.activeElement.id,'btnCargosVencidos');
+    assert.equal(a.dom.window.document.activeElement.id,'btnCargosPorVencer');
     a.node('btnCargosPorVencer').click();
     assert.equal(a.node('cargoExpiryTitle').textContent,'Cargos por Vencer');
     a.node('btnSignOut').click();await flush();
@@ -504,12 +512,57 @@ test('expiry detail paginates every cargo, escapes source values and refreshes a
     assert.equal(a.node('cargoExpiryBody').querySelectorAll('img').length,0);
     assert.match(a.node('cargoExpiryBody').textContent,/<img src=x/);
     a.state.now=Date.parse('2026-10-19T05:00:00Z');
-    a.node('btnExpiryOverdue').click();
+    a.node('btnCloseCargoExpiry').click();
+    a.node('btnCargosVencidos').click();
     assert.match(a.node('cargoExpiryCount').textContent,/101 cargos/);
     assert.match(a.node('cargoExpiryBody').textContent,/0 meses y 1 día/);
-    a.node('btnExpiryUpcoming').click();
+    a.node('btnCloseCargoExpiry').click();
+    a.node('btnCargosPorVencer').click();
     assert.match(a.node('cargoExpiryBody').textContent,/No hay cargos por vencer/);
     assert.equal(a.node('btnExpiryNext').disabled,true);
+  } finally {a.close();}
+});
+
+test('new Google cargos receive colors on arrival and move automatically at Lima midnight in the open detail',async()=>{
+  const a=await app({now:Date.parse('2026-10-19T04:59:00Z')});
+  try {
+    Object.defineProperty(a.dom.window.document,'hidden',{configurable:true,get:()=>false});
+    const base=a.state.docs[0];
+    a.state.docs=[];
+    a.node('btnReconnect').click();await flush();
+    a.node('btnCargosPorVencer').click();
+    assert.match(a.node('cargoExpiryBody').textContent,/No hay cargos/);
+    // These are the fields supplied by the existing Google Sheets ingestion.
+    a.state.docs=[['C-HOY','2026-04-18'],['C-8DIAS','2026-04-26'],
+      ['C-3MESES','2026-07-18'],['C-NUEVO','2026-10-18']].map(([code,date])=>({
+        ...structuredClone(base),id:randomUUID(),periodo:null,anio_origen:2026,
+        fecha_origen:date,cargos:[code],usuario:'Sincronización Google Drive'}));
+    a.state.events.find(x=>x.filter.table==='kardex_eventos').callback();
+    await new Promise(resolve=>setTimeout(resolve,270));
+    const row=code=>[...a.node('cargoExpiryBody').rows].find(r=>r.cells[0].textContent===code);
+    assert.equal(a.node('cargoExpiryBody').rows.length,4);
+    assert.ok(row('C-HOY').querySelector('.expiry-red'));
+    assert.ok(row('C-8DIAS').querySelector('.expiry-yellow'));
+    assert.ok(row('C-3MESES').querySelector('.expiry-green'));
+    assert.ok(row('C-NUEVO').querySelector('.expiry-green'));
+    assert.match(row('C-NUEVO').textContent,/6 meses/);
+    a.state.now=Date.parse('2026-10-19T05:00:01Z');
+    // Invoke the same scheduled refresh that runs every minute, without a click.
+    a.state.intervals.filter(timer=>timer.delay===60000).forEach(timer=>timer.callback());
+    await flush();
+    assert.equal(a.node('cargoExpiryTitle').textContent,'Cargos por Vencer');
+    assert.equal(a.node('cargoExpiryBody').rows.length,3);
+    assert.equal(row('C-HOY'),undefined);
+    assert.ok(row('C-8DIAS').querySelector('.expiry-red'));
+    assert.match(row('C-8DIAS').textContent,/0 meses y 7 días/);
+    assert.ok(row('C-3MESES').querySelector('.expiry-yellow'));
+    assert.ok(row('C-NUEVO').querySelector('.expiry-green'));
+    assert.match(a.node('resumenTablas').querySelector('.kpi-summary-overdue .n').textContent,/^1\b/);
+    a.node('btnCloseCargoExpiry').click();a.node('btnCargosVencidos').click();
+    assert.equal(a.node('cargoExpiryBody').rows.length,1);
+    assert.ok(row('C-HOY').querySelector('.expiry-red'));
+    assert.match(row('C-HOY').textContent,/0 meses y 1 día/);
+    assert.equal(a.node('cargoExpiryLegend').hidden,true);
   } finally {a.close();}
 });
 

@@ -526,21 +526,18 @@ function renderCargoExpiry() {
   expiryPage = Math.min(expiryPage, pages - 1);
   document.getElementById('cargoExpiryTitle').textContent = overdue ? 'Cargos Vencidos' : 'Cargos por Vencer';
   document.getElementById('cargoExpiryTimeHeading').textContent = overdue ? 'Tiempo vencido' : 'Falta para vencer';
-  for (const [id, group, label] of [['btnExpiryOverdue','overdue','Cargos Vencidos'],['btnExpiryUpcoming','upcoming','Cargos por Vencer']]) {
-    const button = document.getElementById(id);
-    button.textContent = `${label} (${fmtNum(count(expiryGroups[group]))})`;
-    button.setAttribute('aria-pressed', String(group === activeExpiryGroup));
-  }
+  document.getElementById('cargoExpiryLegend').hidden = overdue;
   const start = expiryPage * PAGE_SIZE;
   const selected = rows.slice(start, start + PAGE_SIZE);
   document.getElementById('cargoExpiryCount').textContent = `Al ${fmtDate(expiryGroups.today)} · ${fmtNum(rows.length)} cargos${rows.length ? ` · Mostrando ${fmtNum(start + 1)}–${fmtNum(start + selected.length)}` : ''} · Ordenados por fecha de vencimiento`;
   document.getElementById('cargoExpiryBody').innerHTML = selected.length ? selected.map(({doc, cargo}) => {
     const expiry = doc.expiry;
     const remaining = !overdue && expiry.dueDate === expiryGroups.today ? '0 meses · Cumple 6 meses hoy' : formatCargoDuration(expiry.time);
+    const signal = overdue ? 'Vencido' : {green:'Hasta 3 meses',yellow:'Más de 3 meses',red:'Últimos 7 días'}[expiry.color];
     return `<tr>
       <td class="expiry-cargo">${escapeHtml(cargo)}</td><td>${escapeHtml(expiry.year)}</td><td>${escapeHtml(doc.kardex)}</td>
       <td>${fmtDate(expiry.baseDate)}</td><td>${fmtDate(expiry.dueDate)}</td><td>${formatCargoDuration(expiry.age)}</td>
-      <td class="${overdue ? 'alerta-neg' : 'expiry-remaining'}">${remaining}</td>
+      <td><span class="expiry-status expiry-${expiry.color}">${remaining}<small>${signal}</small></span></td>
       <td><span class="badge ${docBadgeClass(doc.estado)}">${escapeHtml(doc.estado)}</span></td>
     </tr>`;
   }).join('') : `<tr><td colspan="8" class="empty">No hay cargos ${overdue ? 'vencidos' : 'por vencer'} de 2025 y 2026 pendientes de envío.</td></tr>`;
@@ -565,10 +562,6 @@ function openCargoExpiry(group) {
   sheet.querySelector('.expiry-table-wrap').scrollTop = 0;
 }
 document.getElementById('resumenTablas').addEventListener('click', event => {
-  const button = event.target.closest('button[data-expiry]');
-  if (button) openCargoExpiry(button.dataset.expiry);
-});
-document.getElementById('cargoExpirySheet').addEventListener('click', event => {
   const button = event.target.closest('button[data-expiry]');
   if (button) openCargoExpiry(button.dataset.expiry);
 });

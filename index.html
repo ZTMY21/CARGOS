@@ -471,9 +471,10 @@
     <button id="btnCloseCargoExpiry" type="button" class="secondary" autofocus>Cerrar</button>
   </div>
   <p id="cargoExpiryRule" class="expiry-rule">Solo cargos pendientes de envío a Iron Mountain. Vencen al superar 6 meses desde el período contable o, si no está registrado, desde la fecha de origen del cargo.</p>
-  <div class="expiry-switch" role="group" aria-label="Ver cargos vencidos o por vencer">
-    <button id="btnExpiryOverdue" type="button" data-expiry="overdue" aria-pressed="false">Cargos Vencidos</button>
-    <button id="btnExpiryUpcoming" type="button" data-expiry="upcoming" aria-pressed="false">Cargos por Vencer</button>
+  <div id="cargoExpiryLegend" class="expiry-legend" aria-label="Colores según el plazo del cargo" hidden>
+    <span class="expiry-green">Verde: hasta 3 meses</span>
+    <span class="expiry-yellow">Amarillo: más de 3 meses</span>
+    <span class="expiry-red">Rojo: últimos 7 días</span>
   </div>
   <p id="cargoExpiryCount" class="search-count" aria-live="polite"></p>
   <div class="expiry-table-wrap" tabindex="0" role="region" aria-label="Detalle de cargos con vencimiento">
