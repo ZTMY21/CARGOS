@@ -120,7 +120,6 @@
   .sync-stat-value{font-size:30px;font-weight:750;line-height:1.2;display:block;color:var(--navy-dark);margin-top:3px;letter-spacing:-.03em;}
   .sync-stat-pending .sync-stat-value{color:var(--yellow);}
   .sync-stat-conflict .sync-stat-value{color:var(--red);}
-  .sync-stat-detail{display:block;font-size:12px;color:var(--text);line-height:1.4;margin-top:3px;overflow-wrap:anywhere;}
   .sync-panel-footer{border-top:1px solid var(--border);margin-top:20px;padding-top:17px;display:flex;justify-content:space-between;gap:20px;align-items:flex-start;flex-wrap:wrap;}
   .sync-panel-info{flex:1 1 350px;min-width:0;color:var(--muted);font-size:12px;line-height:1.5;}
   .sync-panel-info p{margin:0 0 4px;overflow-wrap:anywhere;}
@@ -175,17 +174,14 @@
       <article class="sync-stat">
         <span class="sync-stat-label">Cargos registrados</span>
         <strong id="googleSyncRegistered" class="sync-stat-value">—</strong>
-        <span id="googleSyncRegisteredNote" class="sync-stat-detail">Consultando cargos revisados…</span>
       </article>
       <article class="sync-stat sync-stat-pending">
         <span class="sync-stat-label">Filas pendientes</span>
         <strong id="googleSyncPending" class="sync-stat-value">—</strong>
-        <span id="googleSyncPendingNote" class="sync-stat-detail">Consultando filas incompletas…</span>
       </article>
       <article class="sync-stat sync-stat-conflict">
         <span class="sync-stat-label">Filas con conflictos</span>
         <strong id="googleSyncConflicts" class="sync-stat-value">—</strong>
-        <span id="googleSyncConflictsNote" class="sync-stat-detail">Consultando conflictos…</span>
       </article>
     </div>
     <div class="sync-panel-footer">
