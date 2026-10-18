@@ -260,11 +260,11 @@ test('sync status is inline and the Excel button opens the original file for adm
  const a=await app();try{
   assert.equal(a.node('btnRefreshGoogleSync'),null);
   assert.equal(a.node('googleSyncDialog'),null);
-  assert.equal(a.node('btnOpenGoogleExcel').textContent,'Cargos Actuales');
+  assert.equal(a.node('btnOpenGoogleExcel').textContent,'CARGOS ACTUALES');
   assert.equal(a.node('btnOpenIronMountainExcel').textContent,'Cargos Enviados');
   assert.match(a.node('btnOpenIronMountainExcel').href,/1ap1GzGd3HBvkV2N7p6dvkFIYwHS_cIqO/);
   assert.equal(a.node('btnOpenIronMountainExcel').target,'_blank');
-  assert.match(a.node('btnOpenGoogleExcel').href,/1GvTelpW7OQnt4sl_e-AfmWnNdSFQnL7E/);
+  assert.match(a.node('btnOpenGoogleExcel').href,/18TbKWiVUWKfkJOXvR0kGEMb5eVKTDCfoXAUtD5rCxts/);
   assert.equal(a.node('btnOpenGoogleExcel').target,'_blank');
   assert.match(a.node('googleSyncStatus').textContent,/Revisión completada/);
   assert.match(a.node('googleSyncDetails').textContent,/276 cargos revisados/);
@@ -793,4 +793,32 @@ test('one hour of inactivity signs out the account and hides data before another
   assert.equal(a.node('authOverlay').hidden,false);
   assert.match(a.node('authMessage').textContent,/una hora de inactividad/);
  }finally{a.close();}
+});
+
+
+test('contador de 2026 suma históricos y cargos nuevos únicos por edición sin contar otra factura como cargo',async()=>{
+  const a=await app({isAdmin:true});
+  try {
+    const base={...structuredClone(a.state.docs[0]),periodo:null,fecha_origen:'2026-09-25',anio_origen:2026,
+      cargos:['930'],clave_origen:'historico|2026|930',facturas:'F-HISTORICO'};
+    a.state.docs=[base];
+    a.state.syncRow.last_result={mode:'onedit',verified:false,groups:0,pending_rows:null,conflictos:0};
+    a.node('btnReconnect').click();
+    await flush();
+    assert.equal(a.node('googleSyncRegistered').textContent,'1');
+    assert.match(a.node('googleSyncDetails').textContent,/1 del Excel base \+ 0 incorporados/);
+    const newCargo={...structuredClone(base),id:randomUUID(),cargos:['0933'],
+      clave_origen:'google-live|sheet|2026|933',fecha_origen:'2026-10-18',facturas:'F-REAL'};
+    a.state.docs.push(newCargo);
+    a.state.events.find(x=>x.filter.table==='kardex_eventos').callback();
+    await new Promise(resolve=>setTimeout(resolve,280));
+    assert.equal(a.node('googleSyncRegistered').textContent,'2');
+    assert.match(a.node('googleSyncDetails').textContent,/1 del Excel base \+ 1 incorporados/);
+    assert.match(a.node('resumenTablas').querySelector('.year-current .year-value').textContent,/^2\s*cargos/);
+    a.state.docs.push({...structuredClone(newCargo),id:randomUUID(),cargos:['933'],facturas:'F-OTRA'});
+    a.state.events.find(x=>x.filter.table==='kardex_eventos').callback();
+    await new Promise(resolve=>setTimeout(resolve,280));
+    assert.equal(a.node('googleSyncRegistered').textContent,'2');
+    assert.match(a.node('googleSyncDetails').textContent,/1 del Excel base \+ 1 incorporados/);
+  } finally {a.close();}
 });
