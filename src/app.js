@@ -92,7 +92,9 @@ async function fetchSearchResults(render=true) {
     if(render) {renderDocs();setAvailability();}
   } catch(error) {
     if(epoch!==searchEpoch||searchController.signal.aborted)return;
-    queryError='No se pudo completar la búsqueda. Actualiza los datos e intenta otra vez.';
+    queryError=error?.code==='57014'
+      ? 'La búsqueda demoró demasiado. Prueba con un código más completo y pulsa Buscar otra vez.'
+      : 'No se pudo completar la búsqueda. Revisa tu conexión y vuelve a pulsar Buscar.';
     queryResults={rows:[],total:0,folios:0};
     if(render)renderDocs();
   }
