@@ -55,6 +55,12 @@ export function invoiceSearchPresentation(doc, query = '') {
 export function filterDocuments(documents, requirements, filters, now=new Date()) {
   const reqs=new Map(requirements.map(r=>[r.id,r.numero]));
   const terms=searchTerms(filters.query);
+  const cargoOnly=filters.type==='solo-cargos';
+  const cargoQuery=normalizeSearch(filters.query);
+  // Si el código exacto existe, no incluir números parecidos como 1490
+  // cuando se busca 490. Si no, permitir búsquedas parciales de cargos.
+  const hasExactCargo=cargoOnly && cargoQuery && documents.some(d=>
+    (d.cargos||[]).some(c=>normalizeSearch(c)===cargoQuery));
   return documents.map(d=>({...d,...computeDocEstado(d,now)})).filter(d=>{
     const fields=[d.kardex,...(d.cargos||[]),d.facturas,reqs.get(d.cajaAsignada),d.sustento,d.obs,d.usuario,d.tipoDoc,d.hojaOrigen].map(normalizeSearch);
     const periodYear=d.periodo?.slice(0,4);
@@ -62,11 +68,15 @@ export function filterDocuments(documents, requirements, filters, now=new Date()
     const matchesYear=!year || (year==='sin-periodo' && !d.periodo)
       || (year.startsWith('origen:') && String(d.anioOrigen)===year.slice(7))
       || (!year.includes(':') && periodYear===year);
-    const matchesInvoice=!filters.invoiceExact||!normalizeSearch(filters.query)
-      || (d.facturas||'').split(/[,;\n]/).some(number=>normalizeSearch(number)===normalizeSearch(filters.query));
-    return matchesInvoice&&terms.every(t=>fields.some(field=>field.includes(t)))
+    const matchesInvoice=cargoOnly || !filters.invoiceExact || !cargoQuery
+      || (d.facturas||'').split(/[,;\n]/).some(number=>normalizeSearch(number)===cargoQuery);
+    const matchesCargo=cargoOnly
+      ? (d.cargos||[]).some(c=>!cargoQuery || (hasExactCargo
+        ? normalizeSearch(c)===cargoQuery : normalizeSearch(c).includes(cargoQuery)))
+      : terms.every(t=>fields.some(field=>field.includes(t)));
+    return matchesInvoice && matchesCargo
       && (!filters.state||d.estado===filters.state)
-      && (!filters.type||d.tipoDoc===filters.type)
+      && (cargoOnly || !filters.type || d.tipoDoc===filters.type)
       && (!filters.location||d.ubicacion===filters.location||(filters.location==='sin-dato'&&!d.ubicacion))
       && matchesYear;
   });

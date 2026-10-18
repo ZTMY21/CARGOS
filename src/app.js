@@ -82,6 +82,13 @@ async function fetchSearchResults(render=true) {
     if(render){renderDocs();setAvailability();}
     return;
   }
+  // Consulta de números de cargo exclusivamente: evita coincidir por facturas,
+  // boletas o guías, y usa el snapshot sincronizado del Kardex.
+  if(appliedFilters.type==='solo-cargos') {
+    searchEpoch++;searchController?.abort();queryResults=null;queryError='';
+    if(render){renderDocs();setAvailability();}
+    return;
+  }
   const epoch=++searchEpoch;
   searchController?.abort();searchController=new AbortController();
   document.getElementById('conteoResultados').textContent='Buscando…';
@@ -458,7 +465,7 @@ function renderDocs(){
   const total=queryResults?.total??filtered.length;
   const folios=queryResults?.folios??filtered.reduce((sum,d)=>sum+(Number(d.folios)||0),0);
   // Cargo searches and the initial random cargo list omit the entire Ubicación column.
-  const showLocationColumn=!!search && !(filtered.length>0 &&
+  const showLocationColumn=filters.type!=='solo-cargos' && !!search && !(filtered.length>0 &&
     filtered.every(d=>invoiceSearchPresentation(d,search).kind==='cargo'));
   const tableHead=document.querySelector('#docsTable thead tr');
   const existingLocationHead=document.getElementById('ubicacionHeader');
@@ -490,7 +497,9 @@ function renderDocs(){
       const responsableTxt = !String(responsableOrigen||'').trim() || /^importaci[oó]n excel$/i.test(String(responsableOrigen).trim())
         ? 'Sin Responsable' : responsableOrigen;
       const estadoTxt = d.imConfirmado ? 'Enviado' : d.estado;
-      const invoiceView=invoiceSearchPresentation(d,search);
+      const invoiceView=filters.type==='solo-cargos'
+        ? {...invoiceSearchPresentation(d,''),kind:'cargo',codes:[]}
+        : invoiceSearchPresentation(d,search);
       // Do not calculate group locations unless the document-code column is visible.
       const groupLocation=showLocationColumn && invoiceView.kind!=='cargo'
         ? (d.ubicacionesCodigo
