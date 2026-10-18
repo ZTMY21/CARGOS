@@ -33,6 +33,25 @@ export function highlightMatch(value, query) {
   }
   return result+escapeHtml(source.slice(cursor));
 }
+// The Facturas cell adapts to the entered value, independently of the user's role.
+export function invoiceSearchPresentation(doc, query = '') {
+  const allCodes = String(doc.facturas || '').split(/[,;\n]/).map(code => code.trim()).filter(Boolean);
+  // The RPC returns a short list of matched codes, but also the authoritative total.
+  const foundCodes = Array.isArray(doc.facturasEncontradas) && doc.facturasEncontradas.length
+    ? doc.facturasEncontradas : allCodes;
+  const dbCount = Number(doc.cantidadFacturas);
+  const total = doc.cantidadFacturas !== null && doc.cantidadFacturas !== undefined
+    && Number.isSafeInteger(dbCount) && dbCount >= 0 ? dbCount : allCodes.length;
+  if (!String(query ?? '').trim()) return {kind:'browse',codes:foundCodes.slice(0,3),total};
+  const compactQuery = normalizeSearch(query);
+  if (compactQuery && (doc.cargos || []).some(cargo => normalizeSearch(cargo).includes(compactQuery))) {
+    return {kind:'cargo',codes:[],total};
+  }
+  const terms = searchTerms(query);
+  const codes = foundCodes.filter(code => terms.some(term => normalizeSearch(code).includes(term)));
+  return {kind:codes.length?'invoice':'other',codes,total};
+}
+
 export function filterDocuments(documents, requirements, filters, now=new Date()) {
   const reqs=new Map(requirements.map(r=>[r.id,r.numero]));
   const terms=searchTerms(filters.query);
