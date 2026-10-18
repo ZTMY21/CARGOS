@@ -253,6 +253,10 @@ test('admin sync cards always use the latest Supabase readings and account heade
     assert.equal(a.node('googleSyncRegistered').textContent,'276');
     assert.equal(a.node('googleSyncPending').textContent,'1,480');
     assert.equal(a.node('googleSyncConflicts').textContent,'0');
+    assert.equal(a.node('googleSyncRegisteredNote'),null);
+    assert.equal(a.node('googleSyncPendingNote'),null);
+    assert.equal(a.node('googleSyncConflictsNote'),null);
+    assert.equal(a.dom.window.document.querySelectorAll('#googleSyncPanel .sync-stat-detail').length,0);
     assert.match(a.node('googleSyncLastReview').textContent,/Última revisión:.*Lima/);
     assert.match(a.node('googleSyncDetails').textContent,/276 cargos revisados; 0 nuevos; 0 actualizados; 1,480 filas pendientes; 0 conflictos/);
 
