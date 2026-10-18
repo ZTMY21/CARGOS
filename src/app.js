@@ -343,7 +343,7 @@ function cargoTotals2026(){
     if(cargoYear(d)!=='2026') continue;
     const origen=String(d.claveOrigen||'');
     for(const value of d.cargos||[]){
-      const cargo=String(value??'').trim().replace(/\\.0+$/,'').replace(/^0+(?=\\d)/,'');
+      const cargo=String(value??'').trim().replace(/\.0+$/,'').replace(/^0+(?=\d)/,'');
       if(!cargo)continue;
       todos.add(cargo);
       if(origen.startsWith('google-live|')) nuevos.add(cargo);
