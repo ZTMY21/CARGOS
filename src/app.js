@@ -779,6 +779,7 @@ async function handleSession(session) {
     reqs = []; docs = []; cancelarEdicionDoc(); cancelarEdicionReq(); renderReqs(); renderDocs();
     showAuthPage(true);
     document.getElementById('sessionUser').textContent = '';
+    document.getElementById('sessionProfile').hidden = true;
     document.getElementById('btnSignOut').hidden = true;
     document.getElementById('btnAuthSignOut').hidden = true;
     setStatus('Inicia sesión para conectar'); setAvailability(); return;
@@ -802,7 +803,8 @@ async function handleSession(session) {
     if(isAdmin) refreshGoogleSync();
     showAuthPage(false);
     message('authMessage','');
-    document.getElementById('sessionUser').textContent = user.email + (isAdmin ? ' · Administrador' : ' · Invitado');
+    document.getElementById('sessionUser').textContent = user.email || '';
+    document.getElementById('sessionProfile').hidden = !user.email;
     document.getElementById('btnSignOut').hidden = false;
     await subscribeRealtime(); setAvailability();
   } catch (error) {
@@ -921,23 +923,46 @@ document.getElementById('btnRegister').addEventListener('click',async ev=>{
   finally{button.disabled=false;}
 });
 
+function syncMetric(value) {
+  // Missing readings are unknown, not zero; do not hardcode dashboard totals.
+  if(value === null || value === undefined || value === '') return '—';
+  const parsed=Number(value);
+  return Number.isFinite(parsed) && parsed>=0 ? parsed.toLocaleString('es-PE') : '—';
+}
 async function refreshGoogleSync(){
   if(!appReady||!isAdmin)return;
-  const button=document.getElementById('btnToggleGoogleSync');button.disabled=true;
+  const button=document.getElementById('btnToggleGoogleSync');
+  button.disabled=true;
   try{
     const {data,error}=await supabase.from('kardex_google_sync').select().eq('id',true).single();
     if(error)throw error;
-    googleSyncEnabled=data.enabled;
+    googleSyncEnabled=!!data.enabled;
     button.textContent=data.enabled?'Pausar sincronización':'Activar sincronización';
-    const last=data.last_checked_at?new Date(data.last_checked_at).toLocaleString('es-PE',{timeZone:'America/Lima'}):'Pendiente';
-    const status=`${data.enabled?'Activa':'Pausada'} · ${data.status} · Última revisión: ${last} (Lima)`;
-    document.getElementById('googleSyncStatus').textContent=status;
-    const result=data.last_result||{};
-    document.getElementById('googleSyncDetails').textContent=`Último procesamiento: ${result.groups??0} cargos revisados; ${result.cargos_nuevos??0} nuevos; ${result.cargos_actualizados??0} actualizados; ${result.pending_rows??0} filas pendientes; ${result.conflictos??0} conflictos.`;
+    const badge=document.getElementById('googleSyncBadge');
+    badge.dataset.status=data.enabled?'active':'paused';
+    document.getElementById('googleSyncBadgeText').textContent=data.enabled?'ACTIVA':'PAUSADA';
 
+    const result=data.last_result||{};
+    const groups=syncMetric(result.groups);
+    const pending=syncMetric(result.pending_rows);
+    const conflicts=syncMetric(result.conflictos);
+    document.getElementById('googleSyncRegistered').textContent=groups;
+    document.getElementById('googleSyncPending').textContent=pending;
+    document.getElementById('googleSyncConflicts').textContent=conflicts;
+    document.getElementById('googleSyncRegisteredNote').textContent='Total revisados: '+groups;
+    document.getElementById('googleSyncPendingNote').textContent='Incompletas: '+pending;
+    document.getElementById('googleSyncConflictsNote').textContent='Conflictos: '+conflicts;
+    const checkedAt=data.last_checked_at ? new Date(data.last_checked_at) : null;
+    const last=checkedAt && Number.isFinite(checkedAt.getTime())
+      ? checkedAt.toLocaleString('es-PE',{timeZone:'America/Lima'})
+      : 'Pendiente';
+    document.getElementById('googleSyncLastReview').textContent='Última revisión: '+last+' (Lima)';
+    document.getElementById('googleSyncStatus').textContent=data.status||'Sin estado informado';
+    document.getElementById('googleSyncDetails').textContent=`Último procesamiento: ${groups} cargos revisados; ${syncMetric(result.cargos_nuevos)} nuevos; ${syncMetric(result.cargos_actualizados)} actualizados; ${pending} filas pendientes; ${conflicts} conflictos.`;
   }catch(error){
-    const text='No se pudo consultar el estado: '+readableError(error);
-    document.getElementById('googleSyncStatus').textContent=text;
+    document.getElementById('googleSyncBadge').dataset.status='error';
+    document.getElementById('googleSyncBadgeText').textContent='SIN CONEXIÓN';
+    document.getElementById('googleSyncStatus').textContent='No se pudo consultar el estado: '+readableError(error);
   }
   finally{button.disabled=!appReady||!isAdmin;}
 }
