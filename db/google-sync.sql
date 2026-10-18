@@ -1,6 +1,6 @@
 create table public.kardex_google_sync (
  id boolean primary key default true check(id), enabled boolean not null default true,
- file_id text not null default '1GvTelpW7OQnt4sl_e-AfmWnNdSFQnL7E',
+ file_id text not null default '1ySVaQI9Oegn4bea8pvTrd0ReDfsN8dIr',
  last_sha256 text, last_checked_at timestamptz, last_synced_at timestamptz,
  status text not null default 'Pendiente de primera revisión', last_result jsonb not null default '{}'
 );
@@ -14,10 +14,12 @@ insert into public.kardex_google_sync(id) values(true);
 -- Connector-only ingestion: never exposed to guests or the browser.
 create or replace function public.kardex_google_append(groups_data jsonb) returns jsonb
 language plpgsql security invoker set search_path='' as $$
-declare g jsonb; target uuid; candidates integer; yr integer; cargo text; new_codes text; new_groups jsonb; groups_changed boolean; inserted integer:=0; changed integer:=0; conflicts integer:=0;
+declare g jsonb; target uuid; candidates integer; yr integer; cargo text; new_codes text; new_groups jsonb; groups_changed boolean; inserted integer:=0; changed integer:=0; conflicts integer:=0; source_id text;
 begin
  if not private.kardex_has_access(true) then raise exception 'Solo el administrador' using errcode='42501'; end if;
  perform pg_catalog.pg_advisory_xact_lock(1170196,1);
+ select file_id into source_id from public.kardex_google_sync where id=true and enabled;
+ if source_id is null then raise exception 'Sincronización pausada o sin fuente'; end if;
  if not exists(select 1 from public.kardex_google_sync where enabled) then raise exception 'Sincronización pausada'; end if;
  if jsonb_typeof(groups_data)<>'array' or jsonb_array_length(groups_data)>100 then raise exception 'Lote inválido'; end if;
  for g in select value from jsonb_array_elements(groups_data) loop
@@ -57,8 +59,8 @@ begin
   if target is null then
    insert into public.documentos(tipo_doc,periodo,ubicacion,cargos,usuario,facturas,clave_origen,hoja_origen,anio_origen,fecha_origen,datos_origen)
    values('Fact / GR / BV',null,null,array[cargo],'Sincronización Google Drive',new_codes,
-     'google-drive|1GvTelpW7OQnt4sl_e-AfmWnNdSFQnL7E|'||yr||'|'||cargo,'Reporte Consolidado',yr,(g->>'date')::date,
-     jsonb_build_object('google_drive_file','1GvTelpW7OQnt4sl_e-AfmWnNdSFQnL7E','grupos_por_codigo',coalesce(new_groups,'{}'::jsonb)));
+     'google-drive|'||source_id||'|'||yr||'|'||cargo,'Reporte Consolidado',yr,(g->>'date')::date,
+     jsonb_build_object('google_drive_file',source_id,'grupos_por_codigo',coalesce(new_groups,'{}'::jsonb)));
    inserted:=inserted+1;
   else
    update public.documentos set facturas=concat_ws(', ',nullif(facturas,''),new_codes) where id=target;
