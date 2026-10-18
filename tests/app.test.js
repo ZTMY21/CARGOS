@@ -822,3 +822,23 @@ test('contador de 2026 suma históricos y cargos nuevos únicos por edición sin
     assert.match(a.node('googleSyncDetails').textContent,/1 del Excel base \+ 1 incorporados/);
   } finally {a.close();}
 });
+
+
+test('botón de refrescar cargos nuevos es exclusivo del administrador y consulta datos al pulsar',async()=>{
+ const a=await app({isAdmin:true});
+ try {
+  await flush();
+  const button=a.node('btnRefreshNewCargos');
+  assert.equal(button.hidden,false);
+  const initial=a.state.snapshots;
+  button.click();
+  await new Promise(resolve=>setTimeout(resolve,70));
+  assert.ok(a.state.snapshots>initial);
+  assert.match(a.node('connectionStatus').textContent,/Cargos verificados|Cargos 2026 actualizados/);
+  assert.equal(button.disabled,false);
+  assert.match(button.textContent,/Refrescar cargos nuevos/);
+ } finally {a.close();}
+ const guest=await app({isAdmin:false});
+ try{assert.equal(guest.node('btnRefreshNewCargos').hidden,true);}
+ finally{guest.close();}
+});
