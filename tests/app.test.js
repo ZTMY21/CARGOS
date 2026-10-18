@@ -365,12 +365,18 @@ test('Facturas column shows only matching invoice, GR or BV; cargo queries show 
     ubicaciones_codigo:{f001:['2','17'],gr002:['14'],bv003:['21'],f004:['4']}
    });
    a.node('btnReconnect').click();await flush();
+   const headers=()=>[...a.dom.window.document.querySelectorAll('#docsTable thead th')].map(th=>th.textContent.trim());
+   assert.equal(headers().length,12); // Random cargo list has no Ubicación column.
+   assert.equal(a.node('tbody').querySelector('tr').cells.length,12);
    a.node('buscar').value='3388A';a.node('btnBuscar').click();await flush();
    let cells=a.node('tbody').querySelector('tr').cells;
-   assert.equal(cells[6].textContent,'4 códigos en este registro');
-   assert.doesNotMatch(cells[6].textContent,/F-001|GR-002|BV-003|Ubicación/);
-   assert.equal(cells[4].textContent,''); // Cargo: Ubicación queda completamente vacía.
-   assert.equal(cells.length,13); // No desplazar las demás columnas.
+   assert.equal(headers().length,12);
+   assert.ok(!headers().includes('Ubicación'));
+   assert.equal(cells.length,12);
+   assert.equal(cells[4].textContent,'3388A');
+   assert.equal(cells[5].textContent,'4 códigos en este registro');
+   assert.doesNotMatch(cells[5].textContent,/F-001|GR-002|BV-003|Ubicación/);
+   assert.ok(cells[11].querySelector('button[data-export-cargo]'));
    for(const [query,code,group] of [
     ['F-001','F-001','Grupo 2, Grupo 17'],
     ['GR-002','GR-002','Grupo 14'],
@@ -378,11 +384,19 @@ test('Facturas column shows only matching invoice, GR or BV; cargo queries show 
    ]){
     a.node('buscar').value=query;a.node('btnBuscar').click();await flush();
     cells=a.node('tbody').querySelector('tr').cells;
+    assert.equal(headers().length,13);
+    assert.equal(headers()[4],'Ubicación');
+    assert.equal(cells.length,13);
     assert.equal(cells[6].textContent,code);
     assert.equal(cells[6].querySelectorAll('mark').length,1);
     assert.doesNotMatch(cells[6].textContent,/Ubicación|códigos en este registro|F-004/);
     assert.equal(cells[4].textContent,group);
+    assert.ok(cells[12].querySelector('button[data-export-cargo]'));
    }
+   a.node('btnLimpiarFiltros').click();await flush();
+   assert.equal(headers().length,12);
+   assert.ok(!headers().includes('Ubicación'));
+   assert.equal(a.node('tbody').querySelector('tr').cells.length,12);
   } finally {a.close();}
  }
 });
@@ -623,15 +637,15 @@ test('search hides irrelevant locations, uses Sin Responsable, and clarifies gue
 
       a.state.docs[0].usuario='Importación Excel';
       a.node('btnReconnect').click();await flush();
-      assert.equal(a.node('tbody').querySelector('tr').cells[11].textContent.trim(),'Sin Responsable');
+      assert.equal(a.node('tbody').querySelector('tr').cells[10].textContent.trim(),'Sin Responsable');
 
       a.state.docs[0].usuario='Importacion Excel';
       a.node('btnReconnect').click();await flush();
-      assert.equal(a.node('tbody').querySelector('tr').cells[11].textContent.trim(),'Sin Responsable');
+      assert.equal(a.node('tbody').querySelector('tr').cells[10].textContent.trim(),'Sin Responsable');
 
       a.state.docs[0].usuario='RESPONSABLE REAL';
       a.node('btnReconnect').click();await flush();
-      assert.equal(a.node('tbody').querySelector('tr').cells[11].textContent.trim(),'RESPONSABLE REAL');
+      assert.equal(a.node('tbody').querySelector('tr').cells[10].textContent.trim(),'RESPONSABLE REAL');
       if (isAdmin) {
         assert.ok([...a.node('f_ubicacion').options].some(o=>o.value==='CD Arequipa'));
       }
@@ -651,13 +665,14 @@ test('administrator and guest both display reconciled Iron Mountain box, sent da
       });
       a.node('btnReconnect').click();await flush();
       const cells=a.node('tbody').querySelector('tr').cells;
-      assert.equal(cells[5].textContent.trim(),'3384A');
-      assert.equal(cells[7].textContent.trim(),'2032192096');
-      assert.equal(cells[8].textContent.trim(),'12/06/2024');
-      assert.match(cells[9].textContent,/Enviado/);
-      assert.match(cells[9].querySelector('.badge').className,/b-enviado/);
-      assert.equal(cells[9].textContent.trim(),'Enviado');
-      assert.equal(cells[11].textContent.trim(),'BILLY SALVADOR');
+      assert.equal(cells.length,12);
+      assert.equal(cells[4].textContent.trim(),'3384A');
+      assert.equal(cells[6].textContent.trim(),'2032192096');
+      assert.equal(cells[7].textContent.trim(),'12/06/2024');
+      assert.match(cells[8].textContent,/Enviado/);
+      assert.match(cells[8].querySelector('.badge').className,/b-enviado/);
+      assert.equal(cells[8].textContent.trim(),'Enviado');
+      assert.equal(cells[10].textContent.trim(),'BILLY SALVADOR');
       assert.doesNotMatch(a.node('tbody').textContent,/La hoja de origen declara cargos enviados|Cargos enviados 2023/);
       assert.match(a.node('resumenTablas').querySelector('.kpi-summary-sent .n').textContent,/^1\b/);
       assert.match(a.node('resumenTablas').querySelector('.kpi-summary-pending .n').textContent,/^0\b/);

@@ -435,6 +435,19 @@ function renderDocs(){
   const pendingCargo=docs.filter(d=>!d.cargos?.length).length;
   const total=queryResults?.total??filtered.length;
   const folios=queryResults?.folios??filtered.reduce((sum,d)=>sum+(Number(d.folios)||0),0);
+  // Cargo searches and the initial random cargo list omit the entire Ubicación column.
+  const showLocationColumn=!!search && !(filtered.length>0 &&
+    filtered.every(d=>invoiceSearchPresentation(d,search).kind==='cargo'));
+  const tableHead=document.querySelector('#docsTable thead tr');
+  const existingLocationHead=document.getElementById('ubicacionHeader');
+  if(showLocationColumn && !existingLocationHead){
+    const locationHead=document.createElement('th');
+    locationHead.id='ubicacionHeader';
+    locationHead.textContent='Ubicación';
+    tableHead.insertBefore(locationHead,tableHead.children[4]);
+  } else if(!showLocationColumn && existingLocationHead){
+    existingLocationHead.remove();
+  }
   document.getElementById('conteoResultados').textContent=queryError
     || `${showRandomCargos(filters)?'Cargos aleatorios · ':''}${fmtNum(total)} registros${pendingCargo?` · ${fmtNum(pendingCargo)} registros pendientes de cargo`:''} · ${fmtNum(folios)} folios registrados`;
   document.getElementById('paginaActual').textContent=`Página ${currentPage+1} de ${Math.max(1,Math.ceil(total/PAGE_SIZE))}`;
@@ -442,7 +455,7 @@ function renderDocs(){
 
   const tbody = document.getElementById('tbody');
   if(filtered.length === 0){
-    tbody.innerHTML = `<tr><td colspan="13" class="empty">${escapeHtml(queryError||'Sin registros que coincidan con la consulta actual.')}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="${showLocationColumn?13:12}" class="empty">${escapeHtml(queryError||'Sin registros que coincidan con la consulta actual.')}</td></tr>`;
   } else {
     tbody.innerHTML = filtered.map(d=>{
       const alertaTxt = (typeof d.antiguedad === 'number') ? d.antiguedad : d.antiguedad;
@@ -456,12 +469,13 @@ function renderDocs(){
         ? 'Sin Responsable' : responsableOrigen;
       const estadoTxt = d.imConfirmado ? 'Enviado' : d.estado;
       const invoiceView=invoiceSearchPresentation(d,search);
-      // Only document-code searches (facturas, guías, boletas) need group details.
-      // Keep the location table cell empty for cargo matches without shifting columns.
-      const codesForGroups=invoiceView.kind==='invoice'?invoiceView.codes:Object.keys(d.ubicacionesCodigo||{});
-      const groupLocation=invoiceView.kind==='cargo' ? '' : d.ubicacionesCodigo
-        ? locationLabel(groupsForCodes(d.ubicacionesCodigo,codesForGroups))
-        : d.errorUbicacion || (search?'Consultando grupo…':'Busca un documento o cargo');
+      // Do not calculate group locations unless the document-code column is visible.
+      const groupLocation=showLocationColumn && invoiceView.kind!=='cargo'
+        ? (d.ubicacionesCodigo
+          ? locationLabel(groupsForCodes(d.ubicacionesCodigo,
+              invoiceView.kind==='invoice'?invoiceView.codes:Object.keys(d.ubicacionesCodigo)))
+          : d.errorUbicacion || 'Consultando grupo…')
+        : '';
       const invoiceCell=invoiceView.kind==='invoice'
         ? invoiceView.codes.map(code=>`<div>${highlightMatch(code,search)}</div>`).join('')
         : invoiceView.kind==='browse'
@@ -473,7 +487,7 @@ function renderDocs(){
         <td>${fmtDate(d.fechaRegistro)}</td>
         <td>${escapeHtml(d.tipoDoc||'')}</td>
         <td>${escapeHtml(cargoYear(d))}</td>
-        <td>${escapeHtml(groupLocation)}</td>
+        ${showLocationColumn ? `<td>${escapeHtml(groupLocation)}</td>` : ''}
         <td>${highlightMatch((d.cargos||[]).join(', ')||'Sin cargo asignado',search)}</td>
         <td class="invoice-results">${invoiceCell}</td>
         <td>${highlightMatch(cajaTxt,search)}</td>
