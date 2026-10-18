@@ -383,6 +383,12 @@ function renderDocs(){
   const grupoVencidos = expiryGroups.overdue;
   const cargosPorVencer = cargosDe(grupoPorVencer), foliosPorVencer = foliosDe(grupoPorVencer);
   const cargosVencidos = cargosDe(grupoVencidos), foliosVencidos = foliosDe(grupoVencidos);
+  // Preparación no equivale a envío. Las cajas sin fecha siguen pendientes
+  // y continúan en las alertas de vencimiento hasta su salida real.
+  const preparados=enriched.filter(d => d.imPreparado && !d.imConfirmado &&
+    ['2025','2026'].includes(cargoYear(d)));
+  const cajasPreparadas=new Set(preparados.map(d=>String(d.imCajaPreparada||'').trim()).filter(Boolean)).size;
+  const cargosPreparados=cargosDe(preparados);
   const baseAlerta = cargosPorVencer + cargosVencidos;
 
   const pct = (n, base) => base > 0 ? Math.round((n/base)*100) + '%' : '0%';
@@ -449,6 +455,13 @@ function renderDocs(){
         </div>
       </div>
     </div>
+    <div class="prepared-row">
+      <div class="kpi kpi-color kpi-summary-prepared" aria-label="Cajas preparadas para envío a Iron Mountain">
+        <div class="l">Caja preparada para envío</div>
+        <div class="n">${fmtNum(cajasPreparadas)}<span class="folios-inline"> (${fmtNum(cargosPreparados)} cargos)</span></div>
+        <div class="pct-txt">Sin fecha de envío · todavía pendientes de Iron Mountain</div>
+      </div>
+    </div>
     ${expiryGroups.unknown.length ? `<p class="expiry-note">${fmtNum(cargosDe(expiryGroups.unknown))} cargos de 2025/2026 sin fecha válida para calcular el vencimiento; no se incluyen en estas alertas.</p>` : ''}
     <section class="year-section periodo-box" aria-labelledby="year-summary-heading">
       <h3 class="year-heading" id="year-summary-heading">Cargos por Año</h3>
@@ -491,12 +504,15 @@ function renderDocs(){
       const alertaClass = (typeof d.antiguedad === 'number' && d.antiguedad > 6) ? 'alerta-neg'
         : (typeof d.antiguedad === 'number' && d.antiguedad >= 5) ? 'alerta-warn' : 'alerta-pos';
       const req = reqs.find(r=>r.id===d.cajaAsignada);
-      const cajaTxt = d.imConfirmado ? d.imCodigoCaja : (req ? req.numero : '—');
+      const cajaTxt = d.imConfirmado ? d.imCodigoCaja
+        : d.imPreparado && d.imCajaPreparada ? d.imCajaPreparada : (req ? req.numero : '—');
       const fechaEnvioTxt = d.imConfirmado ? d.imFechaEnvio : d.fEnvio;
-      const responsableOrigen = d.imConfirmado ? d.imResponsable : d.usuario;
+      const responsableOrigen = d.imConfirmado ? d.imResponsable
+        : d.imPreparado && d.imResponsablePreparacion ? d.imResponsablePreparacion : d.usuario;
       const responsableTxt = !String(responsableOrigen||'').trim() || /^importaci[oó]n excel$/i.test(String(responsableOrigen).trim())
         ? 'Sin Responsable' : responsableOrigen;
-      const estadoTxt = d.imConfirmado ? 'Enviado' : d.estado;
+      const estadoTxt = d.imConfirmado ? 'Enviado'
+        : d.imPreparado ? d.estado+' · Caja preparada' : d.estado;
       const invoiceView=filters.type==='solo-cargos'
         ? {...invoiceSearchPresentation(d,''),kind:'cargo',codes:[]}
         : invoiceSearchPresentation(d,search);

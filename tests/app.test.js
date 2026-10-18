@@ -903,3 +903,38 @@ test('Solo cargos permite revisar enviado, responsable, y alertas se reducen al 
   assert.match(a.node('tbody').textContent,/TEST-CAJA/);
  } finally {a.close();}
 });
+
+
+test('Caja preparada para envío cuenta cajas únicas y cambia a enviado cuando F tenga fecha',async()=>{
+ const a=await app({isAdmin:true,now:Date.parse('2026-10-18T17:00:00Z')});
+ try{
+  const row=(cargo,kardex)=>({...structuredClone(docRow),id:randomUUID(),kardex,
+    cargos:[cargo],facturas:'FACT-'+cargo,anio_origen:2025,fecha_origen:'2025-02-10',
+    periodo:null,caja_asignada:null,f_envio:null,sustento:'',sustento_imagen:'',
+    im_preparado:true,im_caja_preparada:'CAJA-PRUEBA-001',
+    im_responsable_preparacion:'PREPARADOR',im_confirmado:false});
+  a.state.docs=[row('0323','SA-03111'),row('0347','SA-03112')];
+  const e=a.state.events.find(e=>e.filter.table==='kardex_eventos');
+  e?.callback();
+  await new Promise(resolve=>setTimeout(resolve,280));
+  const prepared=()=>a.node('resumenTablas').querySelector('.kpi-summary-prepared');
+  const overdue=()=>a.node('resumenTablas').querySelector('.kpi-summary-overdue .n').textContent;
+  assert.match(prepared().textContent,/Caja preparada para envío/);
+  assert.match(prepared().textContent,/1 \(2 cargos\)/);
+  assert.match(overdue(),/^2/);
+  assert.match(a.node('tbody').textContent,/CAJA-PRUEBA-001/);
+  assert.match(a.node('tbody').textContent,/PREPARADOR/);
+  for(const d of a.state.docs){d.im_preparado=false;d.im_confirmado=true;d.im_codigo_caja='CAJA-PRUEBA-001';
+    d.im_fecha_envio='2026-10-18';d.im_responsable='RESPONSABLE EN ENTREGAR';}
+  e?.callback();await new Promise(resolve=>setTimeout(resolve,280));
+  assert.match(prepared().textContent,/0 \(0 cargos\)/);
+  assert.match(overdue(),/^0/);
+  assert.match(a.node('resumenTablas').querySelector('.kpi-summary-sent .n').textContent,/^2/);
+  assert.match(a.node('tbody').textContent,/RESPONSABLE EN ENTREGAR/);
+  a.state.docs[0].im_confirmado=false;a.state.docs[0].im_codigo_caja='';
+  a.state.docs[0].im_fecha_envio=null;a.state.docs[0].im_responsable='';
+  e?.callback();await new Promise(resolve=>setTimeout(resolve,280));
+  assert.match(overdue(),/^1/);
+  assert.match(a.node('resumenTablas').querySelector('.kpi-summary-sent .n').textContent,/^1/);
+ }finally{a.close();}
+});
