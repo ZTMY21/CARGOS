@@ -39,7 +39,10 @@
   #grp-documentos summary .stitle{color:#455A64;}
   #grp-existencias summary{background:#F5EEEE;}
   #grp-existencias summary .stitle{color:#8C3B3B;}
-  #grp-resumen summary .chev, #grp-requerimientos summary .chev, #grp-documentos summary .chev, #grp-existencias summary .chev{color:inherit;opacity:.6;}
+  #grp-solicitudes summary{background:#f4f6fa;}
+  #grp-solicitudes summary .stitle{color:#304866;}
+  #grp-solicitudes .admin-requests-panel{margin-top:0;}
+  #grp-resumen summary .chev, #grp-requerimientos summary .chev, #grp-documentos summary .chev, #grp-existencias summary .chev, #grp-solicitudes summary .chev{color:inherit;opacity:.6;}
   .group-body{padding:20px;border-top:1px solid var(--border);}
 
   .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;}
@@ -281,7 +284,7 @@
     #appShell .header-row>.header-logo{width:50px;height:44px;flex-basis:50px;}
   }
 
-  /* Navegación aprobada: tres pestañas, línea roja activa y panel de sincronización persistente. */
+  /* Navegación administrativa: cuatro pestañas y sincronización visible solo en Resumen. */
   #workspaceTabs.workspace-tabs{display:flex;align-items:stretch;gap:5px;border-bottom:1px solid #e6e9ed;
     margin:-22px -24px 17px;padding:0 24px;overflow-x:auto;white-space:nowrap;scrollbar-width:thin;}
   #workspaceTabs .workspace-tab{flex:none;min-height:50px;border:0;border-bottom:3px solid transparent;
@@ -290,6 +293,14 @@
   #workspaceTabs .workspace-tab:hover{background:#fff7f7;color:#ad262d;}
   #workspaceTabs .workspace-tab[aria-selected="true"]{border-bottom-color:#c82834;color:#bb2330;}
   #workspaceTabs .workspace-tab:focus-visible{outline:2px solid #bc2632;outline-offset:-5px;}
+  #workspaceTabs .workspace-tab .admin-request-count-badge{
+    display:inline-flex;align-items:center;justify-content:center;vertical-align:middle;
+    width:28px;height:28px;flex:none;box-sizing:border-box;padding:0;margin-left:8px;
+    border-radius:50%;background:#197347;color:white;
+    font-size:12px;font-weight:800;line-height:1;font-variant-numeric:tabular-nums;
+  }
+  #workspaceTabs .workspace-tab .admin-request-count-badge.pending{background:#c32435;color:#fff;}
+  #workspaceTabs .workspace-tab .admin-request-count-badge.unavailable{background:#64748b;color:#fff;}
   /* El menú permanece visible; solo Resumen despliega el contenido de sincronización. */
   #googleSyncContent[hidden]{display:none!important;}
   #googleSyncPanel.workspace-tabs-only{padding-bottom:0;}
@@ -346,6 +357,10 @@
         aria-selected="false" aria-controls="grp-requerimientos" tabindex="-1">Requerimientos</button>
       <button id="workspaceTabExistencias" class="workspace-tab" type="button" role="tab" data-workspace="existencias"
         aria-selected="false" aria-controls="grp-existencias" tabindex="-1">Existencias</button>
+      <button id="workspaceTabSolicitudes" class="workspace-tab" type="button" role="tab" data-workspace="solicitudes"
+        aria-selected="false" aria-controls="grp-solicitudes" tabindex="-1">Solicitudes de Cuentas Adm.
+        <span id="adminRequestsBadge" class="admin-request-count-badge" role="status" aria-live="polite" aria-label="0 solicitudes pendientes">0</span>
+      </button>
     </nav>
     <div id="googleSyncContent">
     <div class="sync-status-row">
@@ -393,11 +408,6 @@
     <summary><span class="stitle">Resumen<small>Indicadores generales</small></span><span class="chev">▶</span></summary>
     <div class="group-body">
       <div id="resumenTablas"></div>
-      <section id="adminRequestsPanel" class="admin-requests-panel" hidden aria-label="Solicitudes de administradores pendientes">
-        <div class="admin-requests-heading"><h3>Solicitudes de cuentas administrativas</h3><button id="btnAdminRequestsRefresh" type="button" class="secondary">Actualizar solicitudes</button></div>
-        <p class="desc">Solo la cuenta principal puede aprobar nuevos administradores. Verifica la identidad de cada solicitante antes de conceder acceso completo.</p>
-        <div id="adminRequestsList" aria-live="polite"></div>
-      </section>
     </div>
   </details>
 
@@ -552,6 +562,17 @@
     </div>
   </details>
 
+  <!-- Solicitudes administrativas: pestaña final, separada del Resumen. -->
+  <details class="group" id="grp-solicitudes" hidden>
+    <summary><span class="stitle">Solicitudes de Cuentas Adm.<small>Revisión de accesos pendientes</small></span><span class="chev">▶</span></summary>
+    <div class="group-body">
+      <section id="adminRequestsPanel" class="admin-requests-panel" hidden aria-label="Solicitudes de administradores pendientes">
+        <div class="admin-requests-heading"><h3>Solicitudes de cuentas administrativas</h3><button id="btnAdminRequestsRefresh" type="button" class="secondary">Actualizar solicitudes</button></div>
+        <p class="desc">Solo la cuenta principal puede aprobar nuevos administradores. Verifica la identidad de cada solicitante antes de conceder acceso completo.</p>
+        <div id="adminRequestsList" aria-live="polite"></div>
+      </section>
+    </div>
+  </details>
 
 </div>
 

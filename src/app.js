@@ -24,6 +24,7 @@ let googleSyncEnabled=true;
 let activeWorkspaceTab='resumen';
 let appReady = false, isAdmin = false, mutationBusy = false, channelReady = false;
 let adminRequestStatus = null;
+let adminRequestsTimer = null, adminRequestsEpoch = 0;
 let adminEmailLinkReviewed = false;
 let dataReady = false, realtimeChannel = null, refreshTimer = null, refreshPromise = null;
 let refreshRequested = false;
@@ -124,12 +125,24 @@ function setStatus(value, state = '') {
 const WORKSPACE_SECTIONS={
   resumen:'grp-resumen',
   requerimientos:'grp-requerimientos',
-  existencias:'grp-existencias'
+  existencias:'grp-existencias',
+  solicitudes:'grp-solicitudes'
 };
+function setAdminRequestBadge(count) {
+  const badge=document.getElementById('adminRequestsBadge');
+  const valid=Number.isSafeInteger(count) && count>=0;
+  const total=valid?count:0;
+  badge.textContent=valid?String(total):'–';
+  badge.classList.toggle('pending',valid && total>0);
+  badge.classList.toggle('unavailable',!valid);
+  badge.setAttribute('aria-label',valid
+    ? `${total} ${total===1?'solicitud pendiente':'solicitudes pendientes'}`
+    : 'Solicitudes pendientes sin consultar');
+}
 function updateWorkspaceVisibility() {
   const adminReady=appReady && isAdmin;
   const showSync=adminReady && activeWorkspaceTab==='resumen';
-  // La barra de pestañas permanece visible en las tres vistas administrativas.
+  // La barra de pestañas permanece visible en todas las vistas administrativas.
   // Ocultar estos elementos es solo visual: los datos y los enlaces siguen cargados.
   document.getElementById('googleSyncContent').hidden=!showSync;
   document.getElementById('googleSyncPanel').classList.toggle('workspace-tabs-only',adminReady && !showSync);
@@ -151,6 +164,7 @@ function selectWorkspaceTab(tab,focus=false) {
   activeWorkspaceTab=tab;
   updateWorkspaceVisibility();
   if(focus)document.querySelector(`#workspaceTabs [data-workspace="${tab}"]`)?.focus();
+  if(tab==='solicitudes')void refreshAdminRequests();
 }
 const workspaceNav=document.getElementById('workspaceTabs');
 workspaceNav.addEventListener('click',event=>{
@@ -1102,11 +1116,14 @@ async function handleSession(session) {
     setAvailability(); return;
   }
   if (user && currentUserId !== user.id) {
+    clearInterval(adminRequestsTimer);adminRequestsTimer=null;adminRequestsEpoch++;setAdminRequestBadge(null);
     appReady = isAdmin = dataReady = false;
     reqs = []; docs = []; renderReqs(); renderDocs(); setAvailability();
     showSessionLoading();
   }
   if (!user) {
+    clearInterval(adminRequestsTimer);adminRequestsTimer=null;adminRequestsEpoch++;setAdminRequestBadge(null);
+    document.getElementById('adminRequestsPanel').hidden=true;
     idleSession.stop();
     showAuthPage(true);
     if (passwordRecovery) message('authMessage','El enlace de recuperación no es válido. Solicita uno nuevo.',true);
@@ -1152,7 +1169,13 @@ async function handleSession(session) {
     await refreshData();
     if (generation !== authGeneration) return;
     appReady = true;
-    if(isAdmin) { refreshGoogleSync(); void refreshAdminRequests(); }
+    if(isAdmin) {
+      refreshGoogleSync();void refreshAdminRequests();
+      clearInterval(adminRequestsTimer);
+      adminRequestsTimer=setInterval(()=>{
+        if(appReady && isAdmin && currentUserId && !document.hidden)void refreshAdminRequests();
+      },60000);
+    }
     showAuthPage(false);
     if(!isAdmin && adminRequestStatus) {
       document.getElementById('readOnlyNotice').textContent=adminRequestStatus==='pendiente'
@@ -1266,8 +1289,13 @@ document.getElementById('btnRefreshNewCargos').addEventListener('click',async ev
   }
 });
 window.addEventListener('offline',()=>{channelReady=false;setStatus('Sin conexión — Los cambios requieren conexión en línea','error');});
-window.addEventListener('online',()=>{if(currentUserId){subscribeRealtime();scheduleRefresh();}});
-document.addEventListener('visibilitychange',()=>{if(!document.hidden && currentUserId && appReady)scheduleRefresh();});
+window.addEventListener('online',()=>{if(currentUserId){subscribeRealtime();scheduleRefresh();if(isAdmin)void refreshAdminRequests();}});
+document.addEventListener('visibilitychange',()=>{
+  if(!document.hidden && currentUserId && appReady) {
+    scheduleRefresh();
+    if(isAdmin)void refreshAdminRequests();
+  }
+});
 updateReqCondFields(); renderReqs(); renderDocs(); setAvailability();
 if (!supabase) {
   showAuthPage(true);
@@ -1353,12 +1381,19 @@ document.getElementById('adminRegisterForm').addEventListener('submit',async eve
 
 async function refreshAdminRequests() {
   const panel=document.getElementById('adminRequestsPanel');
-  if(!isAdmin || !currentUserId || !repository?.pendingAdminRequests){panel.hidden=true;return;}
+  const epoch=++adminRequestsEpoch,generation=authGeneration;
+  if(!isAdmin || !currentUserId || !repository?.pendingAdminRequests){
+    panel.hidden=true;setAdminRequestBadge(null);return;
+  }
   try {
     const rows=await repository.pendingAdminRequests();
+    // Si se cerró la sesión o se inició otra consulta, descartar la respuesta antigua.
+    if(epoch!==adminRequestsEpoch || generation!==authGeneration || !isAdmin || !currentUserId)return;
+    const pending=Array.isArray(rows)?rows:[];
+    setAdminRequestBadge(pending.length);
     panel.hidden=false;
     const list=document.getElementById('adminRequestsList');
-    list.innerHTML=rows?.length ? rows.map(request=>
+    list.innerHTML=pending.length ? pending.map(request=>
       `<div class="admin-request-item">
         <div><strong>${escapeHtml(request.email)}</strong>
         <div class="desc">Correo verificado · Esperando tu autorización</div></div>
@@ -1401,7 +1436,13 @@ async function refreshAdminRequests() {
       const updated=window.location.pathname+(query.size?'?'+query.toString():'')+window.location.hash;
       window.history.replaceState(null,'',updated);
     }
-  }catch(_error){panel.hidden=true;}
+  }catch(_error){
+    if(epoch!==adminRequestsEpoch || generation!==authGeneration || !isAdmin)return;
+    setAdminRequestBadge(null);
+    panel.hidden=false;
+    document.getElementById('adminRequestsList').textContent=
+      'No se pudieron consultar las solicitudes. Pulsa Actualizar solicitudes para intentar nuevamente.';
+  }
 }
 document.getElementById('btnAdminRequestsRefresh').addEventListener('click',()=>void refreshAdminRequests());
 document.getElementById('adminRequestsList').addEventListener('click',async event=>{

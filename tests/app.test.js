@@ -50,7 +50,7 @@ async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recov
     async access(){state.loadingDuringAccess={loading:!dom.window.document.getElementById('sessionLoading').hidden,login:!dom.window.document.getElementById('authOverlay').hidden};return {allowed,is_admin:isAdmin};}
     async preparedImDetails(){state.preparedImCalls=(state.preparedImCalls||0)+1;return structuredClone(state.preparedImRows||[]);}
     async requestAdminAccess(){state.adminApplications=(state.adminApplications||0)+1;return {estado:'pendiente'};}
-    async pendingAdminRequests(){return state.adminPendingRequests||[];}
+    async pendingAdminRequests(){if(state.adminRequestsError)throw new Error('Sin conexión');return state.adminPendingRequests||[];}
     async reviewAdminRequest(id,approved){(state.adminDecisions??=[]).push({id,approved});state.adminPendingRequests=(state.adminPendingRequests||[]).filter(req=>req.id!==id);return {estado:approved?'aprobado':'rechazado'};}
     async snapshot(){state.snapshots++;return structuredClone({requerimientos:state.reqs,documentos:state.docs});}
     async saveDoc(data,editing){
@@ -1071,21 +1071,63 @@ test('solicitud de administrativo requiere correo, contraseña y código; no asi
  }finally{a.close();}
 });
 
-test('cuenta principal puede aprobar o rechazar solicitudes desde Resumen',async()=>{
+test('cuenta principal aprueba o rechaza desde Solicitudes y el contador vuelve a cero',async()=>{
  const a=await app({isAdmin:true});
  try{
    a.state.adminPendingRequests=[{id:'11111111-1111-4111-8111-111111111111',email:'autorizado@example.test',created_at:'2026-10-18T19:00:00Z'},
      {id:'22222222-2222-4222-8222-222222222222',email:'otro@example.test',created_at:'2026-10-18T19:00:00Z'}];
-   a.node('btnAdminRequestsRefresh').click();await flush();
-   const panel=a.node('adminRequestsPanel');
+   assert.equal(a.node('adminRequestsPanel').closest('#grp-resumen'),null);
+   assert.equal(a.node('adminRequestsPanel').closest('#grp-solicitudes'),a.node('grp-solicitudes'));
+   a.node('workspaceTabSolicitudes').click();await flush();
+   const panel=a.node('adminRequestsPanel'),badge=a.node('adminRequestsBadge');
    assert.equal(panel.hidden,false);
+   assert.equal(a.node('grp-resumen').hidden,true);
+   assert.equal(a.node('grp-solicitudes').hidden,false);
+   assert.equal(badge.textContent,'2');
+   assert.ok(badge.classList.contains('pending'));
    assert.match(panel.textContent,/autorizado@example.test/);
    panel.querySelector('[data-admin-approve]').click();await flush();
    assert.deepEqual(a.state.adminDecisions[0],{id:'11111111-1111-4111-8111-111111111111',approved:true});
    assert.doesNotMatch(panel.textContent,/autorizado@example.test/);
+   assert.equal(badge.textContent,'1');
+   assert.ok(badge.classList.contains('pending'));
    panel.querySelector('[data-admin-reject]').click();await flush();
    assert.deepEqual(a.state.adminDecisions[1],{id:'22222222-2222-4222-8222-222222222222',approved:false});
+   assert.equal(badge.textContent,'0');
+   assert.equal(badge.getAttribute('aria-label'),'0 solicitudes pendientes');
+   assert.equal(badge.classList.contains('pending'),false);
+   assert.equal(badge.classList.contains('unavailable'),false);
  }finally{a.close();}
+});
+
+test('el indicador de solicitudes se actualiza al volver a la pestaña y no pinta verde sin conexión',async()=>{
+  const a=await app({isAdmin:true});
+  try {
+    const badge=a.node('adminRequestsBadge');
+    await flush();
+    assert.equal(badge.textContent,'0');
+    assert.ok(!badge.classList.contains('pending'));
+    a.state.adminPendingRequests=[{id:'33333333-3333-4333-8333-333333333333',email:'pendiente@example.test'}];
+    a.node('workspaceTabSolicitudes').click();await flush();
+    assert.equal(badge.textContent,'1');
+    assert.ok(badge.classList.contains('pending'));
+    a.state.adminPendingRequests=[];
+    a.node('btnAdminRequestsRefresh').click();await flush();
+    assert.equal(badge.textContent,'0');
+    assert.ok(!badge.classList.contains('pending'));
+    assert.match(a.node('adminRequestsList').textContent,/No hay solicitudes/);
+    a.state.adminRequestsError=true;
+    a.node('btnAdminRequestsRefresh').click();await flush();
+    assert.equal(badge.textContent,'–');
+    assert.ok(badge.classList.contains('unavailable'),'Un error no se muestra como cero confirmado');
+    assert.match(a.node('adminRequestsList').textContent,/No se pudieron consultar/);
+    a.state.adminRequestsError=false;
+    a.node('btnAdminRequestsRefresh').click();await flush();
+    assert.equal(badge.textContent,'0');
+    assert.ok(!badge.classList.contains('unavailable'));
+    assert.ok(a.state.intervals.some(item=>item.delay===60000),
+      'Se consulta el contador periódicamente mientras el administrador está conectado');
+  }finally{a.close();}
 });
 
 test('enlace de Gmail permite decidir sobre solicitud solo tras sesión del administrador principal',async()=>{
@@ -1238,7 +1280,7 @@ test('admin e invitado ven el corazón en encabezado sin textos repetidos, boton
 });
 
 
-test('las pestañas del administrador abren Resumen, Requerimientos y Existencias sin perder sus funciones',async()=>{
+test('las cuatro pestañas administrativas conservan Resumen, Requerimientos, Existencias y Solicitudes',async()=>{
   const a=await app({isAdmin:true,enableSearch:true});
   try {
     const tabs=a.node('workspaceTabs'),badge=a.node('googleSyncBadge');
@@ -1246,7 +1288,9 @@ test('las pestañas del administrador abren Resumen, Requerimientos y Existencia
     assert.equal(tabs.parentElement.id,'googleSyncPanel');
     assert.ok(tabs.compareDocumentPosition(badge)&a.dom.window.Node.DOCUMENT_POSITION_FOLLOWING);
     assert.equal(tabs.getAttribute('role'),'tablist');
-    assert.equal(tabs.querySelectorAll('[role="tab"]').length,3);
+    assert.equal(tabs.querySelectorAll('[role="tab"]').length,4);
+    assert.deepEqual([...tabs.querySelectorAll('[data-workspace]')].map(tab=>tab.dataset.workspace),
+      ['resumen','requerimientos','existencias','solicitudes']);
     assert.equal(a.node('workspaceTabResumen').getAttribute('aria-selected'),'true');
     assert.equal(a.node('googleSyncContent').hidden,false,'Resumen muestra panel Google Sheets');
     assert.deepEqual([shown('grp-resumen'),shown('grp-requerimientos'),shown('grp-existencias')],[true,false,false]);
@@ -1259,8 +1303,13 @@ test('las pestañas del administrador abren Resumen, Requerimientos y Existencia
     assert.equal(a.node('workspaceTabRequerimientos').getAttribute('aria-selected'),'true');
     assert.equal(a.node('workspaceTabResumen').tabIndex,-1);
     a.node('workspaceTabExistencias').click();
-    assert.deepEqual([shown('grp-resumen'),shown('grp-requerimientos'),shown('grp-existencias')],[false,false,true]);
+    assert.deepEqual([shown('grp-resumen'),shown('grp-requerimientos'),shown('grp-existencias'),shown('grp-solicitudes')],[false,false,true,false]);
     assert.equal(a.node('grp-existencias').open,true);
+    a.node('workspaceTabSolicitudes').click();await flush();
+    assert.deepEqual([shown('grp-resumen'),shown('grp-requerimientos'),shown('grp-existencias'),shown('grp-solicitudes')],[false,false,false,true]);
+    assert.equal(a.node('googleSyncContent').hidden,true);
+    assert.equal(a.node('workspaceTabSolicitudes').getAttribute('aria-selected'),'true');
+    a.node('workspaceTabExistencias').click();
     assert.ok(a.node('buscar'));
     assert.ok(a.node('btnBuscar'));
     assert.equal(a.node('filtroTipo').querySelector('option[value="solo-cargos"]').textContent,'Solo cargos');
@@ -1282,11 +1331,11 @@ test('la navegación admite teclado y conserva pestaña elegida después de refr
     assert.equal(a.node('workspaceTabRequerimientos').getAttribute('aria-selected'),'true');
     const selected=a.node('workspaceTabRequerimientos');
     selected.dispatchEvent(new a.dom.window.KeyboardEvent('keydown',{key:'End',bubbles:true,cancelable:true}));
-    assert.equal(a.node('workspaceTabExistencias').getAttribute('aria-selected'),'true');
+    assert.equal(a.node('workspaceTabSolicitudes').getAttribute('aria-selected'),'true');
     a.node('btnReconnect').click();await flush();
-    assert.equal(a.node('grp-existencias').hidden,false);
+    assert.equal(a.node('grp-solicitudes').hidden,false);
     assert.equal(a.node('grp-resumen').hidden,true);
-    const right=a.node('workspaceTabExistencias');
+    const right=a.node('workspaceTabSolicitudes');
     right.dispatchEvent(new a.dom.window.KeyboardEvent('keydown',{key:'Home',bubbles:true,cancelable:true}));
     assert.equal(a.node('workspaceTabResumen').getAttribute('aria-selected'),'true');
   }finally{a.close();}
@@ -1300,6 +1349,9 @@ test('invitados mantienen Existencias sin pestañas ni acceso a formularios admi
     assert.equal(a.node('grp-requerimientos').hidden,true);
     assert.equal(a.node('grp-documentos').hidden,true);
     assert.equal(a.node('grp-existencias').hidden,false);
+    assert.equal(a.node('grp-solicitudes').hidden,true);
+    a.node('workspaceTabSolicitudes').click();
+    assert.equal(a.node('grp-solicitudes').hidden,true);
     a.node('workspaceTabRequerimientos').click();
     assert.equal(a.node('grp-requerimientos').hidden,true);
     assert.equal(a.node('grp-existencias').hidden,false);
