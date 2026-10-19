@@ -506,6 +506,27 @@
 </div>
 
 
+<dialog id="preparedImSheet" class="expiry-sheet prepared-im-sheet" aria-labelledby="preparedImTitle" aria-describedby="preparedImRule">
+  <div class="expiry-sheet-header">
+    <div>
+      <p class="expiry-eyebrow">Administración · Cargos 2025 y 2026</p>
+      <h2 id="preparedImTitle">Cajas preparadas para envío</h2>
+    </div>
+    <button id="btnClosePreparedIm" type="button" class="secondary" autofocus>Cerrar</button>
+  </div>
+  <p id="preparedImRule" class="expiry-rule">Cajas registradas en «Cargos Enviados» sin fecha de envío a Iron Mountain (columna F). Puedes revisar sus datos aquí y completar el envío en Google Sheets.</p>
+  <div class="prepared-im-toolbar">
+    <div class="field">
+      <label for="preparedImSearch">Buscar caja, cargo o responsable</label>
+      <input id="preparedImSearch" type="search" placeholder="Ej. código de caja o cargo 502" autocomplete="off">
+    </div>
+    <a id="preparedImOpenExcel" class="excel-link-button" href="https://docs.google.com/spreadsheets/d/1aWqIoj5UXAeyKhNN1paoYnTa4jdfN8LhDEcdH_lQ4mk/edit" target="_blank" rel="noopener noreferrer">Abrir Excel de envíos</a>
+  </div>
+  <p id="preparedImCount" class="search-count" aria-live="polite"></p>
+  <div id="preparedImList" class="prepared-im-list" aria-live="polite">Cargando cajas preparadas…</div>
+  <div class="prepared-im-footer"><button id="btnPreparedImRefresh" type="button" class="secondary">Actualizar detalle</button></div>
+</dialog>
+
 <dialog id="cargoExpirySheet" class="expiry-sheet" aria-labelledby="cargoExpiryTitle" aria-describedby="cargoExpiryRule">
   <div class="expiry-sheet-header">
     <div><p class="expiry-eyebrow">Administración · Cargos 2025 y 2026</p><h2 id="cargoExpiryTitle">Detalle de vencimientos</h2></div>
