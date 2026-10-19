@@ -158,7 +158,13 @@ test('recovery callback requires matching new passwords before loading the autho
   a.node('confirmPassword').value='new-password';
   a.node('resetPasswordForm').dispatchEvent(new a.dom.window.Event('submit',{cancelable:true}));await flush();
   assert.equal(a.state.authCalls[0][0],'updatePassword');assert.equal(a.node('appShell').hidden,false);
+  assert.equal(a.dom.window.location.hash,'','El enlace de recuperación se debe borrar al guardar la contraseña');
   assert.equal(a.node('newPassword').value,'');assert.equal(a.node('confirmPassword').value,'');
+  // Un evento retrasado no debe volver a solicitar otra contraseña.
+  a.state.authCallback('PASSWORD_RECOVERY',a.state.session);
+  await flush();
+  assert.equal(a.node('resetPasswordForm').hidden,true);
+  assert.equal(a.node('appShell').hidden,false);
  }finally{a.close();}
 });
 
@@ -1133,4 +1139,28 @@ test('detalle de cajas preparadas es solo administrativo y se cierra cuando term
   admin.node('btnSignOut').click();await flush();
   assert.equal(admin.node('preparedImSheet').open,false);
  }finally{admin.close();}
+});
+
+
+test('una contraseña recién cambiada no vuelve a pedirse al actualizar la página',async()=>{
+ const recovery=await app({recovery:true,adminLink:'/?origen=verificacion'});
+ try {
+   assert.equal(recovery.node('resetPasswordForm').hidden,false);
+   recovery.node('newPassword').value='MiClaveNueva2026';
+   recovery.node('confirmPassword').value='MiClaveNueva2026';
+   recovery.node('resetPasswordForm').dispatchEvent(
+     new recovery.dom.window.Event('submit',{cancelable:true}));
+   await flush();
+   assert.equal(recovery.dom.window.location.hash,'');
+   assert.equal(recovery.dom.window.location.search,'?origen=verificacion');
+   assert.equal(recovery.node('resetPasswordForm').hidden,true);
+   assert.equal(recovery.state.authCalls.filter(c=>c[0]==='updatePassword').length,1);
+ } finally {recovery.close();}
+ const reloaded=await app({signedIn:true});
+ try {
+   assert.equal(reloaded.node('resetPasswordForm').hidden,true);
+   assert.equal(reloaded.node('authTitle').textContent,'Iniciar sesión');
+   assert.equal(reloaded.node('appShell').hidden,false);
+   assert.equal(reloaded.state.authCalls.filter(c=>c[0]==='updatePassword').length,0);
+ } finally {reloaded.close();}
 });
