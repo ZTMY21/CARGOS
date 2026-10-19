@@ -16,10 +16,10 @@ const flush=()=>new Promise(resolve=>setTimeout(resolve,20));
 const reqRow={id:randomUUID(),numero:'REQ-00001',tipo:'Cajas nuevas para acondicionar',fecha_solicitud:'2026-10-01',cantidad_cajas:2,numeros_cargo:'',fecha_recepcion:'2026-10-02',fecha_devolucion:null,usuario:'Juan',updated_at:'2026-10-13T00:00:00.123456Z'};
 const docRow={id:randomUUID(),kardex:'SA-00001',fecha_registro:'2026-10-13',tipo_doc:'Facturas-Guia',periodo:'2026-01-01',ubicacion:'Santa Anita',folios:30,cargos:['C001'],caja_asignada:reqRow.id,f_envio:null,sustento:'',sustento_imagen:'',usuario:'Juan',facturas:'F-001',obs:'',updated_at:'2026-10-13T00:00:00.123456Z'};
 
-async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recovery=false,loginError=null,enableSearch=false,now=Date.now()}={}) {
+async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recovery=false,adminLink='',loginError=null,enableSearch=false,now=Date.now()}={}) {
   const html=await readFile(new URL('../index.html',import.meta.url),'utf8');
   const source=(await readFile(new URL('../src/app.js',import.meta.url),'utf8')).replace(/^import .*;\n/gm,'');
-  const dom=new JSDOM(html,{url:'https://kardex.example.test'+(recovery?'#type=recovery':''),runScripts:'outside-only'});
+  const dom=new JSDOM(html,{url:'https://kardex.example.test'+adminLink+(recovery?'#type=recovery':''),runScripts:'outside-only'});
   dom.window.HTMLElement.prototype.scrollIntoView=()=>{};
   dom.window.HTMLDialogElement.prototype.showModal=function(){this.open=true;};
   dom.window.HTMLDialogElement.prototype.close=function(){if(this.open){this.open=false;this.dispatchEvent(new dom.window.Event('close'));}};
@@ -1037,5 +1037,31 @@ test('cuenta principal puede aprobar o rechazar solicitudes desde Resumen',async
    assert.doesNotMatch(panel.textContent,/autorizado@example.test/);
    panel.querySelector('[data-admin-reject]').click();await flush();
    assert.deepEqual(a.state.adminDecisions[1],{id:'22222222-2222-4222-8222-222222222222',approved:false});
+ }finally{a.close();}
+});
+
+test('enlace de Gmail permite decidir sobre solicitud solo tras sesión del administrador principal',async()=>{
+ const requestId='c72aa724-4a35-4ea8-943e-763503e35a98';
+ const a=await app({isAdmin:true,adminLink:'/?solicitud_admin='+requestId+'&accion=aprobar'});
+ try{
+  a.state.adminPendingRequests=[{id:requestId,email:'solicitante@example.test',created_at:'2026-10-18T19:30:00Z'}];
+  a.node('btnAdminRequestsRefresh').click();
+  await flush();
+  assert.deepEqual(a.state.adminDecisions,[{id:requestId,approved:true}]);
+  assert.equal(a.state.adminPendingRequests.length,0);
+  assert.equal(a.dom.window.location.search,'');
+  // Se procesa solamente una vez.
+  a.node('btnAdminRequestsRefresh').click();await flush();
+  assert.equal(a.state.adminDecisions.length,1);
+ }finally{a.close();}
+});
+test('enlace no permite aprobar cuenta administrativa desde invitado',async()=>{
+ const requestId='725b775e-7b3e-4ea8-9c74-0aa492b80f1f';
+ const a=await app({isAdmin:false,adminLink:'/?solicitud_admin='+requestId+'&accion=aprobar'});
+ try{
+  a.state.adminPendingRequests=[{id:requestId,email:'solicitante@example.test',created_at:'2026-10-18T19:30:00Z'}];
+  a.node('btnAdminRequestsRefresh').click();await flush();
+  assert.equal(a.state.adminDecisions,undefined);
+  assert.equal(a.node('adminRequestsPanel').hidden,true);
  }finally{a.close();}
 });
