@@ -1207,6 +1207,7 @@ test('las pestañas del administrador abren Resumen, Requerimientos y Existencia
     assert.equal(tabs.getAttribute('role'),'tablist');
     assert.equal(tabs.querySelectorAll('[role="tab"]').length,3);
     assert.equal(a.node('workspaceTabResumen').getAttribute('aria-selected'),'true');
+    assert.equal(a.node('googleSyncContent').hidden,false,'Resumen muestra panel Google Sheets');
     assert.deepEqual([shown('grp-resumen'),shown('grp-requerimientos'),shown('grp-existencias')],[true,false,false]);
     const snapshots=a.state.snapshots;
     const originalResumen=a.node('resumenTablas').textContent;
@@ -1263,4 +1264,45 @@ test('invitados mantienen Existencias sin pestañas ni acceso a formularios admi
     assert.equal(a.node('grp-existencias').hidden,false);
     assert.equal(a.node('btnBuscar').disabled,false);
   }finally{a.close();}
+});
+
+
+test('sincronización solo aparece en Resumen mientras la barra permanece visible',async()=>{
+ const admin=await app({isAdmin:true});
+ try {
+  const panel=admin.node('googleSyncPanel'),nav=admin.node('workspaceTabs');
+  const content=admin.node('googleSyncContent'),badge=admin.node('googleSyncBadge');
+  const links=['btnOpenGoogleExcel','btnOpenIronMountainExcel','btnOpenIronMountainHistorical'];
+  const hrefs=links.map(id=>admin.node(id).href);
+  assert.equal(panel.hidden,false);
+  assert.equal(content.hidden,false);
+  assert.equal(panel.classList.contains('workspace-tabs-only'),false);
+  assert.ok(nav.compareDocumentPosition(content)&admin.dom.window.Node.DOCUMENT_POSITION_FOLLOWING);
+  assert.equal(badge.closest('#googleSyncContent'),content);
+  admin.node('workspaceTabRequerimientos').click();
+  assert.equal(panel.hidden,false,'El menú sigue visible en Requerimientos');
+  assert.equal(content.hidden,true,'No mostrar estado ni enlaces de Excel');
+  assert.equal(panel.classList.contains('workspace-tabs-only'),true);
+  assert.equal(admin.node('grp-requerimientos').hidden,false);
+  assert.equal(admin.node('googleSyncPanel').contains(nav),true);
+  admin.node('workspaceTabExistencias').click();
+  assert.equal(content.hidden,true,'No mostrar Google Sheets en Existencias');
+  assert.equal(panel.hidden,false);
+  assert.equal(admin.node('grp-existencias').hidden,false);
+  // El recálculo no debe forzar la reaparición del cuadro.
+  admin.node('btnReconnect').click();await flush();
+  assert.equal(content.hidden,true);
+  assert.equal(admin.node('grp-existencias').hidden,false);
+  admin.node('workspaceTabResumen').click();
+  assert.equal(content.hidden,false,'Resumen restaura los controles originales');
+  assert.equal(panel.classList.contains('workspace-tabs-only'),false);
+  assert.deepEqual(links.map(id=>admin.node(id).href),hrefs,'No se modifican enlaces');
+  assert.equal(admin.node('btnToggleGoogleSync').closest('#googleSyncContent'),content);
+ } finally {admin.close();}
+ const guest=await app({isAdmin:false});
+ try {
+  assert.equal(guest.node('googleSyncPanel').hidden,true);
+  assert.equal(guest.node('googleSyncContent').hidden,true);
+  assert.equal(guest.node('grp-existencias').hidden,false);
+ } finally {guest.close();}
 });
