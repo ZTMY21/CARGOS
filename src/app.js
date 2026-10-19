@@ -22,6 +22,7 @@ const idleSession = createIdleSession({window, onExpire: async()=>{
 let googleSyncEnabled=true;
 let appReady = false, isAdmin = false, mutationBusy = false, channelReady = false;
 let adminRequestStatus = null;
+let adminEmailLinkReviewed = false;
 let dataReady = false, realtimeChannel = null, refreshTimer = null, refreshPromise = null;
 let refreshRequested = false;
 let authGeneration = 0, currentUserId = null;
@@ -1204,6 +1205,39 @@ async function refreshAdminRequests() {
         </div>
       </div>`).join('')
       : '<p class="desc">No hay solicitudes administrativas pendientes.</p>';
+
+    // Enlaces de aprobación desde Gmail: nunca mutan datos al abrir la URL.
+    // Solo después de iniciar sesión como propietario y confirmar el diálogo
+    // se invoca la RPC de aprobación; el correo por sí mismo no tiene permisos.
+    const query=new URLSearchParams(window.location.search);
+    const id=query.get('solicitud_admin'),accion=query.get('accion');
+    if(!adminEmailLinkReviewed && /^[0-9a-f]{8}-[0-9a-f-]{27,36}$/i.test(id||'')
+        && (accion==='aprobar'||accion==='rechazar')) {
+      adminEmailLinkReviewed=true;
+      const request=(rows||[]).find(item=>item.id===id);
+      if(request) {
+        const approved=accion==='aprobar';
+        const selected=confirm(approved
+          ? '¿Aprobar a '+request.email+' como administrador con permisos completos?'
+          : '¿Rechazar la solicitud administrativa de '+request.email+'?');
+        if(selected) {
+          try {
+            await repository.reviewAdminRequest(id,approved);
+            alert(approved
+              ? 'Cuenta administrativa aprobada. La persona podrá entrar con permisos administrativos al volver a iniciar sesión.'
+              : 'Solicitud administrativa rechazada.');
+            await refreshAdminRequests();
+          } catch(error) {
+            alert('No se pudo procesar la aprobación: '+readableError(error));
+          }
+        }
+      } else {
+        alert('La solicitud del correo ya no está pendiente. Revisa la lista de solicitudes administrativas.');
+      }
+      query.delete('solicitud_admin');query.delete('accion');
+      const updated=window.location.pathname+(query.size?'?'+query.toString():'')+window.location.hash;
+      window.history.replaceState(null,'',updated);
+    }
   }catch(_error){panel.hidden=true;}
 }
 document.getElementById('btnAdminRequestsRefresh').addEventListener('click',()=>void refreshAdminRequests());
