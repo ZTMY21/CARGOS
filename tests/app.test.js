@@ -50,7 +50,7 @@ async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recov
     async access(){state.loadingDuringAccess={loading:!dom.window.document.getElementById('sessionLoading').hidden,login:!dom.window.document.getElementById('authOverlay').hidden};return {allowed,is_admin:isAdmin};}
     async preparedImDetails(){state.preparedImCalls=(state.preparedImCalls||0)+1;return structuredClone(state.preparedImRows||[]);}
     async requestAdminAccess(){state.adminApplications=(state.adminApplications||0)+1;return {estado:'pendiente'};}
-    async pendingAdminRequests(){return state.adminPendingRequests||[];}
+    async pendingAdminRequests(){if(state.adminRequestsError)throw new Error('Sin conexión');return state.adminPendingRequests||[];}
     async reviewAdminRequest(id,approved){(state.adminDecisions??=[]).push({id,approved});state.adminPendingRequests=(state.adminPendingRequests||[]).filter(req=>req.id!==id);return {estado:approved?'aprobado':'rechazado'};}
     async snapshot(){state.snapshots++;return structuredClone({requerimientos:state.reqs,documentos:state.docs});}
     async saveDoc(data,editing){
@@ -1116,6 +1116,15 @@ test('el indicador de solicitudes se actualiza al volver a la pestaña y no pint
     assert.equal(badge.textContent,'0');
     assert.ok(!badge.classList.contains('pending'));
     assert.match(a.node('adminRequestsList').textContent,/No hay solicitudes/);
+    a.state.adminRequestsError=true;
+    a.node('btnAdminRequestsRefresh').click();await flush();
+    assert.equal(badge.textContent,'–');
+    assert.ok(badge.classList.contains('unavailable'),'Un error no se muestra como cero confirmado');
+    assert.match(a.node('adminRequestsList').textContent,/No se pudieron consultar/);
+    a.state.adminRequestsError=false;
+    a.node('btnAdminRequestsRefresh').click();await flush();
+    assert.equal(badge.textContent,'0');
+    assert.ok(!badge.classList.contains('unavailable'));
     assert.ok(a.state.intervals.some(item=>item.delay===60000),
       'Se consulta el contador periódicamente mientras el administrador está conectado');
   }finally{a.close();}
@@ -1271,7 +1280,7 @@ test('admin e invitado ven el corazón en encabezado sin textos repetidos, boton
 });
 
 
-test('las pestañas del administrador abren Resumen, Requerimientos y Existencias sin perder sus funciones',async()=>{
+test('las cuatro pestañas administrativas conservan Resumen, Requerimientos, Existencias y Solicitudes',async()=>{
   const a=await app({isAdmin:true,enableSearch:true});
   try {
     const tabs=a.node('workspaceTabs'),badge=a.node('googleSyncBadge');
