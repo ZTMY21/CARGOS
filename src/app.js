@@ -629,9 +629,10 @@ function renderPreparedImDetail() {
     b.codigo_caja,b.numeros_cargos,...(b.cargos||[]),b.responsable_preparacion,
     b.responsable_entrega,b.responsable_recibe,b.placa_transporte
   ].some(x=>String(x||'').toLocaleLowerCase('es-PE').includes(filter)));
-  const totalCargos=rows.reduce((total,b)=>total+(b.cargos||[]).length,0);
+  const totalCargos=new Set(rows.flatMap(b=>(b.cargos||[]).map(c=>String(c)))).size;
+  const totalCajas=new Set(rows.map(b=>String(b.codigo_caja||'').trim()).filter(Boolean)).size;
   document.getElementById('preparedImCount').textContent=
-    `${fmtNum(rows.length)} cajas · ${fmtNum(totalCargos)} cargos sin envío${filter?' · Filtro aplicado':''}`;
+    `${fmtNum(totalCajas)} cajas · ${fmtNum(totalCargos)} cargos sin envío${filter?' · Filtro aplicado':''}`;
   const field=(name,value,fallback='Pendiente')=>
     `<div><dt>${name}</dt><dd>${String(value||'').trim()
       ?escapeHtml(String(value)):`<span class="prepared-im-empty">${fallback}</span>`}</dd></div>`;
