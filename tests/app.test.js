@@ -48,6 +48,9 @@ async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recov
   class FakeRepository {
     async fetchDoc(id){state.fetchedId=id;return docFromDb({...state.docs.find(d=>d.id===id),facturas:'F-001, F-002, F-003, F-004'});}
     async access(){state.loadingDuringAccess={loading:!dom.window.document.getElementById('sessionLoading').hidden,login:!dom.window.document.getElementById('authOverlay').hidden};return {allowed,is_admin:isAdmin};}
+    async requestAdminAccess(){state.adminApplications=(state.adminApplications||0)+1;return {estado:'pendiente'};}
+    async pendingAdminRequests(){return state.adminPendingRequests||[];}
+    async reviewAdminRequest(id,approved){(state.adminDecisions??=[]).push({id,approved});state.adminPendingRequests=(state.adminPendingRequests||[]).filter(req=>req.id!==id);return {estado:approved?'aprobado':'rechazado'};}
     async snapshot(){state.snapshots++;return structuredClone({requerimientos:state.reqs,documentos:state.docs});}
     async saveDoc(data,editing){
       state.updates.push({data,editing});if(failSave)throw new Error('Servidor no disponible');
@@ -439,7 +442,9 @@ test('administrator summary shows white colored cards and transparent heart logo
   const svg=await readFile(new URL('../public/farmacias-heart.svg',import.meta.url),'utf8');
   const dom=new JSDOM(html);
   try {
-    assert.equal(dom.window.document.querySelector('#appShell img.header-logo').getAttribute('src'),'/farmacias-heart.svg');
+    assert.ok(dom.window.document.querySelector('#appShell img.header-logo').getAttribute('src').startsWith('data:image/png;base64,'));
+    assert.equal(dom.window.document.querySelectorAll('.brand-lockup').length,3);
+    assert.equal(dom.window.document.querySelector('.header-lockup .brand-kardex strong').textContent,'Digital');
     assert.match(svg,/viewBox="0 50 512 400"/);
     assert.match(svg,/fill="#e30613"/);
     assert.match(svg,/fill="#878786"/);
@@ -971,4 +976,66 @@ test('Enviados Iron Mountain por año coinciden con indicador superior y reaccio
     assert.equal(rows().at(-1),'2026 0 cargos');
     assert.equal(total(),3);
   }finally{a.close();}
+});
+
+
+test('ojo muestra y oculta contraseña sin cambiar los valores ni ejecutar login',async()=>{
+ const a=await app({signedIn:false});
+ try{
+  a.node('authPassword').value='mi_contrasena_prueba';
+  const button=a.node('toggleAuthPassword');
+  assert.equal(a.node('authPassword').type,'password');
+  button.click();
+  assert.equal(a.node('authPassword').type,'text');
+  assert.equal(button.getAttribute('aria-label'),'Ocultar contraseña');
+  assert.equal(button.getAttribute('aria-pressed'),'true');
+  assert.equal(a.node('authPassword').value,'mi_contrasena_prueba');
+  button.click();
+  assert.equal(a.node('authPassword').type,'password');
+  assert.equal(a.state.authCalls.length,0);
+ }finally{a.close();}
+});
+
+test('solicitud de administrativo requiere correo, contraseña y código; no asigna permisos por sí sola',async()=>{
+ const a=await app({signedIn:false});
+ try{
+  a.node('btnAdminRegister').click();
+  assert.equal(a.node('adminRegisterForm').hidden,false);
+  assert.equal(a.node('authForm').hidden,true);
+  assert.equal(a.node('authTitle').textContent,'Crear cuenta administrativa');
+  a.node('adminRegisterEmail').value='NUEVO@EXAMPLE.TEST';
+  a.node('adminRegisterPassword').value='UnaClaveSegura123';
+  a.node('adminRegisterCode').value='INCORRECTO';
+  a.node('adminRegisterForm').dispatchEvent(new a.dom.window.Event('submit',{cancelable:true}));await flush();
+  assert.equal(a.state.authCalls.length,0);
+  assert.match(a.node('authMessage').textContent,/código administrativo no es correcto/i);
+  a.node('adminRegisterCode').value='FPCARGOS';
+  a.node('adminRegisterForm').dispatchEvent(new a.dom.window.Event('submit',{cancelable:true}));await flush();
+  assert.equal(a.state.authCalls.length,1);
+  assert.equal(a.state.authCalls[0][0],'signup');
+  const signup=a.state.authCalls[0][1];
+  assert.equal(signup.email,'nuevo@example.test');
+  assert.equal(signup.options.data.kardex_admin_request_code,'FPCARGOS');
+  assert.equal(a.node('appShell').hidden,true);
+  assert.match(a.node('authMessage').textContent,/cuenta principal apruebe/i);
+  a.node('btnAdminRequestCancel').click();
+  assert.equal(a.node('authForm').hidden,false);
+ }finally{a.close();}
+});
+
+test('cuenta principal puede aprobar o rechazar solicitudes desde Resumen',async()=>{
+ const a=await app({isAdmin:true});
+ try{
+   a.state.adminPendingRequests=[{id:'11111111-1111-4111-8111-111111111111',email:'autorizado@example.test',created_at:'2026-10-18T19:00:00Z'},
+     {id:'22222222-2222-4222-8222-222222222222',email:'otro@example.test',created_at:'2026-10-18T19:00:00Z'}];
+   a.node('btnAdminRequestsRefresh').click();await flush();
+   const panel=a.node('adminRequestsPanel');
+   assert.equal(panel.hidden,false);
+   assert.match(panel.textContent,/autorizado@example.test/);
+   panel.querySelector('[data-admin-approve]').click();await flush();
+   assert.deepEqual(a.state.adminDecisions[0],{id:'11111111-1111-4111-8111-111111111111',approved:true});
+   assert.doesNotMatch(panel.textContent,/autorizado@example.test/);
+   panel.querySelector('[data-admin-reject]').click();await flush();
+   assert.deepEqual(a.state.adminDecisions[1],{id:'22222222-2222-4222-8222-222222222222',approved:false});
+ }finally{a.close();}
 });
