@@ -7,7 +7,7 @@ import {JSDOM} from 'jsdom';
 import {computeReqEstado as reqEstado,computeDocEstado as docEstado,fmtDate,escapeHtml,limaDate} from '../src/rules.js';
 import {reqFromDb,docFromDb,KardexRepository} from '../src/repository.js';
 import {buildWorkbook,parseWorkbook} from '../src/excel.js';
-import {highlightMatch,filterDocuments,filterRequirements,invoiceSearchPresentation} from '../src/search.js';
+import {highlightMatch,filterDocuments,filterRequirements,invoiceSearchPresentation,assignedBoxCode} from '../src/search.js';
 import {createIdleSession} from '../src/idle-session.js';
 import {cargoYear,invoiceLocation,locationLabel,groupsForCodes} from '../src/cargo-details.js';
 import {cargoExpiryGroups,formatCargoDuration} from '../src/cargo-expiry.js';
@@ -76,7 +76,7 @@ async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recov
   context.setInterval=(callback,delay)=>{state.intervals.push({callback,delay});return scheduleInterval(callback,delay);};
   context.Date=class extends Date {constructor(...args){super(...(args.length?args:[state.now]));}static now(){return state.now;}};
   Object.assign(context,{cargoExpiryGroups,formatCargoDuration,limaDate});
-  Object.assign(context,{createIdleSession:options=>createIdleSession({...options,now:()=>state.now}),createClient:()=>client,KardexRepository:FakeRepository,reqFromDb,docFromDb,reqEstado,docEstado,fmtDate,escapeHtml,invoiceSearchPresentation,buildWorkbook:async(...args)=>{state.exportCalls.push(args);return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},buildCargoWorkbook:async(cargo)=>{state.guestExport=cargo;return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},parseWorkbook,highlightMatch,filterDocuments,filterRequirements,cargoYear,invoiceLocation,locationLabel,groupsForCodes,
+  Object.assign(context,{createIdleSession:options=>createIdleSession({...options,now:()=>state.now}),createClient:()=>client,KardexRepository:FakeRepository,reqFromDb,docFromDb,reqEstado,docEstado,fmtDate,escapeHtml,invoiceSearchPresentation,buildWorkbook:async(...args)=>{state.exportCalls.push(args);return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},buildCargoWorkbook:async(cargo)=>{state.guestExport=cargo;return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},parseWorkbook,highlightMatch,filterDocuments,filterRequirements,assignedBoxCode,cargoYear,invoiceLocation,locationLabel,groupsForCodes,
     __SUPABASE_URL__:'https://example.supabase.co',__SUPABASE_ANON_KEY__:'sb_publishable_test',confirm:()=>true,alert:()=>{}});
   await vm.runInContext(`(async()=>{${source}})()`,context);
   const node=id=>dom.window.document.getElementById(id);
@@ -875,6 +875,47 @@ test('panel distingue altas recibidas de bajas no confirmadas y da instrucciones
  } finally {a.close();}
 });
 
+
+test('Caja asignada busca instantaneamente por T, TD o numero para admin e invitados',async()=>{
+  for (const isAdmin of [true,false]) {
+    const a=await app({isAdmin,enableSearch:true});
+    try {
+      a.state.docs=[
+        {...structuredClone(docRow),id:randomUUID(),kardex:'SA-00001',im_confirmado:true,
+          im_codigo_caja:'T203258116',caja_asignada:null,facturas:'F-001'},
+        {...structuredClone(docRow),id:randomUUID(),kardex:'SA-00002',im_confirmado:true,
+          im_codigo_caja:'TD203258116',caja_asignada:null,facturas:'F-002'},
+        {...structuredClone(docRow),id:randomUUID(),kardex:'SA-00003',im_confirmado:true,
+          im_codigo_caja:'T2032581167',caja_asignada:null,facturas:'F-003'},
+        {...structuredClone(docRow),id:randomUUID(),kardex:'SA-00004',
+          im_confirmado:false,im_codigo_caja:'',caja_asignada:null,
+          cargos:['203258116'],facturas:'203258116'}
+      ];
+      a.node('btnReconnect').click();await flush();
+      assert.equal(a.node('filtroTipo').querySelector('option[value="solo-cajas"]').textContent,'Caja asignada');
+      a.node('filtroTipo').value='solo-cajas';
+      a.node('buscar').value='203258116';
+      a.node('buscar').dispatchEvent(new a.dom.window.Event('input'));await flush();
+      assert.equal(a.state.searchCalls.length,0);
+      a.node('btnBuscar').click();await flush();
+      let rows=a.node('tbody').querySelectorAll('tr');
+      assert.equal(a.state.searchCalls.length,0,'La caja se filtra en el snapshot, no en el RPC');
+      assert.equal(rows.length,2,'El codigo exacto evita coincidencias numericas parciales');
+      assert.ok(a.node('tbody').textContent.includes('T203258116'));
+      assert.ok(a.node('tbody').textContent.includes('TD203258116'));
+      assert.ok(!a.node('tbody').textContent.includes('SA-00004'));
+      assert.equal(a.node('ubicacionHeader'),null);
+      assert.equal(a.node('tbody').querySelectorAll('[data-export-cargo]').length,2);
+      a.node('buscar').value='TD203258116';
+      a.node('btnBuscar').click();await flush();
+      rows=a.node('tbody').querySelectorAll('tr');
+      assert.equal(rows.length,1);
+      assert.match(rows[0].textContent,/TD203258116/);
+      a.node('btnLimpiarFiltros').click();
+      assert.equal(a.node('filtroTipo').value,'');
+    }finally{a.close();}
+  }
+});
 
 test('Solo cargos busca por numero de cargo, no por numero de factura ni guia',()=>{
  const cargo=(number,invoice,extras={})=>({
