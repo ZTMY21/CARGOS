@@ -323,6 +323,11 @@
     <summary><span class="stitle">Resumen<small>Indicadores generales</small></span><span class="chev">▶</span></summary>
     <div class="group-body">
       <div id="resumenTablas"></div>
+      <section id="adminRequestsPanel" class="admin-requests-panel" hidden aria-label="Solicitudes de administradores pendientes">
+        <div class="admin-requests-heading"><h3>Solicitudes de cuentas administrativas</h3><button id="btnAdminRequestsRefresh" type="button" class="secondary">Actualizar solicitudes</button></div>
+        <p class="desc">Solo la cuenta principal puede aprobar nuevos administradores. Verifica la identidad de cada solicitante antes de conceder acceso completo.</p>
+        <div id="adminRequestsList" aria-live="polite"></div>
+      </section>
     </div>
   </details>
 
@@ -520,7 +525,7 @@
     <p id="authDescription">Ingresa a Kardex Digital con tu correo electrónico y contraseña.</p>
     <form id="authForm">
       <div class="field"><label for="authEmail">Correo electrónico</label><input id="authEmail" type="email" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="tu@correo.com" required></div>
-      <div class="field"><label for="authPassword">Contraseña</label><input id="authPassword" type="password" autocomplete="current-password" required></div>
+      <div class="field"><label for="authPassword">Contraseña</label><div class="password-field"><input id="authPassword" type="password" autocomplete="current-password" required><button id="toggleAuthPassword" class="password-toggle" type="button" aria-label="Mostrar contraseña" aria-pressed="false" title="Mostrar contraseña"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.8-6 10-6 10 6 10 6-3.8 6-10 6S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg></button></div></div>
       <button id="btnLogin" type="submit">Ingresar</button>
     </form>
     <button id="btnRegister" type="button" class="secondary">Crear cuenta de invitado</button>
@@ -532,6 +537,15 @@
     </form>
     <button id="btnForgotPassword" type="button" class="auth-text-button">Olvidé mi contraseña</button>
     <button id="btnMagicLink" type="button" class="secondary">Recibir enlace de acceso por correo</button>
+    <button id="btnAdminRegister" type="button" class="secondary">Crear cuenta para administrativo</button>
+    <form id="adminRegisterForm" hidden>
+      <div class="field"><label for="adminRegisterEmail">Correo electrónico</label><input id="adminRegisterEmail" type="email" autocomplete="email" placeholder="correo@empresa.com" autocapitalize="none" spellcheck="false" required></div>
+      <div class="field"><label for="adminRegisterPassword">Crear contraseña</label><div class="password-field"><input id="adminRegisterPassword" type="password" autocomplete="new-password" minlength="8" required><button id="toggleAdminRegisterPassword" type="button" class="password-toggle" aria-label="Mostrar contraseña administrativa" aria-pressed="false" title="Mostrar contraseña"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.8-6 10-6 10 6 10 6-3.8 6-10 6S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg></button></div></div>
+      <div class="field"><label for="adminRegisterCode">Código para solicitar cuenta administrativa</label><input id="adminRegisterCode" type="password" autocomplete="off" placeholder="Código de autorización" required></div>
+      <p class="admin-info">Al verificar tu correo, se enviará una solicitud a la cuenta principal. Las funciones administrativas se habilitan únicamente después de su aprobación.</p>
+      <button id="btnAdminRequestSubmit" type="submit">Solicitar cuenta administrativa</button>
+      <button id="btnAdminRequestCancel" type="button" class="secondary">Volver a iniciar sesión</button>
+    </form>
     <button id="btnAuthSignOut" type="button" class="secondary" hidden>Cambiar de cuenta</button>
     <p id="authMessage" class="auth-message" aria-live="polite"></p>
     <svg class="auth-decoration" width="180" height="122" viewBox="0 0 180 122" fill="none" aria-hidden="true" focusable="false">
