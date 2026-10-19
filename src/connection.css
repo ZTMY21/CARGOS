@@ -99,3 +99,23 @@ mark{background:var(--yellow-bg);color:var(--navy-dark);font-weight:700;border-r
   .expiry-sheet-header h2{font-size:20px;}
   .expiry-sheet .pagination{justify-content:center;}
 }
+
+/* Mostrar contraseña: el icono ocupa el extremo derecho del campo sin alterar el formulario. */
+.auth-card .password-field{position:relative;display:flex;align-items:center;}
+.auth-card .password-field input{padding-right:52px;}
+.auth-card .password-field .password-toggle{position:absolute;right:4px;top:0;margin:0;width:43px!important;min-width:43px;height:44px;min-height:44px;padding:8px;display:grid;place-items:center;border:0;background:transparent;color:#697586;border-radius:4px;cursor:pointer;}
+.auth-card .password-field .password-toggle:hover{background:#f1f5f9;color:#b52c26;}
+.auth-card .password-field .password-toggle:focus-visible{outline:2px solid #d9291e;outline-offset:-3px;}
+.auth-card #btnAdminRegister{margin-top:10px;}
+.auth-card #adminRegisterForm{margin-top:15px;padding-top:14px;border-top:1px solid #e5e7eb;}
+.auth-card #adminRegisterForm .admin-info{margin:6px 0 10px;font-size:11px;color:#657484;}
+.auth-card #btnAdminRequestSubmit{background:#d9291e;color:#fff;border:1px solid #d9291e;font-weight:650;}
+.admin-requests-panel{margin-top:25px;padding:15px;border:1px solid #cbd5e1;border-radius:10px;background:#f8fafc;}
+.admin-requests-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
+.admin-requests-heading h3{margin:0;font-size:15px;}
+.admin-requests-panel .desc{font-size:12px;margin:8px 0 12px;}
+.admin-request-item{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:12px 0;border-top:1px solid #e2e8f0;flex-wrap:wrap;}
+.admin-request-item .admin-request-actions{display:flex;gap:8px;}
+.admin-request-item button{font-size:12px;padding:6px 11px;}
+.admin-request-item strong{overflow-wrap:anywhere;}
+@media(max-width:550px){.admin-requests-heading button{width:100%;}}
