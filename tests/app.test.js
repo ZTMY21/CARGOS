@@ -1195,3 +1195,72 @@ test('admin e invitado ven el corazón en encabezado sin textos repetidos, boton
   } finally {a.close();}
  }
 });
+
+
+test('las pestañas del administrador abren Resumen, Requerimientos y Existencias sin perder sus funciones',async()=>{
+  const a=await app({isAdmin:true,enableSearch:true});
+  try {
+    const tabs=a.node('workspaceTabs'),badge=a.node('googleSyncBadge');
+    const shown=id=>!a.node(id).hidden;
+    assert.equal(tabs.parentElement.id,'googleSyncPanel');
+    assert.ok(tabs.compareDocumentPosition(badge)&a.dom.window.Node.DOCUMENT_POSITION_FOLLOWING);
+    assert.equal(tabs.getAttribute('role'),'tablist');
+    assert.equal(tabs.querySelectorAll('[role="tab"]').length,3);
+    assert.equal(a.node('workspaceTabResumen').getAttribute('aria-selected'),'true');
+    assert.deepEqual([shown('grp-resumen'),shown('grp-requerimientos'),shown('grp-existencias')],[true,false,false]);
+    const snapshots=a.state.snapshots;
+    const originalResumen=a.node('resumenTablas').textContent;
+    a.node('workspaceTabRequerimientos').click();
+    assert.deepEqual([shown('grp-resumen'),shown('grp-requerimientos'),shown('grp-existencias')],[false,true,false]);
+    assert.equal(a.node('grp-requerimientos').open,true);
+    assert.equal(a.node('reqFormTitle').textContent,'Nuevo Requerimiento');
+    assert.equal(a.node('workspaceTabRequerimientos').getAttribute('aria-selected'),'true');
+    assert.equal(a.node('workspaceTabResumen').tabIndex,-1);
+    a.node('workspaceTabExistencias').click();
+    assert.deepEqual([shown('grp-resumen'),shown('grp-requerimientos'),shown('grp-existencias')],[false,false,true]);
+    assert.equal(a.node('grp-existencias').open,true);
+    assert.ok(a.node('buscar'));
+    assert.ok(a.node('btnBuscar'));
+    assert.equal(a.node('filtroTipo').querySelector('option[value="solo-cargos"]').textContent,'Solo cargos');
+    a.node('buscar').value='503';
+    a.node('workspaceTabResumen').click();
+    assert.deepEqual([shown('grp-resumen'),shown('grp-requerimientos'),shown('grp-existencias')],[true,false,false]);
+    assert.equal(a.node('resumenTablas').textContent,originalResumen);
+    assert.equal(a.node('buscar').value,'503','La búsqueda no pierde su contenido al cambiar pestañas');
+    assert.equal(a.state.snapshots,snapshots,'Cambiar pestaña no consulta nuevamente Supabase');
+    assert.equal(a.node('googleSyncPanel').hidden,false);
+  }finally{a.close();}
+});
+
+test('la navegación admite teclado y conserva pestaña elegida después de refrescar datos',async()=>{
+  const a=await app({isAdmin:true});
+  try {
+    const el=a.node('workspaceTabResumen');
+    el.dispatchEvent(new a.dom.window.KeyboardEvent('keydown',{key:'ArrowRight',bubbles:true,cancelable:true}));
+    assert.equal(a.node('workspaceTabRequerimientos').getAttribute('aria-selected'),'true');
+    const selected=a.node('workspaceTabRequerimientos');
+    selected.dispatchEvent(new a.dom.window.KeyboardEvent('keydown',{key:'End',bubbles:true,cancelable:true}));
+    assert.equal(a.node('workspaceTabExistencias').getAttribute('aria-selected'),'true');
+    a.node('btnReconnect').click();await flush();
+    assert.equal(a.node('grp-existencias').hidden,false);
+    assert.equal(a.node('grp-resumen').hidden,true);
+    const right=a.node('workspaceTabExistencias');
+    right.dispatchEvent(new a.dom.window.KeyboardEvent('keydown',{key:'Home',bubbles:true,cancelable:true}));
+    assert.equal(a.node('workspaceTabResumen').getAttribute('aria-selected'),'true');
+  }finally{a.close();}
+});
+
+test('invitados mantienen Existencias sin pestañas ni acceso a formularios administrativos',async()=>{
+  const a=await app({isAdmin:false});
+  try {
+    assert.equal(a.node('googleSyncPanel').hidden,true);
+    assert.equal(a.node('grp-resumen').hidden,true);
+    assert.equal(a.node('grp-requerimientos').hidden,true);
+    assert.equal(a.node('grp-documentos').hidden,true);
+    assert.equal(a.node('grp-existencias').hidden,false);
+    a.node('workspaceTabRequerimientos').click();
+    assert.equal(a.node('grp-requerimientos').hidden,true);
+    assert.equal(a.node('grp-existencias').hidden,false);
+    assert.equal(a.node('btnBuscar').disabled,false);
+  }finally{a.close();}
+});

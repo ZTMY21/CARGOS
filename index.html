@@ -280,6 +280,20 @@
     #googleSyncPanel .sync-panel-actions .google-excel-links{justify-content:flex-start;}
     #appShell .header-row>.header-logo{width:50px;height:44px;flex-basis:50px;}
   }
+
+  /* Navegación aprobada: tres pestañas, línea roja activa y panel de sincronización persistente. */
+  #workspaceTabs.workspace-tabs{display:flex;align-items:stretch;gap:5px;border-bottom:1px solid #e6e9ed;
+    margin:-22px -24px 17px;padding:0 24px;overflow-x:auto;white-space:nowrap;scrollbar-width:thin;}
+  #workspaceTabs .workspace-tab{flex:none;min-height:50px;border:0;border-bottom:3px solid transparent;
+    border-radius:0;background:transparent;color:#557089;padding:15px 18px 13px;font-size:13px;
+    font-weight:750;line-height:1.3;}
+  #workspaceTabs .workspace-tab:hover{background:#fff7f7;color:#ad262d;}
+  #workspaceTabs .workspace-tab[aria-selected="true"]{border-bottom-color:#c82834;color:#bb2330;}
+  #workspaceTabs .workspace-tab:focus-visible{outline:2px solid #bc2632;outline-offset:-5px;}
+  @media(max-width:720px){
+    #workspaceTabs.workspace-tabs{margin:-16px -16px 15px;padding:0 12px;gap:1px;}
+    #workspaceTabs .workspace-tab{font-size:12px;padding:14px 12px 12px;min-height:46px;}
+  }
 </style>
 </head>
 <body>
@@ -321,6 +335,14 @@
     <button id="btnSignOut" class="secondary connection-action signout-action" hidden>Salir</button>
   </div>
   <section id="googleSyncPanel" hidden class="sync-panel" aria-labelledby="googleSyncTitle">
+    <nav id="workspaceTabs" class="workspace-tabs" role="tablist" aria-label="Navegación administrativa">
+      <button id="workspaceTabResumen" class="workspace-tab" type="button" role="tab" data-workspace="resumen"
+        aria-selected="true" aria-controls="grp-resumen" tabindex="0">Resumen</button>
+      <button id="workspaceTabRequerimientos" class="workspace-tab" type="button" role="tab" data-workspace="requerimientos"
+        aria-selected="false" aria-controls="grp-requerimientos" tabindex="-1">Requerimientos</button>
+      <button id="workspaceTabExistencias" class="workspace-tab" type="button" role="tab" data-workspace="existencias"
+        aria-selected="false" aria-controls="grp-existencias" tabindex="-1">Existencias</button>
+    </nav>
     <div class="sync-status-row">
       <span id="googleSyncBadge" class="sync-status-pill" data-status="loading">
         <span aria-hidden="true">●</span> <span id="googleSyncBadgeText">Consultando</span>
