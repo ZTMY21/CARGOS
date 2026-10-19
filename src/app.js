@@ -21,6 +21,7 @@ const idleSession = createIdleSession({window, onExpire: async()=>{
 }});
 let googleSyncEnabled=true;
 let appReady = false, isAdmin = false, mutationBusy = false, channelReady = false;
+let adminRequestStatus = null;
 let dataReady = false, realtimeChannel = null, refreshTimer = null, refreshPromise = null;
 let refreshRequested = false;
 let authGeneration = 0, currentUserId = null;
@@ -919,6 +920,7 @@ function showAuthPage(visible) {
 }
 function showRecoveryForm(recovering) {
   document.getElementById('btnRegister').hidden=recovering;
+  document.getElementById('btnAdminRegister').hidden=recovering;
   document.getElementById('registerHelp').hidden=recovering;
   document.getElementById('authForm').hidden = recovering;
   document.getElementById('resetPasswordForm').hidden = !recovering;
@@ -975,11 +977,27 @@ async function handleSession(session) {
       setStatus('Cuenta sin autorización','error'); setAvailability(); return;
     }
     isAdmin = access.is_admin;
+    adminRequestStatus=null;
+    // Un correo confirmado con código de solicitud no crea un administrador:
+    // primero registra la petición y espera una aprobación de la cuenta principal.
+    if (!isAdmin && user.user_metadata?.kardex_admin_request_code && repository.requestAdminAccess) {
+      try {
+        const r=await repository.requestAdminAccess();
+        adminRequestStatus=r?.estado || null;
+      } catch(error) {
+        adminRequestStatus='error';
+      }
+    }
     await refreshData();
     if (generation !== authGeneration) return;
     appReady = true;
-    if(isAdmin) refreshGoogleSync();
+    if(isAdmin) { refreshGoogleSync(); void refreshAdminRequests(); }
     showAuthPage(false);
+    if(!isAdmin && adminRequestStatus) {
+      document.getElementById('readOnlyNotice').textContent=adminRequestStatus==='pendiente'
+        ? 'Invitado · Solicitud de administrativo pendiente de aprobación por la cuenta principal'
+        : 'Invitado · Acceso administrativo todavía no autorizado';
+    } else document.getElementById('readOnlyNotice').textContent='Invitado · Solo consulta de cargos y facturas';
     message('authMessage','');
     document.getElementById('sessionUser').textContent = user.email || '';
     document.getElementById('sessionProfile').hidden = !user.email;
@@ -1108,6 +1126,103 @@ if (!supabase) {
     if(!currentUserId)await handleSession(data.session);
   }catch(error){showAuthPage(true);message('authMessage',readableError(error),true);}
 }
+
+
+function passwordVisibility(inputId,buttonId) {
+  const input=document.getElementById(inputId),button=document.getElementById(buttonId);
+  button.addEventListener('click',()=>{
+    const visible=input.type==='password';
+    input.type=visible?'text':'password';
+    button.setAttribute('aria-label',visible?'Ocultar contraseña':'Mostrar contraseña');
+    button.setAttribute('aria-pressed',String(visible));
+    button.title=visible?'Ocultar contraseña':'Mostrar contraseña';
+    input.focus();
+  });
+}
+passwordVisibility('authPassword','toggleAuthPassword');
+passwordVisibility('adminRegisterPassword','toggleAdminRegisterPassword');
+
+function showAdminRegistration(open) {
+  document.getElementById('adminRegisterForm').hidden=!open;
+  document.getElementById('authForm').hidden=open;
+  document.getElementById('btnRegister').hidden=open;
+  document.getElementById('registerHelp').hidden=open;
+  document.getElementById('btnMagicLink').hidden=open;
+  document.getElementById('btnForgotPassword').hidden=open;
+  document.getElementById('btnAdminRegister').hidden=open;
+  document.getElementById('authTitle').textContent=open?'Crear cuenta administrativa':'Iniciar sesión';
+  document.getElementById('authDescription').textContent=open
+    ? 'Ingresa tus datos para solicitar acceso administrativo. Después de verificar el correo, la cuenta principal debe aprobarte.'
+    : 'Ingresa a Kardex Digital con tu correo electrónico y contraseña.';
+  message('authMessage','');
+}
+document.getElementById('btnAdminRegister').addEventListener('click',()=>showAdminRegistration(true));
+document.getElementById('btnAdminRequestCancel').addEventListener('click',()=>{
+  document.getElementById('adminRegisterForm').reset();
+  document.getElementById('adminRegisterPassword').type='password';
+  showAdminRegistration(false);
+});
+document.getElementById('adminRegisterForm').addEventListener('submit',async event=>{
+  event.preventDefault();
+  if(!supabase)return;
+  const form=event.currentTarget;
+  const email=document.getElementById('adminRegisterEmail').value.trim().toLowerCase();
+  const password=document.getElementById('adminRegisterPassword').value;
+  const code=document.getElementById('adminRegisterCode').value;
+  if(!form.reportValidity())return;
+  if(password.length<8){message('authMessage','La contraseña debe tener al menos 8 caracteres.',true);return;}
+  if(code!=='FPCARGOS'){message('authMessage','El código administrativo no es correcto.',true);return;}
+  const submit=document.getElementById('btnAdminRequestSubmit');
+  submit.disabled=true;
+  try{
+    const {error}=await supabase.auth.signUp({
+      email,password,
+      options:{emailRedirectTo:window.location.origin+'/',
+        data:{kardex_admin_request_code:code}}
+    });
+    if(error)throw error;
+    form.reset();
+    message('authMessage','Revisa tu correo y confirma la cuenta. Después recibirás acceso de consulta hasta que la cuenta principal apruebe los permisos administrativos.');
+  }catch(error){message('authMessage',readableError(error),true);}
+  finally{submit.disabled=false;}
+});
+
+async function refreshAdminRequests() {
+  const panel=document.getElementById('adminRequestsPanel');
+  if(!isAdmin || !currentUserId || !repository?.pendingAdminRequests){panel.hidden=true;return;}
+  try {
+    const rows=await repository.pendingAdminRequests();
+    panel.hidden=false;
+    const list=document.getElementById('adminRequestsList');
+    list.innerHTML=rows?.length ? rows.map(request=>
+      `<div class="admin-request-item">
+        <div><strong>${escapeHtml(request.email)}</strong>
+        <div class="desc">Correo verificado · Esperando tu autorización</div></div>
+        <div class="admin-request-actions">
+          <button type="button" data-admin-approve="${escapeHtml(request.id)}">Aprobar</button>
+          <button type="button" class="secondary" data-admin-reject="${escapeHtml(request.id)}">Rechazar</button>
+        </div>
+      </div>`).join('')
+      : '<p class="desc">No hay solicitudes administrativas pendientes.</p>';
+  }catch(_error){panel.hidden=true;}
+}
+document.getElementById('btnAdminRequestsRefresh').addEventListener('click',()=>void refreshAdminRequests());
+document.getElementById('adminRequestsList').addEventListener('click',async event=>{
+  const button=event.target.closest('[data-admin-approve],[data-admin-reject]');
+  if(!button || !isAdmin || !repository?.reviewAdminRequest)return;
+  const approved=!!button.dataset.adminApprove;
+  const id=approved?button.dataset.adminApprove:button.dataset.adminReject;
+  if(!confirm(approved
+    ? '¿Aprobar a esta persona como administrador con permisos completos?'
+    : '¿Rechazar esta solicitud?'))return;
+  button.disabled=true;
+  try {
+    await repository.reviewAdminRequest(id,approved);
+    await refreshAdminRequests();
+    alert(approved?'Acceso administrativo autorizado. La persona deberá volver a iniciar sesión.':'Solicitud rechazada.');
+  } catch(error){alert('No se pudo revisar la solicitud: '+readableError(error));}
+  finally{button.disabled=false;}
+});
 
 document.getElementById('btnRegister').addEventListener('click',async ev=>{
   if(!supabase)return;
