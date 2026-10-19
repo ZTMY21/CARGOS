@@ -123,7 +123,10 @@ function setAvailability() {
   if (!appReady || !isAdmin) { closeCargoExpiry(); closePreparedIm(); }
   document.getElementById('btnExportar').hidden=true;
   document.getElementById('appShell').classList.toggle('read-only', !isAdmin);
-  ['googleSyncPanel','grp-resumen','grp-requerimientos','grp-documentos','btnImportar','btnReset'].forEach(id=>document.getElementById(id).hidden=!isAdmin);
+  ['googleSyncPanel','grp-resumen','grp-requerimientos','btnImportar','btnReset'].forEach(id=>document.getElementById(id).hidden=!isAdmin);
+  // El formulario antiguo de «Documentos (Nuevos Ingresos)» queda oculto.
+  // Se conservan sus nodos para no afectar los controles existentes del Kardex.
+  document.getElementById('grp-documentos').hidden=true;
   document.getElementById('btnRefreshNewCargos').hidden=!isAdmin;
   document.getElementById('readOnlyNotice').hidden=!appReady||isAdmin;
   document.getElementById('existenciasSubtitulo').textContent = isAdmin
@@ -435,9 +438,6 @@ function renderDocs(){
          <span class="year-value">${fmtNum(cargosPorAnio.get(a))} <span class="year-unit">cargos</span></span>
        </div>`).join('')
     : '<div class="year-empty">Sin cargos registrados</div>';
-  const notaOrigen = cargosPorAnio.has('2026')
-    ? `<div class="periodo-nota">2026 se actualiza desde Google Sheets · Cargos Actuales — ${fmtNum(conteo2026.historicos)} del Excel base + ${fmtNum(conteo2026.nuevos)} nuevos = ${fmtNum(conteo2026.total)} cargos</div>`
-    : '';
 
   document.getElementById('resumenTablas').innerHTML = `
     <div class="kpis" aria-label="Estado de todos los cargos">
@@ -491,7 +491,6 @@ function renderDocs(){
     <section class="year-section periodo-box" aria-labelledby="year-summary-heading">
       <h3 class="year-heading" id="year-summary-heading">Cargos por Año</h3>
       <div class="year-grid" id="yearSummaryGrid" aria-live="polite">${porPeriodoHtml}</div>
-      ${notaOrigen}
     </section>
     <section class="year-section periodo-box im-year-section" aria-labelledby="im-year-summary-heading">
       <h3 class="year-heading" id="im-year-summary-heading">Cargos Enviados a Iron Mountain por Año</h3>
