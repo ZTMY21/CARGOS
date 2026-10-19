@@ -473,7 +473,8 @@ test('administrator summary shows white colored cards and transparent heart logo
     assert.doesNotMatch(process.textContent,/folios/);
     assert.equal(sent.querySelector('.folios-inline'),null);
     assert.equal(process.querySelector('.folios-inline'),null);
-    assert.equal(admin.node('resumenTablas').querySelectorAll('.year-grid .periodo-fila').length,1);
+    assert.equal(admin.node('resumenTablas').querySelectorAll('#yearSummaryGrid .periodo-fila').length,1);
+    assert.equal(admin.node('resumenTablas').querySelectorAll('#imYearSummaryGrid .periodo-fila').length,7);
   }finally{admin.close();}
   const guest=await app({isAdmin:false});
   try {assert.equal(guest.node('grp-resumen').hidden,true);}
@@ -492,7 +493,7 @@ test('admin summary groups Excel cargo years and refreshes 2026 after Google-syn
       historical(2025,['H4']),current('N1')];
     const notify=a.state.events.find(x=>x.filter.table==='kardex_eventos').callback;
     const refresh=async()=>{notify();await new Promise(resolve=>setTimeout(resolve,270));};
-    const rows=()=>[...a.dom.window.document.querySelectorAll('.periodo-box .periodo-fila')]
+    const rows=()=>[...a.dom.window.document.querySelectorAll('#yearSummaryGrid .periodo-fila')]
       .map(row=>row.textContent.replace(/\s+/g,' ').trim());
     await refresh();
     assert.deepEqual(rows(),['2020 1 cargos','2024 2 cargos','2025 1 cargos','2026 1 cargos']);
@@ -937,4 +938,37 @@ test('Caja preparada para envío cuenta cajas únicas y cambia a enviado cuando 
   assert.match(overdue(),/^1/);
   assert.match(a.node('resumenTablas').querySelector('.kpi-summary-sent .n').textContent,/^1/);
  }finally{a.close();}
+});
+
+
+test('Enviados Iron Mountain por año coinciden con indicador superior y reaccionan a nuevas altas/bajas',async()=>{
+  const a=await app({isAdmin:true,now:Date.parse('2026-10-18T18:40:00Z')});
+  try{
+    const base=structuredClone(docRow);
+    const cargo=(year,code,sent=false,prepared=false)=>({...structuredClone(base),id:randomUUID(),
+      kardex:'SA-'+code,anio_origen:year,periodo:null,fecha_origen:year+'-02-15',
+      cargos:[code],caja_asignada:null,im_confirmado:sent,im_preparado:prepared});
+    a.state.docs=[cargo(2020,'100'),cargo(2021,'200',true),
+      cargo(2024,'300',true),cargo(2025,'400',true),
+      cargo(2026,'500',false,true),cargo(2026,'600')];
+    const notify=a.state.events.find(x=>x.filter.table==='kardex_eventos').callback;
+    const refresh=async()=>{notify();await new Promise(resolve=>setTimeout(resolve,280));};
+    const rows=()=>[...a.node('imYearSummaryGrid').querySelectorAll('.periodo-fila')]
+      .map(row=>row.textContent.replace(/\s+/g,' ').trim());
+    const total=()=>Number(a.node('resumenTablas').querySelector('.kpi-summary-sent .n').textContent.replace(/[^0-9]/g,''));
+    await refresh();
+    assert.deepEqual(rows(),['2020 0 cargos','2021 1 cargos','2022 0 cargos','2023 0 cargos',
+      '2024 1 cargos','2025 1 cargos','2026 0 cargos']);
+    assert.equal(total(),3);
+    assert.match(a.node('im-year-summary-heading').textContent,/Cargos Enviados a Iron Mountain por Año/);
+    const updated=a.state.docs.find(d=>d.cargos[0]==='500');
+    updated.im_preparado=false;updated.im_confirmado=true;
+    await refresh();
+    assert.equal(rows().at(-1),'2026 1 cargos');
+    assert.equal(total(),4);
+    updated.im_confirmado=false;
+    await refresh();
+    assert.equal(rows().at(-1),'2026 0 cargos');
+    assert.equal(total(),3);
+  }finally{a.close();}
 });

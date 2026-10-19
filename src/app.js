@@ -403,6 +403,21 @@ function renderDocs(){
     const anio = /^\d{4}$/.test(anioOrigen) ? anioOrigen : 'Sin año';
     cargosPorAnio.set(anio, (cargosPorAnio.get(anio)||0) + cantidad);
   });
+  // Mismos envíos confirmados que el KPI superior "Enviado Iron Mountain".
+  // El agrupador es el año del cargo, no la fecha de su envío.
+  const aniosEnviados=Array.from({length:7},(_,i)=>String(2020+i));
+  const enviadosPorAnio=new Map(aniosEnviados.map(anio=>[anio,0]));
+  for(const doc of grupoEnviado) {
+    const year=cargoYear(doc);
+    if(enviadosPorAnio.has(year))
+      enviadosPorAnio.set(year,enviadosPorAnio.get(year)+(doc.cargos||[]).length);
+  }
+  const enviadosPorAnioHtml=aniosEnviados.map(anio=>
+    `<div class="periodo-fila ${anio==='2026'?'year-current':''}">
+      <span class="year-label">${anio}</span>
+      <span class="year-value">${fmtNum(enviadosPorAnio.get(anio))} <span class="year-unit">cargos</span></span>
+    </div>`
+  ).join('');
   const conteo2026=cargoTotals2026();
   if(cargosPorAnio.has('2026')) cargosPorAnio.set('2026',conteo2026.total);
   const aniosOrdenados = [...cargosPorAnio.keys()].sort((a,b)=>
@@ -465,8 +480,12 @@ function renderDocs(){
     ${expiryGroups.unknown.length ? `<p class="expiry-note">${fmtNum(cargosDe(expiryGroups.unknown))} cargos de 2025/2026 sin fecha válida para calcular el vencimiento; no se incluyen en estas alertas.</p>` : ''}
     <section class="year-section periodo-box" aria-labelledby="year-summary-heading">
       <h3 class="year-heading" id="year-summary-heading">Cargos por Año</h3>
-      <div class="year-grid" aria-live="polite">${porPeriodoHtml}</div>
+      <div class="year-grid" id="yearSummaryGrid" aria-live="polite">${porPeriodoHtml}</div>
       ${notaOrigen}
+    </section>
+    <section class="year-section periodo-box im-year-section" aria-labelledby="im-year-summary-heading">
+      <h3 class="year-heading" id="im-year-summary-heading">Cargos Enviados a Iron Mountain por Año</h3>
+      <div class="year-grid" id="imYearSummaryGrid" aria-live="polite">${enviadosPorAnioHtml}</div>
     </section>
   `;
   if (activeExpiryGroup) renderCargoExpiry();
