@@ -290,6 +290,10 @@
   #workspaceTabs .workspace-tab:hover{background:#fff7f7;color:#ad262d;}
   #workspaceTabs .workspace-tab[aria-selected="true"]{border-bottom-color:#c82834;color:#bb2330;}
   #workspaceTabs .workspace-tab:focus-visible{outline:2px solid #bc2632;outline-offset:-5px;}
+  /* El menú permanece visible; solo Resumen despliega el contenido de sincronización. */
+  #googleSyncContent[hidden]{display:none!important;}
+  #googleSyncPanel.workspace-tabs-only{padding-bottom:0;}
+  #googleSyncPanel.workspace-tabs-only #workspaceTabs{margin-bottom:0;}
   @media(max-width:720px){
     #workspaceTabs.workspace-tabs{margin:-16px -16px 15px;padding:0 12px;gap:1px;}
     #workspaceTabs .workspace-tab{font-size:12px;padding:14px 12px 12px;min-height:46px;}
@@ -343,6 +347,7 @@
       <button id="workspaceTabExistencias" class="workspace-tab" type="button" role="tab" data-workspace="existencias"
         aria-selected="false" aria-controls="grp-existencias" tabindex="-1">Existencias</button>
     </nav>
+    <div id="googleSyncContent">
     <div class="sync-status-row">
       <span id="googleSyncBadge" class="sync-status-pill" data-status="loading">
         <span aria-hidden="true">●</span> <span id="googleSyncBadgeText">Consultando</span>
@@ -380,6 +385,7 @@
         </div>
         <button id="btnToggleGoogleSync" type="button" disabled>Pausar sincronización</button>
       </div>
+    </div>
     </div>
   </section>
   <p id="readOnlyNotice" hidden>Invitado · Solo consulta de cargos y facturas</p>
