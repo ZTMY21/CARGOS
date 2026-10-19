@@ -48,6 +48,7 @@ async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recov
   class FakeRepository {
     async fetchDoc(id){state.fetchedId=id;return docFromDb({...state.docs.find(d=>d.id===id),facturas:'F-001, F-002, F-003, F-004'});}
     async access(){state.loadingDuringAccess={loading:!dom.window.document.getElementById('sessionLoading').hidden,login:!dom.window.document.getElementById('authOverlay').hidden};return {allowed,is_admin:isAdmin};}
+    async preparedImDetails(){state.preparedImCalls=(state.preparedImCalls||0)+1;return structuredClone(state.preparedImRows||[]);}
     async requestAdminAccess(){state.adminApplications=(state.adminApplications||0)+1;return {estado:'pendiente'};}
     async pendingAdminRequests(){return state.adminPendingRequests||[];}
     async reviewAdminRequest(id,approved){(state.adminDecisions??=[]).push({id,approved});state.adminPendingRequests=(state.adminPendingRequests||[]).filter(req=>req.id!==id);return {estado:approved?'aprobado':'rechazado'};}
@@ -1064,4 +1065,72 @@ test('enlace no permite aprobar cuenta administrativa desde invitado',async()=>{
   assert.equal(a.state.adminDecisions,undefined);
   assert.equal(a.node('adminRequestsPanel').hidden,true);
  }finally{a.close();}
+});
+
+
+test('Ver detalle de cajas preparadas muestra nueve campos y lleva a fila correcta del Excel',async()=>{
+ const a=await app({isAdmin:true});
+ try{
+  Object.assign(a.state.docs[0],{anio_origen:2025,periodo:null,fecha_origen:'2025-05-01',
+    cargos:['502','503'],im_preparado:true,im_confirmado:false,im_caja_preparada:'t2044084000',
+    im_responsable_preparacion:'JUAN GALINDO'});
+  a.state.preparedImRows=[{
+    sheet_id:'1aWqIoj5UXAeyKhNN1paoYnTa4jdfN8LhDEcdH_lQ4mk',
+    sheet_row:2,numero:'1',fecha_preparacion:'2026-10-18',
+    responsable_preparacion:'JUAN GALINDO',codigo_caja:'t2044084000',
+    numeros_cargos:'502-503',cargos:['502','503'],fecha_envio:null,
+    responsable_entrega:'',responsable_recibe:'<img src=x onerror=alert(1)>',
+    placa_transporte:''
+  }];
+  a.node('btnReconnect').click();await flush();
+  const button=a.node('btnPreparedImDetail');
+  assert.equal(button.textContent,'Ver detalle');
+  button.click();await flush();
+  assert.equal(a.node('preparedImSheet').open,true);
+  assert.match(a.node('preparedImCount').textContent,/1 cajas · 2 cargos/);
+  const detail=a.node('preparedImList');
+  for(const label of ['Fecha de preparación','Responsable de preparación','Código de barras','Número de cargos',
+    'Fecha de envío','Responsable en entregar','Responsable en recibir','Placa de unidad'])
+    assert.match(detail.textContent,new RegExp(label));
+  assert.match(detail.textContent,/t2044084000/);
+  assert.match(detail.textContent,/502-503/);
+  assert.match(detail.textContent,/JUAN GALINDO/);
+  assert.match(detail.textContent,/Sin registrar/);
+  assert.equal(detail.querySelectorAll('img').length,0);
+  assert.match(detail.textContent,/<img src=x onerror=alert\(1\)>/);
+  assert.match(detail.querySelector('.prepared-im-actions a').href,/range=A2:I2/);
+  a.node('preparedImSearch').value='noexiste';
+  a.node('preparedImSearch').dispatchEvent(new a.dom.window.Event('input'));
+  assert.match(detail.textContent,/No hay cajas preparadas/);
+  a.node('preparedImSearch').value='503';
+  a.node('preparedImSearch').dispatchEvent(new a.dom.window.Event('input'));
+  assert.equal(detail.querySelectorAll('.prepared-im-box').length,1);
+  // Completar fecha F hace que la caja desaparezca del detalle tras actualizar.
+  a.state.preparedImRows=[];
+  a.state.docs[0].im_preparado=false;a.state.docs[0].im_confirmado=true;
+  a.node('btnReconnect').click();await flush();
+  assert.match(a.node('preparedImCount').textContent,/0 cajas · 0 cargos/);
+  assert.equal(detail.querySelectorAll('.prepared-im-box').length,0);
+  a.node('btnClosePreparedIm').click();
+  assert.equal(a.node('preparedImSheet').open,false);
+  assert.equal(a.node('preparedImList').textContent,'');
+ }finally{a.close();}
+});
+
+test('detalle de cajas preparadas es solo administrativo y se cierra cuando termina sesión',async()=>{
+ const guest=await app({isAdmin:false});
+ try{
+  assert.equal(guest.node('grp-resumen').hidden,true);
+  guest.node('btnPreparedImDetail')?.click();
+  await flush();
+  assert.equal(guest.node('preparedImSheet').open,false);
+  assert.equal(guest.state.preparedImCalls||0,0);
+ }finally{guest.close();}
+ const admin=await app({isAdmin:true});
+ try{
+  admin.node('btnPreparedImDetail').click();await flush();
+  assert.equal(admin.node('preparedImSheet').open,true);
+  admin.node('btnSignOut').click();await flush();
+  assert.equal(admin.node('preparedImSheet').open,false);
+ }finally{admin.close();}
 });
