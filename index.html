@@ -513,7 +513,7 @@
     <summary><span class="stitle">Existencias<small id="existenciasSubtitulo">Consulta, búsqueda y exportación de documentos</small></span><span class="chev">▶</span></summary>
     <div class="group-body">
       <div class="filters">
-        <input id="buscar" aria-label="Buscar documentos" placeholder="Buscar factura, Kardex, cargo, caja, sustento, observaciones o usuario...">
+        <input id="buscar" aria-label="Buscar documentos" placeholder="Buscar factura, cargo o caja (T, TD o número)...">
         <select id="filtroFactura" aria-label="Modo de búsqueda de factura"><option value="">Coincidencia parcial</option><option value="exacta">Factura exacta</option></select>
         <select id="filtroEstado" aria-label="Filtrar por estado del cargo">
           <option value="">Todos los estados</option>
@@ -522,7 +522,7 @@
           <option value="En Proceso de Acondicionamiento">En proceso de acondicionamiento</option>
         </select>
         <select id="filtroTipo" aria-label="Filtrar por tipo de documento">
-          <option value="">Todos los tipos</option><option>Facturas-Guia</option><option>Boletas de Venta</option><option>Guías de Remisión</option><option>Fact / GR / BV</option><option value="solo-cargos">Solo cargos</option>
+          <option value="">Todos los tipos</option><option>Facturas-Guia</option><option>Boletas de Venta</option><option>Guías de Remisión</option><option>Fact / GR / BV</option><option value="solo-cargos">Solo cargos</option><option value="solo-cajas">Caja asignada</option>
         </select>
         <select id="filtroUbicacion" aria-label="Filtrar por ubicación">
           <option value="">Todas las ubicaciones</option><option>Santa Anita</option><option>Iron Mountain</option><option value="sin-dato">Sin ubicación registrada</option>
@@ -537,7 +537,7 @@
       </div>
       <div id="conteoResultados" class="search-count" aria-live="polite"></div>
       <div id="importProgress" class="import-progress" aria-live="polite"></div>
-      <div class="hint">Busca la factura, guía, BV o cargo y pulsa «Exportar este cargo» en el resultado correspondiente. El Excel incluye únicamente ese cargo y todas sus facturas. Si aparece en varios cargos, puedes exportar cada uno por separado.</div>
+      <div class="hint">Busca una factura, guía, BV, cargo o selecciona «Caja asignada» para encontrar cajas por T, TD o solo el número. Pulsa «Exportar este cargo» en el resultado correspondiente. El Excel incluye únicamente ese cargo y todas sus facturas. Si aparece en varios cargos, puedes exportar cada uno por separado.</div>
       <div id="docsTopScroll" class="table-top-scroll" tabindex="0" role="region" aria-label="Desplazar la tabla de cargos horizontalmente"><div id="docsTopScrollWidth"></div></div>
       <div class="table-wrap" id="docsTableScroll">
         <table id="docsTable">

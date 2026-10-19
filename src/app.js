@@ -2,7 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import { computeReqEstado as reqEstado, computeDocEstado as docEstado, fmtDate, escapeHtml, limaDate } from './rules.js';
 import { KardexRepository, reqFromDb, docFromDb } from './repository.js';
 import { buildCargoWorkbook, parseWorkbook } from './excel-api.js';
-import { highlightMatch, filterDocuments, filterRequirements, invoiceSearchPresentation } from './search.js';
+import { highlightMatch, filterDocuments, filterRequirements, invoiceSearchPresentation, assignedBoxCode } from './search.js';
 import './connection.css';
 import { createIdleSession } from './idle-session.js';
 import { cargoYear, locationLabel, groupsForCodes } from './cargo-details.js';
@@ -87,9 +87,9 @@ async function fetchSearchResults(render=true) {
     if(render){renderDocs();setAvailability();}
     return;
   }
-  // Consulta de números de cargo exclusivamente: evita coincidir por facturas,
-  // boletas o guías, y usa el snapshot sincronizado del Kardex.
-  if(appliedFilters.type==='solo-cargos') {
+  // Cargo y Caja asignada son búsquedas locales rápidas sobre el snapshot
+  // sincronizado, sin coincidencias accidentales con facturas ni RPC costosas.
+  if(['solo-cargos','solo-cajas'].includes(appliedFilters.type)) {
     searchEpoch++;searchController?.abort();queryResults=null;queryError='';
     if(render){renderDocs();setAvailability();}
     return;
@@ -556,8 +556,8 @@ function renderDocs(){
   const pendingCargo=docs.filter(d=>!d.cargos?.length).length;
   const total=queryResults?.total??filtered.length;
   const folios=queryResults?.folios??filtered.reduce((sum,d)=>sum+(Number(d.folios)||0),0);
-  // Cargo searches and the initial random cargo list omit the entire Ubicación column.
-  const showLocationColumn=filters.type!=='solo-cargos' && !!search && !(filtered.length>0 &&
+  // Solo cargos, Caja asignada y la lista inicial no muestran Ubicación.
+  const showLocationColumn=!['solo-cargos','solo-cajas'].includes(filters.type) && !!search && !(filtered.length>0 &&
     filtered.every(d=>invoiceSearchPresentation(d,search).kind==='cargo'));
   const tableHead=document.querySelector('#docsTable thead tr');
   const existingLocationHead=document.getElementById('ubicacionHeader');
@@ -582,9 +582,7 @@ function renderDocs(){
       const alertaTxt = (typeof d.antiguedad === 'number') ? d.antiguedad : d.antiguedad;
       const alertaClass = (typeof d.antiguedad === 'number' && d.antiguedad > 6) ? 'alerta-neg'
         : (typeof d.antiguedad === 'number' && d.antiguedad >= 5) ? 'alerta-warn' : 'alerta-pos';
-      const req = reqs.find(r=>r.id===d.cajaAsignada);
-      const cajaTxt = d.imConfirmado ? d.imCodigoCaja
-        : d.imPreparado && d.imCajaPreparada ? d.imCajaPreparada : (req ? req.numero : '—');
+      const cajaTxt = assignedBoxCode(d,reqs) || '—';
       const fechaEnvioTxt = d.imConfirmado ? d.imFechaEnvio : d.fEnvio;
       const responsableOrigen = d.imConfirmado ? d.imResponsable
         : d.imPreparado && d.imResponsablePreparacion ? d.imResponsablePreparacion : d.usuario;
@@ -592,7 +590,7 @@ function renderDocs(){
         ? 'Sin Responsable' : responsableOrigen;
       const estadoTxt = d.imConfirmado ? 'Enviado'
         : d.imPreparado ? d.estado+' · Caja preparada' : d.estado;
-      const invoiceView=filters.type==='solo-cargos'
+      const invoiceView=['solo-cargos','solo-cajas'].includes(filters.type)
         ? {...invoiceSearchPresentation(d,''),kind:'cargo',codes:[]}
         : invoiceSearchPresentation(d,search);
       // Do not calculate group locations unless the document-code column is visible.

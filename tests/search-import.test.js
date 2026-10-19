@@ -4,7 +4,7 @@ import {readFile,readdir} from 'node:fs/promises';
 import {PGlite} from '@electric-sql/pglite';
 import {pg_trgm} from '@electric-sql/pglite/contrib/pg_trgm';
 import {unaccent} from '@electric-sql/pglite/contrib/unaccent';
-import {highlightMatch,filterDocuments,filterRequirements} from '../src/search.js';
+import {highlightMatch,filterDocuments,filterRequirements,assignedBoxCode,matchesAssignedBoxCode} from '../src/search.js';
 import {HistoricalAccumulator} from '../src/historical.js';
 import {makeImportBatches} from '../src/repository.js';
 
@@ -22,6 +22,28 @@ test('multifield search normalizes punctuation and accents and combines all filt
  assert.equal(filterRequirements([req],[doc],'req00008 jose').length,1);
  assert.equal(highlightMatch('F001-1201','F0011201'),'<mark>F001-1201</mark>');
  assert.equal(highlightMatch('<img src=x> José','JOSE'),'&lt;img src=x&gt; <mark>José</mark>');
+});
+
+test('Caja asignada acepta T, TD, solo numero y mantiene coincidencia exacta si existe',()=>{
+  const boxes=[
+    {...doc,id:'box-t',cajaAsignada:'',imConfirmado:true,imCodigoCaja:'T203258116',cargos:['1']},
+    {...doc,id:'box-td',cajaAsignada:'',imConfirmado:true,imCodigoCaja:'TD203258116',cargos:['2']},
+    {...doc,id:'box-numeric',cajaAsignada:'',imConfirmado:true,imCodigoCaja:'203258116',cargos:['3']},
+    {...doc,id:'box-long',cajaAsignada:'',imConfirmado:true,imCodigoCaja:'T2032581167',cargos:['4']},
+    {...doc,id:'invoice-only',cajaAsignada:'',imConfirmado:false,imCodigoCaja:'',facturas:'F-203258116',cargos:['203258116']},
+    {...doc,id:'req-box',cajaAsignada:'r',imConfirmado:false,imCodigoCaja:''}
+  ];
+  const ids=(query,extra={})=>filterDocuments(boxes,[req],{query,type:'solo-cajas',...extra}).map(d=>d.id);
+  assert.deepEqual(ids('203258116'),['box-t','box-td','box-numeric']);
+  assert.deepEqual(ids('T203258116'),['box-t']);
+  assert.deepEqual(ids('TD203258116'),['box-td']);
+  assert.deepEqual(ids('20325811'),['box-t','box-td','box-numeric','box-long']);
+  assert.deepEqual(ids('TD 203258116'),['box-td']);
+  assert.deepEqual(ids('203258116',{invoiceExact:true}),['box-t','box-td','box-numeric']);
+  assert.deepEqual(ids('REQ00008'),['req-box']);
+  assert.ok(ids('').includes('req-box'));
+  assert.equal(matchesAssignedBoxCode('TD-203258116','203258116',true),true);
+  assert.equal(assignedBoxCode(boxes[0],new Map([['r','REQ-00008']])),'T203258116');
 });
 
 test('historical parser preserves missing fields, stable identities, annotations and mixed cargo headers',async()=>{

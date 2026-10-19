@@ -52,11 +52,35 @@ export function invoiceSearchPresentation(doc, query = '') {
   return {kind:codes.length?'invoice':'other',codes,total};
 }
 
+// Busca exclusivamente la caja visible en Existencias, sin confundir su UUID interno
+// con el codigo fisico registrado en Iron Mountain o el numero de requerimiento.
+export function assignedBoxCode(doc, requirements = new Map()) {
+  const requestNumber = requirements instanceof Map
+    ? requirements.get(doc.cajaAsignada)
+    : requirements.find(r => r.id === doc.cajaAsignada)?.numero;
+  return String((doc.imConfirmado && doc.imCodigoCaja)
+    || (doc.imPreparado && doc.imCajaPreparada)
+    || requestNumber || '').trim();
+}
+
+// Sin prefijo numerico, 203258116 localiza T203258116, TD203258116
+// y 203258116. Al escribir T o TD se respeta el prefijo indicado.
+export function matchesAssignedBoxCode(code, query, exact = false) {
+  const candidate = normalizeSearch(code), needle = normalizeSearch(query);
+  if (!candidate || !needle) return false;
+  const comparable = /^\d+$/.test(needle)
+    ? candidate.replace(/^(?:td|t)(?=\d)/,'') : candidate;
+  return exact ? comparable === needle : comparable.includes(needle);
+}
+
 export function filterDocuments(documents, requirements, filters, now=new Date()) {
   const reqs=new Map(requirements.map(r=>[r.id,r.numero]));
   const terms=searchTerms(filters.query);
   const cargoOnly=filters.type==='solo-cargos';
+  const boxOnly=filters.type==='solo-cajas';
   const cargoQuery=normalizeSearch(filters.query);
+  const exactBox=boxOnly && cargoQuery && documents.some(d =>
+    matchesAssignedBoxCode(assignedBoxCode(d,reqs),filters.query,true));
   // Si el código exacto existe, no incluir números parecidos como 1490
   // cuando se busca 490. Si no, permitir búsquedas parciales de cargos.
   const hasExactCargo=cargoOnly && cargoQuery && documents.some(d=>
@@ -68,15 +92,18 @@ export function filterDocuments(documents, requirements, filters, now=new Date()
     const matchesYear=!year || (year==='sin-periodo' && !d.periodo)
       || (year.startsWith('origen:') && String(d.anioOrigen)===year.slice(7))
       || (!year.includes(':') && periodYear===year);
-    const matchesInvoice=cargoOnly || !filters.invoiceExact || !cargoQuery
+    const matchesInvoice=cargoOnly || boxOnly || !filters.invoiceExact || !cargoQuery
       || (d.facturas||'').split(/[,;\n]/).some(number=>normalizeSearch(number)===cargoQuery);
-    const matchesCargo=cargoOnly
-      ? (d.cargos||[]).some(c=>!cargoQuery || (hasExactCargo
-        ? normalizeSearch(c)===cargoQuery : normalizeSearch(c).includes(cargoQuery)))
-      : terms.every(t=>fields.some(field=>field.includes(t)));
+    const matchesCargo=boxOnly
+      ? (cargoQuery ? matchesAssignedBoxCode(assignedBoxCode(d,reqs),filters.query,exactBox)
+        : !!assignedBoxCode(d,reqs))
+      : cargoOnly
+        ? (d.cargos||[]).some(c=>!cargoQuery || (hasExactCargo
+          ? normalizeSearch(c)===cargoQuery : normalizeSearch(c).includes(cargoQuery)))
+        : terms.every(t=>fields.some(field=>field.includes(t)));
     return matchesInvoice && matchesCargo
       && (!filters.state||d.estado===filters.state)
-      && (cargoOnly || !filters.type || d.tipoDoc===filters.type)
+      && (cargoOnly || boxOnly || !filters.type || d.tipoDoc===filters.type)
       && (!filters.location||d.ubicacion===filters.location||(filters.location==='sin-dato'&&!d.ubicacion))
       && matchesYear;
   });
