@@ -143,7 +143,6 @@ test('indexed search, transactional batch upsert, backups, stable IDs and audit 
   await query("select public.kardex_stage_import($1,0,'[]',$2::jsonb)",[conflict,JSON.stringify([{...source,id,kardex:extra.kardex}])]);
   await assert.rejects(query('select public.kardex_commit_import($1,1)',[conflict]),/Identificadores incompatibles/);
   assert.equal((await query('select count(*)::int as n from public.documentos'))[0].n,2);
-  await query("select set_config('request.jwt.claim.sub',$1,false)",[unknown]);
   // Conservo la factura original incluso cuando la consulta omite todos los guiones.
   // También se puede buscar sólo por la terminación sin consultar toda la hoja.
   await query("update public.documentos set facturas='01-0FF01-0217573, 01-0FF01-0217574' where id=$1",[id]);
@@ -160,6 +159,7 @@ test('indexed search, transactional batch upsert, backups, stable IDs and audit 
   const exactSuffix=(await query("select public.kardex_search('217573','','','','',true) as r"))[0].r;
   assert.equal(exactSuffix.total,0,'La opción Factura exacta exige código completo');
   await query("update public.documentos set facturas='F001-1201, F001-1203' where id=$1",[id]);
+  await query("select set_config('request.jwt.claim.sub',$1,false)",[unknown]);
   assert.equal((await query("select public.kardex_search('F001') as r"))[0].r.total,0);
   await assert.rejects(query("select public.kardex_begin_import('x','x','x','x')"),/administrador/);
   await db.exec('reset role');
