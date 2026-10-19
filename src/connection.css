@@ -119,3 +119,16 @@ mark{background:var(--yellow-bg);color:var(--navy-dark);font-weight:700;border-r
 .admin-request-item button{font-size:12px;padding:6px 11px;}
 .admin-request-item strong{overflow-wrap:anywhere;}
 @media(max-width:550px){.admin-requests-heading button{width:100%;}}
+
+/* El nuevo conjunto Farmacias Peruanas | Kardex Digital reemplaza el logo anterior. */
+.auth-card{max-width:430px;}
+.auth-card .auth-lockup{margin:0 auto 25px;max-width:100%;}
+.auth-card .auth-lockup .auth-logo{width:235px;max-width:58%;height:auto;margin:0;}
+.auth-card .auth-lockup .brand-kardex{font-size:29px;}
+.auth-card .auth-lockup .brand-divider{height:58px;}
+@media(max-width:480px){
+ .auth-card .auth-lockup{gap:7px;}
+ .auth-card .auth-lockup .auth-logo{width:190px;max-width:55%;margin:0;}
+ .auth-card .auth-lockup .brand-kardex{font-size:23px;}
+ .auth-card .auth-lockup .brand-divider{height:45px;}
+}
