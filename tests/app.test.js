@@ -412,6 +412,43 @@ test('Facturas column shows only matching invoice, GR or BV; cargo queries show 
  }
 });
 
+test('admin e invitados encuentran facturas por código con guiones, sin guiones o terminación',async()=>{
+  for(const isAdmin of [true,false]){
+    const a=await app({isAdmin,enableSearch:true});
+    try{
+      a.state.docs[0].facturas='01-0FF01-0217573, 01-0FF01-0217574';
+      a.state.docs[0].cargos=['688'];
+      a.node('btnReconnect').click();await flush();
+      const invoiceColumn=()=>{
+        const tr=a.node('tbody').querySelector('tr');
+        const head=a.dom.window.document.querySelector('#docsTable thead tr');
+        const invoiceIndex=[...head.children].findIndex(th=>th.textContent.trim()==='Facturas');
+        return tr?.cells[invoiceIndex]?.textContent || '';
+      };
+      for(const code of ['01-0FF01-0217573','010FF010217573','217573']){
+        a.node('buscar').value=code;
+        a.node('buscar').dispatchEvent(new a.dom.window.Event('input'));
+        await flush();
+        const before=a.state.searchCalls.length;
+        a.node('btnBuscar').click();await flush();
+        assert.equal(a.state.searchCalls.length,before+1);
+        assert.equal(a.node('tbody').querySelectorAll('tr').length,1,code);
+        assert.equal(invoiceColumn(),'01-0FF01-0217573',code);
+      }
+      a.node('filtroFactura').value='exacta';
+      a.node('buscar').value='010FF010217573';
+      a.node('btnBuscar').click();await flush();
+      assert.equal(invoiceColumn(),'01-0FF01-0217573');
+      a.node('buscar').value='217573';
+      a.node('btnBuscar').click();await flush();
+      assert.match(a.node('tbody').textContent,/Sin registros/);
+      a.node('btnLimpiarFiltros').click();await flush();
+      assert.equal(a.node('filtroFactura').value,'');
+      assert.equal(a.node('filtroTipo').value,'');
+    }finally{a.close();}
+  }
+});
+
 test('search summaries respect server-side document counts without downloading full invoice lists',()=>{
  const document={cargos:['3388A'],facturas:'',facturasEncontradas:['F-001','GR-002','BV-003'],
   cantidadFacturas:156};

@@ -523,7 +523,7 @@
     <summary><span class="stitle">Existencias<small id="existenciasSubtitulo">Consulta, búsqueda y exportación de documentos</small></span><span class="chev">▶</span></summary>
     <div class="group-body">
       <div class="filters">
-        <input id="buscar" aria-label="Buscar documentos" placeholder="Buscar factura, cargo o caja (T, TD o número)...">
+        <input id="buscar" aria-label="Buscar documentos" placeholder="Factura con/sin guiones, últimos dígitos, cargo o caja...">
         <select id="filtroFactura" aria-label="Modo de búsqueda de factura"><option value="">Coincidencia parcial</option><option value="exacta">Factura exacta</option></select>
         <select id="filtroEstado" aria-label="Filtrar por estado del cargo">
           <option value="">Todos los estados</option>
@@ -547,7 +547,7 @@
       </div>
       <div id="conteoResultados" class="search-count" aria-live="polite"></div>
       <div id="importProgress" class="import-progress" aria-live="polite"></div>
-      <div class="hint">Busca una factura, guía, BV, cargo o selecciona «Caja asignada» para encontrar cajas por T, TD o solo el número. Pulsa «Exportar este cargo» en el resultado correspondiente. El Excel incluye únicamente ese cargo y todas sus facturas. Si aparece en varios cargos, puedes exportar cada uno por separado.</div>
+      <div class="hint">Busca facturas, guías o BV con o sin guiones (ej. 01-0FF01-0217573 o 010FF010217573), o por sus últimos dígitos (217573), usando «Coincidencia parcial». Para buscar cajas por T, TD o solo el número, selecciona «Caja asignada». Pulsa «Exportar este cargo» en el resultado correspondiente. El Excel incluye únicamente ese cargo y todas sus facturas. Si aparece en varios cargos, puedes exportar cada uno por separado.</div>
       <div id="docsTopScroll" class="table-top-scroll" tabindex="0" role="region" aria-label="Desplazar la tabla de cargos horizontalmente"><div id="docsTopScrollWidth"></div></div>
       <div class="table-wrap" id="docsTableScroll">
         <table id="docsTable">
