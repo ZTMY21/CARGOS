@@ -11,6 +11,7 @@ import { cargoExpiryGroups, formatCargoDuration } from './cargo-expiry.js';
 const configuration = { url: __SUPABASE_URL__, key: __SUPABASE_ANON_KEY__ };
 // Capture recovery mode before the client consumes the email callback fragment.
 let passwordRecovery = new URLSearchParams(window.location.hash.slice(1)).get('type') === 'recovery';
+let passwordRecoveryCompleted = false;
 const supabase = configuration.url && configuration.key ? createClient(configuration.url, configuration.key) : null;
 const repository = supabase ? new KardexRepository(supabase) : null;
 const idleSession = createIdleSession({window, onExpire: async()=>{
@@ -1015,6 +1016,20 @@ function showAuthPage(visible) {
   document.getElementById('appShell').hidden = visible;
   document.getElementById('appShell').inert = visible;
 }
+// El enlace de Supabase puede conservar #type=recovery después de cambiar
+// la contraseña. Al actualizar la página ese fragmento volvía a abrir
+// indebidamente «Crear nueva contraseña» aunque la actualización fue exitosa.
+function clearCompletedPasswordRecoveryLink() {
+  const url=new URL(window.location.href);
+  const fragment=new URLSearchParams(url.hash.slice(1));
+  if(fragment.get('type')==='recovery')url.hash='';
+  if(url.searchParams.get('type')==='recovery') {
+    for(const key of ['type','token_hash','token','code'])url.searchParams.delete(key);
+  }
+  if(url.href!==window.location.href) {
+    window.history.replaceState(window.history.state,'',url.pathname+url.search+url.hash);
+  }
+}
 function showRecoveryForm(recovering) {
   document.getElementById('btnRegister').hidden=recovering;
   document.getElementById('btnAdminRegister').hidden=recovering;
@@ -1153,7 +1168,10 @@ document.getElementById('resetPasswordForm').addEventListener('submit',async ev=
   const button=document.getElementById('btnUpdatePassword');button.disabled=true;
   try{
     const {error}=await supabase.auth.updateUser({password});if(error)throw error;
-    passwordRecovery=false;document.getElementById('resetPasswordForm').reset();
+    passwordRecovery=false;
+    passwordRecoveryCompleted=true;
+    clearCompletedPasswordRecoveryLink();
+    document.getElementById('resetPasswordForm').reset();
     showRecoveryForm(false);message('authMessage','Contraseña actualizada. Cargando tu aplicativo…');
     const {data,error:sessionError}=await supabase.auth.getSession();if(sessionError)throw sessionError;
     await handleSession(data.session);
@@ -1213,7 +1231,7 @@ if (!supabase) {
   // Do not await other Supabase calls inside an auth callback (the auth lock is held).
   supabase.auth.onAuthStateChange((event,session)=>{
     if (event === 'INITIAL_SESSION') return;
-    if (event === 'PASSWORD_RECOVERY') passwordRecovery = true;
+    if (event === 'PASSWORD_RECOVERY' && !passwordRecoveryCompleted) passwordRecovery = true;
     if (event === 'TOKEN_REFRESHED' && currentUserId === session?.user?.id) { if(idleSession.check())scheduleRefresh(); return; }
     setTimeout(()=>handleSession(session),0);
   });
