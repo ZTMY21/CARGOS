@@ -31,6 +31,7 @@ let queryResults = null, queryError = '', searchEpoch = 0, searchController = nu
 let currentPage = 0;
 let expiryGroups = {today:'', overdue:[], upcoming:[], unknown:[]};
 let activeExpiryGroup = null, expiryPage = 0, expiryReturnButton = '';
+let preparedImRows = [], preparedImFetchEpoch = 0;
 let appliedFilters = {query:'',state:'',type:'',location:'',year:'',invoiceExact:false};
 const browseOrder = new Map();
 function showRandomCargos(filters=appliedFilters) {
@@ -118,7 +119,7 @@ function setStatus(value, state = '') {
   document.getElementById('connectionDot').className = `connection-dot ${state}`;
 }
 function setAvailability() {
-  if (!appReady || !isAdmin) closeCargoExpiry();
+  if (!appReady || !isAdmin) { closeCargoExpiry(); closePreparedIm(); }
   document.getElementById('btnExportar').hidden=true;
   document.getElementById('appShell').classList.toggle('read-only', !isAdmin);
   ['googleSyncPanel','grp-resumen','grp-requerimientos','grp-documentos','btnImportar','btnReset'].forEach(id=>document.getElementById(id).hidden=!isAdmin);
@@ -167,7 +168,10 @@ async function refreshData() {
       await loadDocs(snapshot);
       populateYearOptions();
       renderReqs(); renderDocs();
-      if(isAdmin) void refreshGoogleSync();
+      if(isAdmin) {
+        void refreshGoogleSync();
+        if (document.getElementById('preparedImSheet').open) void reloadPreparedImDetail();
+      }
       const selected = document.getElementById('f_cajaAsignada').value;
       populateCajaAsignadaOptions(selected);
       dataReady = true;
@@ -474,7 +478,10 @@ function renderDocs(){
     </div>
     <div class="prepared-row">
       <div class="kpi kpi-color kpi-summary-prepared" aria-label="Cajas preparadas para envío a Iron Mountain">
-        <div class="l">Caja preparada para envío</div>
+        <div class="expiry-card-heading">
+          <div class="l">Caja preparada para envío</div>
+          <button id="btnPreparedImDetail" type="button" class="expiry-detail-button" data-prepared-im="detail" aria-label="Ver detalle de cajas preparadas para envío" aria-haspopup="dialog" aria-controls="preparedImSheet">Ver detalle</button>
+        </div>
         <div class="n">${fmtNum(cajasPreparadas)}<span class="folios-inline"> (${fmtNum(cargosPreparados)} cargos)</span></div>
         <div class="pct-txt">Sin fecha de envío · todavía pendientes de Iron Mountain</div>
       </div>
@@ -603,6 +610,94 @@ function renderDocs(){
   });
 }
 
+
+function closePreparedIm() {
+  const dialog=document.getElementById('preparedImSheet');
+  preparedImFetchEpoch++;
+  preparedImRows=[];
+  if (dialog.open) dialog.close();
+  document.getElementById('preparedImSearch').value='';
+  document.getElementById('preparedImList').textContent='';
+  document.getElementById('preparedImCount').textContent='';
+}
+function renderPreparedImDetail() {
+  const dialog=document.getElementById('preparedImSheet');
+  if(!dialog.open || !isAdmin) return;
+  const input=document.getElementById('preparedImSearch');
+  const filter=input.value.trim().toLocaleLowerCase('es-PE');
+  const rows=preparedImRows.filter(b=>!filter || [
+    b.codigo_caja,b.numeros_cargos,...(b.cargos||[]),b.responsable_preparacion,
+    b.responsable_entrega,b.responsable_recibe,b.placa_transporte
+  ].some(x=>String(x||'').toLocaleLowerCase('es-PE').includes(filter)));
+  const totalCargos=new Set(rows.flatMap(b=>(b.cargos||[]).map(c=>String(c)))).size;
+  const totalCajas=new Set(rows.map(b=>String(b.codigo_caja||'').trim()).filter(Boolean)).size;
+  document.getElementById('preparedImCount').textContent=
+    `${fmtNum(totalCajas)} cajas · ${fmtNum(totalCargos)} cargos sin envío${filter?' · Filtro aplicado':''}`;
+  const field=(name,value,fallback='Pendiente')=>
+    `<div><dt>${name}</dt><dd>${String(value||'').trim()
+      ?escapeHtml(String(value)):`<span class="prepared-im-empty">${fallback}</span>`}</dd></div>`;
+  document.getElementById('preparedImList').innerHTML=rows.length?rows.map(b=>{
+    const row=Number(b.sheet_row);
+    const url=Number.isSafeInteger(row)&&row>=2?
+      `https://docs.google.com/spreadsheets/d/1aWqIoj5UXAeyKhNN1paoYnTa4jdfN8LhDEcdH_lQ4mk/edit#gid=434059467&range=A${row}:I${row}`:
+      'https://docs.google.com/spreadsheets/d/1aWqIoj5UXAeyKhNN1paoYnTa4jdfN8LhDEcdH_lQ4mk/edit';
+    return `<article class="prepared-im-box">
+      <div class="prepared-im-head">
+        <div><strong>Caja ${escapeHtml(b.codigo_caja||'Sin código')}</strong>
+          <div class="prepared-im-sub">Cargos: ${escapeHtml((b.cargos||[]).join(', ')||b.numeros_cargos||'Sin cargos')}</div></div>
+        <span class="prepared-im-state">Pendiente de envío</span>
+      </div>
+      <dl class="prepared-im-fields">
+        ${field('N°',b.numero,'Sin número')}
+        ${field('Fecha de preparación de cajas',b.fecha_preparacion?fmtDate(b.fecha_preparacion):'')}
+        ${field('Responsable de preparación',b.responsable_preparacion)}
+        ${field('Código de barras de cajas',b.codigo_caja)}
+        ${field('Número de cargos',b.numeros_cargos||(b.cargos||[]).join('-'))}
+        ${field('Fecha de envío a Iron Mountain',b.fecha_envio?fmtDate(b.fecha_envio):'','Sin registrar')}
+        ${field('Responsable en entregar',b.responsable_entrega)}
+        ${field('Responsable en recibir de I. M.',b.responsable_recibe)}
+        ${field('Placa de unidad de transporte',b.placa_transporte)}
+      </dl>
+      <div class="prepared-im-actions">
+        <a class="excel-link-button" href="${url}" target="_blank" rel="noopener noreferrer">Abrir fila ${Number.isSafeInteger(row)&&row>=2?row:'en Excel'} para completar envío</a>
+      </div>
+    </article>`;
+  }).join(''):'<p class="prepared-im-message">No hay cajas preparadas que coincidan con esta búsqueda.</p>';
+}
+async function reloadPreparedImDetail() {
+  const dialog=document.getElementById('preparedImSheet');
+  if(!dialog.open || !appReady || !isAdmin) return;
+  const epoch=++preparedImFetchEpoch;
+  document.getElementById('preparedImCount').textContent='Consultando registros sin fecha de envío…';
+  try{
+    const raw=await repository.preparedImDetails();
+    if(epoch!==preparedImFetchEpoch || !dialog.open || !appReady || !isAdmin) return;
+    preparedImRows=Array.isArray(raw)?raw:[];
+    renderPreparedImDetail();
+  }catch(error){
+    if(epoch!==preparedImFetchEpoch || !dialog.open) return;
+    document.getElementById('preparedImCount').textContent='';
+    document.getElementById('preparedImList').textContent='No se pudo consultar el detalle: '+readableError(error);
+  }
+}
+function openPreparedIm() {
+  if(!appReady || !isAdmin) return;
+  const dialog=document.getElementById('preparedImSheet');
+  if(!dialog.open)dialog.showModal();
+  document.getElementById('preparedImList').textContent='Consultando cajas preparadas…';
+  void reloadPreparedImDetail();
+}
+document.getElementById('btnClosePreparedIm').addEventListener('click',closePreparedIm);
+document.getElementById('preparedImSheet').addEventListener('close',()=>{
+  preparedImFetchEpoch++;
+  preparedImRows=[];
+  document.getElementById('preparedImSearch').value='';
+  document.getElementById('preparedImList').textContent='';
+  if(appReady && isAdmin) document.getElementById('btnPreparedImDetail')?.focus();
+});
+document.getElementById('preparedImSearch').addEventListener('input',renderPreparedImDetail);
+document.getElementById('btnPreparedImRefresh').addEventListener('click',()=>void reloadPreparedImDetail());
+
 function closeCargoExpiry() {
   const sheet = document.getElementById('cargoExpirySheet');
   if (sheet.open) sheet.close();
@@ -659,6 +754,7 @@ function openCargoExpiry(group) {
 document.getElementById('resumenTablas').addEventListener('click', event => {
   const button = event.target.closest('button[data-expiry]');
   if (button) openCargoExpiry(button.dataset.expiry);
+  if(event.target.closest('button[data-prepared-im]')) openPreparedIm();
 });
 document.getElementById('btnCloseCargoExpiry').addEventListener('click', closeCargoExpiry);
 document.getElementById('cargoExpirySheet').addEventListener('close', () => {
