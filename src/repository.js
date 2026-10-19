@@ -64,6 +64,9 @@ export class KardexRepository {
   constructor(client) { this.client = client; }
   async snapshot() { return checked(await this.client.rpc('kardex_snapshot')); }
   async access() { return checked(await this.client.rpc('kardex_access')); }
+  async requestAdminAccess() { return checked(await this.client.rpc('kardex_admin_apply')); }
+  async pendingAdminRequests() { return checked(await this.client.rpc('kardex_admin_pending')); }
+  async reviewAdminRequest(id,approved) { return checked(await this.client.rpc('kardex_admin_review',{p_id:id,p_approve:approved})); }
   async fetchDoc(id) { return docFromDb(checked(await this.client.from('documentos').select().eq('id',id).single())); }
   async fetchImage(id) { return safeImage(checked(await this.client.from('documentos').select('sustento_imagen').eq('id',id).single()).sustento_imagen); }
   async search(filters, offset=0, limit=100, signal) {
