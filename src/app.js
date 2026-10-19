@@ -21,6 +21,7 @@ const idleSession = createIdleSession({window, onExpire: async()=>{
   try { await supabase.auth.signOut({scope:'local'}); } catch { /* The expired local deadline keeps the app locked. */ }
 }});
 let googleSyncEnabled=true;
+let activeWorkspaceTab='resumen';
 let appReady = false, isAdmin = false, mutationBusy = false, channelReady = false;
 let adminRequestStatus = null;
 let adminEmailLinkReviewed = false;
@@ -119,11 +120,56 @@ function setStatus(value, state = '') {
   document.getElementById('connectionStatus').textContent = value;
   document.getElementById('connectionDot').className = `connection-dot ${state}`;
 }
+// Navegación entre apartados sin desmontar formularios ni desconectar Supabase.
+const WORKSPACE_SECTIONS={
+  resumen:'grp-resumen',
+  requerimientos:'grp-requerimientos',
+  existencias:'grp-existencias'
+};
+function updateWorkspaceVisibility() {
+  const adminReady=appReady && isAdmin;
+  for(const [name,id] of Object.entries(WORKSPACE_SECTIONS)) {
+    const section=document.getElementById(id);
+    const active=adminReady && activeWorkspaceTab===name;
+    // Los invitados conservan su buscador; el resto de secciones es administrativo.
+    section.hidden=adminReady ? !active : name!=='existencias';
+    if(active)section.open=true;
+  }
+  for(const button of document.querySelectorAll('#workspaceTabs [data-workspace]')) {
+    const active=adminReady && button.dataset.workspace===activeWorkspaceTab;
+    button.setAttribute('aria-selected',String(active));
+    button.tabIndex=active?0:-1;
+  }
+}
+function selectWorkspaceTab(tab,focus=false) {
+  if(!appReady || !isAdmin || !Object.hasOwn(WORKSPACE_SECTIONS,tab))return;
+  activeWorkspaceTab=tab;
+  updateWorkspaceVisibility();
+  if(focus)document.querySelector(`#workspaceTabs [data-workspace="${tab}"]`)?.focus();
+}
+const workspaceNav=document.getElementById('workspaceTabs');
+workspaceNav.addEventListener('click',event=>{
+  const tab=event.target.closest('button[data-workspace]');
+  if(tab && workspaceNav.contains(tab))selectWorkspaceTab(tab.dataset.workspace);
+});
+workspaceNav.addEventListener('keydown',event=>{
+  const current=event.target.closest('button[data-workspace]');
+  if(!current || !workspaceNav.contains(current) || !isAdmin || !appReady)return;
+  const names=Object.keys(WORKSPACE_SECTIONS),index=names.indexOf(current.dataset.workspace);
+  if(index<0)return;
+  let next=null;
+  if(event.key==='ArrowRight')next=names[(index+1)%names.length];
+  else if(event.key==='ArrowLeft')next=names[(index+names.length-1)%names.length];
+  else if(event.key==='Home')next=names[0];
+  else if(event.key==='End')next=names[names.length-1];
+  if(next){event.preventDefault();selectWorkspaceTab(next,true);}
+});
 function setAvailability() {
   if (!appReady || !isAdmin) { closeCargoExpiry(); closePreparedIm(); }
   document.getElementById('btnExportar').hidden=true;
   document.getElementById('appShell').classList.toggle('read-only', !isAdmin);
-  ['googleSyncPanel','grp-resumen','grp-requerimientos','btnImportar','btnReset'].forEach(id=>document.getElementById(id).hidden=!isAdmin);
+  ['googleSyncPanel','btnImportar','btnReset'].forEach(id=>document.getElementById(id).hidden=!isAdmin);
+  updateWorkspaceVisibility();
   // El formulario antiguo de «Documentos (Nuevos Ingresos)» queda oculto.
   // Se conservan sus nodos para no afectar los controles existentes del Kardex.
   document.getElementById('grp-documentos').hidden=true;
@@ -1064,6 +1110,7 @@ async function handleSession(session) {
     passwordRecovery = false;
     showRecoveryForm(false);
     currentUserId = null; appReady = isAdmin = dataReady = channelReady = false;
+    activeWorkspaceTab='resumen';
     clearTimeout(refreshTimer);
     if (realtimeChannel) { await supabase.removeChannel(realtimeChannel); realtimeChannel = null; }
     queryResults=null;queryError='';searchController?.abort();currentPage=0;
