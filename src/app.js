@@ -128,6 +128,11 @@ const WORKSPACE_SECTIONS={
 };
 function updateWorkspaceVisibility() {
   const adminReady=appReady && isAdmin;
+  const showSync=adminReady && activeWorkspaceTab==='resumen';
+  // La barra de pestañas permanece visible en las tres vistas administrativas.
+  // Ocultar estos elementos es solo visual: los datos y los enlaces siguen cargados.
+  document.getElementById('googleSyncContent').hidden=!showSync;
+  document.getElementById('googleSyncPanel').classList.toggle('workspace-tabs-only',adminReady && !showSync);
   for(const [name,id] of Object.entries(WORKSPACE_SECTIONS)) {
     const section=document.getElementById(id);
     const active=adminReady && activeWorkspaceTab===name;
