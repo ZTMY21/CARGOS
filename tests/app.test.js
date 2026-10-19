@@ -270,7 +270,7 @@ test('sync status is inline and the Excel button opens the original file for adm
  const a=await app();try{
   assert.equal(a.node('btnRefreshGoogleSync'),null);
   assert.equal(a.node('googleSyncDialog'),null);
-  assert.equal(a.node('btnOpenGoogleExcel').textContent,'CARGOS ACTUALES');
+  assert.equal(a.node('btnOpenGoogleExcel').textContent,'Cargos Actuales');
   assert.equal(a.node('btnOpenIronMountainExcel').textContent,'Cargos Enviados');
   assert.match(a.node('btnOpenIronMountainExcel').href,/1aWqIoj5UXAeyKhNN1paoYnTa4jdfN8LhDEcdH_lQ4mk/);
   assert.match(a.node('btnOpenIronMountainHistorical').href,/1ap1GzGd3HBvkV2N7p6dvkFIYwHS_cIqO/);
@@ -449,9 +449,9 @@ test('administrator summary shows white colored cards and transparent heart logo
   const svg=await readFile(new URL('../public/farmacias-heart.svg',import.meta.url),'utf8');
   const dom=new JSDOM(html);
   try {
-    assert.ok(dom.window.document.querySelector('#appShell img.header-logo').getAttribute('src').startsWith('data:image/png;base64,'));
-    assert.equal(dom.window.document.querySelectorAll('.brand-lockup').length,3);
-    assert.equal(dom.window.document.querySelector('.header-lockup .brand-kardex strong').textContent,'Digital');
+    assert.equal(dom.window.document.querySelector('#appShell img.header-logo').getAttribute('src'),'/farmacias-heart.svg');
+    assert.equal(dom.window.document.querySelectorAll('.brand-lockup').length,2);
+    assert.equal(dom.window.document.querySelector('#appShell .header-lockup'),null);
     assert.match(svg,/viewBox="0 50 512 400"/);
     assert.match(svg,/fill="#e30613"/);
     assert.match(svg,/fill="#878786"/);
@@ -510,7 +510,7 @@ test('admin summary groups Excel cargo years and refreshes 2026 after Google-syn
     await refresh();
     assert.deepEqual(rows(),['2020 1 cargos','2024 2 cargos','2025 1 cargos','2026 1 cargos']);
     assert.match(a.node('resumenTablas').textContent,/Cargos por Año/);
-    assert.match(a.node('resumenTablas').textContent,/2026 se actualiza desde Google Sheets/);
+    assert.doesNotMatch(a.node('resumenTablas').textContent,/2026 se actualiza desde Google Sheets/);
     a.state.docs.push(current('N2'));
     await refresh();
     assert.deepEqual(rows(),['2020 1 cargos','2024 2 cargos','2025 1 cargos','2026 2 cargos']);
@@ -1163,4 +1163,35 @@ test('una contraseña recién cambiada no vuelve a pedirse al actualizar la pág
    assert.equal(reloaded.node('appShell').hidden,false);
    assert.equal(reloaded.state.authCalls.filter(c=>c[0]==='updatePassword').length,0);
  } finally {reloaded.close();}
+});
+
+
+test('admin e invitado ven el corazón en encabezado sin textos repetidos, botones limpios y sin documentos nuevos',async()=>{
+ for(const isAdmin of [true,false]){
+  const a=await app({isAdmin});
+  try{
+    const d=a.dom.window.document;
+    assert.equal(d.querySelectorAll('#appShell .header-row img.header-logo').length,1);
+    assert.equal(d.querySelector('#appShell .header-row img.header-logo').getAttribute('src'),'/farmacias-heart.svg');
+    assert.equal(d.querySelector('#appShell .header-row .brand-kardex'),null);
+    assert.equal(a.node('btnReconnect').hidden,true);
+    assert.equal(a.node('grp-documentos').hidden,true);
+    assert.equal(d.querySelector('#grp-documentos').getAttribute('aria-hidden'),'true');
+    assert.equal(a.node('btnSignOut').hidden,false);
+    if(isAdmin){
+      assert.equal(a.node('btnRefreshNewCargos').hidden,false);
+      assert.equal(a.node('btnOpenGoogleExcel').textContent,'Cargos Actuales');
+      const links=a.node('btnOpenGoogleExcel').closest('.google-excel-links');
+      assert.equal(links.querySelectorAll('a').length,3);
+      assert.equal(links.nextElementSibling,a.node('btnToggleGoogleSync'));
+      assert.equal(a.node('googleSyncLastReview').hidden,true);
+      assert.equal(a.node('googleSyncDetails').hidden,true);
+      assert.ok(a.node('googleSyncPanel').hidden===false);
+      assert.equal(a.node('resumenTablas').querySelector('.periodo-nota'),null);
+    } else {
+      assert.equal(a.node('btnRefreshNewCargos').hidden,true);
+      assert.equal(a.node('googleSyncPanel').hidden,true);
+    }
+  } finally {a.close();}
+ }
 });
