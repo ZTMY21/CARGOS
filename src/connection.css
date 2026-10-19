@@ -132,3 +132,28 @@ mark{background:var(--yellow-bg);color:var(--navy-dark);font-weight:700;border-r
  .auth-card .auth-lockup .brand-kardex{font-size:23px;}
  .auth-card .auth-lockup .brand-divider{height:45px;}
 }
+
+/* Ventana de cajas preparadas (lectura de Supabase, actualización en Google Sheets) */
+.prepared-im-sheet{width:min(1160px,96vw);}
+.prepared-im-toolbar{display:flex;justify-content:space-between;align-items:end;gap:14px;flex-wrap:wrap;margin:4px 0 10px;}
+.prepared-im-toolbar .field{flex:1 1 240px;max-width:480px;margin:0;}
+.prepared-im-toolbar label{display:block;font-size:12px;font-weight:650;color:#344054;margin:0 0 5px;}
+.prepared-im-toolbar input{width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:7px;min-height:38px;padding:8px 10px;background:#fff;font:inherit;font-size:13px;}
+.prepared-im-toolbar .excel-link-button{background:#fff;color:#155e40;border-color:#96cbb0;font-size:12px;text-align:center;}
+.prepared-im-list{overflow-y:auto;min-height:75px;max-height:58vh;display:grid;align-content:start;gap:12px;padding:2px 3px;}
+.prepared-im-box{border:1px solid #b7dced;border-radius:9px;background:#fbfdff;padding:14px 15px;}
+.prepared-im-head{display:flex;justify-content:space-between;align-items:start;gap:10px;flex-wrap:wrap;margin-bottom:11px;}
+.prepared-im-head strong{font-size:15px;color:#075985;overflow-wrap:anywhere;}
+.prepared-im-state{display:inline-flex;background:#e0f2fe;color:#075985;border:1px solid #bae6fd;border-radius:20px;padding:4px 9px;font-size:11px;font-weight:700;}
+.prepared-im-sub{font-size:12px;color:#475569;margin-top:5px;overflow-wrap:anywhere;}
+.prepared-im-fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px 12px;margin:0;}
+.prepared-im-fields>div{background:#fff;border:1px solid #e2e8f0;border-radius:6px;padding:9px 10px;min-width:0;}
+.prepared-im-fields dt{font-size:10px;text-transform:uppercase;letter-spacing:.02em;color:#64748b;font-weight:700;margin-bottom:5px;}
+.prepared-im-fields dd{font-size:12px;font-weight:600;color:#1f2937;margin:0;white-space:normal;overflow-wrap:anywhere;}
+.prepared-im-fields .prepared-im-empty{color:#a44916;font-weight:550;}
+.prepared-im-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:12px;}
+.prepared-im-actions .excel-link-button{font-size:12px;color:#125a82;border-color:#afd2e6;}
+.prepared-im-footer{display:flex;justify-content:flex-end;margin-top:13px;}
+.prepared-im-list .prepared-im-message{font-size:13px;color:#475569;padding:18px;text-align:center;}
+@media(max-width:790px){.prepared-im-fields{grid-template-columns:repeat(2,minmax(0,1fr));}}
+@media(max-width:500px){.prepared-im-fields{grid-template-columns:1fr;}.prepared-im-list{max-height:57vh;}.prepared-im-toolbar .excel-link-button{width:100%;}}
