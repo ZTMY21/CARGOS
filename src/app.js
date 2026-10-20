@@ -441,6 +441,44 @@ function cargoTotals2026(){
 
 let monthlyCreatedSummary=null;
 let monthlyCreatedView='months';
+let monthlyComparedYears=null;
+const monthlyCompareColors={
+  2020:'#7e8999',2021:'#9464c9',2022:'#cb8832',
+  2023:'#d96673',2024:'#a3a04c',2025:'#149b76',2026:'#2b7bdc'
+};
+function monthlyComparisonColor(year){
+  return monthlyCompareColors[year]||['#c256b0','#169bb1','#9b7b36'][year%3];
+}
+function renderMonthlyYearChecks(summary){
+  const control=document.getElementById('monthlyCreatedComparisonControls');
+  const checks=document.getElementById('monthlyCreatedYearChecks');
+  const years=summary.comparison.map(row=>row.year);
+  if(monthlyComparedYears===null)monthlyComparedYears=new Set(years.slice(-2));
+  monthlyComparedYears=new Set([...monthlyComparedYears].filter(year=>years.includes(year)));
+  const identity=years.join(',');
+  if(checks.dataset.years!==identity){
+    checks.dataset.years=identity;
+    checks.replaceChildren();
+    for(const year of years.slice().reverse()){
+      const label=document.createElement('label');
+      label.className='monthly-created-compare-check';
+      label.style.setProperty('--year-color',monthlyComparisonColor(year));
+      const input=document.createElement('input');
+      input.type='checkbox';input.value=String(year);
+      input.checked=monthlyComparedYears.has(year);
+      input.setAttribute('aria-label','Mostrar año '+year);
+      const dot=document.createElement('span');dot.className='monthly-created-compare-swatch';dot.setAttribute('aria-hidden','true');
+      const name=document.createElement('span');name.textContent=String(year);
+      label.append(input,dot,name);
+      checks.append(label);
+    }
+  }
+  for(const input of checks.querySelectorAll('input')){
+    input.checked=monthlyComparedYears.has(Number(input.value));
+  }
+  control.hidden=monthlyCreatedView!=='comparison';
+}
+
 const monthlyCreatedNames=['Enero','Febrero','Marzo','Abril','Mayo','Junio',
   'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 function renderMonthlyCreatedDetail(){
@@ -451,6 +489,9 @@ function renderMonthlyCreatedDetail(){
   const palette=['#778396','#338ae2','#e99a23','#10a999','#935ac9','#e25979','#be283c'];
   const color=year=>palette[(year-2020)%palette.length];
   const view=monthlyCreatedView;
+  const compareControls=document.getElementById('monthlyCreatedComparisonControls');
+  compareControls.hidden=view!=='comparison';
+  if(view==='comparison')renderMonthlyYearChecks(data);
   for(const button of document.querySelectorAll('#monthlyCreatedSheet [data-detail-view]')){
     button.setAttribute('aria-selected',String(button.dataset.detailView===view));
   }
@@ -480,14 +521,41 @@ function renderMonthlyCreatedDetail(){
     explanation.textContent='Cada punto muestra el total de cargos únicos por año de cargo. Los cargos sin fecha de mes válida siguen contándose en su año, igual que en el resumen anual.';
   } else {
     categories=months;
-    lines=data.comparison.map(row=>({label:String(row.year),color:color(row.year),values:row.values}));
-    label.textContent=`Comparación mensual de todos los años (2020–${lastYear})`;
-    value.textContent=`${data.comparison.length} años`;
-    heading.textContent=`Todas las líneas: 2020 a ${lastYear}`;
-    explanation.textContent='Una línea por año, con los meses de enero a diciembre. Pasa el cursor o pulsa un punto para consultar el dato exacto. Los meses futuros del año actual no se dibujan; los cargos sin fecha mensual válida solo constan en su total anual.';
+    lines=data.comparison
+      .filter(row=>monthlyComparedYears.has(row.year))
+      .map(row=>({label:String(row.year),color:monthlyComparisonColor(row.year),values:row.values}));
+    label.textContent=`Comparación mensual · 2020 a ${lastYear}`;
+    value.textContent=`${lines.length} de ${data.comparison.length} años`;
+    heading.textContent=lines.length
+      ? `Comparando: ${lines.map(row=>row.label).join(' y ')}`
+      : 'Selecciona un año para visualizar';
+    explanation.textContent='Cada color representa un año seleccionado. Pasa el cursor o pulsa un punto para ver los cargos exactos. Los meses futuros del año actual no se dibujan; los cargos sin fecha mensual válida solo figuran en el total anual.';
+    if(lines.length===0){
+      surface.replaceChildren();
+      legend.replaceChildren();
+      const empty=document.createElement('div');
+      empty.className='monthly-created-compare-empty';
+      const strong=document.createElement('strong');strong.textContent='No hay años seleccionados';
+      const hint=document.createElement('span');hint.textContent='Marca uno o varios años para mostrar sus líneas.';
+      empty.append(strong,hint);surface.append(empty);
+      return;
+    }
   }
   renderCargoLineChart(surface,legend,categories,lines,{showLabels});
 }
+document.getElementById('monthlyCreatedYearChecks').addEventListener('change',event=>{
+  if(!event.target.matches('input[type="checkbox"]'))return;
+  const year=Number(event.target.value);
+  if(!Number.isInteger(year))return;
+  if(event.target.checked)monthlyComparedYears.add(year);
+  else monthlyComparedYears.delete(year);
+  renderMonthlyCreatedDetail();
+});
+document.getElementById('monthlyCreatedRestoreYears').addEventListener('click',()=>{
+  if(!monthlyCreatedSummary)return;
+  monthlyComparedYears=new Set(monthlyCreatedSummary.comparison.slice(-2).map(row=>row.year));
+  renderMonthlyCreatedDetail();
+});
 document.getElementById('btnMonthlyCreatedDetail').addEventListener('click',()=>{
   if(!appReady||!isAdmin)return;
   const sheet=document.getElementById('monthlyCreatedSheet');
