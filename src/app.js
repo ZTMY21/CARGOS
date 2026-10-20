@@ -436,6 +436,41 @@ function cargoTotals2026(){
   return {total:todos.size,historicos:historicos.size,
     nuevos:[...nuevos].filter(c=>!historicos.has(c)).length};
 }
+
+function renderMonthlyCargoStats(){
+  if(!isAdmin)return;
+  const month=limaDate(new Date()).slice(0,7);
+  const monthOf=value=>{
+    const raw=String(value||'').trim();
+    if(/^\d{4}-\d{2}-\d{2}/.test(raw))return raw.slice(0,7);
+    const parts=raw.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
+    return parts ? `${parts[3]}-${parts[2].padStart(2,'0')}` : '';
+  };
+  const created=new Set(),shipped=new Set(),requested=new Set();
+  const addCargos=(bucket,d)=>{
+    for(const raw of d.cargos||[]){
+      const code=String(raw||'').trim().replace(/\.0+$/,'').replace(/^0+(?=\d)/,'').toUpperCase();
+      if(code)bucket.add(`${cargoYear(d)}:${code}`);
+    }
+  };
+  for(const d of docs){
+    if(monthOf(d.fechaOrigen)===month || monthOf(d.fechaRegistro)===month)
+      addCargos(created,d);
+    if(computeDocEstado(d).estado==='Enviado a Iron Mountain' &&
+       (monthOf(d.imFechaEnvio)===month || monthOf(d.fEnvio)===month))
+      addCargos(shipped,d);
+  }
+  for(const r of reqs){
+    if(monthOf(r.fechaSolicitud)!==month)continue;
+    for(const code of String(r.numerosCargo||'').match(/\d+[A-Za-z]?/g)||[])
+      requested.add(code.replace(/^0+(?=\d)/,'').toUpperCase());
+  }
+  document.getElementById('monthlyCargoPeriod').textContent=
+    new Intl.DateTimeFormat('es-PE',{timeZone:'America/Lima',month:'long',year:'numeric'}).format(new Date());
+  document.getElementById('monthlyCargosCreated').textContent=fmtNum(created.size);
+  document.getElementById('monthlyCargosShipped').textContent=fmtNum(shipped.size);
+  document.getElementById('monthlyCargosRequested').textContent=fmtNum(requested.size);
+}
 function renderDocs(){
   const filters=appliedFilters;
   const search=filters.query;
@@ -562,6 +597,7 @@ function renderDocs(){
       <div class="year-grid" id="imYearSummaryGrid" aria-live="polite">${enviadosPorAnioHtml}</div>
     </section>
   `;
+  renderMonthlyCargoStats();
   if (activeExpiryGroup) renderCargoExpiry();
 
   let filtered=queryResults?.rows?.map(d=>({...d,...computeDocEstado(d)}))

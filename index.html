@@ -309,6 +309,41 @@
     #workspaceTabs.workspace-tabs{margin:-16px -16px 15px;padding:0 12px;gap:1px;}
     #workspaceTabs .workspace-tab{font-size:12px;padding:14px 12px 12px;min-height:46px;}
   }
+
+  /* Solo el panel superior mensual; las tablas y tarjetas por año no se alteran. */
+  #appShell .connection-row #btnToggleGoogleSync{
+    background:#f1f5f9;color:#334155;border:1px solid #cbd5e1;
+    border-radius:8px;font-size:12px;font-weight:700;padding:8px 12px;white-space:nowrap;
+  }
+  #appShell .connection-row #btnToggleGoogleSync:hover{background:#e2e8f0;color:#172c42;}
+  #appShell.read-only .connection-row #btnToggleGoogleSync{display:none!important;}
+  #googleSyncPanel .monthly-panel-title{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;}
+  #googleSyncPanel .monthly-panel-title h2{font-size:17px;margin:0;color:#22364b;}
+  #googleSyncPanel .monthly-panel-subtitle{font-size:12px;color:#7890a3;margin:5px 0 0;}
+  #googleSyncPanel .monthly-panel-period{padding:7px 12px;border-radius:99px;border:1px solid #dce5ee;background:#f1f5f9;color:#49627c;font-size:12px;font-weight:700;text-transform:capitalize;}
+  #googleSyncPanel .monthly-cargo-stats{margin-top:14px;gap:14px;}
+  #googleSyncPanel .monthly-cargo-stat{
+    --monthly-accent:#c72637;--monthly-tint:#fbe9ec;
+    min-height:154px;border:1px solid #dee4ea;border-top:3px solid var(--monthly-accent);
+    border-radius:11px;padding:16px 18px;position:relative;overflow:hidden;
+    box-shadow:0 2px 8px #142b4110;
+  }
+  #googleSyncPanel .monthly-cargo-stat.shipped{--monthly-accent:#238657;--monthly-tint:#e2f4e8;}
+  #googleSyncPanel .monthly-cargo-stat.requested{--monthly-accent:#2482bd;--monthly-tint:#e3f1fa;}
+  #googleSyncPanel .monthly-cargo-stat .monthly-stat-icon{display:inline-grid;place-items:center;width:34px;height:34px;border-radius:9px;background:var(--monthly-tint);color:var(--monthly-accent);font-size:20px;font-weight:700;vertical-align:middle;margin-right:8px;}
+  #googleSyncPanel .monthly-cargo-stat .sync-stat-label{display:inline-block;vertical-align:middle;font-size:12px;color:#536a7d;font-weight:750;}
+  #googleSyncPanel .monthly-cargo-stat .sync-stat-value{color:var(--monthly-accent);font-size:32px;margin:11px 0 9px;}
+  #googleSyncPanel .monthly-cargo-stat .monthly-stat-note{font-size:11px;color:#8495a5;}
+  #googleSyncPanel .sync-legacy-data{display:none!important;}
+  #googleSyncPanel .sync-panel-info{display:none!important;}
+  #googleSyncPanel .sync-panel-footer{justify-content:flex-end;margin-top:19px;}
+  #googleSyncPanel .sync-panel-actions{width:100%;align-items:flex-end;}
+  @media(max-width:720px){
+    #googleSyncPanel .monthly-cargo-stats{grid-template-columns:1fr;}
+    #googleSyncPanel .monthly-cargo-stat{min-height:130px;}
+    #googleSyncPanel .sync-panel-actions{align-items:flex-start;}
+    #appShell .connection-row #btnToggleGoogleSync{white-space:normal;}
+  }
 </style>
 </head>
 <body>
@@ -347,6 +382,7 @@
     <span id="connectionStatus">Conexión pendiente</span>
     <button id="btnReconnect" class="secondary connection-action" hidden aria-hidden="true" tabindex="-1">Actualizar</button>
     <button id="btnRefreshNewCargos" type="button" class="secondary connection-action" hidden title="Volver a consultar los cargos nuevos que ya recibió Supabase">↻ Refrescar cargos nuevos</button>
+    <button id="btnToggleGoogleSync" type="button" class="secondary connection-action" disabled>Pausar sincronización</button>
     <button id="btnSignOut" class="secondary connection-action signout-action" hidden>Salir</button>
   </div>
   <section id="googleSyncPanel" hidden class="sync-panel" aria-labelledby="googleSyncTitle">
@@ -369,22 +405,38 @@
       </span>
       <span>Estado de sincronización</span>
     </div>
-    <h2 id="googleSyncTitle">Sincronización automática con Google Sheets</h2>
-    <p class="sync-intro">Registro por edición en la hoja nativa. Envía cada cargo completo a Supabase sin reimportar el histórico (hasta 932).</p>
-    <p class="sync-intro">Completa Fecha, Cargo, Grupo y Código en la hoja «CARGOS NUEVOS». La activación requiere autorizar una vez el disparador onEdit en Apps Script.</p>
-    <div class="sync-stats" aria-label="Resultados de la última sincronización">
-      <article class="sync-stat">
-        <span class="sync-stat-label">Cargos Actuales 2026</span>
-        <strong id="googleSyncRegistered" class="sync-stat-value">—</strong>
+    <div class="monthly-panel-title">
+      <div>
+        <h2 id="googleSyncTitle">Actividad de cargos de este mes</h2>
+        <p class="monthly-panel-subtitle">Indicadores mensuales del Kardex Digital</p>
+      </div>
+      <span class="monthly-panel-period" id="monthlyCargoPeriod">Mes actual</span>
+    </div>
+    <div class="sync-stats monthly-cargo-stats" aria-label="Actividad mensual de cargos">
+      <article class="sync-stat monthly-cargo-stat created">
+        <span class="monthly-stat-icon" aria-hidden="true">▤</span>
+        <span class="sync-stat-label">Cargos en este mes</span>
+        <strong id="monthlyCargosCreated" class="sync-stat-value">—</strong>
+        <span class="monthly-stat-note">Registrados durante el mes</span>
       </article>
-      <article class="sync-stat sync-stat-pending">
-        <span class="sync-stat-label">Filas pendientes</span>
-        <strong id="googleSyncPending" class="sync-stat-value">—</strong>
+      <article class="sync-stat monthly-cargo-stat shipped">
+        <span class="monthly-stat-icon" aria-hidden="true">↗</span>
+        <span class="sync-stat-label">Cargos enviados este mes</span>
+        <strong id="monthlyCargosShipped" class="sync-stat-value">—</strong>
+        <span class="monthly-stat-note">Enviados a Iron Mountain</span>
       </article>
-      <article class="sync-stat sync-stat-conflict">
-        <span class="sync-stat-label">Filas con conflictos</span>
-        <strong id="googleSyncConflicts" class="sync-stat-value">—</strong>
+      <article class="sync-stat monthly-cargo-stat requested">
+        <span class="monthly-stat-icon" aria-hidden="true">☷</span>
+        <span class="sync-stat-label">Cargos solicitados este mes</span>
+        <strong id="monthlyCargosRequested" class="sync-stat-value">—</strong>
+        <span class="monthly-stat-note">Según fecha de solicitud</span>
       </article>
+    </div>
+    <!-- Los identificadores originales permanecen ocultos para preservar el chequeo de sincronización existente. -->
+    <div class="sync-legacy-data" hidden aria-hidden="true">
+      <span id="googleSyncRegistered"></span>
+      <span id="googleSyncPending"></span>
+      <span id="googleSyncConflicts"></span>
     </div>
     <div class="sync-panel-footer">
       <div class="sync-panel-info">
@@ -398,7 +450,6 @@
           <a id="btnOpenIronMountainExcel" class="excel-link-button" href="https://docs.google.com/spreadsheets/d/1aWqIoj5UXAeyKhNN1paoYnTa4jdfN8LhDEcdH_lQ4mk/edit" target="_blank" rel="noopener noreferrer">Cargos Enviados</a>
           <a id="btnOpenIronMountainHistorical" class="excel-link-button historical-excel-link" href="https://docs.google.com/spreadsheets/d/1ap1GzGd3HBvkV2N7p6dvkFIYwHS_cIqO/edit?usp=drivesdk&amp;ouid=101835988006141638443&amp;rtpof=true&amp;sd=true" target="_blank" rel="noopener noreferrer">Histórico IM</a>
         </div>
-        <button id="btnToggleGoogleSync" type="button" disabled>Pausar sincronización</button>
       </div>
     </div>
     </div>
