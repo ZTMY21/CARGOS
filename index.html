@@ -567,16 +567,9 @@
   #monthlyShippedSheet .im-shipped-head p{font-size:12px;color:#7a8a9a;margin:0;}
   #monthlyShippedSheet .im-shipped-close{border:0;background:#f2f5f7;color:#455a6e;font-size:17px;flex:none;border-radius:9px;width:36px;height:36px;padding:0;align-self:flex-start;}
   #monthlyShippedSheet .im-shipped-close:hover{background:#e6edf1;}
-  #monthlyShippedSheet .im-shipped-tabs{display:flex;gap:8px;padding:17px 27px 0;}
-  #monthlyShippedSheet .im-shipped-tab{background:#f3f5f8;color:#496276;border:1px solid #e5eaf0;border-radius:8px;font-size:12px;font-weight:750;padding:10px 22px;}
-  #monthlyShippedSheet .im-shipped-tab[aria-selected="true"]{background:#ba2636;color:#fff;border-color:#ba2636;}
   #monthlyShippedSheet .im-shipped-content{padding:16px 27px 22px;}
   #monthlyShippedSheet .im-shipped-charts{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:15px;}
   #monthlyShippedSheet .im-shipped-chart-panel{border:1px solid #e3eaf0;border-radius:12px;padding:17px 14px 12px;background:#fff;min-width:0;transition:box-shadow .15s,border-color .15s;}
-  #monthlyShippedSheet .im-shipped-charts[data-focus="month"] #imShippedMonthPanel,
-  #monthlyShippedSheet .im-shipped-charts[data-focus="year"] #imShippedYearPanel{
-    border-color:#90c6a6;box-shadow:0 0 0 2px #dff1e7;
-  }
   #monthlyShippedSheet .im-shipped-chart-heading{min-height:65px;display:flex;justify-content:space-between;align-items:flex-start;gap:8px;}
   #monthlyShippedSheet .im-shipped-chart-heading h3{font-size:14px;font-weight:800;color:#27394b;margin:0 0 4px;}
   #monthlyShippedSheet .im-shipped-chart-heading p{font-size:11px;line-height:1.4;color:#8393a2;margin:0;}
@@ -605,7 +598,6 @@
     #monthlyShippedSheet .im-shipped-head-icon{width:40px;height:40px;}
     #monthlyShippedSheet .im-shipped-head-icon svg{width:22px;height:22px;}
     #monthlyShippedSheet .im-shipped-head h2{font-size:15px;}
-    #monthlyShippedSheet .im-shipped-tabs{padding:12px 15px 0;}
     #monthlyShippedSheet .im-shipped-content{padding:13px 15px 16px;}
     #monthlyShippedSheet .im-shipped-chart-panel{padding:13px 9px;}
     #monthlyShippedSheet .im-shipped-chart-heading{flex-wrap:wrap;}
@@ -775,12 +767,8 @@
       </div>
       <button id="btnCloseMonthlyShipped" type="button" class="im-shipped-close" aria-label="Cerrar detalle">✕</button>
     </div>
-    <div class="im-shipped-tabs" role="tablist" aria-label="Enfoque del detalle de envíos">
-      <button type="button" id="imShippedMonthTab" class="im-shipped-tab" role="tab" aria-selected="true" data-im-focus="month" aria-controls="imShippedMonthPanel">▥ Por mes</button>
-      <button type="button" id="imShippedYearTab" class="im-shipped-tab" role="tab" aria-selected="false" data-im-focus="year" aria-controls="imShippedYearPanel">▥ Por año</button>
-    </div>
     <div class="im-shipped-content">
-      <div class="im-shipped-charts" id="imShippedCharts" data-focus="month">
+      <div class="im-shipped-charts" id="imShippedCharts">
         <section id="imShippedMonthPanel" class="im-shipped-chart-panel">
           <div class="im-shipped-chart-heading">
             <div><h3 id="imShippedMonthTitle">Cargos enviados por mes</h3><p>Cantidad de cargos enviados durante el año seleccionado</p></div>

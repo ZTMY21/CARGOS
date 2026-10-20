@@ -659,18 +659,6 @@ document.getElementById('imShippedYearSelect').addEventListener('change',event=>
   monthlyShippedSelectedYear=Number(event.target.value);
   renderMonthlyShippedDetail();
 });
-for(const button of document.querySelectorAll('#monthlyShippedSheet [data-im-focus]')){
-  button.addEventListener('click',()=>{
-    const focus=button.dataset.imFocus;
-    document.getElementById('imShippedCharts').dataset.focus=focus;
-    for(const other of document.querySelectorAll('#monthlyShippedSheet [data-im-focus]')){
-      other.setAttribute('aria-selected',String(other===button));
-    }
-    const chart=document.getElementById(focus==='month'?'imShippedMonthPanel':'imShippedYearPanel');
-    if(matchMedia('(max-width:800px)').matches)
-      chart.scrollIntoView({behavior:'smooth',block:'nearest'});
-  });
-}
 function renderMonthlyCargoStats(){
   if(!isAdmin)return;
   const month=limaDate(new Date()).slice(0,7);
