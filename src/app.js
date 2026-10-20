@@ -131,16 +131,9 @@ const WORKSPACE_SECTIONS={
   solicitudes:'grp-solicitudes'
 };
 function setAdminRequestBadge(count) {
-  const badge=document.getElementById('adminRequestsBadge');
   const valid=Number.isSafeInteger(count) && count>=0;
   const total=valid?count:0;
-  badge.textContent=valid?String(total):'–';
-  badge.classList.toggle('pending',valid && total>0);
-  badge.classList.toggle('unavailable',!valid);
-  badge.setAttribute('aria-label',valid
-    ? `${total} ${total===1?'solicitud pendiente':'solicitudes pendientes'}`
-    : 'Solicitudes pendientes sin consultar');
-  // Misma consulta para el botón superior, sin modificar el indicador de pestaña.
+  // El único contador visible es ahora el del botón superior.
   const quickButton=document.getElementById('btnTopAdminRequests');
   const quickCount=document.getElementById('topAdminRequestsCount');
   quickButton.dataset.status=!valid?'unknown':total>0?'pending':'empty';
@@ -152,6 +145,8 @@ function setAdminRequestBadge(count) {
 function updateWorkspaceVisibility() {
   const adminReady=appReady && isAdmin;
   const showSync=adminReady && activeWorkspaceTab==='resumen';
+  const adminRequestsButton=document.getElementById('btnTopAdminRequests');
+  adminRequestsButton.setAttribute('aria-pressed',String(adminReady && activeWorkspaceTab==='solicitudes'));
   // La barra de pestañas permanece visible en todas las vistas administrativas.
   // Ocultar estos elementos es solo visual: los datos y los enlaces siguen cargados.
   document.getElementById('googleSyncContent').hidden=!showSync;
@@ -173,7 +168,8 @@ function selectWorkspaceTab(tab,focus=false) {
   if(!appReady || !isAdmin || !Object.hasOwn(WORKSPACE_SECTIONS,tab))return;
   activeWorkspaceTab=tab;
   updateWorkspaceVisibility();
-  if(focus)document.querySelector(`#workspaceTabs [data-workspace="${tab}"]`)?.focus();
+  if(focus)(document.querySelector(`#workspaceTabs [data-workspace="${tab}"]`)
+    || (tab==='solicitudes'?document.getElementById('btnTopAdminRequests'):null))?.focus();
   if(tab==='solicitudes')void refreshAdminRequests();
 }
 document.getElementById('btnTopAdminRequests').addEventListener('click',()=>{
@@ -189,7 +185,9 @@ workspaceNav.addEventListener('click',event=>{
 workspaceNav.addEventListener('keydown',event=>{
   const current=event.target.closest('button[data-workspace]');
   if(!current || !workspaceNav.contains(current) || !isAdmin || !appReady)return;
-  const names=Object.keys(WORKSPACE_SECTIONS),index=names.indexOf(current.dataset.workspace);
+  // El menú inferior solo recorre sus tres pestañas visibles.
+  const names=[...workspaceNav.querySelectorAll('button[data-workspace]')].map(button=>button.dataset.workspace);
+  const index=names.indexOf(current.dataset.workspace);
   if(index<0)return;
   let next=null;
   if(event.key==='ArrowRight')next=names[(index+1)%names.length];
