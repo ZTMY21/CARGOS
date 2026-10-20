@@ -6,6 +6,7 @@ import { highlightMatch, filterDocuments, filterRequirements, invoiceSearchPrese
 import './connection.css';
 import { createIdleSession } from './idle-session.js';
 import { cargoYear, locationLabel, groupsForCodes } from './cargo-details.js';
+import { summarizeCreatedCargos } from './monthly-created-summary.js';
 import { cargoExpiryGroups, formatCargoDuration } from './cargo-expiry.js';
 
 const configuration = { url: __SUPABASE_URL__, key: __SUPABASE_ANON_KEY__ };
@@ -437,6 +438,55 @@ function cargoTotals2026(){
     nuevos:[...nuevos].filter(c=>!historicos.has(c)).length};
 }
 
+let monthlyCreatedSummary=null;
+let monthlyCreatedView='months';
+const monthlyCreatedNames=['Enero','Febrero','Marzo','Abril','Mayo','Junio',
+  'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+function renderMonthlyCreatedDetail(){
+  const sheet=document.getElementById('monthlyCreatedSheet');
+  if(!sheet.open || !monthlyCreatedSummary)return;
+  const summary=monthlyCreatedSummary;
+  const byMonth=monthlyCreatedView==='months';
+  const rows=byMonth?summary.monthly:summary.annual;
+  document.getElementById('monthlyCreatedByMonth').setAttribute('aria-selected',String(byMonth));
+  document.getElementById('monthlyCreatedByYear').setAttribute('aria-selected',String(!byMonth));
+  document.getElementById('monthlyCreatedTableHeading').textContent=byMonth?'Mes':'Año';
+  const total=byMonth?summary.monthlyTotal:summary.annualTotal;
+  document.getElementById('monthlyCreatedTableBody').innerHTML=rows.map(row=>{
+    const current=byMonth ? row.month===summary.currentMonth : row.year===summary.currentYear;
+    const label=byMonth ? monthlyCreatedNames[row.month-1] : String(row.year);
+    return `<tr class="${current?'current-row':''}"><td>${label}</td><td>${fmtNum(row.count)}</td></tr>`;
+  }).join('');
+  document.getElementById('monthlyCreatedSummaryLabel').textContent=byMonth
+    ? `Cargos realizados en ${summary.currentYear} hasta ${monthlyCreatedNames[summary.currentMonth-1].toLowerCase()}`
+    : `Cargos registrados desde 2020 hasta ${summary.currentYear}`;
+  document.getElementById('monthlyCreatedSummaryValue').textContent=fmtNum(total);
+  document.getElementById('monthlyCreatedTotalNumber').textContent=fmtNum(total);
+  document.getElementById('monthlyCreatedTotalTitle').textContent=byMonth?'Total del año hasta hoy':'Total histórico';
+  document.getElementById('monthlyCreatedExplanation').textContent=byMonth
+    ? `Se cuenta cada código de cargo una sola vez, según su fecha original en ${summary.currentYear}. ${summary.undatedInCurrentYear} cargos asignados a ${summary.currentYear} tienen fecha faltante o fuera de ese año y solo aparecen en el detalle anual.`
+    : 'Se utiliza el año de cargo del Kardex, igual que en «Cargos por Año». El total se recalcula al agregar, cambiar o eliminar cargos; la fecha de importación no crea nuevos cargos.';
+}
+document.getElementById('btnMonthlyCreatedDetail').addEventListener('click',()=>{
+  if(!appReady||!isAdmin)return;
+  const sheet=document.getElementById('monthlyCreatedSheet');
+  monthlyCreatedView='months';
+  sheet.showModal();
+  renderMonthlyCreatedDetail();
+});
+document.getElementById('btnCloseMonthlyCreated').addEventListener('click',()=>{
+  document.getElementById('monthlyCreatedSheet').close();
+});
+for(const button of document.querySelectorAll('#monthlyCreatedSheet [data-detail-view]')){
+  button.addEventListener('click',()=>{
+    monthlyCreatedView=button.dataset.detailView;
+    renderMonthlyCreatedDetail();
+  });
+}
+document.getElementById('monthlyCreatedSheet').addEventListener('click',event=>{
+  const sheet=event.currentTarget;
+  if(event.target===sheet)sheet.close();
+});
 function renderMonthlyCargoStats(){
   if(!isAdmin)return;
   const month=limaDate(new Date()).slice(0,7);
@@ -467,7 +517,10 @@ function renderMonthlyCargoStats(){
   }
   document.getElementById('monthlyCargoPeriod').textContent=
     new Intl.DateTimeFormat('es-PE',{timeZone:'America/Lima',month:'long',year:'numeric'}).format(new Date());
-  document.getElementById('monthlyCargosCreated').textContent=fmtNum(created.size);
+  monthlyCreatedSummary=summarizeCreatedCargos(docs,new Date());
+  document.getElementById('monthlyCargosCreated').textContent=fmtNum(monthlyCreatedSummary.currentCount);
+  document.getElementById('monthlyCreatedNote').textContent=`Durante el mes (${monthlyCreatedNames[monthlyCreatedSummary.currentMonth-1].toLowerCase()})`;
+  renderMonthlyCreatedDetail();
   document.getElementById('monthlyCargosShipped').textContent=fmtNum(shipped.size);
   document.getElementById('monthlyCargosRequested').textContent=fmtNum(requested.size);
 }
