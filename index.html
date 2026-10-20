@@ -542,6 +542,75 @@
   @media(max-width:590px){
     #appShell .connection-row #btnTopAdminRequests{max-width:100%;font-size:10px;padding:6px 9px;}
   }
+
+  /* Solo DEMO de la tarjeta 'CARGOS ENVIADOS IM ESTE MES'. */
+  #googleSyncPanel .monthly-cargo-stat.shipped{position:relative;padding-bottom:54px;}
+  #googleSyncPanel .monthly-shipped-detail-button{
+    position:absolute;right:16px;bottom:13px;display:inline-flex;align-items:center;
+    justify-content:center;gap:6px;padding:7px 11px;font-size:11px;font-weight:750;
+    border:1px solid #b0dbc3;border-radius:8px;background:#ecf8f1;color:#16683e;
+  }
+  #googleSyncPanel .monthly-shipped-detail-button:hover{background:#d8f1e1;border-color:#89c9a6;}
+  #googleSyncPanel .monthly-shipped-detail-button:focus-visible{outline:2px solid #238657;outline-offset:2px;}
+  #monthlyShippedSheet.im-shipped-sheet{
+    box-sizing:border-box;width:min(1120px,96vw);max-width:96vw;max-height:92dvh;padding:0;
+    border:1px solid #dce7e0;border-radius:18px;background:#fff;color:#23394b;
+    box-shadow:0 24px 90px #102d2345;overflow-y:auto;
+  }
+  #monthlyShippedSheet::backdrop{background:#10233291;backdrop-filter:blur(3px);}
+  #monthlyShippedSheet .im-shipped-head{display:flex;align-items:center;gap:16px;padding:23px 27px 16px;border-bottom:1px solid #e9edf0;}
+  #monthlyShippedSheet .im-shipped-head-icon{width:55px;height:55px;flex:none;border-radius:50%;display:grid;place-items:center;background:#e3f6e9;color:#177545;}
+  #monthlyShippedSheet .im-shipped-head-icon svg{width:28px;height:28px;}
+  #monthlyShippedSheet .im-shipped-head-titles{flex:1;min-width:0;}
+  #monthlyShippedSheet .im-shipped-eyebrow{font-size:10px;font-weight:850;letter-spacing:.08em;color:#1b8050;}
+  #monthlyShippedSheet .im-shipped-head h2{font-size:20px;font-weight:800;color:#233447;margin:5px 0 4px;line-height:1.25;}
+  #monthlyShippedSheet .im-shipped-head p{font-size:12px;color:#7a8a9a;margin:0;}
+  #monthlyShippedSheet .im-shipped-close{border:0;background:#f2f5f7;color:#455a6e;font-size:17px;flex:none;border-radius:9px;width:36px;height:36px;padding:0;align-self:flex-start;}
+  #monthlyShippedSheet .im-shipped-close:hover{background:#e6edf1;}
+  #monthlyShippedSheet .im-shipped-tabs{display:flex;gap:8px;padding:17px 27px 0;}
+  #monthlyShippedSheet .im-shipped-tab{background:#f3f5f8;color:#496276;border:1px solid #e5eaf0;border-radius:8px;font-size:12px;font-weight:750;padding:10px 22px;}
+  #monthlyShippedSheet .im-shipped-tab[aria-selected="true"]{background:#ba2636;color:#fff;border-color:#ba2636;}
+  #monthlyShippedSheet .im-shipped-content{padding:16px 27px 22px;}
+  #monthlyShippedSheet .im-shipped-charts{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:15px;}
+  #monthlyShippedSheet .im-shipped-chart-panel{border:1px solid #e3eaf0;border-radius:12px;padding:17px 14px 12px;background:#fff;min-width:0;transition:box-shadow .15s,border-color .15s;}
+  #monthlyShippedSheet .im-shipped-charts[data-focus="month"] #imShippedMonthPanel,
+  #monthlyShippedSheet .im-shipped-charts[data-focus="year"] #imShippedYearPanel{
+    border-color:#90c6a6;box-shadow:0 0 0 2px #dff1e7;
+  }
+  #monthlyShippedSheet .im-shipped-chart-heading{min-height:65px;display:flex;justify-content:space-between;align-items:flex-start;gap:8px;}
+  #monthlyShippedSheet .im-shipped-chart-heading h3{font-size:14px;font-weight:800;color:#27394b;margin:0 0 4px;}
+  #monthlyShippedSheet .im-shipped-chart-heading p{font-size:11px;line-height:1.4;color:#8393a2;margin:0;}
+  #monthlyShippedSheet .im-shipped-select{display:inline-flex;align-items:center;gap:6px;color:#657b8e;font-size:11px;font-weight:750;white-space:nowrap;}
+  #monthlyShippedSheet .im-shipped-select select{min-height:32px;width:88px;font-size:12px;font-weight:750;padding:5px 7px;border:1px solid #cbdcd3;color:#155f3e;border-radius:7px;background:#f9fdfb;}
+  #monthlyShippedSheet .im-shipped-chart{position:relative;min-height:235px;}
+  #monthlyShippedSheet .im-shipped-chart svg{width:100%;height:auto;display:block;overflow:visible;}
+  #monthlyShippedSheet .im-shipped-tooltip{position:absolute;pointer-events:none;z-index:3;background:#143f31;color:#fff;padding:7px 10px;border-radius:8px;font-size:11px;white-space:nowrap;box-shadow:0 6px 15px #12332430;transform:translate(-50%,-105%);}
+  #monthlyShippedSheet .im-shipped-tooltip[hidden]{display:none!important;}
+  #monthlyShippedSheet .im-shipped-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-top:14px;padding:17px 10px;border:1px solid #dcefe6;border-radius:12px;background:#f0faf5;}
+  #monthlyShippedSheet .im-shipped-kpi{display:flex;align-items:center;gap:12px;padding:6px 13px;min-width:0;}
+  #monthlyShippedSheet .im-shipped-kpi:not(:last-child){border-right:1px solid #cce6d8;}
+  #monthlyShippedSheet .im-shipped-kpi-icon{width:43px;height:43px;display:grid;place-items:center;border-radius:50%;background:#dbf2e6;color:#146e47;flex:none;font-weight:900;font-size:23px;}
+  #monthlyShippedSheet .im-shipped-kpi div{min-width:0;}
+  #monthlyShippedSheet .im-shipped-kpi small{display:block;font-size:11px;color:#5b7182;font-weight:700;}
+  #monthlyShippedSheet .im-shipped-kpi strong{display:block;font-size:22px;color:#146e47;font-weight:850;margin:3px 0;font-variant-numeric:tabular-nums;line-height:1.15;}
+  #monthlyShippedSheet .im-shipped-kpi span:not(.im-shipped-kpi-icon){font-size:10px;color:#718597;}
+  #monthlyShippedSheet .im-shipped-note{font-size:11px;color:#708494;line-height:1.55;margin:14px 2px 0;}
+  @media(max-width:800px){
+    #monthlyShippedSheet .im-shipped-charts{grid-template-columns:1fr;}
+    #monthlyShippedSheet .im-shipped-kpis{grid-template-columns:1fr;}
+    #monthlyShippedSheet .im-shipped-kpi:not(:last-child){border-right:0;border-bottom:1px solid #cce6d8;}
+  }
+  @media(max-width:560px){
+    #monthlyShippedSheet .im-shipped-head{gap:11px;padding:17px 15px 12px;}
+    #monthlyShippedSheet .im-shipped-head-icon{width:40px;height:40px;}
+    #monthlyShippedSheet .im-shipped-head-icon svg{width:22px;height:22px;}
+    #monthlyShippedSheet .im-shipped-head h2{font-size:15px;}
+    #monthlyShippedSheet .im-shipped-tabs{padding:12px 15px 0;}
+    #monthlyShippedSheet .im-shipped-content{padding:13px 15px 16px;}
+    #monthlyShippedSheet .im-shipped-chart-panel{padding:13px 9px;}
+    #monthlyShippedSheet .im-shipped-chart-heading{flex-wrap:wrap;}
+    #monthlyShippedSheet .im-shipped-kpi{padding:8px;}
+  }
 </style>
 </head>
 <body>
@@ -623,6 +692,7 @@
         <span class="sync-stat-label">CARGOS ENVIADOS IM ESTE MES</span>
         <strong id="monthlyCargosShipped" class="sync-stat-value">—</strong>
         <span class="monthly-stat-note">Enviados a Iron Mountain</span>
+        <button id="btnMonthlyShippedDetail" type="button" class="monthly-shipped-detail-button" aria-haspopup="dialog" aria-controls="monthlyShippedSheet">Ver detalle <span aria-hidden="true">↗</span></button>
       </article>
       <article class="sync-stat monthly-cargo-stat requested">
         <span class="monthly-stat-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M20 20H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2Z"/></svg></span>
@@ -689,6 +759,59 @@
         <div id="monthlyCreatedChartLegend" class="monthly-created-chart-legend" aria-label="Leyenda de años"></div>
       </div>
       <p id="monthlyCreatedExplanation" class="monthly-created-explanation">Los totales se calculan con los cargos registrados en la base de datos.</p>
+    </div>
+  </dialog>
+
+  <!-- Exclusivamente para la DEMO del detalle de envíos IM. -->
+  <dialog id="monthlyShippedSheet" class="im-shipped-sheet" aria-labelledby="monthlyShippedTitle">
+    <div class="im-shipped-head">
+      <span class="im-shipped-head-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M10 17h4V5H2v12h3"/><path d="M14 9h4l4 4v4h-3"/><circle cx="7.5" cy="17.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg>
+      </span>
+      <div class="im-shipped-head-titles">
+        <span class="im-shipped-eyebrow">SEGUIMIENTO DE ENVÍOS · IRON MOUNTAIN</span>
+        <h2 id="monthlyShippedTitle">Detalle de cargos enviados a Iron Mountain</h2>
+        <p>Comparación por mes y por año, según la fecha real de envío</p>
+      </div>
+      <button id="btnCloseMonthlyShipped" type="button" class="im-shipped-close" aria-label="Cerrar detalle">✕</button>
+    </div>
+    <div class="im-shipped-tabs" role="tablist" aria-label="Enfoque del detalle de envíos">
+      <button type="button" id="imShippedMonthTab" class="im-shipped-tab" role="tab" aria-selected="true" data-im-focus="month" aria-controls="imShippedMonthPanel">▥ Por mes</button>
+      <button type="button" id="imShippedYearTab" class="im-shipped-tab" role="tab" aria-selected="false" data-im-focus="year" aria-controls="imShippedYearPanel">▥ Por año</button>
+    </div>
+    <div class="im-shipped-content">
+      <div class="im-shipped-charts" id="imShippedCharts" data-focus="month">
+        <section id="imShippedMonthPanel" class="im-shipped-chart-panel">
+          <div class="im-shipped-chart-heading">
+            <div><h3 id="imShippedMonthTitle">Cargos enviados por mes</h3><p>Cantidad de cargos enviados durante el año seleccionado</p></div>
+            <label class="im-shipped-select">Año
+              <select id="imShippedYearSelect" aria-label="Seleccionar año para ver sus envíos mensuales"></select>
+            </label>
+          </div>
+          <div id="imShippedMonthChart" class="im-shipped-chart" aria-live="polite"></div>
+        </section>
+        <section id="imShippedYearPanel" class="im-shipped-chart-panel">
+          <div class="im-shipped-chart-heading">
+            <div><h3 id="imShippedYearTitle">Cargos enviados por año</h3><p>Histórico de envíos a Iron Mountain</p></div>
+          </div>
+          <div id="imShippedYearChart" class="im-shipped-chart" aria-live="polite"></div>
+        </section>
+      </div>
+      <div class="im-shipped-kpis">
+        <div class="im-shipped-kpi">
+          <span class="im-shipped-kpi-icon" aria-hidden="true">▥</span>
+          <div><small id="imShippedTotalLabel">Total del año</small><strong id="imShippedTotalValue">—</strong><span>Cargos enviados a Iron Mountain</span></div>
+        </div>
+        <div class="im-shipped-kpi">
+          <span class="im-shipped-kpi-icon" aria-hidden="true">◷</span>
+          <div><small>Promedio mensual</small><strong id="imShippedAverage">—</strong><span id="imShippedAverageNote">Cargos por mes</span></div>
+        </div>
+        <div class="im-shipped-kpi">
+          <span class="im-shipped-kpi-icon" aria-hidden="true">▢</span>
+          <div><small>Último envío del año</small><strong id="imShippedLast">—</strong><span id="imShippedLastNote">Fecha registrada en el Kardex</span></div>
+        </div>
+      </div>
+      <p id="imShippedMethodNote" class="im-shipped-note">Los gráficos utilizan las fechas reales de envío registradas y se actualizan cuando se sincronizan los cargos.</p>
     </div>
   </dialog>
   <p id="readOnlyNotice" hidden>Invitado · Solo consulta de cargos y facturas</p>

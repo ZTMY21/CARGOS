@@ -8,6 +8,8 @@ import { createIdleSession } from './idle-session.js';
 import { cargoYear, locationLabel, groupsForCodes } from './cargo-details.js';
 import { summarizeCreatedCargos } from './monthly-created-summary.js';
 import { renderCargoLineChart } from './cargo-line-chart.js';
+import { summarizeShippedCargos } from './im-shipped-summary.js';
+import { renderImBarChart } from './im-bar-chart.js';
 import { cargoExpiryGroups, formatCargoDuration } from './cargo-expiry.js';
 
 const configuration = { url: __SUPABASE_URL__, key: __SUPABASE_ANON_KEY__ };
@@ -588,6 +590,87 @@ document.getElementById('monthlyCreatedSheet').addEventListener('click',event=>{
   const sheet=event.currentTarget;
   if(event.target===sheet)sheet.close();
 });
+
+let monthlyShippedSummary=null;
+let monthlyShippedSelectedYear=null;
+function renderMonthlyShippedDetail(){
+  const sheet=document.getElementById('monthlyShippedSheet');
+  if(!sheet.open || !monthlyShippedSummary)return;
+  const stats=monthlyShippedSummary;
+  const yearSelect=document.getElementById('imShippedYearSelect');
+  const allowedYears=stats.annual.filter(row=>row.count>0||row.year===stats.currentYear).map(row=>row.year);
+  if(!allowedYears.includes(monthlyShippedSelectedYear))
+    monthlyShippedSelectedYear=stats.currentYear;
+  const yearsKey=allowedYears.join(',');
+  if(yearSelect.dataset.years!==yearsKey){
+    yearSelect.replaceChildren();
+    for(const year of allowedYears.slice().reverse()){
+      const option=document.createElement('option');
+      option.value=String(year);option.textContent=String(year);yearSelect.append(option);
+    }
+    yearSelect.dataset.years=yearsKey;
+  }
+  yearSelect.value=String(monthlyShippedSelectedYear);
+  const row=stats.annual.find(item=>item.year===monthlyShippedSelectedYear);
+  if(!row)return;
+  const names=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  const current=row.year===stats.currentYear;
+  const monthlyLabels=names.slice(0,current?stats.currentMonth:12);
+  document.getElementById('imShippedMonthTitle').textContent='Cargos enviados por mes ('+row.year+')';
+  renderImBarChart(document.getElementById('imShippedMonthChart'),monthlyLabels,
+    row.months.slice(0,monthlyLabels.length),
+    {accent:'#2da66b',emptyLabel:'Sin envíos IM registrados en '+row.year});
+  document.getElementById('imShippedYearTitle').textContent=
+    'Cargos enviados por año (2020–'+stats.currentYear+')';
+  renderImBarChart(document.getElementById('imShippedYearChart'),
+    stats.annual.map(item=>String(item.year)),stats.annual.map(item=>item.count),
+    {accent:'#3b9b62',emptyLabel:'No hay envíos IM con fecha registrada'});
+  document.getElementById('imShippedTotalLabel').textContent='Total del año ('+row.year+')';
+  document.getElementById('imShippedTotalValue').textContent=fmtNum(row.count);
+  const periods=current?stats.currentMonth:12;
+  const mean=periods?row.count/periods:0;
+  document.getElementById('imShippedAverage').textContent=
+    mean.toLocaleString('es-PE',{maximumFractionDigits:1});
+  document.getElementById('imShippedAverageNote').textContent=
+    'Cargos por mes ('+row.year+')';
+  const last=row.latest?new Date(row.latest+'T12:00:00Z').toLocaleDateString('es-PE',
+    {timeZone:'America/Lima',day:'numeric',month:'short',year:'numeric'}):'—';
+  document.getElementById('imShippedLast').textContent=last;
+  document.getElementById('imShippedLastNote').textContent=
+    row.latest?'Última fecha de envío registrada':'Sin envíos registrados';
+  document.getElementById('imShippedMethodNote').textContent=
+    'Se cuenta cada código de cargo una sola vez por fecha efectiva de envío a IM. '+
+    'Los datos se recalculan con la sincronización del Kardex; se descuentan los cargos eliminados y los meses futuros no se muestran como enviados.'+
+    (stats.undated?' '+stats.undated+' referencias enviadas sin fecha no aparecen en gráficos.':'');
+}
+document.getElementById('btnMonthlyShippedDetail').addEventListener('click',()=>{
+  if(!appReady||!isAdmin)return;
+  monthlyShippedSelectedYear=monthlyShippedSummary?.currentYear??null;
+  document.getElementById('monthlyShippedSheet').showModal();
+  renderMonthlyShippedDetail();
+});
+document.getElementById('btnCloseMonthlyShipped').addEventListener('click',()=>{
+  document.getElementById('monthlyShippedSheet').close();
+});
+document.getElementById('monthlyShippedSheet').addEventListener('click',event=>{
+  if(event.target===event.currentTarget)event.currentTarget.close();
+});
+document.getElementById('imShippedYearSelect').addEventListener('change',event=>{
+  monthlyShippedSelectedYear=Number(event.target.value);
+  renderMonthlyShippedDetail();
+});
+for(const button of document.querySelectorAll('#monthlyShippedSheet [data-im-focus]')){
+  button.addEventListener('click',()=>{
+    const focus=button.dataset.imFocus;
+    document.getElementById('imShippedCharts').dataset.focus=focus;
+    for(const other of document.querySelectorAll('#monthlyShippedSheet [data-im-focus]')){
+      other.setAttribute('aria-selected',String(other===button));
+    }
+    const chart=document.getElementById(focus==='month'?'imShippedMonthPanel':'imShippedYearPanel');
+    if(matchMedia('(max-width:800px)').matches)
+      chart.scrollIntoView({behavior:'smooth',block:'nearest'});
+  });
+}
 function renderMonthlyCargoStats(){
   if(!isAdmin)return;
   const month=limaDate(new Date()).slice(0,7);
@@ -597,7 +680,7 @@ function renderMonthlyCargoStats(){
     const parts=raw.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
     return parts ? `${parts[3]}-${parts[2].padStart(2,'0')}` : '';
   };
-  const created=new Set(),shipped=new Set(),requested=new Set();
+  const created=new Set(),requested=new Set();
   const addCargos=(bucket,d)=>{
     for(const raw of d.cargos||[]){
       const code=String(raw||'').trim().replace(/\.0+$/,'').replace(/^0+(?=\d)/,'').toUpperCase();
@@ -607,9 +690,6 @@ function renderMonthlyCargoStats(){
   for(const d of docs){
     if(monthOf(d.fechaOrigen)===month || monthOf(d.fechaRegistro)===month)
       addCargos(created,d);
-    if(computeDocEstado(d).estado==='Enviado a Iron Mountain' &&
-       (monthOf(d.imFechaEnvio)===month || monthOf(d.fEnvio)===month))
-      addCargos(shipped,d);
   }
   for(const r of reqs){
     if(monthOf(r.fechaSolicitud)!==month)continue;
@@ -624,7 +704,9 @@ function renderMonthlyCargoStats(){
   document.getElementById('monthlyCargosCreated').textContent=fmtNum(monthlyCreatedSummary.currentCount);
   document.getElementById('monthlyCreatedNote').textContent=`Durante el mes (${monthlyCreatedNames[monthlyCreatedSummary.currentMonth-1].toLowerCase()})`;
   renderMonthlyCreatedDetail();
-  document.getElementById('monthlyCargosShipped').textContent=fmtNum(shipped.size);
+  monthlyShippedSummary=summarizeShippedCargos(docs,new Date());
+  document.getElementById('monthlyCargosShipped').textContent=fmtNum(monthlyShippedSummary.currentCount);
+  renderMonthlyShippedDetail();
   document.getElementById('monthlyCargosRequested').textContent=fmtNum(requested.size);
 }
 function renderDocs(){
