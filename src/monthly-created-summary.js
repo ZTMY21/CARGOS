@@ -32,9 +32,9 @@ export function summarizeCreatedCargos(docs,now=new Date()){
       ||asYear(String(doc.fechaOrigen??'').slice(0,4));
     if(sourceYear===null)continue;
     const sourceDate=validIsoDate(doc.fechaOrigen);
-    // Solo para altas nuevas del año actual se permite fecha de registro
-    // si falta la original. Importaciones históricas nunca usan esta fecha.
-    const date=sourceDate||(sourceYear===currentYear?validIsoDate(doc.fechaRegistro):null);
+    // La fecha del cargo en Google Sheets (fechaOrigen) manda siempre:
+    // nunca contar una importación como creación de un cargo de este mes.
+    const date=sourceDate;
     if(!yearSets.has(sourceYear))yearSets.set(sourceYear,new Set());
     for(const value of doc.cargos||[]){
       const code=cargoCode(value);

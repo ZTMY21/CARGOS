@@ -604,7 +604,9 @@ function renderMonthlyCargoStats(){
     for(const code of String(r.numerosCargo||'').match(/\d+[A-Za-z]?/g)||[])
       requested.add(code.replace(/^0+(?=\d)/,'').toUpperCase());
   }
-  document.getElementById('monthlyCargoPeriod').textContent=
+  const periodNode=document.getElementById('monthlyCargoPeriod');
+  periodNode.dataset.month=month;
+  periodNode.textContent=
     new Intl.DateTimeFormat('es-PE',{timeZone:'America/Lima',month:'long',year:'numeric'}).format(new Date());
   monthlyCreatedSummary=summarizeCreatedCargos(docs,new Date());
   document.getElementById('monthlyCargosCreated').textContent=fmtNum(monthlyCreatedSummary.currentCount);
@@ -1713,8 +1715,17 @@ setInterval(()=>{
   if(!document.hidden) {
     refreshGoogleSync();
     if(appReady && isAdmin && expiryGroups.today !== limaDate(new Date())) renderDocs();
+    else if(appReady && isAdmin &&
+      document.getElementById('monthlyCargoPeriod').dataset.month !== limaDate(new Date()).slice(0,7))
+      renderMonthlyCargoStats();
   }
 },60000);
+// Conciliación de seguridad para cambios de Sheets que lleguen sin notificación
+// Realtime. No modifica datos y reutiliza la misma lectura del Kardex.
+setInterval(()=>{
+  if(appReady && isAdmin && currentUserId && !document.hidden && !mutationBusy)
+    scheduleRefresh();
+},300000);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshGoogleSync();});
 document.getElementById('btnToggleGoogleSync').addEventListener('click',async ev=>{
   if(!appReady||!isAdmin)return;
