@@ -7,6 +7,7 @@ import './connection.css';
 import { createIdleSession } from './idle-session.js';
 import { cargoYear, locationLabel, groupsForCodes } from './cargo-details.js';
 import { summarizeCreatedCargos } from './monthly-created-summary.js';
+import { renderCargoLineChart } from './cargo-line-chart.js';
 import { cargoExpiryGroups, formatCargoDuration } from './cargo-expiry.js';
 
 const configuration = { url: __SUPABASE_URL__, key: __SUPABASE_ANON_KEY__ };
@@ -445,27 +446,47 @@ const monthlyCreatedNames=['Enero','Febrero','Marzo','Abril','Mayo','Junio',
 function renderMonthlyCreatedDetail(){
   const sheet=document.getElementById('monthlyCreatedSheet');
   if(!sheet.open || !monthlyCreatedSummary)return;
-  const summary=monthlyCreatedSummary;
-  const byMonth=monthlyCreatedView==='months';
-  const rows=byMonth?summary.monthly:summary.annual;
-  document.getElementById('monthlyCreatedByMonth').setAttribute('aria-selected',String(byMonth));
-  document.getElementById('monthlyCreatedByYear').setAttribute('aria-selected',String(!byMonth));
-  document.getElementById('monthlyCreatedTableHeading').textContent=byMonth?'Mes':'Año';
-  const total=byMonth?summary.monthlyTotal:summary.annualTotal;
-  document.getElementById('monthlyCreatedTableBody').innerHTML=rows.map(row=>{
-    const current=byMonth ? row.month===summary.currentMonth : row.year===summary.currentYear;
-    const label=byMonth ? monthlyCreatedNames[row.month-1] : String(row.year);
-    return `<tr class="${current?'current-row':''}"><td>${label}</td><td>${fmtNum(row.count)}</td></tr>`;
-  }).join('');
-  document.getElementById('monthlyCreatedSummaryLabel').textContent=byMonth
-    ? `Cargos realizados en ${summary.currentYear} hasta ${monthlyCreatedNames[summary.currentMonth-1].toLowerCase()}`
-    : `Cargos registrados desde 2020 hasta ${summary.currentYear}`;
-  document.getElementById('monthlyCreatedSummaryValue').textContent=fmtNum(total);
-  document.getElementById('monthlyCreatedTotalNumber').textContent=fmtNum(total);
-  document.getElementById('monthlyCreatedTotalTitle').textContent=byMonth?'Total del año hasta hoy':'Total histórico';
-  document.getElementById('monthlyCreatedExplanation').textContent=byMonth
-    ? `Se cuenta cada código de cargo una sola vez, según su fecha original en ${summary.currentYear}. ${summary.undatedInCurrentYear} cargos asignados a ${summary.currentYear} tienen fecha faltante o fuera de ese año y solo aparecen en el detalle anual.`
-    : 'Se utiliza el año de cargo del Kardex, igual que en «Cargos por Año». El total se recalcula al agregar, cambiar o eliminar cargos; la fecha de importación no crea nuevos cargos.';
+  const data=monthlyCreatedSummary;
+  const months=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  const palette=['#778396','#338ae2','#e99a23','#10a999','#935ac9','#e25979','#be283c'];
+  const color=year=>palette[(year-2020)%palette.length];
+  const view=monthlyCreatedView;
+  for(const button of document.querySelectorAll('#monthlyCreatedSheet [data-detail-view]')){
+    button.setAttribute('aria-selected',String(button.dataset.detailView===view));
+  }
+  const label=document.getElementById('monthlyCreatedSummaryLabel');
+  const value=document.getElementById('monthlyCreatedSummaryValue');
+  const heading=document.getElementById('monthlyCreatedChartTitle');
+  const explanation=document.getElementById('monthlyCreatedExplanation');
+  const surface=document.getElementById('monthlyCreatedChartSurface');
+  const legend=document.getElementById('monthlyCreatedChartLegend');
+  const lastYear=data.currentYear;
+  let categories,lines,showLabels=false;
+  if(view==='months'){
+    categories=months.slice(0,data.currentMonth);
+    lines=[{label:String(lastYear),color:color(lastYear),values:data.monthly.map(row=>row.count)}];
+    showLabels=true;
+    label.textContent=`Cargos realizados de enero a ${monthlyCreatedNames[data.currentMonth-1].toLowerCase()} de ${lastYear}`;
+    value.textContent=fmtNum(data.monthlyTotal);
+    heading.textContent=`Evolución mensual · ${lastYear}`;
+    explanation.textContent=`Cada punto representa cargos únicos realizados en ese mes. Los meses futuros no aparecen. ${data.undatedInCurrentYear} cargos atribuidos a ${lastYear} no tienen una fecha original válida de ese mismo año y se muestran solo en el detalle anual.`;
+  } else if(view==='years'){
+    categories=data.annual.map(row=>String(row.year));
+    lines=[{label:'Cargos por año',color:'#237fba',values:data.annual.map(row=>row.count)}];
+    showLabels=true;
+    label.textContent=`Cargos registrados de 2020 a ${lastYear}`;
+    value.textContent=fmtNum(data.annualTotal);
+    heading.textContent=`Evolución histórica · 2020–${lastYear}`;
+    explanation.textContent='Cada punto muestra el total de cargos únicos por año de cargo. Los cargos sin fecha de mes válida siguen contándose en su año, igual que en el resumen anual.';
+  } else {
+    categories=months;
+    lines=data.comparison.map(row=>({label:String(row.year),color:color(row.year),values:row.values}));
+    label.textContent=`Comparación mensual de todos los años (2020–${lastYear})`;
+    value.textContent=`${data.comparison.length} años`;
+    heading.textContent=`Todas las líneas: 2020 a ${lastYear}`;
+    explanation.textContent='Una línea por año, con los meses de enero a diciembre. Pasa el cursor o pulsa un punto para consultar el dato exacto. Los meses futuros del año actual no se dibujan; los cargos sin fecha mensual válida solo constan en su total anual.';
+  }
+  renderCargoLineChart(surface,legend,categories,lines,{showLabels});
 }
 document.getElementById('btnMonthlyCreatedDetail').addEventListener('click',()=>{
   if(!appReady||!isAdmin)return;

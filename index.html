@@ -423,6 +423,38 @@
     .monthly-created-heading h2{font-size:18px;}
     .monthly-created-sheet{max-height:92vh;}
   }
+
+  /* Vista PREVIA: estilos solo dentro del diálogo «Ver detalle». */
+  #monthlyCreatedSheet.monthly-created-sheet{width:min(940px,calc(100% - 26px));max-width:940px;max-height:92vh;}
+  #monthlyCreatedSheet .monthly-created-tabs{flex-wrap:wrap;}
+  #monthlyCreatedSheet .monthly-created-summary{margin-bottom:16px;}
+  #monthlyCreatedSheet .monthly-created-chart-card{
+    border:1px solid #e3eaf0;border-radius:13px;padding:15px 14px 8px;background:#fff;
+  }
+  #monthlyCreatedSheet #monthlyCreatedChartTitle{font-size:13px;color:#314b62;margin:2px 4px 8px;font-weight:750;}
+  #monthlyCreatedSheet .monthly-created-chart-surface{position:relative;width:100%;}
+  #monthlyCreatedSheet .monthly-created-chart-surface svg{width:100%;height:auto;max-height:385px;display:block;overflow:visible;}
+  #monthlyCreatedSheet .monthly-created-chart-legend{
+    display:flex;align-items:center;flex-wrap:wrap;gap:8px 13px;padding:5px 4px 8px;
+  }
+  #monthlyCreatedSheet .monthly-created-legend-item{
+    display:inline-flex;align-items:center;gap:7px;font-size:11px;font-weight:750;color:#52677a;
+  }
+  #monthlyCreatedSheet .monthly-created-swatch{
+    width:11px;height:11px;display:inline-block;border-radius:50%;
+    box-shadow:0 0 0 2px #fff,0 0 0 3px #dce2e8;
+  }
+  #monthlyCreatedSheet .monthly-created-chart-tooltip{
+    position:absolute;pointer-events:none;z-index:3;background:#1b3148;
+    color:#fff;font-size:11px;padding:8px 10px;border-radius:8px;
+    box-shadow:0 8px 16px #213c5d22;transform:translate(-50%,-110%);white-space:nowrap;
+  }
+  #monthlyCreatedSheet .monthly-created-chart-tooltip[hidden]{display:none!important;}
+  @media(max-width:640px){
+    #monthlyCreatedSheet .monthly-created-tabs{gap:6px;}
+    #monthlyCreatedSheet .monthly-created-tab{padding:9px 11px;font-size:11px;}
+    #monthlyCreatedSheet .monthly-created-chart-card{padding:12px 7px 6px;}
+  }
 </style>
 </head>
 <body>
@@ -547,18 +579,17 @@
     <div class="monthly-created-tabs" role="tablist" aria-label="Tipo de detalle">
       <button type="button" id="monthlyCreatedByMonth" class="monthly-created-tab" role="tab" aria-selected="true" data-detail-view="months">Por mes</button>
       <button type="button" id="monthlyCreatedByYear" class="monthly-created-tab" role="tab" aria-selected="false" data-detail-view="years">Por año</button>
+      <button type="button" id="monthlyCreatedComparison" class="monthly-created-tab" role="tab" aria-selected="false" data-detail-view="comparison">Comparación por todos los años</button>
     </div>
     <div class="monthly-created-content">
       <div class="monthly-created-summary">
         <span id="monthlyCreatedSummaryLabel">Cargos de 2026 hasta octubre</span>
         <strong id="monthlyCreatedSummaryValue">—</strong>
       </div>
-      <div class="monthly-created-table-wrap">
-        <table class="monthly-created-table">
-          <thead><tr><th id="monthlyCreatedTableHeading" scope="col">Mes</th><th scope="col">Cargos realizados</th></tr></thead>
-          <tbody id="monthlyCreatedTableBody"></tbody>
-          <tfoot><tr><td id="monthlyCreatedTotalTitle">Total</td><td id="monthlyCreatedTotalNumber">—</td></tr></tfoot>
-        </table>
+      <div class="monthly-created-chart-card">
+        <h3 id="monthlyCreatedChartTitle">Evolución mensual</h3>
+        <div id="monthlyCreatedChartSurface" class="monthly-created-chart-surface" aria-live="polite"></div>
+        <div id="monthlyCreatedChartLegend" class="monthly-created-chart-legend" aria-label="Leyenda de años"></div>
       </div>
       <p id="monthlyCreatedExplanation" class="monthly-created-explanation">Los totales se calculan con los cargos registrados en la base de datos.</p>
     </div>

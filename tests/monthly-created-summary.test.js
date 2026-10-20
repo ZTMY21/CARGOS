@@ -3,36 +3,52 @@ import assert from 'node:assert/strict';
 import { summarizeCreatedCargos } from '../src/monthly-created-summary.js';
 
 const now=new Date('2026-10-19T12:00:00Z');
-const doc=(year,date,cargos,extras={})=>({anioOrigen:year,fechaOrigen:date,cargos,...extras});
-test('cuenta por fecha original, nunca por fecha de importación antigua',()=>{
-  const docs=[
-    doc(2026,'2026-10-03',['0881','0882']),
-    doc(2026,'2026-09-14',['883']),
-    doc(2025,'',['1500'],{fechaRegistro:'2026-10-19'})
-  ];
-  const data=summarizeCreatedCargos(docs,now);
-  assert.equal(data.currentCount,2);
-  assert.equal(data.monthly[8].count,1);
-  assert.equal(data.annual.find(row=>row.year===2025).count,1);
-  assert.equal(data.annual.find(row=>row.year===2026).count,3);
-  assert.equal(data.monthly.length,10);
-});
-test('no duplica códigos al repetir facturas y resta cuando desaparecen todos los registros',()=>{
-  const docs=[doc(2026,'2026-10-10',['0010']),doc(2026,'2026-10-10',['10'])];
-  assert.equal(summarizeCreatedCargos(docs,now).currentCount,1);
-  assert.equal(summarizeCreatedCargos(docs.slice(1),now).currentCount,1);
-  assert.equal(summarizeCreatedCargos([],now).currentCount,0);
-});
-test('una fecha de año anterior no se asigna a octubre actual',()=>{
-  const data=summarizeCreatedCargos([doc(2026,'2025-12-30',['0999'])],now);
-  assert.equal(data.currentCount,0);
-  assert.equal(data.annual.at(-1).count,1);
-  assert.equal(data.undatedInCurrentYear,1);
-});
-test('tolera fechas DD-MM-AAAA y actualiza los años al avanzar el calendario',()=>{
- const data=summarizeCreatedCargos([doc(2027,'02-01-2027',['006'])],new Date('2027-01-14T11:00:00Z'));
- assert.equal(data.currentYear,2027);
+const doc=(year,date,cargos,other={})=>({anioOrigen:year,fechaOrigen:date,cargos,...other});
+test('la comparación presenta una línea por año, sin meses futuros',()=>{
+ const data=summarizeCreatedCargos([
+  doc(2024,'2024-06-05',['13','14']),
+  doc(2025,'2025-01-15',['15']),
+  doc(2026,'2026-09-22',['18']),
+  doc(2026,'2026-10-03',['19'])
+ ],now);
+ assert.equal(data.comparison.length,7);
+ assert.equal(data.comparison.find(x=>x.year===2024).values[5],2);
+ assert.equal(data.comparison.find(x=>x.year===2025).values[0],1);
+ assert.equal(data.comparison.find(x=>x.year===2026).values[9],1);
+ assert.equal(data.comparison.find(x=>x.year===2026).values[10],null);
  assert.equal(data.currentCount,1);
- assert.equal(data.monthly.length,1);
- assert.equal(data.annual.at(-1).year,2027);
+});
+test('al desaparecer un cargo único se reduce su punto y su total',()=>{
+ const docs=[doc(2026,'2026-10-05',['100']),doc(2026,'2026-10-12',['101'])];
+ assert.equal(summarizeCreatedCargos(docs,now).currentCount,2);
+ assert.equal(summarizeCreatedCargos(docs.slice(0,1),now).currentCount,1);
+ assert.equal(summarizeCreatedCargos([],now).currentCount,0);
+});
+test('facturas repetidas no duplican el cargo, por mes ni por año',()=>{
+ const rows=[doc(2026,'2026-10-03',['007']),doc(2026,'2026-10-03',['7'])];
+ const result=summarizeCreatedCargos(rows,now);
+ assert.equal(result.currentCount,1);
+ assert.equal(result.annual.at(-1).count,1);
+ assert.equal(result.comparison.at(-1).values[9],1);
+});
+test('cargos antiguos importados hoy sin fecha original no aparecen en octubre de 2026',()=>{
+ const row=doc(2024,'',['170'],{fechaRegistro:'2026-10-19'});
+ const result=summarizeCreatedCargos([row],now);
+ assert.equal(result.currentCount,0);
+ assert.equal(result.annual.find(x=>x.year===2024).count,1);
+ assert.equal(result.comparison.find(x=>x.year===2024).values[9],0);
+});
+test('fecha fuera del año de cargo se cuenta únicamente en el resumen anual',()=>{
+ const row=doc(2026,'2025-12-30',['932']);
+ const result=summarizeCreatedCargos([row],now);
+ assert.equal(result.annual.at(-1).count,1);
+ assert.equal(result.currentCount,0);
+ assert.equal(result.comparison.at(-1).values[11],null);
+});
+test('al cambiar de año aparecen los nuevos meses y la nueva línea',()=>{
+ const result=summarizeCreatedCargos([doc(2027,'2027-01-04',['1'])],new Date('2027-01-19T12:00:00Z'));
+ assert.equal(result.currentYear,2027);
+ assert.equal(result.comparison.at(-1).year,2027);
+ assert.equal(result.comparison.at(-1).values[0],1);
+ assert.equal(result.comparison.at(-1).values[1],null);
 });

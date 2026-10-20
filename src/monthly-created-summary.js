@@ -49,11 +49,24 @@ export function summarizeCreatedCargos(docs,now=new Date()){
   const monthly=Array.from({length:currentMonth},(_,i)=>({
     month:i+1,count:0
   }));
+  // Cada línea representa los 12 meses de un año; los meses futuros
+  // del año actual quedan vacíos (null), nunca se interpretan como cero.
+  const monthlyByYear=new Map();
+  for(let year=2020;year<=currentYear;year++){
+    monthlyByYear.set(year,Array.from({length:12},(_,i)=>
+      year===currentYear && i+1>currentMonth ? null : 0
+    ));
+  }
   let yearDated=0;
   for(const item of canonical.values()){
-    if(item.year!==currentYear || !item.date || Number(item.date.slice(0,4))!==currentYear)continue;
+    if(!item.date || Number(item.date.slice(0,4))!==item.year)continue;
     const month=Number(item.date.slice(5,7));
-    if(month>=1 && month<=currentMonth){monthly[month-1].count++;yearDated++;}
+    if(month<1||month>12 || (item.year===currentYear && month>currentMonth))continue;
+    const values=monthlyByYear.get(item.year);
+    if(values && Number.isFinite(values[month-1]))values[month-1]++;
+    if(item.year===currentYear && month<=currentMonth){
+      monthly[month-1].count++;yearDated++;
+    }
   }
   const annual=Array.from({length:Math.max(0,currentYear-2020+1)},(_,i)=>({
     year:2020+i,count:yearSets.get(2020+i)?.size||0
@@ -61,7 +74,7 @@ export function summarizeCreatedCargos(docs,now=new Date()){
   const annualCurrent=yearSets.get(currentYear)?.size||0;
   return {
     currentYear,currentMonth,currentCount:monthly.at(-1)?.count||0,
-    monthly,annual,monthlyTotal:yearDated,
+    monthly,annual,comparison:Array.from(monthlyByYear,([year,values])=>({year,values})),monthlyTotal:yearDated,
     annualTotal:annual.reduce((sum,row)=>sum+row.count,0),
     undatedInCurrentYear:Math.max(0,annualCurrent-yearDated)
   };
