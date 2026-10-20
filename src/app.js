@@ -140,6 +140,14 @@ function setAdminRequestBadge(count) {
   badge.setAttribute('aria-label',valid
     ? `${total} ${total===1?'solicitud pendiente':'solicitudes pendientes'}`
     : 'Solicitudes pendientes sin consultar');
+  // Misma consulta para el botón superior, sin modificar el indicador de pestaña.
+  const quickButton=document.getElementById('btnTopAdminRequests');
+  const quickCount=document.getElementById('topAdminRequestsCount');
+  quickButton.dataset.status=!valid?'unknown':total>0?'pending':'empty';
+  quickCount.textContent=valid?String(total):'—';
+  quickButton.setAttribute('aria-label',valid
+    ? `Solicitudes de Cuentas Adm.: ${total} ${total===1?'pendiente':'pendientes'}. Abrir solicitudes`
+    : 'Solicitudes de Cuentas Adm. sin consultar. Abrir solicitudes');
 }
 function updateWorkspaceVisibility() {
   const adminReady=appReady && isAdmin;
@@ -168,6 +176,11 @@ function selectWorkspaceTab(tab,focus=false) {
   if(focus)document.querySelector(`#workspaceTabs [data-workspace="${tab}"]`)?.focus();
   if(tab==='solicitudes')void refreshAdminRequests();
 }
+document.getElementById('btnTopAdminRequests').addEventListener('click',()=>{
+  if(!appReady||!isAdmin)return;
+  selectWorkspaceTab('solicitudes',true);
+  document.getElementById('grp-solicitudes').scrollIntoView({behavior:'smooth',block:'start'});
+});
 const workspaceNav=document.getElementById('workspaceTabs');
 workspaceNav.addEventListener('click',event=>{
   const tab=event.target.closest('button[data-workspace]');
@@ -194,6 +207,7 @@ function setAvailability() {
   // El formulario antiguo de «Documentos (Nuevos Ingresos)» queda oculto.
   // Se conservan sus nodos para no afectar los controles existentes del Kardex.
   document.getElementById('grp-documentos').hidden=true;
+  document.getElementById('btnTopAdminRequests').hidden=!appReady||!isAdmin;
   document.getElementById('btnRefreshNewCargos').hidden=!isAdmin;
   document.getElementById('readOnlyNotice').hidden=!appReady||isAdmin;
   document.getElementById('existenciasSubtitulo').textContent = isAdmin

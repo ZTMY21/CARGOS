@@ -508,6 +508,40 @@
     #monthlyCreatedSheet .monthly-created-compare-checks{gap:7px;}
     #monthlyCreatedSheet .monthly-created-compare-check{padding:8px 9px;}
   }
+
+  /* Acceso rápido administrativo: cero en rojo, solicitudes pendientes en verde. */
+  #appShell .connection-row #btnTopAdminRequests{
+    display:inline-flex;align-items:center;justify-content:center;gap:8px;
+    padding:6px 10px 6px 13px;border-radius:999px;min-height:32px;
+    border:1px solid #64748b;background:#64748b;color:#fff;
+    font-size:11px;font-weight:800;line-height:1.2;white-space:normal;
+    transition:background .15s,border-color .15s,box-shadow .15s;
+  }
+  #appShell .connection-row #btnTopAdminRequests[data-status="empty"]{
+    background:#ba2839;border-color:#ba2839;color:#fff;
+  }
+  #appShell .connection-row #btnTopAdminRequests[data-status="pending"]{
+    background:#187a50;border-color:#187a50;color:#fff;
+  }
+  #appShell .connection-row #btnTopAdminRequests[data-status="unknown"]{
+    background:#64748b;border-color:#64748b;color:#fff;
+  }
+  #appShell .connection-row #btnTopAdminRequests:hover{
+    filter:brightness(.92);box-shadow:0 3px 10px #12324d23;
+  }
+  #appShell .connection-row #btnTopAdminRequests:focus-visible{
+    outline:2px solid #2563eb;outline-offset:3px;
+  }
+  #appShell .connection-row #btnTopAdminRequests[hidden]{display:none!important;}
+  #appShell .connection-row .admin-requests-top-count{
+    display:inline-grid;place-items:center;min-width:22px;height:22px;
+    padding:0 5px;box-sizing:border-box;border-radius:999px;
+    font-size:11px;font-weight:850;font-variant-numeric:tabular-nums;
+    color:inherit;background:#ffffff26;border:1px solid #ffffff55;flex-shrink:0;
+  }
+  @media(max-width:590px){
+    #appShell .connection-row #btnTopAdminRequests{max-width:100%;font-size:10px;padding:6px 9px;}
+  }
 </style>
 </head>
 <body>
@@ -545,6 +579,10 @@
     <span id="connectionDot" class="connection-dot"></span>
     <span id="connectionStatus">Conexión pendiente</span>
     <button id="btnReconnect" class="secondary connection-action" hidden aria-hidden="true" tabindex="-1">Actualizar</button>
+    <button id="btnTopAdminRequests" type="button" class="secondary connection-action admin-requests-top-button" data-status="unknown" aria-controls="grp-solicitudes" aria-label="Consultar solicitudes de cuentas administrativas" hidden>
+      <span class="admin-requests-top-label">Solicitudes de Cuentas Adm.</span>
+      <span id="topAdminRequestsCount" class="admin-requests-top-count" aria-hidden="true">—</span>
+    </button>
     <button id="btnRefreshNewCargos" type="button" class="secondary connection-action" hidden title="Volver a consultar los cargos nuevos que ya recibió Supabase">↻ Refrescar cargos nuevos</button>
     <button id="btnToggleGoogleSync" type="button" class="secondary connection-action" disabled>Pausar sincronización</button>
     <button id="btnSignOut" class="secondary connection-action signout-action" hidden>Salir</button>
