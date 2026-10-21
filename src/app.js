@@ -426,7 +426,7 @@ document.getElementById('btnCancelarReq').addEventListener('click', cancelarEdic
 
 // ================= DOCUMENTOS =================
 function docBadgeClass(estado){
-  return {'Pendiente de Envío':'b-pendiente','En Proceso de Acondicionamiento':'b-proceso','Enviado a Iron Mountain':'b-enviado'}[estado]||'';
+  return {'Pendiente de Envío':'b-pendiente','En Proceso de Acondicionamiento':'b-proceso','Enviado a Iron Mountain':'b-enviado','Caja solicitada':'b-caja-solicitada','Caja preparada para envío':'b-proceso'}[estado]||'';
 }
 
 function populateCajaAsignadaOptions(currentValue){
@@ -733,9 +733,11 @@ function renderDocs(){
   const cargosVencidos = cargosDe(grupoVencidos), foliosVencidos = foliosDe(grupoVencidos);
   // Preparación no equivale a envío. Las cajas sin fecha siguen pendientes
   // y continúan en las alertas de vencimiento hasta su salida real.
-  const preparados=enriched.filter(d => d.imPreparado && !d.imConfirmado &&
-    ['2025','2026'].includes(cargoYear(d)));
-  const cajasPreparadas=new Set(preparados.map(d=>String(d.imCajaPreparada||'').trim()).filter(Boolean)).size;
+  const preparados=enriched.filter(d =>
+    (d.imLiveCodigoCaja && !d.imLiveFechaEnvio) ||
+    (d.imPreparado && !d.imConfirmado));
+  const cajasPreparadas=new Set(preparados.map(d=>String(
+    d.imLiveCodigoCaja||d.imCajaPreparada||'').trim().replace(/^[A-Z]+/i,'')).filter(Boolean)).size;
   const cargosPreparados=cargosDe(preparados);
   const baseAlerta = cargosPorVencer + cargosVencidos;
 
@@ -870,13 +872,16 @@ function renderDocs(){
       const alertaTxt = (typeof d.antiguedad === 'number') ? d.antiguedad : d.antiguedad;
       const alertaClass = (typeof d.antiguedad === 'number' && d.antiguedad > 6) ? 'alerta-neg'
         : (typeof d.antiguedad === 'number' && d.antiguedad >= 5) ? 'alerta-warn' : 'alerta-pos';
-      const cajaTxt = assignedBoxCode(d,reqs) || '—';
-      const fechaEnvioTxt = d.imConfirmado ? d.imFechaEnvio : d.fEnvio;
+      const cajaTxt = d.imLiveCodigoCaja || assignedBoxCode(d,reqs) || '—';
+      const fechaEnvioTxt = d.imLiveCodigoCaja ? d.imLiveFechaEnvio
+        : d.imConfirmado ? d.imFechaEnvio : d.fEnvio;
       const responsableOrigen = d.imConfirmado ? d.imResponsable
         : d.imPreparado && d.imResponsablePreparacion ? d.imResponsablePreparacion : d.usuario;
       const responsableTxt = !String(responsableOrigen||'').trim() || /^importaci[oó]n excel$/i.test(String(responsableOrigen).trim())
         ? 'Sin Responsable' : responsableOrigen;
-      const estadoTxt = d.imConfirmado ? 'Enviado'
+      const estadoTxt = d.estado==='Caja solicitada' ? 'Caja solicitada'
+        : d.estado==='Caja preparada para envío' ? 'Caja preparada para envío'
+        : d.imLiveFechaEnvio || d.imConfirmado ? 'Enviado'
         : d.imPreparado ? d.estado+' · Caja preparada' : d.estado;
       const invoiceView=['solo-cargos','solo-cajas'].includes(filters.type)
         ? {...invoiceSearchPresentation(d,''),kind:'cargo',codes:[]}
@@ -963,7 +968,7 @@ function renderPreparedImDetail() {
   const input=document.getElementById('preparedImSearch');
   const filter=input.value.trim().toLocaleLowerCase('es-PE');
   const rows=preparedImRows.filter(b=>!filter || [
-    b.codigo_caja,b.numeros_cargos,...(b.cargos||[]),b.responsable_preparacion,
+    b.codigo_caja,b.numeros_cargos,b.clasificacion_caja,...(b.cargos||[]),b.responsable_preparacion,
     b.responsable_entrega,b.responsable_recibe,b.placa_transporte
   ].some(x=>String(x||'').toLocaleLowerCase('es-PE').includes(filter)));
   const totalCargos=new Set(rows.flatMap(b=>(b.cargos||[]).map(c=>String(c)))).size;
@@ -982,7 +987,7 @@ function renderPreparedImDetail() {
       <div class="prepared-im-head">
         <div><strong>Caja ${escapeHtml(b.codigo_caja||'Sin código')}</strong>
           <div class="prepared-im-sub">Cargos: ${escapeHtml((b.cargos||[]).join(', ')||b.numeros_cargos||'Sin cargos')}</div></div>
-        <span class="prepared-im-state">Pendiente de envío</span>
+        <span class="prepared-im-state">${/por\s+solicitud/i.test(String(b.clasificacion_caja||''))?'Caja solicitada':'Pendiente de envío'}</span>
       </div>
       <dl class="prepared-im-fields">
         ${field('N°',b.numero,'Sin número')}
@@ -990,6 +995,7 @@ function renderPreparedImDetail() {
         ${field('Responsable de preparación',b.responsable_preparacion)}
         ${field('Código de barras de cajas',b.codigo_caja)}
         ${field('Número de cargos',b.numeros_cargos||(b.cargos||[]).join('-'))}
+        ${field('Clasificación de caja',b.clasificacion_caja,'Sin clasificar')}
         ${field('Fecha de envío a Iron Mountain',b.fecha_envio?fmtDate(b.fecha_envio):'','Sin registrar')}
         ${field('Responsable en entregar',b.responsable_entrega)}
         ${field('Responsable en recibir de I. M.',b.responsable_recibe)}
@@ -1042,14 +1048,14 @@ function renderRequestedIM(){
     '<div class="prepared-im-head"><div><strong>Caja '+escapeHtml(box.codigo)+'</strong>'+
     '<div class="prepared-im-sub">'+box.cargos.length+' cargos · '+box.coincidencias+
       ' coincidencias con Kardex · '+box.revisar+' por revisar</div></div>'+
-    '<span class="prepared-im-state">'+escapeHtml(box.estado)+'</span></div>'+
+    '<span class="prepared-im-state">Caja solicitada</span></div>'+
     '<details><summary>Ver cargos asociados ('+box.cargos.length+')</summary>'+
     '<div class="prepared-im-sub">'+box.cargos.map(c=>'<div>Cargo <strong>'+escapeHtml(c.cargo)+
       '</strong> · '+(c.match?'Coincide con Kardex '+escapeHtml(c.kardex):'Revisar: '+escapeHtml(c.issue))+
       '</div>').join('')+'</div></details></article>').join('')
     :'<p class="prepared-im-message">'+(requestedIMError?
       'La lectura de clasificación aún no está habilitada: '+escapeHtml(requestedIMError):
-      'No hay cajas marcadas «Por solicitud» en la información sincronizada.')+'</p>';
+      'No hay cajas «Por solicitud» pendientes de envío en la información sincronizada.')+'</p>';
 }
 async function reloadRequestedIM(){
   if(!isAdmin||!appReady)return;
