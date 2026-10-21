@@ -385,6 +385,18 @@
   }
   #googleSyncPanel .monthly-created-detail-button:hover{background:#fce8eb;border-color:#e8afb6;}
   #googleSyncPanel .monthly-created-detail-button:focus-visible{outline:2px solid #9e2131;outline-offset:2px;}
+  /* Solo la tarjeta Cargos Solicitados IM: botón celeste, los otros permanecen iguales. */
+  #googleSyncPanel .monthly-cargo-stat.requested{position:relative;padding-bottom:54px;}
+  #googleSyncPanel #btnRequestedIMDetail{
+    background:#e0f5ff;color:#086b9b;border:1px solid #87d3f2;
+  }
+  #googleSyncPanel #btnRequestedIMDetail:hover{
+    background:#c9efff;border-color:#50b8e5;
+  }
+  #googleSyncPanel #btnRequestedIMDetail:focus-visible{
+    outline:2px solid #1198d0;outline-offset:2px;
+  }
+
   .monthly-created-sheet{
     width:min(790px,calc(100% - 26px));max-width:790px;max-height:min(86vh,840px);
     border:1px solid #e1e6ec;border-radius:17px;padding:0;
