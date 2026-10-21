@@ -118,6 +118,9 @@ export function boxesFromDocuments(docs=[]) {
     id:d.id,codigoCaja:d.imCodigoCaja || d.imCajaPreparada,cargos:d.cargos,
     anioOrigen:d.anioOrigen || d.fechaOrigen?.slice(0,4),
     imFechaEnvio:d.imFechaEnvio,fEnvio:d.fEnvio,imPreparado:d.imPreparado,
-    responsablePreparacion:d.imResponsablePreparacion,ubicacion:d.ubicacion
+    responsablePreparacion:d.imResponsablePreparacion,ubicacion:d.ubicacion,
+    clasificacionCaja:d.clasificacionCaja || d.datosOrigen?.clasificacionCaja || '',
+    codigoCajaAntiguo:d.codigoCajaAntiguo || d.datosOrigen?.codigoCajaAntiguo || '',
+    cantidadCargosEsperada:d.cantidadCargosEsperada || d.datosOrigen?.cantidadCargosEsperada || 0
   }));
 }
