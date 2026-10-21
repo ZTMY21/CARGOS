@@ -93,7 +93,7 @@ BEGIN
    ) b
  ),'[]'::jsonb);
 END
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION public.kardex_requested_im_detail()
  RETURNS jsonb
@@ -119,4 +119,4 @@ BEGIN
       LIKE '%por solicitud%' AND fecha_envio IS NULL
   ),'[]'::jsonb);
 END;
-$function$
+$function$;
