@@ -1753,8 +1753,7 @@ async function refreshAdminRequests() {
         if(selected) {
           try {
             if(isPreview)throw new Error('Vista previa: no se puede aprobar ni rechazar solicitudes.');
-            if(isPreview)throw new Error('Vista previa: no se pueden modificar permisos.');
-    await repository.reviewAdminRequest(id,approved);
+            await repository.reviewAdminRequest(id,approved);
             alert(approved
               ? 'Cuenta administrativa aprobada. La persona podrá entrar con permisos administrativos al volver a iniciar sesión.'
               : 'Solicitud administrativa rechazada.');
