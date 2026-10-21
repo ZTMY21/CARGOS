@@ -29,6 +29,8 @@ export function requestedIMBoxes(rows=[],documents=[]) {
   const boxes=new Map();
   for(const row of rows) {
     if(!/por\s+solicitud/i.test(String(row.clasificacion_caja??row.clasificacion??'')))continue;
+    // Fecha G informada: la caja ya fue enviada y sale de solicitudes activas.
+    if(String(row.fecha_envio??row.envio??'').trim())continue;
     const code=String(row.codigo_caja??row.caja??'').trim();
     const num=normalizeBoxBarcode(code);
     if(!num)continue;
@@ -53,7 +55,7 @@ export function requestedIMBoxes(rows=[],documents=[]) {
         issue:candidates.length>1?'Cargo repetido entre períodos':barcodeConflict?'Caja distinta en Kardex':candidates.length===0?'No existe en Kardex':''};
     });
     result.push({codigo:box.codigo,numero:box.numero,cargos:matches,
-      fechaEnvio:box.fechaEnvio,estado:box.fechaEnvio?'Enviado':'No enviado',
+      fechaEnvio:box.fechaEnvio,estado:'Caja solicitada',
       coincidencias:matches.filter(c=>c.match).length,
       revisar:matches.filter(c=>!c.match).length,
       filas:[...box.filas].filter(x=>x!=='')});
