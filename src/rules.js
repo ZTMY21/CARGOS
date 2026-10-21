@@ -35,6 +35,13 @@ export function computeDocEstado(d, now = new Date()) {
   let estado = 'Pendiente de Envío';
   if (d.cajaAsignada) estado = 'En Proceso de Acondicionamiento';
   if (d.imConfirmado || (d.fEnvio && (d.sustento || d.sustentoImagen || d.tieneSustentoImagen))) estado = 'Enviado a Iron Mountain';
+  // La hoja activa prevalece sobre el histórico de una caja reutilizada.
+  // Fecha de envío = enviado. Por solicitud sin fecha = celeste y pendiente.
+  if (d.imLiveCodigoCaja) {
+    if (d.imLiveFechaEnvio) estado = 'Enviado a Iron Mountain';
+    else if (/por\s+solicitud/i.test(String(d.imLiveClasificacion||''))) estado = 'Caja solicitada';
+    else estado = 'Caja preparada para envío';
+  }
   const today = new Date(`${limaDate(now)}T00:00:00`);
   const antiguedad = d.periodo && estado !== 'Enviado a Iron Mountain'
     ? monthsBetween(new Date(`${d.periodo}T00:00:00`), today) : '-';

@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {computeDocEstado} from '../src/rules.js';
 import {normalizeBoxBarcode,normalizeCargoIM,parseCargoCell,requestedIMBoxes,countRequestedCargos} from '../src/im-requests.js';
 
 test('prefijos T, TD y P convergen en un único código de barras numérico',()=>{
@@ -40,12 +41,32 @@ test('cargo ausente o ambiguo no se muestra como validado',()=>{
   assert.equal(box.revisar,2);
   assert.equal(box.coincidencias,0);
 });
-test('una fecha de envío muestra Enviado; sin fecha muestra No enviado',()=>{
+test('si la fecha de envío existe la caja sale de solicitudes y queda solo la pendiente',()=>{
   const rows=[
     {codigo_caja:'T700',codigo_cargo:'933',clasificacion_caja:'Por solicitud',fecha_envio:'2026-10-20'},
     {codigo_caja:'T800',codigo_cargo:'934',clasificacion_caja:'Por solicitud',fecha_envio:null}
   ];
   const boxes=requestedIMBoxes(rows,[]);
-  assert.equal(boxes.find(b=>b.codigo==='T700').estado,'Enviado');
-  assert.equal(boxes.find(b=>b.codigo==='T800').estado,'No enviado');
+  assert.equal(boxes.length,1);
+  assert.equal(boxes[0].codigo,'T800');
+  assert.equal(boxes[0].estado,'Caja solicitada');
+  assert.equal(countRequestedCargos(boxes),1);
+});
+test('al borrar una fila sincronizada desaparece de solicitudes',()=>{
+  const row={codigo_caja:'T2032477010',codigo_cargo:'4768',clasificacion_caja:'POR SOLICITUD'};
+  assert.equal(requestedIMBoxes([row],[]).length,1);
+  assert.equal(requestedIMBoxes([],[]).length,0);
+});
+
+test('Existencias da prioridad al estado activo sin borrar el envío histórico',()=>{
+  const historical={imConfirmado:true,imCodigoCaja:'2032477010',imFechaEnvio:'2024-06-12',
+    imLiveCodigoCaja:'T2032477010',imLiveClasificacion:'POR SOLICITUD',imLiveFechaEnvio:''};
+  assert.equal(computeDocEstado(historical).estado,'Caja solicitada');
+  assert.equal(computeDocEstado({...historical,imLiveFechaEnvio:'2026-10-21'}).estado,'Enviado a Iron Mountain');
+  assert.equal(computeDocEstado({...historical,imLiveCodigoCaja:'',imLiveClasificacion:'',imLiveFechaEnvio:''}).estado,'Enviado a Iron Mountain');
+});
+test('caja preparada sin fecha de envío conserva estado pendiente',()=>{
+  const base={imLiveCodigoCaja:'TD123',imLiveClasificacion:'Caja nueva',imLiveFechaEnvio:''};
+  assert.equal(computeDocEstado(base).estado,'Caja preparada para envío');
+  assert.equal(computeDocEstado({...base,imLiveFechaEnvio:'2026-10-21'}).estado,'Enviado a Iron Mountain');
 });
