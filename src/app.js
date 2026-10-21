@@ -1789,6 +1789,7 @@ document.getElementById('adminRequestsList').addEventListener('click',async even
     : '¿Rechazar esta solicitud?'))return;
   button.disabled=true;
   try {
+    if(isPreview)throw new Error('Vista previa: no se pueden modificar permisos.');
     await repository.reviewAdminRequest(id,approved);
     await refreshAdminRequests();
     alert(approved?'Acceso administrativo autorizado. La persona deberá volver a iniciar sesión.':'Solicitud rechazada.');
