@@ -1,0 +1,51 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {normalizeBoxBarcode,normalizeCargoIM,parseCargoCell,requestedIMBoxes,countRequestedCargos} from '../src/im-requests.js';
+
+test('prefijos T, TD y P convergen en un único código de barras numérico',()=>{
+  assert.equal(normalizeBoxBarcode('T00990011'),'00990011');
+  assert.equal(normalizeBoxBarcode('TD00990011'),'00990011');
+  assert.equal(normalizeBoxBarcode('P00990011'),'00990011');
+  assert.notEqual(normalizeBoxBarcode('T00990011'),normalizeBoxBarcode('T00990012'));
+});
+test('el sufijo A de una celda grupal aplica a cada cargo',()=>{
+  assert.deepEqual(parseCargoCell('3382-3383-3384 (A)'),['3382A','3383A','3384A']);
+  assert.equal(normalizeCargoIM('003382 (A)'),'3382A');
+});
+test('solo clasifica como solicitado un valor Por solicitud',()=>{
+  const boxes=requestedIMBoxes([
+    {codigo_caja:'T1001',codigo_cargo:'933',clasificacion_caja:'Caja nueva'},
+    {codigo_caja:'TD1002',codigo_cargo:'934',clasificacion_caja:'Por solicitud'}
+  ],[{kardex:'SA-1',cargos:['934']}]);
+  assert.equal(boxes.length,1);
+  assert.equal(boxes[0].codigo,'TD1002');
+  assert.equal(boxes[0].coincidencias,1);
+});
+test('agrupa prefijos distintos de la misma caja y mantiene cargos únicos',()=>{
+  const rows=[
+    {codigo_caja:'T00990011',codigo_cargo:'0933',clasificacion_caja:'Por solicitud'},
+    {codigo_caja:'TD00990011',codigo_cargo:'0934',clasificacion_caja:'Por solicitud'},
+    {codigo_caja:'P00990011',codigo_cargo:'0934',clasificacion_caja:'Por solicitud'}
+  ];
+  const doc=[{kardex:'SA-1',cargos:['933']},{kardex:'SA-2',cargos:['934']}];
+  const boxes=requestedIMBoxes(rows,doc);
+  assert.equal(boxes.length,1);
+  assert.equal(boxes[0].cargos.length,2);
+  assert.equal(countRequestedCargos(boxes),2);
+  assert.equal(boxes[0].revisar,0);
+});
+test('cargo ausente o ambiguo no se muestra como validado',()=>{
+  const doc=[{kardex:'SA-1',cargos:['933']},{kardex:'SA-2',cargos:['933']}];
+  const box=requestedIMBoxes([{codigo_caja:'P500',codigo_cargo:'933-934',clasificacion_caja:'por solicitud'}],doc)[0];
+  assert.equal(box.revisar,2);
+  assert.equal(box.coincidencias,0);
+});
+test('una fecha de envío muestra Enviado; sin fecha muestra No enviado',()=>{
+  const rows=[
+    {codigo_caja:'T700',codigo_cargo:'933',clasificacion_caja:'Por solicitud',fecha_envio:'2026-10-20'},
+    {codigo_caja:'T800',codigo_cargo:'934',clasificacion_caja:'Por solicitud',fecha_envio:null}
+  ];
+  const boxes=requestedIMBoxes(rows,[]);
+  assert.equal(boxes.find(b=>b.codigo==='T700').estado,'Enviado');
+  assert.equal(boxes.find(b=>b.codigo==='T800').estado,'No enviado');
+});
