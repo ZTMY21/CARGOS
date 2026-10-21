@@ -1080,8 +1080,10 @@ async function reloadRequestedIM(){
 document.getElementById('btnRequestedIMDetail').addEventListener('click',()=>{
   if(!isAdmin||!appReady)return;
   const modal=document.getElementById('requestedIMSheet');
-  renderRequestedIM();
   if(!modal.open)modal.showModal();
+  document.getElementById('requestedIMCount').textContent='Consultando solicitudes actualizadas…';
+  document.getElementById('requestedIMList').textContent='Actualizando registros de Google Sheets…';
+  void reloadRequestedIM();
 });
 document.getElementById('btnRefreshRequestedIM').addEventListener('click',()=>{
   requestedIMError='';void reloadRequestedIM();
