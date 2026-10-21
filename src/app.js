@@ -11,6 +11,7 @@ import { renderCargoLineChart } from './cargo-line-chart.js';
 import { summarizeShippedCargos } from './im-shipped-summary.js';
 import { renderImBarChart } from './im-bar-chart.js';
 import { cargoExpiryGroups, formatCargoDuration } from './cargo-expiry.js';
+import { buildBoxIndex, boxesFromDocuments, normalizeBoxCode } from './box-classification.js';
 
 const configuration = { url: __SUPABASE_URL__, key: __SUPABASE_ANON_KEY__ };
 // Capture recovery mode before the client consumes the email callback fragment.
@@ -39,6 +40,7 @@ let currentPage = 0;
 let expiryGroups = {today:'', overdue:[], upcoming:[], unknown:[]};
 let activeExpiryGroup = null, expiryPage = 0, expiryReturnButton = '';
 let preparedImRows = [], preparedImFetchEpoch = 0;
+let currentBoxIndex = buildBoxIndex([]);
 let appliedFilters = {query:'',state:'',type:'',location:'',year:'',invoiceExact:false};
 const browseOrder = new Map();
 function showRandomCargos(filters=appliedFilters) {
@@ -199,10 +201,10 @@ workspaceNav.addEventListener('keydown',event=>{
   if(next){event.preventDefault();selectWorkspaceTab(next,true);}
 });
 function setAvailability() {
-  if (!appReady || !isAdmin) { closeCargoExpiry(); closePreparedIm(); }
+  if (!appReady || !isAdmin) { closeCargoExpiry(); closePreparedIm(); closeRequestedBoxes(); }
   document.getElementById('btnExportar').hidden=true;
   document.getElementById('appShell').classList.toggle('read-only', !isAdmin);
-  ['googleSyncPanel','btnImportar','btnReset'].forEach(id=>document.getElementById(id).hidden=!isAdmin);
+  ['googleSyncPanel','btnImportar','btnReset','btnRequestedBoxFilter'].forEach(id=>document.getElementById(id).hidden=!isAdmin);
   updateWorkspaceVisibility();
   // El formulario antiguo de «Documentos (Nuevos Ingresos)» queda oculto.
   // Se conservan sus nodos para no afectar los controles existentes del Kardex.
@@ -695,12 +697,18 @@ function renderMonthlyCargoStats(){
   monthlyShippedSummary=summarizeShippedCargos(docs,new Date());
   document.getElementById('monthlyCargosShipped').textContent=fmtNum(monthlyShippedSummary.currentCount);
   renderMonthlyShippedDetail();
-  document.getElementById('monthlyCargosRequested').textContent=fmtNum(requested.size);
+  const requestedBoxes=currentBoxIndex.solicitadas;
+  document.getElementById('monthlyCargosRequested').textContent=fmtNum(requestedBoxes.reduce((s,b)=>s+b.cargos.length,0));
+  document.getElementById('requestedBoxesNote').textContent=fmtNum(requestedBoxes.length)+' cajas por solicitud (todas las fechas)';
 }
 function renderDocs(){
   const filters=appliedFilters;
   const search=filters.query;
   const enriched = docs.map(d => ({...d, ...computeDocEstado(d)}));
+  currentBoxIndex=buildBoxIndex(boxesFromDocuments(docs));
+  const requestedAtSantaAnita=currentBoxIndex.solicitadas.filter(b=>!b.ubicacion || /santa anita/i.test(b.ubicacion));
+  document.getElementById('requestedBoxFilterCount').textContent=fmtNum(requestedAtSantaAnita.length);
+  if(document.getElementById('requestedBoxesSheet').open)renderRequestedBoxes();
 
   const cargosDe = arr => arr.reduce((s,d)=> s + (d.cargos||[]).length, 0);
   const foliosDe = arr => arr.reduce((s,d)=> s + (parseInt(d.folios,10)||0), 0);
@@ -852,13 +860,20 @@ function renderDocs(){
 
   const tbody = document.getElementById('tbody');
   if(filtered.length === 0){
-    tbody.innerHTML = `<tr><td colspan="${showLocationColumn?13:12}" class="empty">${escapeHtml(queryError||'Sin registros que coincidan con la consulta actual.')}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="${showLocationColumn?14:13}" class="empty">${escapeHtml(queryError||'Sin registros que coincidan con la consulta actual.')}</td></tr>`;
   } else {
     tbody.innerHTML = filtered.map(d=>{
       const alertaTxt = (typeof d.antiguedad === 'number') ? d.antiguedad : d.antiguedad;
       const alertaClass = (typeof d.antiguedad === 'number' && d.antiguedad > 6) ? 'alerta-neg'
         : (typeof d.antiguedad === 'number' && d.antiguedad >= 5) ? 'alerta-warn' : 'alerta-pos';
       const cajaTxt = assignedBoxCode(d,reqs) || '—';
+      const box=currentBoxIndex.byCode.get(normalizeBoxCode(cajaTxt));
+      const classText=box?.clasificacion || 'Sin clasificación';
+      const classStyle=classText==='Caja Cambiada'?'box-changed':classText==='Caja por Solicitud'?'box-requested':classText==='Caja Preparada para Envío'?'box-prepared':classText==='Cajas Nuevas'?'box-new':'';
+      const boxInfo=box?.antiguo?'<span class="box-old-code">('+escapeHtml(box.antiguo)+')</span>':'';
+      const shipmentText=(d.imFechaEnvio||d.fEnvio||d.imConfirmado)?'Enviado':(box?.preparado?'Pendiente de envío':'No enviado');
+      const missing=box&&!box.fechaEnvio&&box.faltantes.length?'<span class="box-note">Falta: '+escapeHtml(box.faltantes.join(' · '))+'</span>':'';
+      const warning=box?.conflict?'<span class="box-note">Revisar: '+escapeHtml(box.conflict)+'</span>':'';
       const fechaEnvioTxt = d.imConfirmado ? d.imFechaEnvio : d.fEnvio;
       const responsableOrigen = d.imConfirmado ? d.imResponsable
         : d.imPreparado && d.imResponsablePreparacion ? d.imResponsablePreparacion : d.usuario;
@@ -890,7 +905,8 @@ function renderDocs(){
         ${showLocationColumn ? `<td>${escapeHtml(groupLocation)}</td>` : ''}
         <td>${highlightMatch((d.cargos||[]).join(', ')||'Sin cargo asignado',search)}</td>
         <td class="invoice-results">${invoiceCell}</td>
-        <td>${highlightMatch(cajaTxt,search)}</td>
+        <td>${highlightMatch(cajaTxt,search)}${boxInfo}<span class="box-ship-state">${escapeHtml(shipmentText)}</span></td>
+        <td><span class="box-class-label ${classStyle}">${escapeHtml(classText)}</span>${missing}${warning}</td>
         <td>${fmtDate(fechaEnvioTxt)}</td>
         <td><span class="badge ${docBadgeClass(d.estado)}">${escapeHtml(estadoTxt)}</span></td>
         <td class="${alertaClass}">${alertaTxt}</td>
@@ -1012,6 +1028,32 @@ function openPreparedIm() {
   document.getElementById('preparedImList').textContent='Consultando cajas preparadas…';
   void reloadPreparedImDetail();
 }
+function renderRequestedBoxes() {
+  const host=document.getElementById('requestedBoxesList');
+  const boxes=currentBoxIndex.solicitadas.filter(b=>!b.ubicacion || /santa anita/i.test(b.ubicacion));
+  host.innerHTML=boxes.length?boxes.map(b=>{
+    const status=b.fechaEnvio?'Enviado':b.preparado?'Pendiente de envío':'No enviado';
+    return '<details><summary><span>Caja '+escapeHtml(b.code)+'</span><small>'+
+      b.cargos.length+' cargos · '+escapeHtml(status)+'</small></summary>'+
+      '<p>Nombre / código de caja: <strong>'+escapeHtml(b.code)+'</strong></p>'+
+      '<p>Clasificación: Caja por Solicitud'+(b.antiguo?' · Antes: '+escapeHtml(b.antiguo):'')+'</p>'+
+      '<div class="box-cargos">'+b.cargos.map(c=>'<span>Cargo '+escapeHtml(c)+'</span>').join('')+'</div>'+
+      (b.conflict?'<p class="box-note">Revisar: '+escapeHtml(b.conflict)+'</p>':'')+'</details>';
+  }).join(''):'<p>No hay cajas verificadas «por solicitud» en la información sincronizada. Los cargos históricos enviados no se consideran solicitudes sin un cruce verificable.</p>';
+}
+function closeRequestedBoxes() {
+  const sheet=document.getElementById('requestedBoxesSheet');
+  if(sheet.open)sheet.close();
+}
+function openRequestedBoxes() {
+  if(!appReady||!isAdmin)return;
+  renderRequestedBoxes();
+  const sheet=document.getElementById('requestedBoxesSheet');
+  if(!sheet.open)sheet.showModal();
+}
+document.getElementById('btnRequestedBoxesDetail').addEventListener('click',openRequestedBoxes);
+document.getElementById('btnRequestedBoxFilter').addEventListener('click',openRequestedBoxes);
+document.getElementById('btnCloseRequestedBoxes').addEventListener('click',closeRequestedBoxes);
 document.getElementById('btnClosePreparedIm').addEventListener('click',closePreparedIm);
 document.getElementById('preparedImSheet').addEventListener('close',()=>{
   preparedImFetchEpoch++;
