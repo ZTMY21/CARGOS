@@ -222,7 +222,7 @@ function setAvailability() {
     : 'Consulta, búsqueda y exportación de documentos';
 
   document.querySelectorAll('.group button').forEach(b => b.disabled = !appReady || mutationBusy);
-  ['btnReset','btnImportar','btnGuardar','btnGuardarReq'].forEach(id => document.getElementById(id).disabled = !appReady || !isAdmin || mutationBusy);
+  ['btnReset','btnImportar','btnGuardar','btnGuardarReq'].forEach(id => document.getElementById(id).disabled = !appReady || !isAdmin || mutationBusy || isPreview);
   const total=queryResults?.total??lastFiltered.length;
   document.getElementById('btnPaginaAnterior').disabled=!appReady||mutationBusy||currentPage===0;
   document.getElementById('btnPaginaSiguiente').disabled=!appReady||mutationBusy||total<=(currentPage+1)*PAGE_SIZE;
@@ -263,7 +263,7 @@ async function refreshData() {
       if(isAdmin) {
         void refreshGoogleSync();
         if (document.getElementById('preparedImSheet').open) void reloadPreparedImDetail();
-      void reloadRequestedIM();
+        if(appReady)void reloadRequestedIM();
       }
       const selected = document.getElementById('f_cajaAsignada').value;
       populateCajaAsignadaOptions(selected);
@@ -1348,7 +1348,7 @@ async function exportCargo(id,button) {
 document.getElementById('btnImportar').addEventListener('click', ()=>document.getElementById('fileImportar').click());
 document.getElementById('fileImportar').addEventListener('change', async ev => {
   const input = ev.target, file = input.files[0];
-  if (!file || !isAdmin || !appReady) { input.value = ''; return; }
+  if (!file || !isAdmin || !appReady || isPreview) { input.value = ''; return; }
   const button = document.getElementById('btnImportar');
   button.disabled = true;
   try {
@@ -1501,6 +1501,7 @@ async function handleSession(session) {
     if (generation !== authGeneration) return;
     appReady = true;
     if(isAdmin) {
+      void reloadRequestedIM();
       refreshGoogleSync();void refreshAdminRequests();
       clearInterval(adminRequestsTimer);
       adminRequestsTimer=setInterval(()=>{
@@ -1751,7 +1752,9 @@ async function refreshAdminRequests() {
           : '¿Rechazar la solicitud administrativa de '+request.email+'?');
         if(selected) {
           try {
-            await repository.reviewAdminRequest(id,approved);
+            if(isPreview)throw new Error('Vista previa: no se puede aprobar ni rechazar solicitudes.');
+            if(isPreview)throw new Error('Vista previa: no se pueden modificar permisos.');
+    await repository.reviewAdminRequest(id,approved);
             alert(approved
               ? 'Cuenta administrativa aprobada. La persona podrá entrar con permisos administrativos al volver a iniciar sesión.'
               : 'Solicitud administrativa rechazada.');
