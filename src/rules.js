@@ -39,7 +39,7 @@ export function computeDocEstado(d, now = new Date()) {
   // Fecha de envío = enviado. Por solicitud sin fecha = celeste y pendiente.
   if (d.imLiveCodigoCaja) {
     if (d.imLiveFechaEnvio) estado = 'Enviado a Iron Mountain';
-    else if (/por\\s+solicitud/i.test(String(d.imLiveClasificacion||''))) estado = 'Caja solicitada';
+    else if (/por\s+solicitud/i.test(String(d.imLiveClasificacion||''))) estado = 'Caja solicitada';
     else estado = 'Caja preparada para envío';
   }
   const today = new Date(`${limaDate(now)}T00:00:00`);
