@@ -11,6 +11,7 @@ import { renderCargoLineChart } from './cargo-line-chart.js';
 import { summarizeShippedCargos } from './im-shipped-summary.js';
 import { renderImBarChart } from './im-bar-chart.js';
 import { cargoExpiryGroups, formatCargoDuration } from './cargo-expiry.js';
+import { requestedIMBoxes, countRequestedCargos } from './im-requests.js';
 
 const configuration = { url: __SUPABASE_URL__, key: __SUPABASE_ANON_KEY__ };
 // Capture recovery mode before the client consumes the email callback fragment.
@@ -39,6 +40,12 @@ let currentPage = 0;
 let expiryGroups = {today:'', overdue:[], upcoming:[], unknown:[]};
 let activeExpiryGroup = null, expiryPage = 0, expiryReturnButton = '';
 let preparedImRows = [], preparedImFetchEpoch = 0;
+let requestedIMRows = [], requestedIMData = [], requestedIMError = '', requestedIMFetchEpoch = 0;
+const requestedDemo = new URLSearchParams(location.search).get('demo-solicitudes') === '1'
+  && /-ztmy1\.vercel\.app$/i.test(location.hostname)
+  && !['kardex-digital-santa-anita-ztmy1.vercel.app','kardex-digital-santa-anita-git-main-ztmy1.vercel.app'].includes(location.hostname);
+const isPreview = /-ztmy1\.vercel\.app$/i.test(location.hostname)
+  && !['kardex-digital-santa-anita-ztmy1.vercel.app','kardex-digital-santa-anita-git-main-ztmy1.vercel.app'].includes(location.hostname);
 let appliedFilters = {query:'',state:'',type:'',location:'',year:'',invoiceExact:false};
 const browseOrder = new Map();
 function showRandomCargos(filters=appliedFilters) {
@@ -199,7 +206,7 @@ workspaceNav.addEventListener('keydown',event=>{
   if(next){event.preventDefault();selectWorkspaceTab(next,true);}
 });
 function setAvailability() {
-  if (!appReady || !isAdmin) { closeCargoExpiry(); closePreparedIm(); }
+  if (!appReady || !isAdmin) { closeCargoExpiry(); closePreparedIm(); closeRequestedIM(); }
   document.getElementById('btnExportar').hidden=true;
   document.getElementById('appShell').classList.toggle('read-only', !isAdmin);
   ['googleSyncPanel','btnImportar','btnReset'].forEach(id=>document.getElementById(id).hidden=!isAdmin);
@@ -256,6 +263,7 @@ async function refreshData() {
       if(isAdmin) {
         void refreshGoogleSync();
         if (document.getElementById('preparedImSheet').open) void reloadPreparedImDetail();
+      void reloadRequestedIM();
       }
       const selected = document.getElementById('f_cajaAsignada').value;
       populateCajaAsignadaOptions(selected);
@@ -277,6 +285,7 @@ function scheduleRefresh() {
 }
 async function runMutation(button, action, messageId = 'msgGuardado') {
   if (!appReady || !isAdmin || mutationBusy) return;
+  if (isPreview) { alert('Esta es una vista previa. No se guardarán cambios hasta tu visto bueno.'); return; }
   mutationBusy = true;
   setAvailability();
   if (button) button.disabled = true;
@@ -695,7 +704,10 @@ function renderMonthlyCargoStats(){
   monthlyShippedSummary=summarizeShippedCargos(docs,new Date());
   document.getElementById('monthlyCargosShipped').textContent=fmtNum(monthlyShippedSummary.currentCount);
   renderMonthlyShippedDetail();
-  document.getElementById('monthlyCargosRequested').textContent=fmtNum(requested.size);
+  document.getElementById('monthlyCargosRequested').textContent=fmtNum(countRequestedCargos(requestedIMData));
+  document.getElementById('requestedIMNote').textContent=requestedDemo?'Datos de ejemplo · No son registros reales':
+    requestedIMError?'Sincronización de clasificación pendiente':
+      fmtNum(requestedIMData.length)+' cajas por solicitud';
 }
 function renderDocs(){
   const filters=appliedFilters;
@@ -964,7 +976,7 @@ function renderPreparedImDetail() {
   document.getElementById('preparedImList').innerHTML=rows.length?rows.map(b=>{
     const row=Number(b.sheet_row);
     const url=Number.isSafeInteger(row)&&row>=2?
-      `https://docs.google.com/spreadsheets/d/1aWqIoj5UXAeyKhNN1paoYnTa4jdfN8LhDEcdH_lQ4mk/edit#gid=434059467&range=A${row}:I${row}`:
+      `https://docs.google.com/spreadsheets/d/1aWqIoj5UXAeyKhNN1paoYnTa4jdfN8LhDEcdH_lQ4mk/edit#gid=434059467&range=A${row}:J${row}`:
       'https://docs.google.com/spreadsheets/d/1aWqIoj5UXAeyKhNN1paoYnTa4jdfN8LhDEcdH_lQ4mk/edit';
     return `<article class="prepared-im-box">
       <div class="prepared-im-head">
@@ -1012,6 +1024,63 @@ function openPreparedIm() {
   document.getElementById('preparedImList').textContent='Consultando cajas preparadas…';
   void reloadPreparedImDetail();
 }
+function closeRequestedIM(){
+  ++requestedIMFetchEpoch;
+  const modal=document.getElementById('requestedIMSheet');
+  if(modal.open)modal.close();
+}
+function renderRequestedIM(){
+  const panel=document.getElementById('requestedIMList');
+  if(!isAdmin)return;
+  const count=countRequestedCargos(requestedIMData);
+  document.getElementById('requestedIMCount').textContent=
+    requestedIMData.length+' cajas · '+count+' cargos distintos'+(requestedDemo?' · DEMO / DATOS DE EJEMPLO':'');
+  document.getElementById('requestedIMRule').textContent=requestedDemo
+    ? 'Vista de ejemplo. No son registros reales ni se modifica Google Sheets.'
+    : 'Clasificación «Por solicitud» registrada en Google Sheets, comparada con los cargos del Kardex.';
+  panel.innerHTML=requestedIMData.length?requestedIMData.map(box=>'<article class="prepared-im-box">'+
+    '<div class="prepared-im-head"><div><strong>Caja '+escapeHtml(box.codigo)+'</strong>'+
+    '<div class="prepared-im-sub">'+box.cargos.length+' cargos · '+box.coincidencias+
+      ' coincidencias con Kardex · '+box.revisar+' por revisar</div></div>'+
+    '<span class="prepared-im-state">'+escapeHtml(box.estado)+'</span></div>'+
+    '<details><summary>Ver cargos asociados ('+box.cargos.length+')</summary>'+
+    '<div class="prepared-im-sub">'+box.cargos.map(c=>'<div>Cargo <strong>'+escapeHtml(c.cargo)+
+      '</strong> · '+(c.match?'Coincide con Kardex '+escapeHtml(c.kardex):'Revisar: '+escapeHtml(c.issue))+
+      '</div>').join('')+'</div></details></article>').join('')
+    :'<p class="prepared-im-message">'+(requestedIMError?
+      'La lectura de clasificación aún no está habilitada: '+escapeHtml(requestedIMError):
+      'No hay cajas marcadas «Por solicitud» en la información sincronizada.')+'</p>';
+}
+async function reloadRequestedIM(){
+  if(!isAdmin||!appReady)return;
+  const epoch=++requestedIMFetchEpoch;
+  try{
+    requestedIMError='';
+    requestedIMRows=requestedDemo?[
+      {codigo_caja:'T990000001',codigo_cargo:'0933',clasificacion_caja:'Por solicitud'},
+      {codigo_caja:'TD990000001',codigo_cargo:'0934',clasificacion_caja:'Por solicitud'},
+      {codigo_caja:'P990000002',codigo_cargo:'0935',clasificacion_caja:'Por solicitud'}
+    ]:await repository.requestedIMDetails();
+    if(epoch!==requestedIMFetchEpoch||!isAdmin)return;
+    requestedIMData=requestedIMBoxes(requestedIMRows,docs);
+  }catch(error){
+    if(epoch!==requestedIMFetchEpoch)return;
+    requestedIMRows=[];requestedIMData=[];
+    requestedIMError='Se necesita activar la actualización de Supabase y Apps Script para la nueva columna.';
+  }
+  renderMonthlyCargoStats();
+  if(document.getElementById('requestedIMSheet').open)renderRequestedIM();
+}
+document.getElementById('btnRequestedIMDetail').addEventListener('click',()=>{
+  if(!isAdmin||!appReady)return;
+  const modal=document.getElementById('requestedIMSheet');
+  renderRequestedIM();
+  if(!modal.open)modal.showModal();
+});
+document.getElementById('btnRefreshRequestedIM').addEventListener('click',()=>{
+  requestedIMError='';void reloadRequestedIM();
+});
+document.getElementById('btnCloseRequestedIM').addEventListener('click',closeRequestedIM);
 document.getElementById('btnClosePreparedIm').addEventListener('click',closePreparedIm);
 document.getElementById('preparedImSheet').addEventListener('close',()=>{
   preparedImFetchEpoch++;
@@ -1810,7 +1879,7 @@ setInterval(()=>{
 },300000);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshGoogleSync();});
 document.getElementById('btnToggleGoogleSync').addEventListener('click',async ev=>{
-  if(!appReady||!isAdmin)return;
+  if(!appReady||!isAdmin||isPreview)return;
   ev.currentTarget.disabled=true;
   try{
     const {error}=await supabase.from('kardex_google_sync').update({enabled:!googleSyncEnabled}).eq('id',true);
