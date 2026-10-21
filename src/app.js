@@ -14,6 +14,11 @@ import { cargoExpiryGroups, formatCargoDuration } from './cargo-expiry.js';
 import { buildBoxIndex, boxesFromDocuments, normalizeBoxCode } from './box-classification.js';
 
 const configuration = { url: __SUPABASE_URL__, key: __SUPABASE_ANON_KEY__ };
+// Preview deployments are read-only even when connected to the production DB.
+const IS_REVIEW_PREVIEW = /\.vercel\.app$/i.test(window.location.hostname)
+  && !['kardex-digital-santa-anita.vercel.app','kardex-digital-santa-anita-ztmy1.vercel.app',
+    'kardex-digital-santa-anita-git-main-ztmy1.vercel.app'].includes(window.location.hostname);
+document.getElementById('previewBanner').hidden=!IS_REVIEW_PREVIEW;
 // Capture recovery mode before the client consumes the email callback fragment.
 let passwordRecovery = new URLSearchParams(window.location.hash.slice(1)).get('type') === 'recovery';
 let passwordRecoveryCompleted = false;
@@ -217,7 +222,8 @@ function setAvailability() {
     : 'Consulta, búsqueda y exportación de documentos';
 
   document.querySelectorAll('.group button').forEach(b => b.disabled = !appReady || mutationBusy);
-  ['btnReset','btnImportar','btnGuardar','btnGuardarReq'].forEach(id => document.getElementById(id).disabled = !appReady || !isAdmin || mutationBusy);
+  ['btnReset','btnImportar','btnGuardar','btnGuardarReq'].forEach(id => document.getElementById(id).disabled = !appReady || !isAdmin || mutationBusy || IS_REVIEW_PREVIEW);
+  document.getElementById('btnToggleGoogleSync').disabled ||= IS_REVIEW_PREVIEW;
   const total=queryResults?.total??lastFiltered.length;
   document.getElementById('btnPaginaAnterior').disabled=!appReady||mutationBusy||currentPage===0;
   document.getElementById('btnPaginaSiguiente').disabled=!appReady||mutationBusy||total<=(currentPage+1)*PAGE_SIZE;
@@ -279,6 +285,7 @@ function scheduleRefresh() {
 }
 async function runMutation(button, action, messageId = 'msgGuardado') {
   if (!appReady || !isAdmin || mutationBusy) return;
+  if (IS_REVIEW_PREVIEW) { alert('Vista previa de solo lectura. Los cambios en producción están bloqueados hasta tu aprobación.'); return; }
   mutationBusy = true;
   setAvailability();
   if (button) button.disabled = true;
@@ -1724,6 +1731,7 @@ async function refreshAdminRequests() {
           : '¿Rechazar la solicitud administrativa de '+request.email+'?');
         if(selected) {
           try {
+            if(IS_REVIEW_PREVIEW)throw new Error('Vista previa de solo lectura. La aprobación está bloqueada.');
             await repository.reviewAdminRequest(id,approved);
             alert(approved
               ? 'Cuenta administrativa aprobada. La persona podrá entrar con permisos administrativos al volver a iniciar sesión.'
@@ -1759,6 +1767,7 @@ document.getElementById('adminRequestsList').addEventListener('click',async even
     : '¿Rechazar esta solicitud?'))return;
   button.disabled=true;
   try {
+    if(IS_REVIEW_PREVIEW)throw new Error('Vista previa de solo lectura.');
     await repository.reviewAdminRequest(id,approved);
     await refreshAdminRequests();
     alert(approved?'Acceso administrativo autorizado. La persona deberá volver a iniciar sesión.':'Solicitud rechazada.');
@@ -1852,7 +1861,7 @@ setInterval(()=>{
 },300000);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshGoogleSync();});
 document.getElementById('btnToggleGoogleSync').addEventListener('click',async ev=>{
-  if(!appReady||!isAdmin)return;
+  if(!appReady||!isAdmin||IS_REVIEW_PREVIEW)return;
   ev.currentTarget.disabled=true;
   try{
     const {error}=await supabase.from('kardex_google_sync').update({enabled:!googleSyncEnabled}).eq('id',true);
