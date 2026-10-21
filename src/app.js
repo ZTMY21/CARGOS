@@ -878,7 +878,7 @@ function renderDocs(){
       const classText=box?.clasificacion || 'Sin clasificación';
       const classStyle=classText==='Caja Cambiada'?'box-changed':classText==='Caja por Solicitud'?'box-requested':classText==='Caja Preparada para Envío'?'box-prepared':classText==='Cajas Nuevas'?'box-new':'';
       const boxInfo=box?.antiguo?'<span class="box-old-code">('+escapeHtml(box.antiguo)+')</span>':'';
-      const shipmentText=(d.imFechaEnvio||d.fEnvio||d.imConfirmado)?'Enviado':(box?.preparado?'Pendiente de envío':'No enviado');
+      const shipmentText=(d.imFechaEnvio||d.fEnvio)?'Enviado':(box?.preparado?'Pendiente de envío':'No enviado');
       const missing=box&&!box.fechaEnvio&&box.faltantes.length?'<span class="box-note">Falta: '+escapeHtml(box.faltantes.join(' · '))+'</span>':'';
       const warning=box?.conflict?'<span class="box-note">Revisar: '+escapeHtml(box.conflict)+'</span>':'';
       const fechaEnvioTxt = d.imConfirmado ? d.imFechaEnvio : d.fEnvio;
@@ -886,7 +886,7 @@ function renderDocs(){
         : d.imPreparado && d.imResponsablePreparacion ? d.imResponsablePreparacion : d.usuario;
       const responsableTxt = !String(responsableOrigen||'').trim() || /^importaci[oó]n excel$/i.test(String(responsableOrigen).trim())
         ? 'Sin Responsable' : responsableOrigen;
-      const estadoTxt = d.imConfirmado ? 'Enviado'
+      const estadoTxt = (d.imFechaEnvio || d.fEnvio) ? 'Enviado'
         : d.imPreparado ? d.estado+' · Caja preparada' : d.estado;
       const invoiceView=['solo-cargos','solo-cajas'].includes(filters.type)
         ? {...invoiceSearchPresentation(d,''),kind:'cargo',codes:[]}
