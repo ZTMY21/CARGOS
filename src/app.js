@@ -19,6 +19,13 @@ const IS_REVIEW_PREVIEW = /\.vercel\.app$/i.test(window.location.hostname)
   && !['kardex-digital-santa-anita.vercel.app','kardex-digital-santa-anita-ztmy1.vercel.app',
     'kardex-digital-santa-anita-git-main-ztmy1.vercel.app'].includes(window.location.hostname);
 document.getElementById('previewBanner').hidden=!IS_REVIEW_PREVIEW;
+if (IS_REVIEW_PREVIEW) {
+  // Authentication sign-in stays available; account creation and access requests do not.
+  ['btnRegister','btnAdminRegister','btnAdminRequestSubmit'].forEach(id=>{
+    const element=document.getElementById(id);
+    if(element)element.disabled=true;
+  });
+}
 // Capture recovery mode before the client consumes the email callback fragment.
 let passwordRecovery = new URLSearchParams(window.location.hash.slice(1)).get('type') === 'recovery';
 let passwordRecoveryCompleted = false;
