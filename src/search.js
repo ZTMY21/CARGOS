@@ -69,7 +69,7 @@ export function matchesAssignedBoxCode(code, query, exact = false) {
   const candidate = normalizeSearch(code), needle = normalizeSearch(query);
   if (!candidate || !needle) return false;
   const comparable = /^\d+$/.test(needle)
-    ? candidate.replace(/^(?:td|t)(?=\d)/,'') : candidate;
+    ? candidate.replace(/^[a-z]+(?=\d)/,'') : candidate;
   return exact ? comparable === needle : comparable.includes(needle);
 }
 
