@@ -41,11 +41,11 @@ let expiryGroups = {today:'', overdue:[], upcoming:[], unknown:[]};
 let activeExpiryGroup = null, expiryPage = 0, expiryReturnButton = '';
 let preparedImRows = [], preparedImFetchEpoch = 0;
 let requestedIMRows = [], requestedIMData = [], requestedIMError = '', requestedIMFetchEpoch = 0;
-const requestedDemo = new URLSearchParams(location.search).get('demo-solicitudes') === '1'
-  && /-ztmy1\.vercel\.app$/i.test(location.hostname)
-  && !['kardex-digital-santa-anita-ztmy1.vercel.app','kardex-digital-santa-anita-git-main-ztmy1.vercel.app'].includes(location.hostname);
-const isPreview = /-ztmy1\.vercel\.app$/i.test(location.hostname)
-  && !['kardex-digital-santa-anita-ztmy1.vercel.app','kardex-digital-santa-anita-git-main-ztmy1.vercel.app'].includes(location.hostname);
+const requestedDemo = new URLSearchParams(window.location.search).get('demo-solicitudes') === '1'
+  && /-ztmy1\.vercel\.app$/i.test(window.location.hostname)
+  && !['kardex-digital-santa-anita-ztmy1.vercel.app','kardex-digital-santa-anita-git-main-ztmy1.vercel.app'].includes(window.location.hostname);
+const isPreview = /-ztmy1\.vercel\.app$/i.test(window.location.hostname)
+  && !['kardex-digital-santa-anita-ztmy1.vercel.app','kardex-digital-santa-anita-git-main-ztmy1.vercel.app'].includes(window.location.hostname);
 let appliedFilters = {query:'',state:'',type:'',location:'',year:'',invoiceExact:false};
 const browseOrder = new Map();
 function showRandomCargos(filters=appliedFilters) {
