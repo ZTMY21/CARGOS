@@ -11,6 +11,7 @@ import {highlightMatch,filterDocuments,filterRequirements,invoiceSearchPresentat
 import {createIdleSession} from '../src/idle-session.js';
 import {cargoYear,invoiceLocation,locationLabel,groupsForCodes} from '../src/cargo-details.js';
 import {cargoExpiryGroups,formatCargoDuration} from '../src/cargo-expiry.js';
+import {requestedIMBoxes,countRequestedCargos} from '../src/im-requests.js';
 
 const flush=()=>new Promise(resolve=>setTimeout(resolve,20));
 const reqRow={id:randomUUID(),numero:'REQ-00001',tipo:'Cajas nuevas para acondicionar',fecha_solicitud:'2026-10-01',cantidad_cajas:2,numeros_cargo:'',fecha_recepcion:'2026-10-02',fecha_devolucion:null,usuario:'Juan',updated_at:'2026-10-13T00:00:00.123456Z'};
@@ -49,6 +50,7 @@ async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recov
     async fetchDoc(id){state.fetchedId=id;return docFromDb({...state.docs.find(d=>d.id===id),facturas:'F-001, F-002, F-003, F-004'});}
     async access(){state.loadingDuringAccess={loading:!dom.window.document.getElementById('sessionLoading').hidden,login:!dom.window.document.getElementById('authOverlay').hidden};return {allowed,is_admin:isAdmin};}
     async preparedImDetails(){state.preparedImCalls=(state.preparedImCalls||0)+1;return structuredClone(state.preparedImRows||[]);}
+    async requestedIMDetails(){state.requestedImCalls=(state.requestedImCalls||0)+1;return structuredClone(state.requestedImRows||[]);}
     async requestAdminAccess(){state.adminApplications=(state.adminApplications||0)+1;return {estado:'pendiente'};}
     async pendingAdminRequests(){if(state.adminRequestsError)throw new Error('Sin conexión');return state.adminPendingRequests||[];}
     async reviewAdminRequest(id,approved){(state.adminDecisions??=[]).push({id,approved});state.adminPendingRequests=(state.adminPendingRequests||[]).filter(req=>req.id!==id);return {estado:approved?'aprobado':'rechazado'};}
@@ -75,7 +77,7 @@ async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recov
   state.intervals=[];
   context.setInterval=(callback,delay)=>{state.intervals.push({callback,delay});return scheduleInterval(callback,delay);};
   context.Date=class extends Date {constructor(...args){super(...(args.length?args:[state.now]));}static now(){return state.now;}};
-  Object.assign(context,{cargoExpiryGroups,formatCargoDuration,limaDate});
+  Object.assign(context,{cargoExpiryGroups,formatCargoDuration,limaDate,requestedIMBoxes,countRequestedCargos});
   Object.assign(context,{createIdleSession:options=>createIdleSession({...options,now:()=>state.now}),createClient:()=>client,KardexRepository:FakeRepository,reqFromDb,docFromDb,reqEstado,docEstado,fmtDate,escapeHtml,invoiceSearchPresentation,buildWorkbook:async(...args)=>{state.exportCalls.push(args);return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},buildCargoWorkbook:async(cargo)=>{state.guestExport=cargo;return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},parseWorkbook,highlightMatch,filterDocuments,filterRequirements,assignedBoxCode,cargoYear,invoiceLocation,locationLabel,groupsForCodes,
     __SUPABASE_URL__:'https://example.supabase.co',__SUPABASE_ANON_KEY__:'sb_publishable_test',confirm:()=>true,alert:()=>{}});
   await vm.runInContext(`(async()=>{${source}})()`,context);
@@ -1224,14 +1226,14 @@ test('Ver detalle de cajas preparadas muestra nueve campos y lleva a fila correc
   assert.match(detail.textContent,/Sin registrar/);
   assert.equal(detail.querySelectorAll('img').length,0);
   assert.match(detail.textContent,/<img src=x onerror=alert\(1\)>/);
-  assert.match(detail.querySelector('.prepared-im-actions a').href,/range=A2:I2/);
+  assert.match(detail.querySelector('.prepared-im-actions a').href,/range=A2:J2/);
   a.node('preparedImSearch').value='noexiste';
   a.node('preparedImSearch').dispatchEvent(new a.dom.window.Event('input'));
   assert.match(detail.textContent,/No hay cajas preparadas/);
   a.node('preparedImSearch').value='503';
   a.node('preparedImSearch').dispatchEvent(new a.dom.window.Event('input'));
   assert.equal(detail.querySelectorAll('.prepared-im-box').length,1);
-  // Completar fecha F hace que la caja desaparezca del detalle tras actualizar.
+  // Completar fecha G hace que la caja desaparezca del detalle tras actualizar.
   a.state.preparedImRows=[];
   a.state.docs[0].im_preparado=false;a.state.docs[0].im_confirmado=true;
   a.node('btnReconnect').click();await flush();
@@ -1261,6 +1263,30 @@ test('detalle de cajas preparadas es solo administrativo y se cierra cuando term
  }finally{admin.close();}
 });
 
+
+
+test('indicador IM solicitado conserva diseño y despliega cargos del Sheet con cruce',async()=>{
+  const a=await app({isAdmin:true});
+  try {
+    assert.match(a.node('btnRequestedIMDetail').textContent,/Ver detalle/);
+    assert.match(a.node('btnRequestedIMDetail').closest('article').textContent,/CARGOS SOLICITADOS IM/);
+    a.state.docs[0].cargos=['933'];
+    a.state.requestedImRows=[
+      {codigo_caja:'TD990011',codigo_cargo:'0933',clasificacion_caja:'Por solicitud',fecha_envio:null},
+      {codigo_caja:'T990011',codigo_cargo:'0934',clasificacion_caja:'Por solicitud',fecha_envio:null},
+      {codigo_caja:'P990012',codigo_cargo:'0935',clasificacion_caja:'Cajas nuevas',fecha_envio:null}
+    ];
+    a.node('btnReconnect').click();await flush();await flush();
+    assert.equal(a.node('monthlyCargosRequested').textContent,'2');
+    a.node('btnRequestedIMDetail').click();
+    assert.equal(a.node('requestedIMSheet').open,true);
+    assert.match(a.node('requestedIMList').textContent,/Caja TD990011/);
+    assert.doesNotMatch(a.node('requestedIMList').textContent,/P990012/);
+    assert.match(a.node('requestedIMList').textContent,/2 cargos/);
+    a.node('btnCloseRequestedIM').click();
+    assert.equal(a.node('requestedIMSheet').open,false);
+  } finally {a.close();}
+});
 
 test('una contraseña recién cambiada no vuelve a pedirse al actualizar la página',async()=>{
  const recovery=await app({recovery:true,adminLink:'/?origen=verificacion'});

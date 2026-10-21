@@ -385,6 +385,18 @@
   }
   #googleSyncPanel .monthly-created-detail-button:hover{background:#fce8eb;border-color:#e8afb6;}
   #googleSyncPanel .monthly-created-detail-button:focus-visible{outline:2px solid #9e2131;outline-offset:2px;}
+  /* Solo la tarjeta Cargos Solicitados IM: botón celeste, los otros permanecen iguales. */
+  #googleSyncPanel .monthly-cargo-stat.requested{position:relative;padding-bottom:54px;}
+  #googleSyncPanel #btnRequestedIMDetail{
+    background:#e0f5ff;color:#086b9b;border:1px solid #87d3f2;
+  }
+  #googleSyncPanel #btnRequestedIMDetail:hover{
+    background:#c9efff;border-color:#50b8e5;
+  }
+  #googleSyncPanel #btnRequestedIMDetail:focus-visible{
+    outline:2px solid #1198d0;outline-offset:2px;
+  }
+
   .monthly-created-sheet{
     width:min(790px,calc(100% - 26px));max-width:790px;max-height:min(86vh,840px);
     border:1px solid #e1e6ec;border-radius:17px;padding:0;
@@ -688,9 +700,10 @@
       </article>
       <article class="sync-stat monthly-cargo-stat requested">
         <span class="monthly-stat-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M20 20H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2Z"/></svg></span>
-        <span class="sync-stat-label">CARGOS SOLICITADOS IM ESTE MES</span>
+        <span class="sync-stat-label">CARGOS SOLICITADOS IM</span>
         <strong id="monthlyCargosRequested" class="sync-stat-value">—</strong>
-        <span class="monthly-stat-note">Según fecha de solicitud</span>
+        <span class="monthly-stat-note" id="requestedIMNote">Cajas registradas por solicitud</span>
+        <button id="btnRequestedIMDetail" type="button" class="monthly-created-detail-button" aria-haspopup="dialog" aria-controls="requestedIMSheet">Ver detalle <span aria-hidden="true">↗</span></button>
       </article>
     </div>
     <!-- Los identificadores originales permanecen ocultos para preservar el chequeo de sincronización existente. -->
@@ -976,6 +989,17 @@
 </div>
 
 
+<dialog id="requestedIMSheet" class="expiry-sheet prepared-im-sheet" aria-labelledby="requestedIMTitle">
+  <div class="expiry-sheet-header">
+    <div><p class="expiry-eyebrow">Iron Mountain · Sede Santa Anita</p><h2 id="requestedIMTitle">Cargos Solicitados IM</h2></div>
+    <button id="btnCloseRequestedIM" type="button" class="secondary">Cerrar</button>
+  </div>
+  <p class="expiry-rule" id="requestedIMRule">Se muestran únicamente las cajas marcadas «Por solicitud» en la columna F del Google Sheet, con sus cargos y coincidencias en el Kardex.</p>
+  <p id="requestedIMCount" class="search-count" aria-live="polite"></p>
+  <div id="requestedIMList" class="prepared-im-list" aria-live="polite">Consultando solicitudes…</div>
+  <div class="prepared-im-footer"><button id="btnRefreshRequestedIM" type="button" class="secondary">Actualizar detalle</button></div>
+</dialog>
+
 <dialog id="preparedImSheet" class="expiry-sheet prepared-im-sheet" aria-labelledby="preparedImTitle" aria-describedby="preparedImRule">
   <div class="expiry-sheet-header">
     <div>
@@ -984,7 +1008,7 @@
     </div>
     <button id="btnClosePreparedIm" type="button" class="secondary" autofocus>Cerrar</button>
   </div>
-  <p id="preparedImRule" class="expiry-rule">Cajas registradas en «Cargos Enviados» sin fecha de envío a Iron Mountain (columna F). Puedes revisar sus datos aquí y completar el envío en Google Sheets.</p>
+  <p id="preparedImRule" class="expiry-rule">Cajas registradas en «Cargos Enviados» sin fecha de envío a Iron Mountain (columna G). Puedes revisar sus datos aquí y completar el envío en Google Sheets.</p>
   <div class="prepared-im-toolbar">
     <div class="field">
       <label for="preparedImSearch">Buscar caja, cargo o responsable</label>
