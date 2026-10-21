@@ -642,6 +642,7 @@
   <div class="loading-dots" aria-hidden="true"><span></span><span></span><span></span></div>
   <span class="loading-only-a11y">Cargando…</span>
 </div>
+<div id="previewBanner" hidden role="status" style="background:#fff6d9;color:#624d08;border-bottom:1px solid #e5c96d;text-align:center;padding:10px;font-size:12px;font-weight:800">VISTA PREVIA · SOLO LECTURA · No se guardarán cambios en la base de datos</div>
 <div class="wrap" id="appShell" hidden inert>
   <div class="header-row">
     <img src="/farmacias-heart.svg" alt="Farmacias Peruanas" class="header-logo" width="62" height="49">
@@ -922,7 +923,7 @@
         </div>
         <div class="field"><label for="f_usuario">Usuario Registro</label><input id="f_usuario" placeholder="Tu nombre"></div>
       </div>
-      <p class="desc" style="margin-top:8px">El Estado solo cambia a "Enviado a Iron Mountain" cuando completas Fecha de Envío y Sustento juntos.</p>
+      <p class="desc" style="margin-top:8px">El estado cambia a "Enviado a Iron Mountain" cuando se registra una fecha de envío. El sustento se conserva como campo independiente.</p>
       <div class="field" style="margin-top:12px"><label for="f_facturas">Nº de Factura(s) asociadas al cargo</label>
         <textarea id="f_facturas" placeholder="Ej: F001-1200, F001-1201, F001-1202..."></textarea>
       </div>
