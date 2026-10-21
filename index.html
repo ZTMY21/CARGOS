@@ -603,6 +603,24 @@
     #monthlyShippedSheet .im-shipped-chart-heading{flex-wrap:wrap;}
     #monthlyShippedSheet .im-shipped-kpi{padding:8px;}
   }
+
+/* Clasificación de cajas: legible en administrador e invitado sin alterar la tabla original. */
+.box-class-label{display:inline-block;white-space:nowrap;padding:5px 9px;border-radius:7px;font-size:11px;font-weight:800;background:#e8f0f8;color:#335c79}
+.box-class-label.box-changed{background:#fff2ba;color:#805f05;border:1px solid #ead473}
+.box-class-label.box-requested{background:#e5f2ff;color:#145ca2}
+.box-class-label.box-prepared{background:#e1f6e9;color:#176443}
+.box-class-label.box-new{background:#f1f3f6;color:#52606e}
+.box-note,.box-old-code,.box-ship-state{display:block;font-size:11px;margin-top:5px;line-height:1.4;color:#6b7684}
+.box-old-code{font-weight:700;color:#936d16}
+.box-ship-state{color:#506475;font-weight:700}
+.requested-box-filter{display:flex;align-items:center;gap:12px;justify-content:space-between;background:#dcecff!important;color:#124f91!important;border:1px solid #9cc4f5!important;border-radius:9px;padding:9px 12px;font-size:12px;font-weight:800;margin:8px 0;cursor:pointer}
+.requested-box-filter strong{background:#145da9;color:white;min-width:24px;padding:3px 6px;border-radius:13px}
+.requested-boxes-list{padding:16px 22px 22px;max-height:65vh;overflow:auto}
+.requested-boxes-list details{border:1px solid #d9e7f4;background:#fff;border-radius:12px;margin-bottom:10px;padding:13px}
+.requested-boxes-list summary{cursor:pointer;display:flex;gap:14px;align-items:center;justify-content:space-between;font-weight:800;color:#174d81}
+.requested-boxes-list summary small{font-weight:500;color:#62768a}
+.requested-boxes-list .box-cargos{display:flex;flex-wrap:wrap;gap:6px;margin:12px 0 6px}
+.requested-boxes-list .box-cargos span{border-radius:6px;background:#eef4fa;padding:5px 9px;font-size:12px}
 </style>
 </head>
 <body>
@@ -688,9 +706,10 @@
       </article>
       <article class="sync-stat monthly-cargo-stat requested">
         <span class="monthly-stat-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M20 20H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2Z"/></svg></span>
-        <span class="sync-stat-label">CARGOS SOLICITADOS IM ESTE MES</span>
+        <span class="sync-stat-label">CARGOS SOLICITADOS IM</span>
         <strong id="monthlyCargosRequested" class="sync-stat-value">—</strong>
-        <span class="monthly-stat-note">Según fecha de solicitud</span>
+        <span class="monthly-stat-note" id="requestedBoxesNote">Cajas clasificadas por solicitud</span>
+        <button id="btnRequestedBoxesDetail" type="button" class="monthly-created-detail-button" aria-haspopup="dialog" aria-controls="requestedBoxesSheet">Ver detalle <span aria-hidden="true">↗</span></button>
       </article>
     </div>
     <!-- Los identificadores originales permanecen ocultos para preservar el chequeo de sincronización existente. -->
@@ -945,6 +964,7 @@
         <button class="secondary" id="btnReset">Restablecer datos</button>
       </div>
       <div id="conteoResultados" class="search-count" aria-live="polite"></div>
+      <button type="button" id="btnRequestedBoxFilter" class="requested-box-filter" aria-haspopup="dialog" aria-controls="requestedBoxesSheet">Caja solicitada ubicada en sede Santa Anita <strong id="requestedBoxFilterCount">0</strong></button>
       <div id="importProgress" class="import-progress" aria-live="polite"></div>
       <div class="hint">Busca facturas, guías o BV con o sin guiones (ej. 01-0FF01-0217573 o 010FF010217573), o por sus últimos dígitos (217573), usando «Coincidencia parcial». Para buscar cajas por T, TD o solo el número, selecciona «Caja asignada». Pulsa «Exportar este cargo» en el resultado correspondiente. El Excel incluye únicamente ese cargo y todas sus facturas. Si aparece en varios cargos, puedes exportar cada uno por separado.</div>
       <div id="docsTopScroll" class="table-top-scroll" tabindex="0" role="region" aria-label="Desplazar la tabla de cargos horizontalmente"><div id="docsTopScrollWidth"></div></div>
@@ -952,9 +972,9 @@
         <table id="docsTable">
           <thead><tr>
             <th>Kardex</th><th>Fecha Reg.</th><th>Tipo Doc.</th><th>Período</th>
-            <th>Cargos</th><th>Facturas</th><th>Caja Asignada</th><th>F. Envío</th><th>Estado</th><th>Antigüedad (meses)</th><th>Responsable</th><th></th>
+            <th>Cargos</th><th>Facturas</th><th>Número de caja de cargos</th><th>Clasificación de Caja</th><th>F. Envío</th><th>Estado</th><th>Antigüedad (meses)</th><th>Responsable</th><th></th>
           </tr></thead>
-          <tbody id="tbody"><tr><td colspan="12" class="loading">Cargando registros…</td></tr></tbody>
+          <tbody id="tbody"><tr><td colspan="13" class="loading">Cargando registros…</td></tr></tbody>
         </table>
       </div>
       <div class="pagination"><button id="btnPaginaAnterior" class="secondary">Anterior</button><span id="paginaActual"></span><button id="btnPaginaSiguiente" class="secondary">Siguiente</button></div>
@@ -995,6 +1015,12 @@
   <p id="preparedImCount" class="search-count" aria-live="polite"></p>
   <div id="preparedImList" class="prepared-im-list" aria-live="polite">Cargando cajas preparadas…</div>
   <div class="prepared-im-footer"><button id="btnPreparedImRefresh" type="button" class="secondary">Actualizar detalle</button></div>
+</dialog>
+
+<dialog id="requestedBoxesSheet" class="expiry-sheet requested-box-sheet" aria-labelledby="requestedBoxesTitle">
+  <div class="expiry-sheet-header"><div><p class="expiry-eyebrow">Sede Santa Anita · Iron Mountain</p><h2 id="requestedBoxesTitle">Cargos Solicitados IM</h2></div><button id="btnCloseRequestedBoxes" type="button" class="secondary">Cerrar</button></div>
+  <p class="expiry-rule">Cajas identificadas por solicitud. Selecciona una para consultar todos sus cargos y el estado de envío.</p>
+  <div id="requestedBoxesList" class="requested-boxes-list" aria-live="polite"></div>
 </dialog>
 
 <dialog id="cargoExpirySheet" class="expiry-sheet" aria-labelledby="cargoExpiryTitle" aria-describedby="cargoExpiryRule">
