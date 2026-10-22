@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {summarizeShippedCargos} from '../src/im-shipped-summary.js';
+import {summarizeShippedCargos,summarizeShippedBoxes} from '../src/im-shipped-summary.js';
 const at=(date)=>new Date(date+'T12:00:00Z');
 const shipment=(code,send,more={})=>({
  anioOrigen:2025,cargos:[code],imConfirmado:true,imFechaEnvio:send,
@@ -61,4 +61,31 @@ test('el año nuevo se incorpora y los meses futuros quedan vacíos',()=>{
  assert.equal(s.annual.at(-1).year,2027);
  assert.equal(s.annual.at(-1).months[0],1);
  assert.equal(s.annual.at(-1).months[1],null);
+});
+
+
+test('cajas enviadas: una caja con cuatro cargos incrementa solo una unidad en octubre',()=>{
+ const today=at('2026-10-21');
+ const initial=summarizeShippedBoxes([],today);
+ assert.equal(initial.currentCount,0);
+ const sent=summarizeShippedBoxes([{year:2026,month:10,count:1,latest:'2026-10-21'}],today);
+ assert.equal(sent.currentCount,1);
+ assert.equal(sent.annual.find(x=>x.year===2026).months[9],1);
+});
+test('cajas por mes preservan histórico y no contabilizan mes futuro',()=>{
+ const rows=[
+  {year:2024,month:6,count:415,latest:'2024-06-12'},
+  {year:2025,month:6,count:129,latest:'2025-06-26'},
+  {year:2026,month:10,count:2,latest:'2026-10-21'},
+  {year:2026,month:11,count:1,latest:'2026-11-01'}
+ ];
+ const today=at('2026-10-21'),s=summarizeShippedBoxes(rows,today);
+ assert.equal(s.currentCount,2);
+ assert.equal(s.annual.find(x=>x.year===2024).count,415);
+ assert.equal(s.annual.find(x=>x.year===2025).count,129);
+ assert.equal(s.annual.find(x=>x.year===2026).count,2);
+ assert.equal(s.annual.find(x=>x.year===2026).months[10],null);
+ const nov=summarizeShippedBoxes(rows,at('2026-11-03'));
+ assert.equal(nov.currentCount,1);
+ assert.equal(nov.annual.find(x=>x.year===2026).count,3);
 });
