@@ -11,7 +11,11 @@ import {highlightMatch,filterDocuments,filterRequirements,invoiceSearchPresentat
 import {createIdleSession} from '../src/idle-session.js';
 import {cargoYear,invoiceLocation,locationLabel,groupsForCodes} from '../src/cargo-details.js';
 import {cargoExpiryGroups,formatCargoDuration} from '../src/cargo-expiry.js';
-import {requestedIMBoxes,countRequestedCargos} from '../src/im-requests.js';
+import {requestedIMBoxes,countRequestedCargos,summarizePreparedIm} from '../src/im-requests.js';
+import {summarizeShippedBoxes} from '../src/im-shipped-summary.js';
+import {summarizeCreatedCargos} from '../src/monthly-created-summary.js';
+import {renderImBarChart} from '../src/im-bar-chart.js';
+import {renderCargoLineChart} from '../src/cargo-line-chart.js';
 
 const flush=()=>new Promise(resolve=>setTimeout(resolve,20));
 const reqRow={id:randomUUID(),numero:'REQ-00001',tipo:'Cajas nuevas para acondicionar',fecha_solicitud:'2026-10-01',cantidad_cajas:2,numeros_cargo:'',fecha_recepcion:'2026-10-02',fecha_devolucion:null,usuario:'Juan',updated_at:'2026-10-13T00:00:00.123456Z'};
@@ -51,6 +55,7 @@ async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recov
     async access(){state.loadingDuringAccess={loading:!dom.window.document.getElementById('sessionLoading').hidden,login:!dom.window.document.getElementById('authOverlay').hidden};return {allowed,is_admin:isAdmin};}
     async preparedImDetails(){state.preparedImCalls=(state.preparedImCalls||0)+1;return structuredClone(state.preparedImRows||[]);}
     async requestedIMDetails(){state.requestedImCalls=(state.requestedImCalls||0)+1;return structuredClone(state.requestedImRows||[]);}
+    async shippedIMBoxesMonthly(){state.shippedImCalls=(state.shippedImCalls||0)+1;return structuredClone(state.shippedIMRows||[]);}
     async requestAdminAccess(){state.adminApplications=(state.adminApplications||0)+1;return {estado:'pendiente'};}
     async pendingAdminRequests(){if(state.adminRequestsError)throw new Error('Sin conexión');return state.adminPendingRequests||[];}
     async reviewAdminRequest(id,approved){(state.adminDecisions??=[]).push({id,approved});state.adminPendingRequests=(state.adminPendingRequests||[]).filter(req=>req.id!==id);return {estado:approved?'aprobado':'rechazado'};}
@@ -77,7 +82,7 @@ async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recov
   state.intervals=[];
   context.setInterval=(callback,delay)=>{state.intervals.push({callback,delay});return scheduleInterval(callback,delay);};
   context.Date=class extends Date {constructor(...args){super(...(args.length?args:[state.now]));}static now(){return state.now;}};
-  Object.assign(context,{cargoExpiryGroups,formatCargoDuration,limaDate,requestedIMBoxes,countRequestedCargos});
+  Object.assign(context,{cargoExpiryGroups,formatCargoDuration,limaDate,requestedIMBoxes,countRequestedCargos,summarizePreparedIm,summarizeShippedBoxes,summarizeCreatedCargos,renderImBarChart,renderCargoLineChart});
   Object.assign(context,{createIdleSession:options=>createIdleSession({...options,now:()=>state.now}),createClient:()=>client,KardexRepository:FakeRepository,reqFromDb,docFromDb,reqEstado,docEstado,fmtDate,escapeHtml,invoiceSearchPresentation,buildWorkbook:async(...args)=>{state.exportCalls.push(args);return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},buildCargoWorkbook:async(cargo)=>{state.guestExport=cargo;return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},parseWorkbook,highlightMatch,filterDocuments,filterRequirements,assignedBoxCode,cargoYear,invoiceLocation,locationLabel,groupsForCodes,
     __SUPABASE_URL__:'https://example.supabase.co',__SUPABASE_ANON_KEY__:'sb_publishable_test',confirm:()=>true,alert:()=>{}});
   await vm.runInContext(`(async()=>{${source}})()`,context);
@@ -1278,7 +1283,8 @@ test('indicador IM solicitado conserva diseño y despliega cargos del Sheet con 
       {codigo_caja:'P990012',codigo_cargo:'0935',clasificacion_caja:'Cajas nuevas',fecha_envio:null}
     ];
     a.node('btnReconnect').click();await flush();await flush();
-    assert.equal(a.node('monthlyCargosRequested').textContent,'2');
+    assert.equal(a.node('monthlyCargosRequested').textContent,'1');
+    assert.equal(a.node('requestedIMNote').textContent,'2 cargos');
     a.node('btnRequestedIMDetail').click();
     assert.equal(a.node('requestedIMSheet').open,true);
     assert.match(a.node('requestedIMList').textContent,/Caja TD990011/);
@@ -1462,4 +1468,31 @@ test('sincronización solo aparece en Resumen mientras la barra permanece visibl
   assert.equal(guest.node('googleSyncContent').hidden,true);
   assert.equal(guest.node('grp-existencias').hidden,false);
  } finally {guest.close();}
+});
+
+
+test('fecha de envío IM resta caja solicitada y preparada, y suma una caja enviada este mes',async()=>{
+  const fixed=Date.UTC(2026,9,21,19,0,0),a=await app({isAdmin:true,now:fixed});
+  try{
+    const prepared={codigo_caja:'T2032192124',cargos:['933','934'],
+      clasificacion_caja:'POR SOLICITUD',fecha_envio:null};
+    a.state.requestedImRows=['933','934'].map(c=>({...prepared,codigo_cargo:c}));
+    a.state.preparedImRows=[prepared];
+    a.state.shippedIMRows=[];
+    a.node('btnReconnect').click();await flush();await flush();
+    assert.equal(a.node('monthlyCargosRequested').textContent,'1');
+    assert.equal(a.node('requestedIMNote').textContent,'2 cargos');
+    assert.match(a.node('preparedImSummaryMetric').textContent,/1\s*\(2 cargos\)/);
+    assert.equal(a.node('monthlyCargosShipped').textContent,'0');
+
+    // La fila ya tiene G: fecha de envío y la RPC deja de listarla como pendiente.
+    a.state.requestedImRows=[];
+    a.state.preparedImRows=[];
+    a.state.shippedIMRows=[{year:2026,month:10,count:1,latest:'2026-10-21'}];
+    a.node('btnReconnect').click();await flush();await flush();
+    assert.equal(a.node('monthlyCargosRequested').textContent,'0');
+    assert.equal(a.node('requestedIMNote').textContent,'0 cargos');
+    assert.match(a.node('preparedImSummaryMetric').textContent,/0\s*\(0 cargos\)/);
+    assert.equal(a.node('monthlyCargosShipped').textContent,'1');
+  }finally{a.close();}
 });
