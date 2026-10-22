@@ -35,8 +35,8 @@ test('Caja asignada acepta T, TD, solo numero y mantiene coincidencia exacta si 
   ];
   const ids=(query,extra={})=>filterDocuments(boxes,[req],{query,type:'solo-cajas',...extra}).map(d=>d.id);
   assert.deepEqual(ids('203258116'),['box-t','box-td','box-numeric']);
-  assert.deepEqual(ids('T203258116'),['box-t']);
-  assert.deepEqual(ids('TD203258116'),['box-td']);
+  assert.deepEqual(ids('T203258116'),['box-t','box-td','box-numeric']);
+  assert.deepEqual(ids('TD203258116'),['box-t','box-td','box-numeric']);
   assert.deepEqual(ids('20325811'),['box-t','box-td','box-numeric','box-long']);
   assert.deepEqual(ids('TD 203258116'),['box-td']);
   assert.deepEqual(ids('203258116',{invoiceExact:true}),['box-t','box-td','box-numeric']);
@@ -44,6 +44,17 @@ test('Caja asignada acepta T, TD, solo numero y mantiene coincidencia exacta si 
   assert.ok(ids('').includes('req-box'));
   assert.equal(matchesAssignedBoxCode('TD-203258116','203258116',true),true);
   assert.equal(assignedBoxCode(boxes[0],new Map([['r','REQ-00008']])),'T203258116');
+  for(const entrada of ['2032192124','T2032192124','TD2032192124',
+     'P2032192124','X2032192124','ABC-2032192124']) {
+    assert.equal(matchesAssignedBoxCode('T2032192124',entrada,true),true,entrada);
+    assert.equal(matchesAssignedBoxCode('2032192125',entrada,true),false,entrada);
+  }
+  const live={...boxes[0],imCodigoCaja:'T1111111111',
+    imLiveCodigoCaja:'P2032192124',imLiveClasificacion:'POR SOLICITUD',imLiveFechaEnvio:''};
+  assert.equal(assignedBoxCode(live,new Map()),'P2032192124',
+    'El código de la hoja actual debe prevalecer sobre una caja histórica');
+  assert.deepEqual(filterDocuments([live],[req],{query:'TD2032192124',type:'solo-cajas'}).map(x=>x.id),['box-t']);
+
 });
 
 test('historical parser preserves missing fields, stable identities, annotations and mixed cargo headers',async()=>{
