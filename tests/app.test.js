@@ -948,8 +948,9 @@ test('Caja asignada busca instantaneamente por T, TD o numero para admin e invit
       a.node('buscar').value='TD203258116';
       a.node('btnBuscar').click();await flush();
       rows=a.node('tbody').querySelectorAll('tr');
-      assert.equal(rows.length,1);
-      assert.match(rows[0].textContent,/TD203258116/);
+      assert.equal(rows.length,2,'El prefijo TD debe encontrar también cajas T con iguales dígitos');
+      assert.ok(a.node('tbody').textContent.includes('T203258116'));
+      assert.ok(a.node('tbody').textContent.includes('TD203258116'));
       a.node('btnLimpiarFiltros').click();
       assert.equal(a.node('filtroTipo').value,'');
     }finally{a.close();}
