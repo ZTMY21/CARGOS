@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {computeDocEstado} from '../src/rules.js';
-import {normalizeBoxBarcode,normalizeCargoIM,parseCargoCell,requestedIMBoxes,countRequestedCargos} from '../src/im-requests.js';
+import {normalizeBoxBarcode,normalizeCargoIM,parseCargoCell,requestedIMBoxes,countRequestedCargos,summarizePreparedIm} from '../src/im-requests.js';
 
 test('prefijos T, TD y P convergen en un único código de barras numérico',()=>{
   assert.equal(normalizeBoxBarcode('T00990011'),'00990011');
@@ -69,4 +69,37 @@ test('caja preparada sin fecha de envío conserva estado pendiente',()=>{
   const base={imLiveCodigoCaja:'TD123',imLiveClasificacion:'Caja nueva',imLiveFechaEnvio:''};
   assert.equal(computeDocEstado(base).estado,'Caja preparada para envío');
   assert.equal(computeDocEstado({...base,imLiveFechaEnvio:'2026-10-21'}).estado,'Enviado a Iron Mountain');
+});
+
+
+test('al poner fecha de envío se descuentan caja y cargos del KPI preparado',()=>{
+  const boxes=[
+    {codigo_caja:'T2032192124',cargos:['3368A','3365A','3366A','3367A'],fecha_envio:null},
+    {codigo_caja:'P2032192048',cargos:['4676','4673'],fecha_envio:null}
+  ];
+  assert.deepEqual(summarizePreparedIm(boxes),{cajas:2,cargos:6});
+  assert.deepEqual(summarizePreparedIm([{...boxes[0],fecha_envio:'2026-10-21'},boxes[1]]),
+    {cajas:1,cargos:2});
+  assert.deepEqual(summarizePreparedIm(boxes.map(b=>({...b,fecha_envio:'2026-10-21'}))),
+    {cajas:0,cargos:0});
+});
+test('no duplica cajas por prefijos de escaneo T, TD, P',()=>{
+  const rows=[
+    {codigo_caja:'T2032192124',cargos:['933'],fecha_envio:null},
+    {codigo_caja:'TD2032192124',cargos:['934'],fecha_envio:null},
+    {codigo_caja:'P2032192124',cargos:['934'],fecha_envio:null}
+  ];
+  assert.deepEqual(summarizePreparedIm(rows),{cajas:1,cargos:2});
+});
+test('fechar una caja POR SOLICITUD actualiza solicitudes, preparadas y estado',()=>{
+  const base={codigo_caja:'T2032192124',codigo_cargo:'3365A',cargos:['3365A'],
+    clasificacion_caja:'POR SOLICITUD',fecha_envio:null};
+  assert.equal(countRequestedCargos(requestedIMBoxes([base])),1);
+  assert.equal(summarizePreparedIm([base]).cajas,1);
+  const sent={...base,fecha_envio:'2026-10-21'};
+  assert.equal(countRequestedCargos(requestedIMBoxes([sent])),0);
+  assert.equal(summarizePreparedIm([sent]).cajas,0);
+  assert.equal(computeDocEstado({imLiveCodigoCaja:base.codigo_caja,
+    imLiveClasificacion:'POR SOLICITUD',imLiveFechaEnvio:sent.fecha_envio}).estado,
+    'Enviado a Iron Mountain');
 });
