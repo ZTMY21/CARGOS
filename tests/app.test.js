@@ -1496,3 +1496,29 @@ test('fecha de envío IM resta caja solicitada y preparada, y suma una caja envi
     assert.equal(a.node('monthlyCargosShipped').textContent,'1');
   }finally{a.close();}
 });
+
+
+test('gráficos IM muestran el histórico de cajas por mes y año al abrir detalle',async()=>{
+ const a=await app({isAdmin:true,now:Date.UTC(2026,9,21,21,0,0)});
+ try{
+  a.state.shippedIMRows=[
+   {year:2024,month:6,count:418,latest:'2024-06-30'},
+   {year:2024,month:7,count:23,latest:'2024-07-23'},
+   {year:2025,month:4,count:50,latest:'2025-04-15'},
+   {year:2025,month:6,count:130,latest:'2025-06-26'}
+  ];
+  a.node('btnReconnect').click();await flush();await flush();
+  a.node('btnMonthlyShippedDetail').click();await flush();await flush();
+  assert.equal(a.node('monthlyShippedSheet').open,true);
+  assert.equal(a.node('imShippedYearSelect').value,'2025');
+  assert.equal(a.node('imShippedLoadStatus').hidden,true);
+  assert.match(a.node('imShippedMonthTitle').textContent,/Cajas enviadas por mes \(2025\)/);
+  assert.equal(a.node('imShippedTotalValue').textContent,'180');
+  assert.ok(a.node('imShippedMonthChart').querySelector('svg'));
+  assert.ok(a.node('imShippedYearChart').querySelector('svg'));
+  assert.match(a.node('imShippedYearChart').textContent,/418/);
+  a.node('imShippedYearSelect').value='2024';
+  a.node('imShippedYearSelect').dispatchEvent(new a.dom.window.Event('change'));
+  assert.equal(a.node('imShippedTotalValue').textContent,'441');
+ }finally{a.close();}
+});
