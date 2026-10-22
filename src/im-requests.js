@@ -65,3 +65,21 @@ export function requestedIMBoxes(rows=[],documents=[]) {
 export function countRequestedCargos(boxes=[]) {
   return new Set(boxes.flatMap(b=>b.cargos.map(c=>c.cargo))).size;
 }
+
+
+/**
+ * Indicador de cajas pendientes basado en el mismo origen del detalle IM.
+ * Una fecha de envío excluye la caja; prefijos T, TD y P no duplican cajas.
+ * Los cargos se cuentan como códigos distintos en los registros pendientes.
+ */
+export function summarizePreparedIm(rows=[]) {
+  const boxes=new Set(), cargos=new Set();
+  for(const row of rows) {
+    if(String(row.fecha_envio??'').trim())continue;
+    const barcode=normalizeBoxBarcode(row.codigo_caja);
+    if(!barcode)continue;
+    boxes.add(barcode);
+    for(const cargo of parseCargoCell(row.cargos??row.numeros_cargos??[])) cargos.add(cargo);
+  }
+  return {cajas:boxes.size,cargos:cargos.size};
+}
