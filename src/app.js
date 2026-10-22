@@ -8,7 +8,7 @@ import { createIdleSession } from './idle-session.js';
 import { cargoYear, locationLabel, groupsForCodes } from './cargo-details.js';
 import { summarizeCreatedCargos } from './monthly-created-summary.js';
 import { renderCargoLineChart } from './cargo-line-chart.js';
-import { summarizeShippedCargos } from './im-shipped-summary.js';
+import { summarizeShippedBoxes } from './im-shipped-summary.js';
 import { renderImBarChart } from './im-bar-chart.js';
 import { cargoExpiryGroups, formatCargoDuration } from './cargo-expiry.js';
 import { requestedIMBoxes, countRequestedCargos, summarizePreparedIm } from './im-requests.js';
@@ -42,6 +42,7 @@ let activeExpiryGroup = null, expiryPage = 0, expiryReturnButton = '';
 let preparedImRows = [], preparedImFetchEpoch = 0;
 let preparedImSummary = null, preparedImSummaryEpoch = 0;
 let requestedIMRows = [], requestedIMData = [], requestedIMError = '', requestedIMFetchEpoch = 0;
+let requestedIMLoaded = false;
 const requestedDemo = new URLSearchParams(window.location.search).get('demo-solicitudes') === '1'
   && /-ztmy1\.vercel\.app$/i.test(window.location.hostname)
   && !['kardex-digital-santa-anita-ztmy1.vercel.app','kardex-digital-santa-anita-git-main-ztmy1.vercel.app'].includes(window.location.hostname);
@@ -267,6 +268,7 @@ async function refreshData() {
         if(appReady) {
           void reloadPreparedImSummary();
           void reloadRequestedIM();
+          void reloadShippedBoxesSummary();
         }
       }
       const selected = document.getElementById('f_cajaAsignada').value;
@@ -605,6 +607,7 @@ document.getElementById('monthlyCreatedSheet').addEventListener('click',event=>{
 });
 
 let monthlyShippedSummary=null;
+let monthlyShippedFetchEpoch=0;
 let monthlyShippedSelectedYear=null;
 function renderMonthlyShippedDetail(){
   const sheet=document.getElementById('monthlyShippedSheet');
@@ -629,12 +632,12 @@ function renderMonthlyShippedDetail(){
   const names=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
   const current=row.year===stats.currentYear;
   const monthlyLabels=names.slice(0,current?stats.currentMonth:12);
-  document.getElementById('imShippedMonthTitle').textContent='Cargos enviados por mes ('+row.year+')';
+  document.getElementById('imShippedMonthTitle').textContent='Cajas enviadas por mes ('+row.year+')';
   renderImBarChart(document.getElementById('imShippedMonthChart'),monthlyLabels,
     row.months.slice(0,monthlyLabels.length),
     {accent:'#2da66b',emptyLabel:'Sin envíos IM registrados en '+row.year});
   document.getElementById('imShippedYearTitle').textContent=
-    'Cargos enviados por año (2020–'+stats.currentYear+')';
+    'Cajas enviadas por año (2020–'+stats.currentYear+')';
   renderImBarChart(document.getElementById('imShippedYearChart'),
     stats.annual.map(item=>String(item.year)),stats.annual.map(item=>item.count),
     {accent:'#3b9b62',emptyLabel:'No hay envíos IM con fecha registrada'});
@@ -645,16 +648,16 @@ function renderMonthlyShippedDetail(){
   document.getElementById('imShippedAverage').textContent=
     mean.toLocaleString('es-PE',{maximumFractionDigits:1});
   document.getElementById('imShippedAverageNote').textContent=
-    'Cargos por mes ('+row.year+')';
+    'Cajas por mes ('+row.year+')';
   const last=row.latest?new Date(row.latest+'T12:00:00Z').toLocaleDateString('es-PE',
     {timeZone:'America/Lima',day:'numeric',month:'short',year:'numeric'}):'—';
   document.getElementById('imShippedLast').textContent=last;
   document.getElementById('imShippedLastNote').textContent=
     row.latest?'Última fecha de envío registrada':'Sin envíos registrados';
   document.getElementById('imShippedMethodNote').textContent=
-    'Se cuenta cada código de cargo una sola vez por fecha efectiva de envío a IM. '+
-    'Los datos se recalculan con la sincronización del Kardex; se descuentan los cargos eliminados y los meses futuros no se muestran como enviados.'+
-    (stats.undated?' '+stats.undated+' referencias enviadas sin fecha no aparecen en gráficos.':'');
+    'Se cuenta una caja física única por mes de envío a Iron Mountain, no sus cargos. '+
+    'Se incluyen envíos históricos y envíos actuales de Google Sheets. Prefijos T, TD y P no duplican una caja. '+
+    'Las cajas sin fecha de envío no suman y los datos se recalculan tras sincronizar la hoja.';
 }
 document.getElementById('btnMonthlyShippedDetail').addEventListener('click',()=>{
   if(!appReady||!isAdmin)return;
@@ -672,6 +675,21 @@ document.getElementById('imShippedYearSelect').addEventListener('change',event=>
   monthlyShippedSelectedYear=Number(event.target.value);
   renderMonthlyShippedDetail();
 });
+
+async function reloadShippedBoxesSummary(){
+  if(!isAdmin||!appReady||!currentUserId)return;
+  const epoch=++monthlyShippedFetchEpoch,generation=authGeneration;
+  try{
+    const rows=await repository.shippedIMBoxesMonthly();
+    if(epoch!==monthlyShippedFetchEpoch||generation!==authGeneration||!appReady||!isAdmin)return;
+    if(!Array.isArray(rows))throw new Error('Respuesta inválida de envíos mensuales IM');
+    monthlyShippedSummary=summarizeShippedBoxes(rows,new Date());
+  }catch(error){
+    if(epoch!==monthlyShippedFetchEpoch||generation!==authGeneration||!appReady||!isAdmin)return;
+    monthlyShippedSummary=null; // No confundir una lectura fallida con cero envíos.
+  }
+  renderMonthlyCargoStats();
+}
 function renderMonthlyCargoStats(){
   if(!isAdmin)return;
   const month=limaDate(new Date()).slice(0,7);
@@ -705,13 +723,15 @@ function renderMonthlyCargoStats(){
   document.getElementById('monthlyCargosCreated').textContent=fmtNum(monthlyCreatedSummary.currentCount);
   document.getElementById('monthlyCreatedNote').textContent=`Durante el mes (${monthlyCreatedNames[monthlyCreatedSummary.currentMonth-1].toLowerCase()})`;
   renderMonthlyCreatedDetail();
-  monthlyShippedSummary=summarizeShippedCargos(docs,new Date());
-  document.getElementById('monthlyCargosShipped').textContent=fmtNum(monthlyShippedSummary.currentCount);
+  document.getElementById('monthlyCargosShipped').textContent=monthlyShippedSummary
+    ? fmtNum(monthlyShippedSummary.currentCount):'—';
   renderMonthlyShippedDetail();
-  document.getElementById('monthlyCargosRequested').textContent=fmtNum(countRequestedCargos(requestedIMData));
+  document.getElementById('monthlyCargosRequested').textContent=
+    requestedIMLoaded && !requestedIMError ? fmtNum(requestedIMData.length):'—';
   document.getElementById('requestedIMNote').textContent=requestedDemo?'Datos de ejemplo · No son registros reales':
-    requestedIMError?'Sincronización de clasificación pendiente':
-      fmtNum(requestedIMData.length)+' cajas por solicitud';
+    requestedIMError?'No se pudo actualizar desde Google Sheets':
+      requestedIMLoaded ? fmtNum(countRequestedCargos(requestedIMData))+' cargos'
+        :'Consultando cajas y cargos pendientes…';
 }
 function renderDocs(){
   const filters=appliedFilters;
@@ -1087,9 +1107,10 @@ async function reloadRequestedIM(){
     ]:await repository.requestedIMDetails();
     if(epoch!==requestedIMFetchEpoch||!isAdmin)return;
     requestedIMData=requestedIMBoxes(requestedIMRows,docs);
+    requestedIMLoaded=true;
   }catch(error){
     if(epoch!==requestedIMFetchEpoch)return;
-    requestedIMRows=[];requestedIMData=[];
+    requestedIMRows=[];requestedIMData=[];requestedIMLoaded=false;
     requestedIMError='Se necesita activar la actualización de Supabase y Apps Script para la nueva columna.';
   }
   renderMonthlyCargoStats();
@@ -1476,6 +1497,8 @@ async function handleSession(session) {
     clearInterval(adminRequestsTimer);adminRequestsTimer=null;adminRequestsEpoch++;setAdminRequestBadge(null);
     appReady = isAdmin = dataReady = false;
     reqs = []; docs = []; preparedImSummary=null; ++preparedImSummaryEpoch;
+    monthlyShippedSummary=null; ++monthlyShippedFetchEpoch;
+    requestedIMRows=[];requestedIMData=[];requestedIMLoaded=false;requestedIMError=''; ++requestedIMFetchEpoch;
     renderReqs(); renderDocs(); setAvailability();
     showSessionLoading();
   }
@@ -1493,6 +1516,8 @@ async function handleSession(session) {
     if (realtimeChannel) { await supabase.removeChannel(realtimeChannel); realtimeChannel = null; }
     queryResults=null;queryError='';searchController?.abort();currentPage=0;
     reqs = []; docs = []; preparedImSummary=null; ++preparedImSummaryEpoch;
+    monthlyShippedSummary=null; ++monthlyShippedFetchEpoch;
+    requestedIMRows=[];requestedIMData=[];requestedIMLoaded=false;requestedIMError=''; ++requestedIMFetchEpoch;
     cancelarEdicionDoc(); cancelarEdicionReq(); renderReqs(); renderDocs();
     showAuthPage(true);
     document.getElementById('sessionUser').textContent = '';
@@ -1531,6 +1556,7 @@ async function handleSession(session) {
     if(isAdmin) {
       void reloadPreparedImSummary();
       void reloadRequestedIM();
+      void reloadShippedBoxesSummary();
       refreshGoogleSync();void refreshAdminRequests();
       clearInterval(adminRequestsTimer);
       adminRequestsTimer=setInterval(()=>{
@@ -1897,6 +1923,11 @@ async function refreshGoogleSync(){
 setInterval(()=>{
   if(!document.hidden) {
     refreshGoogleSync();
+    if(appReady && isAdmin && currentUserId && !mutationBusy){
+      void reloadPreparedImSummary();
+      void reloadRequestedIM();
+      void reloadShippedBoxesSummary();
+    }
     if(appReady && isAdmin && expiryGroups.today !== limaDate(new Date())) renderDocs();
     else if(appReady && isAdmin &&
       document.getElementById('monthlyCargoPeriod').dataset.month !== limaDate(new Date()).slice(0,7))
