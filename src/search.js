@@ -58,19 +58,24 @@ export function assignedBoxCode(doc, requirements = new Map()) {
   const requestNumber = requirements instanceof Map
     ? requirements.get(doc.cajaAsignada)
     : requirements.find(r => r.id === doc.cajaAsignada)?.numero;
-  return String((doc.imConfirmado && doc.imCodigoCaja)
+  return String(doc.imLiveCodigoCaja
+    || (doc.imConfirmado && doc.imCodigoCaja)
     || (doc.imPreparado && doc.imCajaPreparada)
     || requestNumber || '').trim();
 }
 
-// Sin prefijo numerico, 203258116 localiza T203258116, TD203258116
-// y 203258116. Al escribir T o TD se respeta el prefijo indicado.
+// La caja física se identifica por sus 10 dígitos, sin prefijos T, TD, P
+// ni letras adicionales. Se conservan búsquedas parciales y códigos antiguos
+// de 9 dígitos, así como los números de requerimiento REQ.
 export function matchesAssignedBoxCode(code, query, exact = false) {
   const candidate = normalizeSearch(code), needle = normalizeSearch(query);
   if (!candidate || !needle) return false;
-  const comparable = /^\d+$/.test(needle)
-    ? candidate.replace(/^(?:td|t)(?=\d)/,'') : candidate;
-  return exact ? comparable === needle : comparable.includes(needle);
+  const boxDigits = String(code ?? '').replace(/\D/g, '');
+  const queryDigits = String(query ?? '').replace(/\D/g, '');
+  if (boxDigits.length >= 9 && boxDigits.length <= 10 && queryDigits.length >= 4) {
+    return exact ? boxDigits === queryDigits : boxDigits.includes(queryDigits);
+  }
+  return exact ? candidate === needle : candidate.includes(needle);
 }
 
 export function filterDocuments(documents, requirements, filters, now=new Date()) {
