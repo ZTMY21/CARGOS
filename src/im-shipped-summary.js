@@ -58,3 +58,39 @@ export function summarizeShippedCargos(docs, now=new Date()){
     annual,total,latest,undated
   };
 }
+
+
+/**
+ * Totales de CAJAS enviadas a IM. Recibe la agregación segura de Supabase,
+ * calculada sobre códigos físicos únicos por mes, incluidos envíos de Sheets.
+ * No cuenta cargos ni suma dos veces cajas con prefijos de escáner distintos.
+ */
+export function summarizeShippedBoxes(monthlyRows=[],now=new Date()){
+  const today=limaDate(now);
+  const currentYear=Number(today.slice(0,4));
+  const currentMonth=Number(today.slice(5,7));
+  const annual=[];
+  for(let year=2020;year<=currentYear;year++){
+    const months=Array.from({length:12},(_,i)=>
+      year===currentYear && i>=currentMonth ? null : 0);
+    annual.push({year,count:0,months,latest:null});
+  }
+  const byYear=new Map(annual.map(row=>[row.year,row]));
+  let total=0,latest=null;
+  for(const record of monthlyRows||[]){
+    const year=Number(record.year),month=Number(record.month),count=Number(record.count);
+    const row=byYear.get(year);
+    const sent=dateOnly(record.latest);
+    if(!row||!Number.isInteger(month)||month<1||month>12 ||
+       !Number.isSafeInteger(count)||count<0||!Number.isFinite(row.months[month-1]) ||
+       (sent&&sent>today))continue;
+    row.months[month-1]+=count;
+    row.count+=count;total+=count;
+    if(sent){
+      row.latest=!row.latest||sent>row.latest?sent:row.latest;
+      latest=!latest||sent>latest?sent:latest;
+    }
+  }
+  return {currentYear,currentMonth,currentCount:byYear.get(currentYear)?.months[currentMonth-1]||0,
+    annual,total,latest};
+}
