@@ -371,6 +371,10 @@
     font-variant-numeric:tabular-nums;
   }
   #googleSyncPanel .monthly-cargo-stat .monthly-stat-note{display:block;line-height:1.45;}
+  #googleSyncPanel .monthly-cargo-stat.requested .monthly-requested-total{display:flex;align-items:baseline;gap:8px;margin:3px 0 2px;}
+  #googleSyncPanel .monthly-cargo-stat.requested .monthly-requested-total .sync-stat-value{margin:6px 0 0;}
+  #googleSyncPanel .monthly-cargo-stat.requested .monthly-requested-unit{font-size:14px;color:#2482bd;font-weight:750;}
+  #googleSyncPanel .monthly-cargo-stat.requested #requestedIMNote{font-size:13px;font-weight:700;color:#526c86;}
   @media(max-width:720px){
     #googleSyncPanel .monthly-cargo-stat{min-height:170px;}
   }
@@ -702,7 +706,10 @@
       <article class="sync-stat monthly-cargo-stat requested">
         <span class="monthly-stat-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M20 20H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2Z"/></svg></span>
         <span class="sync-stat-label">CARGOS SOLICITADOS IM EN CD SANTA ANITA</span>
-        <strong id="monthlyCargosRequested" class="sync-stat-value">—</strong>
+        <div class="monthly-requested-total">
+          <strong id="monthlyCargosRequested" class="sync-stat-value" aria-label="Cajas pendientes por solicitud">—</strong>
+          <span class="monthly-requested-unit">cajas</span>
+        </div>
         <span class="monthly-stat-note" id="requestedIMNote">— cargos</span>
         <button id="btnRequestedIMDetail" type="button" class="monthly-created-detail-button" aria-haspopup="dialog" aria-controls="requestedIMSheet">Ver detalle <span aria-hidden="true">↗</span></button>
       </article>
