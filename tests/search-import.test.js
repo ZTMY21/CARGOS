@@ -183,3 +183,24 @@ test('indexed search, transactional batch upsert, backups, stable IDs and audit 
   assert.equal((await query("select public from storage.buckets where id='respaldos-excel'"))[0].public,false);
  } finally {await db.close();}
 });
+
+
+test('búsqueda exacta de cargos cortos coincide con el Kardex aunque tenga ceros iniciales',()=>{
+  const docs=[
+    {id:'k203',kardex:'SA-02969',cargos:['0203'],imConfirmado:true,
+      imLiveCodigoCaja:'t2044019951',imLiveClasificacion:'POR SOLICITUD',imLiveFechaEnvio:''},
+    {id:'k204',kardex:'SA-02970',cargos:['0204'],imConfirmado:true,
+      imLiveCodigoCaja:'t2044019951',imLiveClasificacion:'POR SOLICITUD',imLiveFechaEnvio:''},
+    {id:'k7',kardex:'SA-02845',cargos:['0007'],imConfirmado:true,
+      imLiveCodigoCaja:'t2043962807',imLiveClasificacion:'POR SOLICITUD',imLiveFechaEnvio:''},
+    {id:'k1203',kardex:'SA-10000',cargos:['1203'],imConfirmado:true}
+  ];
+  const ids=query=>filterDocuments(docs,[],{query,type:'solo-cargos'}).map(d=>d.id);
+  assert.deepEqual(ids('203'),['k203']);
+  assert.deepEqual(ids('0203'),['k203']);
+  assert.deepEqual(ids('204'),['k204']);
+  assert.deepEqual(ids('7'),['k7']);
+  assert.deepEqual(ids('0007'),['k7']);
+  assert.deepEqual(ids('1203'),['k1203']);
+  assert.equal(filterDocuments(docs,[],{query:'203',type:'solo-cargos'})[0].estado,'Caja solicitada');
+});
