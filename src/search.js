@@ -1,4 +1,5 @@
 import { computeReqEstado, computeDocEstado, escapeHtml } from './rules.js';
+import { normalizeCargoIM } from './im-requests.js';
 
 export function normalizeSearch(value = '') {
   return String(value ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g,'')
@@ -84,12 +85,13 @@ export function filterDocuments(documents, requirements, filters, now=new Date()
   const cargoOnly=filters.type==='solo-cargos';
   const boxOnly=filters.type==='solo-cajas';
   const cargoQuery=normalizeSearch(filters.query);
+  const cargoCanonical=normalizeCargoIM(filters.query);
   const exactBox=boxOnly && cargoQuery && documents.some(d =>
     matchesAssignedBoxCode(assignedBoxCode(d,reqs),filters.query,true));
   // Si el código exacto existe, no incluir números parecidos como 1490
   // cuando se busca 490. Si no, permitir búsquedas parciales de cargos.
-  const hasExactCargo=cargoOnly && cargoQuery && documents.some(d=>
-    (d.cargos||[]).some(c=>normalizeSearch(c)===cargoQuery));
+  const hasExactCargo=cargoOnly && cargoCanonical && documents.some(d=>
+    (d.cargos||[]).some(c=>normalizeCargoIM(c)===cargoCanonical));
   return documents.map(d=>({...d,...computeDocEstado(d,now)})).filter(d=>{
     const fields=[d.kardex,...(d.cargos||[]),d.facturas,reqs.get(d.cajaAsignada),d.sustento,d.obs,d.usuario,d.tipoDoc,d.hojaOrigen].map(normalizeSearch);
     const periodYear=d.periodo?.slice(0,4);
@@ -104,7 +106,7 @@ export function filterDocuments(documents, requirements, filters, now=new Date()
         : !!assignedBoxCode(d,reqs))
       : cargoOnly
         ? (d.cargos||[]).some(c=>!cargoQuery || (hasExactCargo
-          ? normalizeSearch(c)===cargoQuery : normalizeSearch(c).includes(cargoQuery)))
+          ? normalizeCargoIM(c)===cargoCanonical : normalizeSearch(c).includes(cargoQuery)))
         : terms.every(t=>fields.some(field=>field.includes(t)));
     return matchesInvoice && matchesCargo
       && (!filters.state||d.estado===filters.state)
