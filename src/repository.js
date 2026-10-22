@@ -69,6 +69,7 @@ export class KardexRepository {
   async access() { return checked(await this.client.rpc('kardex_access')); }
   async preparedImDetails() { return checked(await this.client.rpc('kardex_prepared_im_detail')); }
   async requestedIMDetails() { return checked(await this.client.rpc('kardex_requested_im_detail')); }
+  async shippedIMBoxesMonthly() { return checked(await this.client.rpc('kardex_im_boxes_sent_monthly')); }
   async requestAdminAccess() { return checked(await this.client.rpc('kardex_admin_apply')); }
   async pendingAdminRequests() { return checked(await this.client.rpc('kardex_admin_pending')); }
   async reviewAdminRequest(id,approved) { return checked(await this.client.rpc('kardex_admin_review',{p_id:id,p_approve:approved})); }
