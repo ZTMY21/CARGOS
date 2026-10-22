@@ -8,7 +8,7 @@ export function renderImBarChart(container,labels,values,{accent='#208550',empty
   const svg=document.createElementNS(ns,'svg');
   svg.setAttribute('viewBox',`0 0 ${W} ${H}`);
   svg.setAttribute('role','img');
-  svg.setAttribute('aria-label','Gráfico de barras de cargos enviados a Iron Mountain');
+  svg.setAttribute('aria-label','Gráfico de barras de cajas enviadas a Iron Mountain');
   const add=(parent,tag,attributes={},content)=>{
     const e=document.createElementNS(ns,tag);
     for(const [k,v] of Object.entries(attributes))e.setAttribute(k,String(v));
@@ -32,17 +32,17 @@ export function renderImBarChart(container,labels,values,{accent='#208550',empty
   const tip=document.createElement('div');
   tip.className='im-shipped-tooltip';tip.hidden=true;
   const showTip=(i,v,cx,cy)=>{
-    tip.textContent=`${labels[i]}: ${fmt(v)} cargos enviados`;
+    tip.textContent=`${labels[i]}: ${fmt(v)} cajas enviadas`;
     tip.style.left=`${100*cx/W}%`;
     tip.style.top=`${100*cy/H}%`;
     tip.hidden=false;
   };
   visible.forEach(({value,i})=>{
     const center=L+span*(i+.5),barH=Math.max(value>0?3:0,B-y(value));
-    const group=add(svg,'g',{tabindex:0,'aria-label':`${labels[i]}: ${fmt(value)} cargos enviados`});
+    const group=add(svg,'g',{tabindex:0,'aria-label':`${labels[i]}: ${fmt(value)} cajas enviadas`});
     if(value>0)add(group,'rect',{x:center-width/2,y:B-barH,width,height:barH,rx:Math.min(5,width/5),fill:accent});
     add(group,'rect',{x:center-span*.44,y:T,width:span*.88,height:B-T,fill:'transparent'});
-    add(group,'title',{},`${labels[i]}: ${fmt(value)} cargos enviados`);
+    add(group,'title',{},`${labels[i]}: ${fmt(value)} cajas enviadas`);
     if(value>0)add(group,'text',{x:center,y:Math.max(T-9,B-barH-9),
       'text-anchor':'middle','font-size':11,'font-weight':800,fill:'#176b47'},fmt(value));
     const on=()=>showTip(i,value,center,Math.max(T+32,y(value)));
