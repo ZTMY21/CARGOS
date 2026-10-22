@@ -11,7 +11,7 @@ import { renderCargoLineChart } from './cargo-line-chart.js';
 import { summarizeShippedCargos } from './im-shipped-summary.js';
 import { renderImBarChart } from './im-bar-chart.js';
 import { cargoExpiryGroups, formatCargoDuration } from './cargo-expiry.js';
-import { requestedIMBoxes, countRequestedCargos } from './im-requests.js';
+import { requestedIMBoxes, countRequestedCargos, summarizePreparedIm } from './im-requests.js';
 
 const configuration = { url: __SUPABASE_URL__, key: __SUPABASE_ANON_KEY__ };
 // Capture recovery mode before the client consumes the email callback fragment.
@@ -40,6 +40,7 @@ let currentPage = 0;
 let expiryGroups = {today:'', overdue:[], upcoming:[], unknown:[]};
 let activeExpiryGroup = null, expiryPage = 0, expiryReturnButton = '';
 let preparedImRows = [], preparedImFetchEpoch = 0;
+let preparedImSummary = null, preparedImSummaryEpoch = 0;
 let requestedIMRows = [], requestedIMData = [], requestedIMError = '', requestedIMFetchEpoch = 0;
 const requestedDemo = new URLSearchParams(window.location.search).get('demo-solicitudes') === '1'
   && /-ztmy1\.vercel\.app$/i.test(window.location.hostname)
@@ -263,7 +264,10 @@ async function refreshData() {
       if(isAdmin) {
         void refreshGoogleSync();
         if (document.getElementById('preparedImSheet').open) void reloadPreparedImDetail();
-        if(appReady)void reloadRequestedIM();
+        if(appReady) {
+          void reloadPreparedImSummary();
+          void reloadRequestedIM();
+        }
       }
       const selected = document.getElementById('f_cajaAsignada').value;
       populateCajaAsignadaOptions(selected);
@@ -731,14 +735,10 @@ function renderDocs(){
   const grupoVencidos = expiryGroups.overdue;
   const cargosPorVencer = cargosDe(grupoPorVencer), foliosPorVencer = foliosDe(grupoPorVencer);
   const cargosVencidos = cargosDe(grupoVencidos), foliosVencidos = foliosDe(grupoVencidos);
-  // Preparación no equivale a envío. Las cajas sin fecha siguen pendientes
-  // y continúan en las alertas de vencimiento hasta su salida real.
-  const preparados=enriched.filter(d =>
-    (d.imLiveCodigoCaja && !d.imLiveFechaEnvio) ||
-    (d.imPreparado && !d.imConfirmado));
-  const cajasPreparadas=new Set(preparados.map(d=>String(
-    d.imLiveCodigoCaja||d.imCajaPreparada||'').trim().replace(/^[A-Z]+/i,'')).filter(Boolean)).size;
-  const cargosPreparados=cargosDe(preparados);
+  // Coincide exactamente con el detalle de cajas pendientes en la hoja IM.
+  // El histórico de documentos no es la fuente de este indicador.
+  const cajasPreparadas=preparedImSummary?.cajas;
+  const cargosPreparados=preparedImSummary?.cargos;
   const baseAlerta = cargosPorVencer + cargosVencidos;
 
   const pct = (n, base) => base > 0 ? Math.round((n/base)*100) + '%' : '0%';
@@ -823,7 +823,7 @@ function renderDocs(){
           <div class="l">Caja preparada para envío</div>
           <button id="btnPreparedImDetail" type="button" class="expiry-detail-button" data-prepared-im="detail" aria-label="Ver detalle de cajas preparadas para envío" aria-haspopup="dialog" aria-controls="preparedImSheet">Ver detalle</button>
         </div>
-        <div class="n">${fmtNum(cajasPreparadas)}<span class="folios-inline"> (${fmtNum(cargosPreparados)} cargos)</span></div>
+        <div class="n" id="preparedImSummaryMetric">${cajasPreparadas == null?'—':fmtNum(cajasPreparadas)}<span class="folios-inline"> (${cargosPreparados == null?'—':fmtNum(cargosPreparados)} cargos)</span></div>
         <div class="pct-txt">Sin fecha de envío · todavía pendientes de Iron Mountain</div>
       </div>
     </div>
@@ -1006,6 +1006,24 @@ function renderPreparedImDetail() {
       </div>
     </article>`;
   }).join(''):'<p class="prepared-im-message">No hay cajas preparadas que coincidan con esta búsqueda.</p>';
+}
+// Refresca el KPI usando la misma consulta que alimenta «Ver detalle».
+// Así los envíos con fecha dejan de contarse aunque no aparezcan en el Kardex histórico.
+async function reloadPreparedImSummary() {
+  if(!appReady || !isAdmin)return;
+  const epoch=++preparedImSummaryEpoch, generation=authGeneration;
+  try {
+    const rows=await repository.preparedImDetails();
+    if(epoch!==preparedImSummaryEpoch || generation!==authGeneration || !appReady || !isAdmin)return;
+    preparedImSummary=summarizePreparedIm(Array.isArray(rows)?rows:[]);
+  } catch(error) {
+    if(epoch!==preparedImSummaryEpoch || generation!==authGeneration || !appReady || !isAdmin)return;
+    preparedImSummary=null; // No presentar una cantidad anterior como actual.
+  }
+  const metric=document.getElementById('preparedImSummaryMetric');
+  if(metric)metric.innerHTML=
+    `${preparedImSummary?fmtNum(preparedImSummary.cajas):'—'}`+
+    `<span class="folios-inline"> (${preparedImSummary?fmtNum(preparedImSummary.cargos):'—'} cargos)</span>`;
 }
 async function reloadPreparedImDetail() {
   const dialog=document.getElementById('preparedImSheet');
@@ -1457,7 +1475,8 @@ async function handleSession(session) {
   if (user && currentUserId !== user.id) {
     clearInterval(adminRequestsTimer);adminRequestsTimer=null;adminRequestsEpoch++;setAdminRequestBadge(null);
     appReady = isAdmin = dataReady = false;
-    reqs = []; docs = []; renderReqs(); renderDocs(); setAvailability();
+    reqs = []; docs = []; preparedImSummary=null; ++preparedImSummaryEpoch;
+    renderReqs(); renderDocs(); setAvailability();
     showSessionLoading();
   }
   if (!user) {
@@ -1473,7 +1492,8 @@ async function handleSession(session) {
     clearTimeout(refreshTimer);
     if (realtimeChannel) { await supabase.removeChannel(realtimeChannel); realtimeChannel = null; }
     queryResults=null;queryError='';searchController?.abort();currentPage=0;
-    reqs = []; docs = []; cancelarEdicionDoc(); cancelarEdicionReq(); renderReqs(); renderDocs();
+    reqs = []; docs = []; preparedImSummary=null; ++preparedImSummaryEpoch;
+    cancelarEdicionDoc(); cancelarEdicionReq(); renderReqs(); renderDocs();
     showAuthPage(true);
     document.getElementById('sessionUser').textContent = '';
     document.getElementById('sessionProfile').hidden = true;
@@ -1509,6 +1529,7 @@ async function handleSession(session) {
     if (generation !== authGeneration) return;
     appReady = true;
     if(isAdmin) {
+      void reloadPreparedImSummary();
       void reloadRequestedIM();
       refreshGoogleSync();void refreshAdminRequests();
       clearInterval(adminRequestsTimer);
