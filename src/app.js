@@ -608,15 +608,30 @@ document.getElementById('monthlyCreatedSheet').addEventListener('click',event=>{
 
 let monthlyShippedSummary=null;
 let monthlyShippedFetchEpoch=0;
+let monthlyShippedError='';
 let monthlyShippedSelectedYear=null;
 function renderMonthlyShippedDetail(){
   const sheet=document.getElementById('monthlyShippedSheet');
-  if(!sheet.open || !monthlyShippedSummary)return;
+  if(!sheet.open)return;
+  const loadStatus=document.getElementById('imShippedLoadStatus');
+  if(!monthlyShippedSummary){
+    loadStatus.hidden=false;
+    loadStatus.textContent=monthlyShippedError ||
+      'Cargando el historial de cajas enviadas por mes y año…';
+    document.getElementById('imShippedMonthChart').replaceChildren();
+    document.getElementById('imShippedYearChart').replaceChildren();
+    document.getElementById('imShippedTotalValue').textContent='—';
+    document.getElementById('imShippedAverage').textContent='—';
+    document.getElementById('imShippedLast').textContent='—';
+    return;
+  }
+  loadStatus.hidden=true;
   const stats=monthlyShippedSummary;
   const yearSelect=document.getElementById('imShippedYearSelect');
   const allowedYears=stats.annual.filter(row=>row.count>0||row.year===stats.currentYear).map(row=>row.year);
   if(!allowedYears.includes(monthlyShippedSelectedYear))
-    monthlyShippedSelectedYear=stats.currentYear;
+    monthlyShippedSelectedYear=stats.annual.filter(item=>item.count>0).at(-1)?.year
+      ?? stats.currentYear;
   const yearsKey=allowedYears.join(',');
   if(yearSelect.dataset.years!==yearsKey){
     yearSelect.replaceChildren();
@@ -661,9 +676,13 @@ function renderMonthlyShippedDetail(){
 }
 document.getElementById('btnMonthlyShippedDetail').addEventListener('click',()=>{
   if(!appReady||!isAdmin)return;
-  monthlyShippedSelectedYear=monthlyShippedSummary?.currentYear??null;
+  monthlyShippedSelectedYear=monthlyShippedSummary?.annual.filter(item=>item.count>0).at(-1)?.year
+    ?? monthlyShippedSummary?.currentYear??null;
   document.getElementById('monthlyShippedSheet').showModal();
   renderMonthlyShippedDetail();
+  // Leer el historial al abrir también, sin depender de que haya terminado
+  // de cargar en segundo plano durante el inicio de sesión.
+  void reloadShippedBoxesSummary();
 });
 document.getElementById('btnCloseMonthlyShipped').addEventListener('click',()=>{
   document.getElementById('monthlyShippedSheet').close();
@@ -684,9 +703,12 @@ async function reloadShippedBoxesSummary(){
     if(epoch!==monthlyShippedFetchEpoch||generation!==authGeneration||!appReady||!isAdmin)return;
     if(!Array.isArray(rows))throw new Error('Respuesta inválida de envíos mensuales IM');
     monthlyShippedSummary=summarizeShippedBoxes(rows,new Date());
+    monthlyShippedError='';
   }catch(error){
     if(epoch!==monthlyShippedFetchEpoch||generation!==authGeneration||!appReady||!isAdmin)return;
     monthlyShippedSummary=null; // No confundir una lectura fallida con cero envíos.
+    monthlyShippedError='No se pudo cargar el historial IM: '+readableError(error)+
+      '. Vuelve a abrir «Ver detalle» para reintentar.';
   }
   renderMonthlyCargoStats();
 }
@@ -1497,7 +1519,7 @@ async function handleSession(session) {
     clearInterval(adminRequestsTimer);adminRequestsTimer=null;adminRequestsEpoch++;setAdminRequestBadge(null);
     appReady = isAdmin = dataReady = false;
     reqs = []; docs = []; preparedImSummary=null; ++preparedImSummaryEpoch;
-    monthlyShippedSummary=null; ++monthlyShippedFetchEpoch;
+    monthlyShippedSummary=null;monthlyShippedError=''; ++monthlyShippedFetchEpoch;
     requestedIMRows=[];requestedIMData=[];requestedIMLoaded=false;requestedIMError=''; ++requestedIMFetchEpoch;
     renderReqs(); renderDocs(); setAvailability();
     showSessionLoading();
@@ -1516,7 +1538,7 @@ async function handleSession(session) {
     if (realtimeChannel) { await supabase.removeChannel(realtimeChannel); realtimeChannel = null; }
     queryResults=null;queryError='';searchController?.abort();currentPage=0;
     reqs = []; docs = []; preparedImSummary=null; ++preparedImSummaryEpoch;
-    monthlyShippedSummary=null; ++monthlyShippedFetchEpoch;
+    monthlyShippedSummary=null;monthlyShippedError=''; ++monthlyShippedFetchEpoch;
     requestedIMRows=[];requestedIMData=[];requestedIMLoaded=false;requestedIMError=''; ++requestedIMFetchEpoch;
     cancelarEdicionDoc(); cancelarEdicionReq(); renderReqs(); renderDocs();
     showAuthPage(true);
