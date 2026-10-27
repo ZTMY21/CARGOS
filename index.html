@@ -620,6 +620,16 @@
     #monthlyShippedSheet .im-shipped-chart-heading{flex-wrap:wrap;}
     #monthlyShippedSheet .im-shipped-kpi{padding:8px;}
   }
+
+  /* Cargos anteriores detectados por coincidencia exacta de factura, boleta o guia. */
+  .previous-cargo-cell{min-width:122px;max-width:235px;vertical-align:middle;}
+  .previous-cargo-tags{display:flex;flex-wrap:wrap;align-items:center;gap:4px;}
+  .previous-cargo-id{display:inline-block;color:#bc1f2b;background:#fff0f1;border:1px solid #ecc1c4;border-radius:5px;padding:3px 6px;font-weight:750;font-size:12px;white-space:nowrap;}
+  .previous-cargo-id small{font-size:10px;font-weight:600;}
+  .previous-cargo-more{font-size:11px;color:#b1222b;font-weight:700;}
+  .previous-cargo-none{color:#8893a2;}
+  .previous-cargo-pending{color:#8893a2;font-size:12px;}
+  .previous-cargo-error{color:#8a6671;font-size:11px;}
 </style>
 </head>
 <body>
@@ -974,7 +984,7 @@
         <table id="docsTable">
           <thead><tr>
             <th>Kardex</th><th>Fecha Reg.</th><th>Tipo Doc.</th><th>Período</th>
-            <th>Cargos</th><th>Facturas</th><th>Caja Asignada</th><th>F. Envío</th><th>Estado</th><th>Antigüedad (meses)</th><th>Responsable</th><th></th>
+            <th>Cargos</th><th>Facturas</th><th>Caja Asignada</th><th>F. Envío</th><th>Estado</th><th>Cargo anterior</th><th>Responsable</th><th></th>
           </tr></thead>
           <tbody id="tbody"><tr><td colspan="12" class="loading">Cargando registros…</td></tr></tbody>
         </table>

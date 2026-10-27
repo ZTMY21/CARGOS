@@ -2,7 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import { computeReqEstado as reqEstado, computeDocEstado as docEstado, fmtDate, escapeHtml, limaDate } from './rules.js';
 import { KardexRepository, reqFromDb, docFromDb } from './repository.js';
 import { buildCargoWorkbook, parseWorkbook } from './excel-api.js';
-import { highlightMatch, filterDocuments, filterRequirements, invoiceSearchPresentation, assignedBoxCode } from './search.js';
+import { highlightMatch, normalizeSearch, filterDocuments, filterRequirements, invoiceSearchPresentation, assignedBoxCode } from './search.js';
 import './connection.css';
 import { createIdleSession } from './idle-session.js';
 import { cargoYear, locationLabel, groupsForCodes } from './cargo-details.js';
@@ -36,6 +36,68 @@ let refreshRequested = false;
 let authGeneration = 0, currentUserId = null;
 let pendingReqId = null, pendingDocId = null;
 let queryResults = null, queryError = '', searchEpoch = 0, searchController = null;
+
+const previousCargoCache=new Map(),previousCargoPending=new Map();
+let previousCargoEpoch=0;
+function clearPreviousCargoCache(){
+  previousCargoCache.clear();previousCargoPending.clear();previousCargoEpoch++;
+}
+function previousCargoSignature(doc){
+  return [doc.id,doc.updatedAt||'',doc.fechaOrigen||'',(doc.cargos||[]).join('|')].join('~');
+}
+function previousCargoMarkup(items,invoiceCodes=[]){
+  const matched=new Set(invoiceCodes.map(normalizeSearch).filter(Boolean));
+  if(!Array.isArray(items)||!items.length)return '<span class="previous-cargo-none">—</span>';
+  const seen=new Set(),data=[];
+  for(const row of items){
+    const cargo=String(row?.cargo??'').trim(),year=Number(row?.anio);
+    if(!cargo||cargo.length>80)continue;
+    if(matched.size && !(row?.codigos||[]).some(code=>matched.has(normalizeSearch(code))))continue;
+    const anio=Number.isInteger(year)&&year>=1900&&year<=2200?year:null;
+    const key=cargo+'|'+String(anio||'');
+    if(seen.has(key))continue;
+    seen.add(key);
+    data.push({cargo,anio,count:Math.max(0,Number(row?.coincidencias)||0)});
+  }
+  if(!data.length)return '<span class="previous-cargo-none">—</span>';
+  const title=data.map(x=>x.cargo+(x.anio?' ('+x.anio+')':'')).join(', ');
+  const list=data.slice(0,3).map(x=>
+    '<span class="previous-cargo-id" title="'+escapeHtml(x.count+' documento(s) coincidente(s)')+'">'
+    +escapeHtml(x.cargo)+(x.anio?'<small> ('+x.anio+')</small>':'')+'</span>').join('');
+  return '<span class="previous-cargo-tags" title="'+escapeHtml('Cargos anteriores: '+title)+'">'
+    +list+(data.length>3?'<span class="previous-cargo-more" title="'+escapeHtml(title)+'">+'+(data.length-3)+' más</span>':'')+'</span>';
+}
+function fetchPreviousCargos(rows){
+  if(!repository?.previousCargos||!currentUserId||!rows.length)return;
+  const pending=rows.filter(d=>previousCargoCache.get(d.id)?.signature!==previousCargoSignature(d)
+    && !previousCargoPending.has(d.id)).slice(0,100);
+  if(!pending.length)return;
+  const epoch=previousCargoEpoch,generation=authGeneration;
+  const ids=pending.map(d=>d.id),signatures=new Map(pending.map(d=>[d.id,previousCargoSignature(d)]));
+  ids.forEach(id=>previousCargoPending.set(id,epoch));
+  void Promise.resolve().then(()=>repository.previousCargos(ids)).then(data=>{
+    if(epoch!==previousCargoEpoch||generation!==authGeneration||!currentUserId)return;
+    const result=data&&typeof data==='object'&&!Array.isArray(data)?data:{};
+    for(const d of pending)previousCargoCache.set(d.id,{
+      signature:signatures.get(d.id),items:Array.isArray(result[d.id])?result[d.id]:[]
+    });
+    document.querySelectorAll('[data-previous-cargo-id]').forEach(cell=>{
+      const id=cell.dataset.previousCargoId;
+      if(signatures.has(id)&&previousCargoCache.get(id)?.signature===signatures.get(id))
+        cell.innerHTML=previousCargoMarkup(previousCargoCache.get(id).items,
+          (cell.dataset.matchedInvoiceCodes||'').split(',').filter(Boolean));
+    });
+  }).catch(()=>{
+    if(epoch!==previousCargoEpoch||generation!==authGeneration)return;
+    document.querySelectorAll('[data-previous-cargo-id]').forEach(cell=>{
+      if(ids.includes(cell.dataset.previousCargoId))
+        cell.innerHTML='<span class="previous-cargo-error">No disponible</span>';
+    });
+  }).finally(()=>ids.forEach(id=>{
+    if(previousCargoPending.get(id)===epoch)previousCargoPending.delete(id);
+  }));
+}
+
 let currentPage = 0;
 let expiryGroups = {today:'', overdue:[], upcoming:[], unknown:[]};
 let activeExpiryGroup = null, expiryPage = 0, expiryReturnButton = '';
@@ -260,6 +322,7 @@ async function refreshData() {
       }
       await loadReqs(snapshot);
       await loadDocs(snapshot);
+      clearPreviousCargoCache();
       populateYearOptions();
       renderReqs(); renderDocs();
       if(isAdmin) {
@@ -911,9 +974,6 @@ function renderDocs(){
     tbody.innerHTML = `<tr><td colspan="${showLocationColumn?13:12}" class="empty">${escapeHtml(queryError||'Sin registros que coincidan con la consulta actual.')}</td></tr>`;
   } else {
     tbody.innerHTML = filtered.map(d=>{
-      const alertaTxt = (typeof d.antiguedad === 'number') ? d.antiguedad : d.antiguedad;
-      const alertaClass = (typeof d.antiguedad === 'number' && d.antiguedad > 6) ? 'alerta-neg'
-        : (typeof d.antiguedad === 'number' && d.antiguedad >= 5) ? 'alerta-warn' : 'alerta-pos';
       const cajaTxt = d.imLiveCodigoCaja || assignedBoxCode(d,reqs) || '—';
       const fechaEnvioTxt = d.imLiveCodigoCaja ? d.imLiveFechaEnvio
         : d.imConfirmado ? d.imFechaEnvio : d.fEnvio;
@@ -928,6 +988,12 @@ function renderDocs(){
       const invoiceView=['solo-cargos','solo-cajas'].includes(filters.type)
         ? {...invoiceSearchPresentation(d,''),kind:'cargo',codes:[]}
         : invoiceSearchPresentation(d,search);
+      const matchedInvoiceCodes=invoiceView.kind==='invoice'?invoiceView.codes.map(normalizeSearch):[];
+      const cachedPrevious=previousCargoCache.get(d.id);
+      const previousCargoHtml=cachedPrevious?.signature===previousCargoSignature(d)
+        ? previousCargoMarkup(cachedPrevious.items,matchedInvoiceCodes)
+        : repository?.previousCargos ? '<span class="previous-cargo-pending">Consultando…</span>'
+        : '<span class="previous-cargo-none">—</span>';
       // Do not calculate group locations unless the document-code column is visible.
       const groupLocation=showLocationColumn && invoiceView.kind!=='cargo'
         ? (d.ubicacionesCodigo
@@ -952,7 +1018,7 @@ function renderDocs(){
         <td>${highlightMatch(cajaTxt,search)}</td>
         <td>${fmtDate(fechaEnvioTxt)}</td>
         <td><span class="badge ${docBadgeClass(d.estado)}">${escapeHtml(estadoTxt)}</span></td>
-        <td class="${alertaClass}">${alertaTxt}</td>
+        <td class="previous-cargo-cell" data-previous-cargo-id="${escapeHtml(d.id)}" data-matched-invoice-codes="${escapeHtml(matchedInvoiceCodes.join(','))}">${previousCargoHtml}</td>
         <td>${highlightMatch(responsableTxt||'',search)}</td>
         <td>
           <button class="secondary" data-export-cargo="${d.id}" ${!d.cargos?.length?'disabled title="Este registro no tiene cargo asignado"':''}>Exportar este cargo</button>
@@ -961,6 +1027,7 @@ function renderDocs(){
         </td>
       </tr>`;
     }).join('');
+    fetchPreviousCargos(filtered);
   }
 
   tbody.querySelectorAll('button.danger').forEach(btn=>{
@@ -1516,6 +1583,7 @@ async function handleSession(session) {
     setAvailability(); return;
   }
   if (user && currentUserId !== user.id) {
+    clearPreviousCargoCache();
     clearInterval(adminRequestsTimer);adminRequestsTimer=null;adminRequestsEpoch++;setAdminRequestBadge(null);
     appReady = isAdmin = dataReady = false;
     reqs = []; docs = []; preparedImSummary=null; ++preparedImSummaryEpoch;
@@ -1525,6 +1593,7 @@ async function handleSession(session) {
     showSessionLoading();
   }
   if (!user) {
+    clearPreviousCargoCache();
     clearInterval(adminRequestsTimer);adminRequestsTimer=null;adminRequestsEpoch++;setAdminRequestBadge(null);
     document.getElementById('adminRequestsPanel').hidden=true;
     idleSession.stop();

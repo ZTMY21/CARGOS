@@ -7,7 +7,7 @@ import {JSDOM} from 'jsdom';
 import {computeReqEstado as reqEstado,computeDocEstado as docEstado,fmtDate,escapeHtml,limaDate} from '../src/rules.js';
 import {reqFromDb,docFromDb,KardexRepository} from '../src/repository.js';
 import {buildWorkbook,parseWorkbook} from '../src/excel.js';
-import {highlightMatch,filterDocuments,filterRequirements,invoiceSearchPresentation,assignedBoxCode} from '../src/search.js';
+import {highlightMatch,normalizeSearch,filterDocuments,filterRequirements,invoiceSearchPresentation,assignedBoxCode} from '../src/search.js';
 import {createIdleSession} from '../src/idle-session.js';
 import {cargoYear,invoiceLocation,locationLabel,groupsForCodes} from '../src/cargo-details.js';
 import {cargoExpiryGroups,formatCargoDuration} from '../src/cargo-expiry.js';
@@ -21,7 +21,7 @@ const flush=()=>new Promise(resolve=>setTimeout(resolve,20));
 const reqRow={id:randomUUID(),numero:'REQ-00001',tipo:'Cajas nuevas para acondicionar',fecha_solicitud:'2026-10-01',cantidad_cajas:2,numeros_cargo:'',fecha_recepcion:'2026-10-02',fecha_devolucion:null,usuario:'Juan',updated_at:'2026-10-13T00:00:00.123456Z'};
 const docRow={id:randomUUID(),kardex:'SA-00001',fecha_registro:'2026-10-13',tipo_doc:'Facturas-Guia',periodo:'2026-01-01',ubicacion:'Santa Anita',folios:30,cargos:['C001'],caja_asignada:reqRow.id,f_envio:null,sustento:'',sustento_imagen:'',usuario:'Juan',facturas:'F-001',obs:'',updated_at:'2026-10-13T00:00:00.123456Z'};
 
-async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recovery=false,adminLink='',loginError=null,enableSearch=false,username='',now=Date.now()}={}) {
+async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recovery=false,adminLink='',loginError=null,enableSearch=false,username='',previousMapping={},now=Date.now()}={}) {
   const html=await readFile(new URL('../index.html',import.meta.url),'utf8');
   const source=(await readFile(new URL('../src/app.js',import.meta.url),'utf8')).replace(/^import .*;\n/gm,'');
   const dom=new JSDOM(html,{url:'https://kardex.example.test'+adminLink+(recovery?'#type=recovery':''),runScripts:'outside-only'});
@@ -33,7 +33,7 @@ async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recov
   state.syncRow={enabled:true,status:'Revisión completada: 276 cargos ya registrados. 1480 filas pendientes.',
     last_checked_at:'2026-10-17T03:09:17Z',
     last_result:{groups:276,pending_rows:1480,conflictos:0,cargos_nuevos:0,cargos_actualizados:0}};
-  state.authCalls=[];state.exportCalls=[];state.searchCalls=[];state.now=now;
+  state.authCalls=[];state.exportCalls=[];state.searchCalls=[];state.previousCalls=[];state.now=now;
   dom.window.URL.createObjectURL=()=> 'blob:test';dom.window.URL.revokeObjectURL=()=>{};
   dom.window.HTMLAnchorElement.prototype.click=function(){state.downloadName=this.download;};
   const client={
@@ -56,6 +56,10 @@ async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recov
     async preparedImDetails(){state.preparedImCalls=(state.preparedImCalls||0)+1;return structuredClone(state.preparedImRows||[]);}
     async requestedIMDetails(){state.requestedImCalls=(state.requestedImCalls||0)+1;return structuredClone(state.requestedImRows||[]);}
     async shippedIMBoxesMonthly(){state.shippedImCalls=(state.shippedImCalls||0)+1;return structuredClone(state.shippedIMRows||[]);}
+    async previousCargos(ids){
+      state.previousCalls.push([...ids]);
+      return Object.fromEntries(ids.map(id=>[id,structuredClone(previousMapping[id]||[])]));
+    }
     async requestAdminAccess(){state.adminApplications=(state.adminApplications||0)+1;return {estado:'pendiente'};}
     async pendingAdminRequests(){if(state.adminRequestsError)throw new Error('Sin conexión');return state.adminPendingRequests||[];}
     async reviewAdminRequest(id,approved){(state.adminDecisions??=[]).push({id,approved});state.adminPendingRequests=(state.adminPendingRequests||[]).filter(req=>req.id!==id);return {estado:approved?'aprobado':'rechazado'};}
@@ -83,7 +87,7 @@ async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recov
   context.setInterval=(callback,delay)=>{state.intervals.push({callback,delay});return scheduleInterval(callback,delay);};
   context.Date=class extends Date {constructor(...args){super(...(args.length?args:[state.now]));}static now(){return state.now;}};
   Object.assign(context,{cargoExpiryGroups,formatCargoDuration,limaDate,requestedIMBoxes,countRequestedCargos,summarizePreparedIm,summarizeShippedBoxes,summarizeCreatedCargos,renderImBarChart,renderCargoLineChart});
-  Object.assign(context,{createIdleSession:options=>createIdleSession({...options,now:()=>state.now}),createClient:()=>client,KardexRepository:FakeRepository,reqFromDb,docFromDb,reqEstado,docEstado,fmtDate,escapeHtml,invoiceSearchPresentation,buildWorkbook:async(...args)=>{state.exportCalls.push(args);return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},buildCargoWorkbook:async(cargo)=>{state.guestExport=cargo;return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},parseWorkbook,highlightMatch,filterDocuments,filterRequirements,assignedBoxCode,cargoYear,invoiceLocation,locationLabel,groupsForCodes,
+  Object.assign(context,{createIdleSession:options=>createIdleSession({...options,now:()=>state.now}),createClient:()=>client,KardexRepository:FakeRepository,reqFromDb,docFromDb,reqEstado,docEstado,fmtDate,escapeHtml,invoiceSearchPresentation,buildWorkbook:async(...args)=>{state.exportCalls.push(args);return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},buildCargoWorkbook:async(cargo)=>{state.guestExport=cargo;return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},parseWorkbook,highlightMatch,normalizeSearch,filterDocuments,filterRequirements,assignedBoxCode,cargoYear,invoiceLocation,locationLabel,groupsForCodes,
     __SUPABASE_URL__:'https://example.supabase.co',__SUPABASE_ANON_KEY__:'sb_publishable_test',confirm:()=>true,alert:()=>{}});
   await vm.runInContext(`(async()=>{${source}})()`,context);
   const node=id=>dom.window.document.getElementById(id);
@@ -283,6 +287,59 @@ test('registro de invitado se abre aparte, valida datos y envía enlace',async()
     a.node('btnBackLogin').click();
     assert.equal(a.node('authOverlay').hidden,false);
     assert.equal(a.node('registerOverlay').hidden,true);
+  }finally{a.close();}
+});
+
+
+test('Cargo anterior sustituye antigüedad y muestra coincidencias exactas en rojo a administrador e invitado',async()=>{
+  for(const isAdmin of [true,false]){
+    const a=await app({isAdmin,previousMapping:{[docRow.id]:[
+      {cargo:'0254',anio:2024,coincidencias:1},
+      {cargo:'933',anio:2026,coincidencias:2}
+    ]}});
+    try{
+      await flush();
+      assert.match(a.dom.window.document.querySelector('#docsTable thead').textContent,/Cargo anterior/);
+      assert.doesNotMatch(a.dom.window.document.querySelector('#docsTable thead').textContent,/Antigüedad/);
+      const previous=a.dom.window.document.querySelector('[data-previous-cargo-id]');
+      assert.ok(previous);
+      assert.deepEqual([...previous.querySelectorAll('.previous-cargo-id')].map(el=>el.textContent),['0254 (2024)','933 (2026)']);
+      assert.equal(previous.querySelectorAll('.previous-cargo-id').length,2);
+      assert.ok(a.state.previousCalls.some(ids=>ids.includes(docRow.id)));
+    }finally{a.close();}
+  }
+});
+test('Cargo anterior muestra raya cuando no hay coincidencias, escapando datos no confiables',async()=>{
+  const clean=await app({previousMapping:{[docRow.id]:[]}});
+  try {
+    await flush();
+    assert.equal(clean.dom.window.document.querySelector('[data-previous-cargo-id]').textContent,'—');
+  } finally {clean.close();}
+  const risky=await app({previousMapping:{[docRow.id]:[{cargo:'<img src=x onerror=alert(1)>',anio:2025,coincidencias:1}]}});
+  try {
+    await flush();
+    const cell=risky.dom.window.document.querySelector('[data-previous-cargo-id]');
+    assert.ok(cell.textContent.includes('<img src=x'));
+    assert.equal(cell.querySelector('img'),null);
+  } finally {risky.close();}
+});
+
+
+test('al buscar una factura concreta solo aparece el cargo anterior de esa factura',async()=>{
+  const a=await app({enableSearch:true,previousMapping:{[docRow.id]:[
+    {cargo:'0110',anio:2025,coincidencias:1,codigos:['f001']},
+    {cargo:'0210',anio:2025,coincidencias:1,codigos:['f002']}
+  ]}});
+  try{
+    await flush();
+    const input=a.node('buscar');
+    input.value='F-001';
+    a.node('btnBuscar').click();
+    await flush();await flush();
+    const previous=a.dom.window.document.querySelector('[data-previous-cargo-id]');
+    assert.ok(previous);
+    assert.match(previous.textContent,/0110/);
+    assert.doesNotMatch(previous.textContent,/0210/);
   }finally{a.close();}
 });
 
