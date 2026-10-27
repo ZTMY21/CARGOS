@@ -1,20 +1,20 @@
 // Gráfico SVG sin dependencias. Se utiliza únicamente en la ventana «Ver detalle».
-export function renderCargoLineChart(surface,legend,categories,lines,{showLabels=false}={}){
+export function renderCargoLineChart(surface,legend,categories,lines,{showLabels=false, unit='cargos', highlightIndex=null}={}){
   surface.replaceChildren();
   legend.replaceChildren();
   const W=960,H=360,L=62,R=930,T=40,B=294;
   const numbers=lines.flatMap(line=>line.values).filter(value=>Number.isFinite(value));
   const max=Math.max(1,...numbers);
   const scale=Math.pow(10,Math.floor(Math.log10(max/5)));
-  const step=([1,2,2.5,5,10].find(k=>k*scale>=max/5)||10)*scale;
-  const ceiling=Math.ceil(max/step)*step;
+  const step=max<=5?1:([1,2,2.5,5,10].find(k=>k*scale>=max/5)||10)*scale;
+  const ceiling=max<=5?5:Math.ceil(max/step)*step;
   const X=i=>L+(R-L)*(categories.length===1?0.5:i/(categories.length-1));
   const Y=v=>B-(B-T)*v/ceiling;
   const NS='http://www.w3.org/2000/svg';
   const svg=document.createElementNS(NS,'svg');
   svg.setAttribute('viewBox',`0 0 ${W} ${H}`);
   svg.setAttribute('role','img');
-  svg.setAttribute('aria-label','Gráfico de líneas de cargos por periodo');
+  svg.setAttribute('aria-label','Gráfico de líneas de '+unit+' por periodo');
   const add=(parent,tag,attributes={},label)=>{
     const el=document.createElementNS(NS,tag);
     for(const [key,value] of Object.entries(attributes))el.setAttribute(key,String(value));
@@ -28,6 +28,10 @@ export function renderCargoLineChart(surface,legend,categories,lines,{showLabels
       add(svg,'rect',{x:X(i)-width/2,y:T-15,width,height:B-T+16,fill:'#f7f9fb'});
     }
   });
+  if(Number.isInteger(highlightIndex) && highlightIndex>=0 && highlightIndex<categories.length) {
+    const bandWidth=(R-L)/Math.max(1,categories.length-1);
+    add(svg,'rect',{x:X(highlightIndex)-bandWidth/2,y:T-15,width:bandWidth,height:B-T+16,fill:'#fff0f2'});
+  }
   for(let mark=0;mark<=ceiling+0.00001;mark+=step){
     const cy=Y(mark);
     add(svg,'line',{x1:L,y1:cy,x2:R,y2:cy,stroke:'#dae5ee','stroke-width':1,'stroke-dasharray':'4 5'});
@@ -55,15 +59,15 @@ export function renderCargoLineChart(surface,legend,categories,lines,{showLabels
     for(const p of valid){
       if(!p)continue;
       const [cx,cy,value,i]=p;
-      const group=add(svg,'g',{tabindex:0,'aria-label':`${line.label}, ${categories[i]}: ${fmt(value)} cargos`});
+      const group=add(svg,'g',{tabindex:0,'aria-label':`${line.label}, ${categories[i]}: ${fmt(value)} ${unit}`});
       add(group,'circle',{cx,cy,r:12,fill:'transparent'});
       add(group,'circle',{cx,cy,r:showLabels?4.7:4,fill:'#fff',stroke:line.color,'stroke-width':2.8});
-      add(group,'title',{},`${line.label} · ${categories[i]}: ${fmt(value)} cargos`);
+      add(group,'title',{},`${line.label} · ${categories[i]}: ${fmt(value)} ${unit}`);
       if(showLabels)add(group,'text',{
         x:cx,y:Math.max(T-8,cy-13),'text-anchor':'middle','font-size':12,'font-weight':800,fill:line.color
       },fmt(value));
       const showTip=()=>{
-        tip.textContent=`${line.label} · ${categories[i]}: ${fmt(value)} cargos`;
+        tip.textContent=`${line.label} · ${categories[i]}: ${fmt(value)} ${unit}`;
         tip.style.left=`${cx/W*100}%`;
         tip.style.top=`${(cy+2)/H*100}%`;
         tip.hidden=false;
