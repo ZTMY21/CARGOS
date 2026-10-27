@@ -157,3 +157,18 @@ mark{background:var(--yellow-bg);color:var(--navy-dark);font-weight:700;border-r
 .prepared-im-list .prepared-im-message{font-size:13px;color:#475569;padding:18px;text-align:center;}
 @media(max-width:790px){.prepared-im-fields{grid-template-columns:repeat(2,minmax(0,1fr));}}
 @media(max-width:500px){.prepared-im-fields{grid-template-columns:1fr;}.prepared-im-list{max-height:57vh;}.prepared-im-toolbar .excel-link-button{width:100%;}}
+
+
+/* Registro separado del inicio de sesión. */
+#registerOverlay .registration-card{max-width:440px}
+#registerOverlay .registration-heading{display:flex;gap:14px;align-items:center;margin-bottom:13px}
+#registerOverlay .registration-heading img{object-fit:contain;flex-shrink:0}
+#registerOverlay .registration-heading .auth-brand{margin:0 0 5px!important}
+#registerOverlay .registration-heading h2{margin:0}
+#registerOverlay #registerDescription{margin:0 0 17px}
+#registerOverlay .auth-card select{box-sizing:border-box;width:100%;height:44px;border:1px solid #dce1e7;border-radius:5px;background:#fff;padding:10px 12px;font-size:13px;color:#1b2533}
+#registerOverlay .registration-help{font-size:11px;margin:5px 0 13px;color:#607086}
+#registerOverlay .register-primary{background:#d9291e;color:white;border:1px solid #d9291e;font-weight:650}
+#registerOverlay .register-primary:hover{background:#bd241b}
+#registerOverlay #btnBackLogin{margin-top:13px}
+#registerOverlay .password-toggle{font-size:17px}
