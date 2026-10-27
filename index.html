@@ -837,6 +837,14 @@
   .created-dashboard-plot-heading>span{display:block;margin-top:5px}
 }
 @media(prefers-reduced-motion:reduce){#sidebarCollapseButton{transition:none}}
+
+/* Vista previa: semántica visual de variaciones en el flujo de cargos. */
+.created-dashboard-stats .created-stat[data-trend="up"] strong{color:#218652}
+.created-dashboard-stats .created-stat[data-trend="down"] strong{color:#bd3449}
+.created-dashboard-stats .created-stat[data-trend="flat"] strong,
+.created-dashboard-stats .created-stat[data-trend="unavailable"] strong{color:#60788e}
+.created-dashboard-stats .created-stat small{overflow-wrap:anywhere}
+.created-dashboard-stats .created-stat>span{line-height:1.45}
 </style>
 </head>
 <body>
@@ -1138,11 +1146,11 @@
           <h2>Cargos realizados</h2>
           <p>Consulta el avance mensual e histórico de los cargos registrados en CD Santa Anita.</p>
         </div>
-        <div class="created-dashboard-stats">
-          <div class="created-stat"><small>CARGOS REALIZADOS EN EL PERÍODO</small><strong id="createdDashboardSelected">—</strong><span>Según el filtro seleccionado</span></div>
-          <div class="created-stat"><small>TOTAL DE CARGOS DEL AÑO</small><strong id="createdDashboardAnnual">—</strong><span>Incluye cargos sin mes válido</span></div>
-          <div class="created-stat"><small>CON FECHA VÁLIDA DEL AÑO</small><strong id="createdDashboardDated">—</strong><span>Cargos distribuidos por mes</span></div>
-          <div class="created-stat"><small>SIN FECHA ORIGINAL VÁLIDA</small><strong id="createdDashboardUndated">—</strong><span>Conservados en el histórico</span></div>
+        <div class="created-dashboard-stats" aria-live="polite" aria-label="Indicadores del período seleccionado">
+          <div class="created-stat"><small id="createdDashboardSelectedLabel">CARGOS DEL MES SELECCIONADO</small><strong id="createdDashboardSelected">—</strong><span id="createdDashboardSelectedNote">Según el filtro seleccionado</span></div>
+          <div class="created-stat"><small id="createdDashboardPreviousLabel">CARGOS DEL MES ANTERIOR</small><strong id="createdDashboardAnnual">—</strong><span id="createdDashboardPreviousNote">Período anterior</span></div>
+          <div class="created-stat"><small id="createdDashboardVariationLabel">VARIACIÓN MENSUAL</small><strong id="createdDashboardDated">—</strong><span id="createdDashboardVariationNote">Comparación entre períodos</span></div>
+          <div class="created-stat"><small id="createdDashboardAccumulatedLabel">ACUMULADO DEL AÑO</small><strong id="createdDashboardUndated">—</strong><span id="createdDashboardAccumulatedNote">Enero hasta el mes seleccionado</span></div>
         </div>
         <div class="created-dashboard-filters" aria-label="Filtros del Dashboard General">
           <div class="created-filter-heading">
