@@ -15,6 +15,7 @@ export function createCreatedDashboard() {
   let selectedYear=null;
   let selectedMonth=null;
   let data=null;
+  let lastChartWidth=0;
   function render(){
     if(!data)return;
     const years=data.annual.map(v=>v.year);
@@ -57,9 +58,15 @@ export function createCreatedDashboard() {
     status.hidden=true;
     surface.hidden=false;
     legend.hidden=false;
+    // Adaptar el lienzo al ancho REAL disponible, también al contraer el menú
+    // o cambiar el zoom del navegador. La altura no queda limitada a 340px.
+    const measuredWidth=Math.round(surface.getBoundingClientRect().width);
+    const chartWidth=Math.max(700,measuredWidth||960);
+    const chartHeight=Math.round(Math.min(560,Math.max(430,chartWidth*0.51)));
     renderCargoLineChart(surface,legend,MONTHS.slice(0,range),[
-      {label:String(selectedYear),color:'#c6253e',values, width:3}
-    ],{showLabels:true});
+      {label:String(selectedYear),color:'#c6253e',values,width:3.4}
+    ],{showLabels:true,width:chartWidth,height:chartHeight,fontSize:14});
+    lastChartWidth=measuredWidth;
   }
   yearEl.addEventListener('change',()=>{
     selectedYear=Number(yearEl.value);
@@ -70,6 +77,17 @@ export function createCreatedDashboard() {
     selectedMonth=monthEl.value==='all'?0:Number(monthEl.value);
     render();
   });
+  // Sólo vuelve a dibujar si cambia el ancho, no si cambia la altura del SVG.
+  // Esto evita bucles de ResizeObserver en Chrome y mantiene filtros intactos.
+  if(typeof ResizeObserver!=='undefined'){
+    const resizeObserver=new ResizeObserver(entries=>{
+      const width=Math.round(entries[0]?.contentRect?.width||0);
+      if(data && width>0 && Math.abs(width-lastChartWidth)>2)render();
+    });
+    resizeObserver.observe(surface);
+  }else{
+    window.addEventListener('resize',()=>{if(data)render();});
+  }
   return summary=>{
     data=summary;
     if(!data){
