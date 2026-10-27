@@ -4,7 +4,12 @@ export function renderCargoLineChart(surface,legend,categories,lines,{showLabels
   legend.replaceChildren();
   const W=Math.max(640,width),H=Math.max(340,height);
   const responsive=width!==960 || height!==360;
-  const L=responsive?74:62,R=responsive?W-36:930,T=responsive?56:40,B=responsive?H-69:294;
+  // Mayor margen interior para que puntos, leyendas y números no toquen los bordes.
+  // La ventana histórica conserva su geometría original (responsive === false).
+  const L=responsive?Math.max(94,Math.round(W*.082)):62;
+  const R=responsive?W-Math.max(84,Math.round(W*.075)):930;
+  const T=responsive?Math.max(88,Math.round(H*.13)):40;
+  const B=responsive?H-Math.max(101,Math.round(H*.16)):294;
   const numbers=lines.flatMap(line=>line.values).filter(value=>Number.isFinite(value));
   const max=Math.max(1,...numbers);
   const scale=Math.pow(10,Math.floor(Math.log10(max/5)));
@@ -27,7 +32,8 @@ export function renderCargoLineChart(surface,legend,categories,lines,{showLabels
   categories.forEach((name,i)=>{
     if(i%2 && categories.length>1){
       const width=(R-L)/(categories.length-1);
-      add(svg,'rect',{x:X(i)-width/2,y:T-15,width,height:B-T+16,fill:'#f7f9fb'});
+      add(svg,'rect',{x:X(i)-width/2,y:T-15,width,height:B-T+16,
+        fill:responsive?'#fbfcfe':'#f7f9fb'});
     }
   });
   // Vista individual: destacar el mes elegido sin recortar el resto del año.
@@ -41,7 +47,7 @@ export function renderCargoLineChart(surface,legend,categories,lines,{showLabels
   }
   for(let mark=0;mark<=ceiling+0.00001;mark+=step){
     const cy=Y(mark);
-    add(svg,'line',{x1:L,y1:cy,x2:R,y2:cy,stroke:'#dae5ee','stroke-width':1,'stroke-dasharray':'4 5'});
+    add(svg,'line',{x1:L,y1:cy,x2:R,y2:cy,stroke:responsive?'#e6edf3':'#dae5ee','stroke-width':1,'stroke-dasharray':'4 6'});
     add(svg,'text',{x:L-10,y:cy+4,'text-anchor':'end','font-size':fontSize,fill:'#77899a'},fmt(mark));
   }
   if(highlighted){
