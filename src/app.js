@@ -2,7 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import { computeReqEstado as reqEstado, computeDocEstado as docEstado, fmtDate, escapeHtml, limaDate } from './rules.js';
 import { KardexRepository, reqFromDb, docFromDb } from './repository.js';
 import { buildCargoWorkbook, parseWorkbook } from './excel-api.js';
-import { highlightMatch, filterDocuments, filterRequirements, invoiceSearchPresentation, assignedBoxCode } from './search.js';
+import { highlightMatch, normalizeSearch, filterDocuments, filterRequirements, invoiceSearchPresentation, assignedBoxCode } from './search.js';
 import './connection.css';
 import { createIdleSession } from './idle-session.js';
 import { cargoYear, locationLabel, groupsForCodes } from './cargo-details.js';
