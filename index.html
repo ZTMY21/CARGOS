@@ -1492,6 +1492,162 @@
     min-height:118px;
   }
 }
+
+/* Vista previa: cabecera ejecutiva institucional, sin cambiar lógica de datos. */
+#appShell .executive-header{
+  background:#fff;
+  border:1px solid #e0e8f0;
+  border-radius:15px;
+  margin:0 0 17px;
+  padding:13px 19px 0;
+  box-shadow:0 3px 14px rgba(25,55,77,.045);
+}
+#appShell .executive-header-main{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  flex-wrap:nowrap;
+  gap:16px;
+  min-width:0;
+  margin:0;
+  padding-bottom:12px;
+}
+#appShell .executive-brand{display:flex;align-items:center;gap:12px;min-width:0;flex:1 1 auto}
+#appShell .executive-brand .header-logo{width:48px;height:43px;max-width:48px;object-fit:contain}
+#appShell .executive-brand-copy{display:flex;flex-direction:column;gap:3px;min-width:0}
+#appShell .executive-brand-copy h1{
+  font-size:21px;
+  font-weight:850;
+  line-height:1.17;
+  color:#183651;
+  margin:0;
+  letter-spacing:-.035em;
+}
+#appShell .executive-brand-copy p{
+  font-size:11px;color:#72879a;margin:0;line-height:1.35;
+}
+#appShell .executive-header-tools{
+  display:flex;align-items:center;justify-content:flex-end;gap:11px;min-width:0;
+  flex:0 1 auto;
+}
+#appShell .executive-header-tools .executive-connection{
+  display:flex;align-items:center;gap:7px;
+  margin:0;padding:6px 11px;
+  max-width:260px;min-width:0;
+  border:1px solid #e5edf3;background:#f8fafc;border-radius:999px;
+  font-size:11px;line-height:1.25;color:#5b7186;
+  white-space:nowrap;
+}
+#appShell .executive-connection #connectionDot{flex-shrink:0;margin:0}
+#appShell .executive-connection #connectionStatus{
+  display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  min-width:0;max-width:205px;color:#536a80;font-size:11px;
+}
+#appShell .executive-header-tools .executive-refresh{
+  display:inline-grid;place-items:center;
+  flex:none;width:35px;height:35px;
+  min-width:35px;padding:0!important;margin:0;
+  background:#f5f8fb;color:#234b69;border:1px solid #d9e4ed;
+  border-radius:9px;box-shadow:none;
+  cursor:pointer;
+}
+#appShell .executive-header-tools .executive-refresh:hover{
+  background:#e8f2f9;border-color:#aecbdf;
+}
+#appShell .executive-header-tools .executive-refresh[hidden]{display:none!important}
+#appShell .executive-account{position:relative;flex:none;min-width:0}
+#appShell .executive-account .executive-profile-trigger{
+  display:flex;align-items:center;gap:8px;
+  max-width:220px;margin:0;padding:5px 7px;
+  background:transparent;
+  border:1px solid transparent;
+  border-radius:9px;
+  cursor:pointer;color:#244157;
+}
+#appShell .executive-account .executive-profile-trigger[hidden]{display:none!important}
+#appShell .executive-account .executive-profile-trigger:hover,
+#appShell .executive-account .executive-profile-trigger[aria-expanded="true"]{
+  border-color:#e1e7ed;background:#f4f7fa;
+}
+#appShell .executive-account .executive-profile-trigger>svg:first-child{
+  flex:none;width:29px;height:29px;color:#24475f;
+}
+#appShell .executive-account .session-profile-email{
+  display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  max-width:150px;font-size:11px;font-weight:750;
+}
+#appShell .executive-account .executive-profile-chevron{
+  width:13px;height:13px;flex:none;color:#7b8c9b;
+}
+#appShell .executive-profile-menu{
+  position:absolute;z-index:85;top:calc(100% + 6px);right:0;
+  width:204px;padding:8px;
+  border:1px solid #dce5ed;background:white;border-radius:11px;
+  box-shadow:0 12px 27px rgba(18,40,61,.14);
+}
+#appShell .executive-profile-menu[hidden]{display:none!important}
+#appShell .executive-profile-menu-label{
+  font-size:10px;font-weight:700;color:#8495a6;padding:7px 8px;
+}
+#appShell .executive-profile-menu #btnSignOut{
+  display:block;width:100%;background:#fff!important;color:#b02d3a!important;
+  border:0!important;border-radius:7px!important;text-align:left;
+  box-shadow:none!important;font-size:12px;padding:10px 11px;
+}
+#appShell .executive-profile-menu #btnSignOut:hover{background:#fff0f2!important}
+#appShell .executive-profile-menu #btnSignOut[hidden]{display:none!important}
+#appShell .executive-context{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  min-height:35px;padding:8px 1px 10px;
+  border-top:1px solid #eef1f5;
+  font-size:11px;color:#7c8c9b;
+}
+#appShell .executive-breadcrumb{display:flex;align-items:center;gap:8px;min-width:0}
+#appShell .executive-breadcrumb strong{color:#3b5973;font-weight:750}
+#appShell .executive-breadcrumb-separator{color:#b4c0cc}
+#appShell .executive-context-role{white-space:nowrap;color:#91a0ae;font-size:10px}
+#appShell #kardexSidebar .sidebar-submenu #btnTopAdminRequests{
+ display:flex;align-items:center;justify-content:space-between;
+ gap:8px;text-align:left;font-weight:750;
+}
+#appShell #kardexSidebar #btnTopAdminRequests .admin-requests-top-count{
+ display:inline-flex;align-items:center;justify-content:center;
+ min-width:24px;height:24px;
+ padding:0 5px;border:1px solid #d1e3db;
+ border-radius:999px;background:#e8f5ee;color:#277248;
+ font-variant-numeric:tabular-nums;font-size:11px;font-weight:850;
+}
+#appShell #kardexSidebar #btnTopAdminRequests[data-status="pending"] .admin-requests-top-count{
+ color:#ba2438;background:#ffedf0;border-color:#f0bdc5;
+}
+#appShell #kardexSidebar #btnTopAdminRequests[data-status="unknown"] .admin-requests-top-count{
+ color:#627184;background:#eef2f7;border-color:#d9e2eb;
+}
+#appShell #kardexSidebar #btnTopAdminRequests[hidden]{display:none!important}
+#appShell #googleSyncPanel .sync-panel-actions #btnToggleGoogleSync{
+ display:inline-flex;align-items:center;justify-content:center;
+ min-height:38px;margin:0;
+}
+#appShell #googleSyncPanel .sync-panel-actions #btnToggleGoogleSync[hidden]{display:none!important}
+#appShell button:focus-visible,
+#appShell .executive-profile-trigger:focus-visible{
+ outline:2px solid #bd2b3b;outline-offset:2px;
+}
+@media(max-width:1040px){
+ #appShell .executive-header{padding:12px 14px 0}
+ #appShell .executive-header-tools .executive-connection{max-width:190px}
+ #appShell .executive-account .session-profile-email{max-width:96px}
+}
+@media(max-width:700px){
+ #appShell .executive-header-main{flex-wrap:wrap;gap:9px}
+ #appShell .executive-header-tools{
+   width:100%;justify-content:space-between;flex:1 1 100%;
+ }
+ #appShell .executive-header-tools .executive-connection{max-width:calc(100% - 125px)}
+ #appShell .executive-account .session-profile-email{max-width:132px}
+ #appShell .executive-context-role{display:none}
+ #appShell .executive-brand-copy h1{font-size:19px}
+}
 </style>
 </head>
 <body>
