@@ -23,6 +23,8 @@ export function createCreatedDashboard() {
   const individualButton = document.getElementById('createdDashboardModeIndividual');
   const compareButton = document.getElementById('createdDashboardModeCompare');
   const filters = document.getElementById('createdDashboardFilters');
+  const comparisonScope = document.getElementById('createdDashboardCompareScope');
+  const comparedCount = document.getElementById('createdDashboardComparedCount');
   const stats = root.querySelector('.created-dashboard-stats');
   const comparisonStats = document.getElementById('createdDashboardComparisonStats');
   const comparisonCards = document.getElementById('createdDashboardComparisonCards');
@@ -293,7 +295,10 @@ export function createCreatedDashboard() {
     stats.hidden=!individual;
     comparisonStats.hidden=individual;
     filters.hidden=!individual;
+    comparisonScope.hidden=individual;
     comparison.hidden=individual;
+    const count=comparisonSelection?.size||0;
+    comparedCount.textContent=count===1?'1 año seleccionado':count+' años seleccionados';
     if(individual)renderIndividual();
     else renderComparison(years);
     // Una sola leyenda inferior: vista individual muestra año y resumen,
