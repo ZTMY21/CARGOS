@@ -1366,6 +1366,79 @@
    min-width:0;width:100%;max-width:none;
  }
 }
+
+/* Preview: un único panel de consulta. Las opciones de años comparten el
+   mismo espacio que los filtros Año/Mes, nunca una caja debajo del título. */
+#appShell.has-sidebar .created-dashboard-stable-toolbar{
+ grid-template-columns:max-content minmax(0,1fr);
+ gap:12px 20px;
+}
+#appShell.has-sidebar .created-dashboard-toolbar-slot{
+ justify-content:flex-end;
+ min-width:0;
+}
+#appShell.has-sidebar .created-dashboard-compare-inline{
+ display:flex;
+ align-items:center;
+ justify-content:flex-end;
+ flex-wrap:wrap;
+ gap:7px 10px;
+ min-width:0;
+}
+#appShell.has-sidebar .created-dashboard-compare-inline[hidden]{display:none!important}
+#appShell.has-sidebar .created-dashboard-compare-inline .created-dashboard-year-options{
+ display:flex;
+ flex-wrap:wrap;
+ align-items:center;
+ gap:6px;
+ margin:0;
+}
+#appShell.has-sidebar .created-dashboard-compare-inline .created-dashboard-year-option{
+ display:inline-flex;
+ padding:7px 8px;
+ min-height:34px;
+ font-size:11px;
+ border-radius:8px;
+ gap:5px;
+ line-height:1.15;
+ white-space:nowrap;
+}
+#appShell.has-sidebar .created-dashboard-compare-inline .created-dashboard-year-option .series-swatch{
+ width:7px;height:7px;
+}
+#appShell.has-sidebar .created-dashboard-compare-inline .created-dashboard-year-option input{
+ width:13px;height:13px;
+}
+#appShell.has-sidebar .created-dashboard-compare-inline .created-dashboard-selected-count{
+ font-size:10px;
+ font-weight:700;
+ color:#708498;
+ white-space:nowrap;
+}
+#appShell.has-sidebar .created-dashboard-compare-inline .created-compare-recent{
+ white-space:nowrap;
+ min-height:34px;
+ padding:7px 9px;
+ font-size:10.5px;
+ border:1px solid #d5e0ea;
+ background:white;
+ border-radius:8px;
+ color:#496a82;
+ font-weight:750;
+ cursor:pointer;
+}
+#appShell.has-sidebar .created-dashboard-compare-inline .created-compare-recent:hover{
+ background:#edf3f9;
+}
+@media(max-width:1170px){
+ #appShell.has-sidebar .created-dashboard-stable-toolbar{
+  grid-template-columns:minmax(0,1fr);
+ }
+ #appShell.has-sidebar .created-dashboard-toolbar-slot,
+ #appShell.has-sidebar .created-dashboard-compare-inline{
+  justify-content:flex-start;
+ }
+}
 </style>
 </head>
 <body>
@@ -1677,9 +1750,14 @@
               <label for="createdDashboardYear">Año <select id="createdDashboardYear" aria-label="Año de cargos realizados"></select></label>
               <label for="createdDashboardMonth">Mes <select id="createdDashboardMonth" aria-label="Mes de cargos realizados"></select></label>
             </div>
-            <div id="createdDashboardCompareScope" class="created-dashboard-compare-scope" aria-live="polite" hidden>
-              <span class="created-dashboard-compare-scope-dot" aria-hidden="true"></span>
-              <strong id="createdDashboardComparedCount">2 años seleccionados</strong>
+            <div id="createdDashboardCompareFilters" class="created-dashboard-compare-inline" hidden
+              aria-label="Seleccionar años para comparar">
+              <div id="createdDashboardCompareYears" class="created-dashboard-year-options"
+                role="group" aria-label="Años de comparación"></div>
+              <span id="createdDashboardComparedCount" class="created-dashboard-selected-count"
+                aria-live="polite">2 años</span>
+              <button id="createdDashboardCompareRecent" type="button"
+                class="created-compare-recent">Últimos 2 años</button>
             </div>
           </div>
         </section>
@@ -1711,16 +1789,6 @@
 
           </div>
           <p id="createdDashboardSelectionLabel" class="created-dashboard-period-sr" aria-live="polite">Selecciona un año y mes</p>
-          <div class="created-dashboard-compare" id="createdDashboardCompareFilters" hidden aria-label="Comparar cargos por año">
-            <div class="created-dashboard-compare-heading">
-              <div><strong>Selecciona los años para comparar</strong>
-                <p>Compara la evolución de los años que elijas sobre la misma gráfica.</p>
-              </div>
-              <button id="createdDashboardCompareRecent" type="button" class="created-compare-recent">Últimos 2 años</button>
-            </div>
-            <div class="created-dashboard-year-options" id="createdDashboardCompareYears" role="group" aria-label="Años de comparación"></div>
-            <p class="created-dashboard-compare-note" id="createdDashboardCompareNote" aria-live="polite"></p>
-          </div>
           <div id="createdDashboardStatus" role="status">Consultando cargos realizados…</div>
           <div id="createdDashboardChart" class="monthly-created-chart-surface" hidden></div>
           <div class="created-dashboard-plot-footer">
