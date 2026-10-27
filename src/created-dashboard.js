@@ -32,6 +32,7 @@ export function createCreatedDashboard() {
   const legend = document.getElementById('createdDashboardLegend');
   const status = document.getElementById('createdDashboardStatus');
   const title = document.getElementById('createdDashboardChartTitle');
+  const chartBadge = document.getElementById('createdDashboardChartBadge');
   const explain = document.getElementById('createdDashboardExplain');
   const footnote = document.getElementById('createdDashboardFootnote');
   const periodLabel = document.getElementById('createdDashboardSelectionLabel');
@@ -94,10 +95,10 @@ export function createCreatedDashboard() {
     legend.hidden=false;
     const measuredWidth=Math.round(surface.getBoundingClientRect().width);
     const chartWidth=Math.max(700,measuredWidth||960);
-    // Mayor altura y márgenes para un gráfico legible también con zoom del 75%.
-    const chartHeight=Math.round(Math.min(690,Math.max(510,chartWidth*0.58)));
+    // Mantiene una zona de datos amplia sin desperdiciar altura bajo los meses.
+    const chartHeight=Math.round(Math.min(590,Math.max(445,chartWidth*0.46)));
     renderCargoLineChart(surface,legend,categories,lines,{
-      showLabels,width:chartWidth,height:chartHeight,fontSize:15,highlightIndex
+      showLabels,width:chartWidth,height:chartHeight,fontSize:14,highlightIndex,compactLayout:true
     });
     lastChartWidth=measuredWidth;
   }
@@ -170,7 +171,8 @@ export function createCreatedDashboard() {
     const period=selectedMonth?nameOf(selectedMonth)+' de '+selectedYear:
       'enero–'+nameOf(upper)+' de '+selectedYear;
     periodLabel.textContent=selectedMonth?'Cargos realizados en '+period:'Cargos realizados entre '+period;
-    title.textContent='Evolución mensual de cargos realizados · '+selectedYear;
+    title.textContent='Evolución de cargos realizados';
+    chartBadge.textContent=String(selectedYear);
     explain.textContent=selectedMonth
       ? nameOf(selectedMonth)[0].toUpperCase()+nameOf(selectedMonth).slice(1)+
         ': '+fmt(currentCount)+' cargos · enero a diciembre.'
@@ -194,9 +196,13 @@ export function createCreatedDashboard() {
     comparisonNote.textContent=selected.length
       ? 'Comparando '+selected.join(', ')+' · meses enero a diciembre. Los meses futuros del año actual no se cuentan.'
       : 'Selecciona al menos un año para mostrar su evolución.';
-    title.textContent='Comparación de cargos realizados · '+(selected.length?selected.join(' vs. '):'sin años seleccionados');
+    periodLabel.textContent=selected.length
+      ? 'Comparando: '+selected.join(', ')
+      : 'Elige uno o más años para comparar';
+    title.textContent='Comparación de cargos realizados';
+    chartBadge.textContent=selected.length===1?String(selected[0]):selected.length+' años';
     explain.textContent=selected.length===1?'Evolución mensual de '+selected[0]:
-      selected.length+' años seleccionados';
+      selected.length+' años en una sola gráfica';
     footnote.textContent='Se comparan cargos únicos con fecha original válida. Los cargos sin fecha válida permanecen en el histórico y no se inventan fechas.';
     if(!selected.length){
       surface.replaceChildren();
