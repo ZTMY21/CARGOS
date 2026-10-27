@@ -684,6 +684,83 @@
       height:30px;width:30px;margin-left:auto;color:#53687b;font-size:23px}
   }
   @media(prefers-reduced-motion:reduce){#kardexSidebar.kardex-sidebar,.sidebar-category>summary .sidebar-chevron{transition:none}}
+
+/* Organización real por pantallas: mismos componentes, consultas e IDs de producción. */
+#appShell.has-sidebar #grp-resumen > summary{display:none!important}
+#appShell.has-sidebar #grp-resumen{border-radius:14px;margin-top:0}
+#appShell.has-sidebar #grp-resumen .group-body{padding:23px}
+#appShell.has-sidebar #resumenTablas > *{display:none!important}
+#appShell.has-sidebar[data-module="control"] #resumenTablas > .resumen-titulo-alerta,
+#appShell.has-sidebar[data-module="control"] #resumenTablas > .alerta-row,
+#appShell.has-sidebar[data-module="control"] #resumenTablas > .expiry-note {display:block!important}
+#appShell.has-sidebar[data-module="iron"] #resumenTablas > .kpis,
+#appShell.has-sidebar[data-module="iron"] #resumenTablas > .prepared-row {display:grid!important}
+#appShell.has-sidebar[data-module="iron"] #resumenTablas > .im-year-section {display:block!important}
+#appShell.has-sidebar[data-module="historicos"] #resumenTablas > .year-section:not(.im-year-section){display:block!important}
+#appShell.has-sidebar[data-module="resumen"] #createdDashboard{display:block}
+#appShell.has-sidebar:not([data-module="resumen"]) #createdDashboard{display:none!important}
+#appShell.has-sidebar[data-module="resumen"] #sidebarSectionHeading{display:none!important}
+#appShell.has-sidebar #sidebarSectionHeading:not([hidden]){display:block!important}
+.sidebar-section-heading{margin:0 0 19px;padding-bottom:17px;border-bottom:1px solid #e8edf2}
+.sidebar-section-heading>span,.sidebar-standalone-header>span,.created-dashboard-heading>span{font-size:10px;color:#be2637;font-weight:850;letter-spacing:.085em}
+.sidebar-section-heading h2,.sidebar-standalone-header h2{font-size:23px;line-height:1.3;color:#23384d;margin:6px 0 5px}
+.sidebar-section-heading p,.sidebar-standalone-header p{font-size:12px;color:#698094;margin:0;line-height:1.5}
+.created-dashboard{color:#25384d}
+.created-dashboard-heading{margin:0 0 18px}
+.created-dashboard-heading h2{font-size:26px;font-weight:820;margin:7px 0 6px;color:#24374a}
+.created-dashboard-heading p{font-size:12px;line-height:1.5;color:#718599;margin:0}
+.created-dashboard-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:19px}
+.created-stat{border:1px solid #e1e8ef;border-top:3px solid #d63345;border-radius:11px;background:white;
+  padding:16px 13px 14px;min-width:0;display:flex;flex-direction:column;gap:6px;min-height:112px}
+.created-stat:nth-child(2){border-top-color:#233b53}.created-stat:nth-child(3){border-top-color:#27895e}.created-stat:nth-child(4){border-top-color:#c89030}
+.created-stat small{font-size:10px;line-height:1.4;letter-spacing:.03em;color:#566d83;font-weight:750}
+.created-stat strong{font-size:29px;line-height:1.1;color:#bb2537;font-variant-numeric:tabular-nums;font-weight:850}
+.created-stat:nth-child(2) strong{color:#233b53}.created-stat:nth-child(3) strong{color:#27895e}.created-stat:nth-child(4) strong{color:#b47920}
+.created-stat>span{font-size:10px;color:#8193a3;margin-top:auto;line-height:1.3}
+.created-dashboard-filters{border:1px solid #e4ebf1;background:#f8fafc;border-radius:11px;padding:14px;
+  display:flex;align-items:end;justify-content:space-between;gap:15px;flex-wrap:wrap;margin-bottom:16px}
+.created-filter-heading{flex:1 1 240px;min-width:160px}
+.created-filter-heading strong{font-size:13px;color:#304a60}
+.created-filter-heading p{font-size:11px;color:#718596;margin:5px 0 0}
+.created-dashboard-filters>label{font-size:12px;color:#415c70;font-weight:750;display:flex;align-items:center;gap:10px}
+.created-dashboard-filters select{border-radius:8px;border:1px solid #d1dbe4;background:#fff;color:#263e52;
+  font-weight:650;padding:9px 12px;min-width:126px;font-size:12px}
+.created-dashboard-plot{border:1px solid #e0e8f0;border-radius:12px;background:#fff;padding:17px 12px 9px;min-height:235px}
+.created-dashboard-plot-heading{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:0 7px}
+.created-dashboard-plot h3{font-size:14px;color:#293f55;margin:0;font-weight:800}
+.created-dashboard-plot-heading>span{color:#6d8194;font-size:11px}
+#createdDashboardChart{position:relative;min-height:90px}
+#createdDashboardChart svg{display:block;width:100%;height:auto;max-height:340px;overflow:visible}
+#createdDashboardChart .monthly-created-chart-tooltip{position:absolute;pointer-events:none;background:#233951;color:#fff;font-size:11px;
+  padding:7px 9px;border-radius:7px;white-space:nowrap;transform:translate(-50%,-100%);z-index:3}
+#createdDashboardChart .monthly-created-chart-tooltip[hidden]{display:none!important}
+#createdDashboardLegend{display:flex;align-items:center;gap:10px;margin:0;padding:7px;color:#536a7f;font-size:11px}
+#createdDashboardLegend .monthly-created-legend-item{display:inline-flex;align-items:center;gap:7px}
+#createdDashboardLegend .monthly-created-swatch{width:10px;height:10px;border-radius:50%;display:inline-block}
+#createdDashboardStatus{padding:65px 20px;text-align:center;font-size:12px;color:#778a9c}
+#createdDashboardStatus[hidden],#createdDashboardChart[hidden],#createdDashboardLegend[hidden]{display:none!important}
+.created-dashboard-footnote{font-size:11px;color:#75879a;line-height:1.5;margin:13px 4px}
+.created-compare-button{border:1px solid #e1b8bf;background:#fff2f4;color:#aa2538;font-weight:750;font-size:12px;
+  padding:10px 14px;border-radius:9px;margin-top:2px}
+.created-compare-button:hover{background:#fce3e7}
+.sidebar-standalone-page{border:1px solid #e0e8ef;border-radius:14px;background:#fff;padding:24px;color:#293f53}
+.sidebar-standalone-page[hidden]{display:none!important}
+.sidebar-standalone-header{padding-bottom:18px;border-bottom:1px solid #e7edf2}
+.sidebar-standalone-content{padding-top:20px}
+.sidebar-standalone-content h3{margin:0 0 7px;font-size:16px}
+.sidebar-standalone-content p{font-size:12px;color:#698094}
+.sidebar-go-search{background:#c32b3d;color:white;padding:11px 16px;border:0;border-radius:8px;font-size:12px;font-weight:750}
+.sidebar-planned-feature{display:flex;flex-direction:column;gap:5px;border:1px solid #e5eaf0;background:#f8fafc;
+  border-radius:9px;padding:15px;margin-top:16px;font-size:12px;color:#4d6073}
+.sidebar-planned-feature span{color:#8896a5;font-size:11px}
+@media(max-width:1220px){.created-dashboard-stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:740px){.created-dashboard-stats{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .created-stat{padding:12px 10px}.created-stat strong{font-size:23px}
+  .created-dashboard-filters>label{flex:1 1 135px;justify-content:space-between}
+  .created-dashboard-filters select{min-width:85px;max-width:130px}
+  .created-dashboard-heading h2{font-size:21px}
+  #appShell.has-sidebar #grp-resumen .group-body{padding:15px}
+}
 </style>
 </head>
 <body>
@@ -749,6 +826,8 @@
         <details class="sidebar-category" data-sidebar-group="control">
           <summary><span class="sidebar-icon" aria-hidden="true">◷</span><span>Control Documental</span><span class="sidebar-chevron" aria-hidden="true">⌄</span></summary>
           <div class="sidebar-submenu">
+            <button type="button" data-sidebar-view="control">Resumen de vencimientos</button>
+            <button type="button" data-sidebar-view="historicos">Histórico de cargos por año</button>
             <button type="button" data-sidebar-action="expiry-upcoming">Cargos por vencer</button>
             <button type="button" data-sidebar-action="expiry-overdue">Cargos vencidos</button>
           </div>
@@ -756,6 +835,7 @@
         <details class="sidebar-category" data-sidebar-group="im">
           <summary><span class="sidebar-icon" aria-hidden="true">▤</span><span>Iron Mountain</span><span class="sidebar-chevron" aria-hidden="true">⌄</span></summary>
           <div class="sidebar-submenu">
+            <button type="button" data-sidebar-view="iron">Resumen de envíos IM</button>
             <button type="button" data-sidebar-action="im-requested">Cajas solicitadas</button>
             <button type="button" data-sidebar-action="im-prepared">Cajas preparadas</button>
             <button type="button" data-sidebar-action="im-sent">Estadísticas de envíos</button>
@@ -769,9 +849,13 @@
           <span class="sidebar-icon" aria-hidden="true">⌕</span><span>Existencias</span>
         </button>
         <div class="sidebar-eyebrow">GESTIÓN</div>
+        <button type="button" class="sidebar-link" data-sidebar-view="sync">
+          <span class="sidebar-icon" aria-hidden="true">⟳</span><span>Actividad y sincronización</span>
+        </button>
         <details class="sidebar-category" data-sidebar-group="reportes">
           <summary><span class="sidebar-icon" aria-hidden="true">⇩</span><span>Reportes y descargas</span><span class="sidebar-chevron" aria-hidden="true">⌄</span></summary>
           <div class="sidebar-submenu">
+            <button type="button" data-sidebar-view="reportes">Opciones de descarga</button>
             <button type="button" data-sidebar-action="export-cargo">Exportar cargo individual</button>
             <span class="sidebar-planned">Descarga por año <small>Próxima etapa</small></span>
             <span class="sidebar-planned">Data cruda <small>Próxima etapa</small></span>
@@ -787,6 +871,19 @@
       <div class="sidebar-bottom"><span class="sidebar-preview-dot" aria-hidden="true"></span><div><strong>Vista previa · Menú lateral</strong><small>Sin cambios en producción</small></div></div>
     </aside>
     <main id="sidebarMain" class="sidebar-main" aria-label="Contenido de Kardex Digital">
+  <section id="sidebarReportsPanel" class="sidebar-standalone-page" hidden aria-label="Reportes y descargas">
+    <div class="sidebar-standalone-header">
+      <span>GESTIÓN · DESCARGAS</span>
+      <h2>Reportes y descargas</h2>
+      <p>Conservamos las exportaciones actuales. Las nuevas descargas por año y de datos originales se incorporarán en otra etapa.</p>
+    </div>
+    <div class="sidebar-standalone-content">
+      <h3>Exportar un cargo individual</h3>
+      <p>En Existencias, busca el cargo y utiliza el botón «Exportar este cargo» para descargar sus registros en Excel.</p>
+      <button type="button" id="sidebarGoExistencias" class="sidebar-go-search">Abrir buscador de Existencias</button>
+      <div class="sidebar-planned-feature"><strong>Exportaciones por año y data cruda</strong><span>Próxima etapa; todavía no disponibles en esta Preview.</span></div>
+    </div>
+  </section>
   <section id="googleSyncPanel" hidden class="sync-panel" aria-labelledby="googleSyncTitle">
     <nav id="workspaceTabs" class="workspace-tabs" role="tablist" aria-label="Navegación administrativa">
       <button id="workspaceTabResumen" class="workspace-tab" type="button" role="tab" data-workspace="resumen"
@@ -950,6 +1047,40 @@
   <details class="group" id="grp-resumen" open>
     <summary><span class="stitle">Resumen<small>Indicadores generales</small></span><span class="chev">▶</span></summary>
     <div class="group-body">
+      <div id="sidebarSectionHeading" class="sidebar-section-heading" hidden>
+        <span id="sidebarSectionEyebrow">CONTROL DOCUMENTAL</span>
+        <h2 id="sidebarSectionTitle">Control Documental</h2>
+        <p id="sidebarSectionSubtitle">Seguimiento documental y registros históricos</p>
+      </div>
+      <section id="createdDashboard" class="created-dashboard" aria-label="Dashboard General de cargos realizados">
+        <div class="created-dashboard-heading">
+          <span>DASHBOARD GENERAL · EVOLUCIÓN DOCUMENTAL</span>
+          <h2>Cargos realizados</h2>
+          <p>Consulta el avance mensual e histórico de los cargos registrados en CD Santa Anita.</p>
+        </div>
+        <div class="created-dashboard-stats">
+          <div class="created-stat"><small>CARGOS REALIZADOS EN EL PERÍODO</small><strong id="createdDashboardSelected">—</strong><span>Según el filtro seleccionado</span></div>
+          <div class="created-stat"><small>TOTAL DE CARGOS DEL AÑO</small><strong id="createdDashboardAnnual">—</strong><span>Incluye cargos sin mes válido</span></div>
+          <div class="created-stat"><small>CON FECHA VÁLIDA DEL AÑO</small><strong id="createdDashboardDated">—</strong><span>Cargos distribuidos por mes</span></div>
+          <div class="created-stat"><small>SIN FECHA ORIGINAL VÁLIDA</small><strong id="createdDashboardUndated">—</strong><span>Conservados en el histórico</span></div>
+        </div>
+        <div class="created-dashboard-filters" aria-label="Filtros del Dashboard General">
+          <div class="created-filter-heading">
+            <strong>Período de consulta</strong><p id="createdDashboardSelectionLabel">Selecciona un año y mes</p>
+          </div>
+          <label for="createdDashboardYear">Año <select id="createdDashboardYear" aria-label="Año de cargos realizados"></select></label>
+          <label for="createdDashboardMonth">Mes <select id="createdDashboardMonth" aria-label="Mes de cargos realizados"></select></label>
+        </div>
+        <div class="created-dashboard-plot">
+          <div class="created-dashboard-plot-heading"><h3 id="createdDashboardChartTitle">Evolución mensual de cargos realizados</h3><span id="createdDashboardExplain"></span></div>
+          <div id="createdDashboardStatus" role="status">Consultando cargos realizados…</div>
+          <div id="createdDashboardChart" class="monthly-created-chart-surface" hidden></div>
+          <div id="createdDashboardLegend" class="monthly-created-chart-legend" hidden></div>
+        </div>
+        <p class="created-dashboard-footnote" id="createdDashboardFootnote"></p>
+        <button type="button" class="created-compare-button" id="createdOpenComparison">Ver comparación histórica de todos los años</button>
+      </section>
+
       <div id="resumenTablas"></div>
     </div>
   </details>
