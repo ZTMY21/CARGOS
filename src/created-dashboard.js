@@ -94,9 +94,10 @@ export function createCreatedDashboard() {
     legend.hidden=false;
     const measuredWidth=Math.round(surface.getBoundingClientRect().width);
     const chartWidth=Math.max(700,measuredWidth||960);
-    const chartHeight=Math.round(Math.min(560,Math.max(430,chartWidth*0.51)));
+    // Mayor altura y márgenes para un gráfico legible también con zoom del 75%.
+    const chartHeight=Math.round(Math.min(690,Math.max(510,chartWidth*0.58)));
     renderCargoLineChart(surface,legend,categories,lines,{
-      showLabels,width:chartWidth,height:chartHeight,fontSize:14,highlightIndex
+      showLabels,width:chartWidth,height:chartHeight,fontSize:15,highlightIndex
     });
     lastChartWidth=measuredWidth;
   }
@@ -172,15 +173,19 @@ export function createCreatedDashboard() {
     title.textContent='Evolución mensual de cargos realizados · '+selectedYear;
     explain.textContent=selectedMonth
       ? nameOf(selectedMonth)[0].toUpperCase()+nameOf(selectedMonth).slice(1)+
-        ' seleccionado: '+fmt(currentCount)+' cargos · evolución anual completa.'
-      : 'Todos los meses disponibles de '+selectedYear+' · sin mes destacado.';
+        ': '+fmt(currentCount)+' cargos · enero a diciembre.'
+      : 'Enero a diciembre · sin mes destacado.';
+    const futureMonths=selectedYear===data.currentYear && upper<12;
     footnote.textContent=fmt(missingDate)+' cargos de '+selectedYear+
-      ' sin fecha original válida del mismo año se conservan en el histórico anual, no se asignan a ningún mes.';
+      ' sin fecha original válida se conservan en el histórico anual, no se asignan a ningún mes.'+
+      (futureMonths?' Los meses posteriores a '+nameOf(upper)+' quedan sin puntos hasta que existan registros.':'');
 
-    // El mes seleccionado cambia los KPI y se resalta en el gráfico.
-    // La serie siempre muestra todos los meses disponibles del año.
-    drawGraph(MONTHS.slice(0,upper),[
-      {label:String(selectedYear),color:'#c6253e',values:series.slice(0,upper),width:3.4}
+    // Mantener los doce meses en el eje horizontal, pero nunca mostrar futuros como cero.
+    const annualSeries=MONTHS.map((_,index)=>
+      selectedYear===data.currentYear && index>=upper ? null : series[index] ?? 0
+    );
+    drawGraph(MONTHS,[
+      {label:String(selectedYear),color:'#c6253e',values:annualSeries,width:3.4}
     ],true,selectedMonth?selectedMonth-1:null);
   }
 
