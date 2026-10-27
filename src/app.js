@@ -8,6 +8,8 @@ import { createIdleSession } from './idle-session.js';
 import { cargoYear, locationLabel, groupsForCodes } from './cargo-details.js';
 import { summarizeCreatedCargos } from './monthly-created-summary.js';
 import { renderCargoLineChart } from './cargo-line-chart.js';
+import { mountImDashboard } from './im-dashboard.js';
+import './im-dashboard.css';
 import { summarizeShippedBoxes } from './im-shipped-summary.js';
 import { renderImBarChart } from './im-bar-chart.js';
 import { cargoExpiryGroups, formatCargoDuration } from './cargo-expiry.js';
@@ -108,8 +110,8 @@ let requestedIMLoaded = false;
 const requestedDemo = new URLSearchParams(window.location.search).get('demo-solicitudes') === '1'
   && /-ztmy1\.vercel\.app$/i.test(window.location.hostname)
   && !['kardex-digital-santa-anita-ztmy1.vercel.app','kardex-digital-santa-anita-git-main-ztmy1.vercel.app'].includes(window.location.hostname);
-const isPreview = /-ztmy1\.vercel\.app$/i.test(window.location.hostname)
-  && !['kardex-digital-santa-anita-ztmy1.vercel.app','kardex-digital-santa-anita-git-main-ztmy1.vercel.app'].includes(window.location.hostname);
+// Esta rama siempre es una Preview de solo lectura; la protección no depende del host.
+const isPreview = true;
 let appliedFilters = {query:'',state:'',type:'',location:'',year:'',invoiceExact:false};
 const browseOrder = new Map();
 function showRandomCargos(filters=appliedFilters) {
@@ -669,6 +671,7 @@ document.getElementById('monthlyCreatedSheet').addEventListener('click',event=>{
   if(event.target===sheet)sheet.close();
 });
 
+const renderImDashboard = mountImDashboard();
 let monthlyShippedSummary=null;
 let monthlyShippedFetchEpoch=0;
 let monthlyShippedError='';
@@ -773,6 +776,7 @@ async function reloadShippedBoxesSummary(){
     monthlyShippedError='No se pudo cargar el historial IM: '+readableError(error)+
       '. Vuelve a abrir «Ver detalle» para reintentar.';
   }
+  renderImDashboard(monthlyShippedSummary,monthlyShippedError);
   renderMonthlyCargoStats();
 }
 function renderMonthlyCargoStats(){
@@ -942,6 +946,15 @@ function renderDocs(){
       <div class="year-grid" id="imYearSummaryGrid" aria-live="polite">${enviadosPorAnioHtml}</div>
     </section>
   `;
+  // En esta rama los KPI principales se conservan y se resumen junto a la gráfica.
+  document.getElementById('imOverviewTotal').textContent=fmtNum(totalCargos);
+  document.getElementById('imOverviewShipped').textContent=fmtNum(cargosEnviados);
+  document.getElementById('imOverviewPending').textContent=fmtNum(cargosPendientes);
+  document.getElementById('imOverviewPrepared').textContent=
+    cajasPreparadas==null?'—':fmtNum(cajasPreparadas);
+  document.getElementById('imOverviewPreparedNote').textContent=
+    cajasPreparadas==null?'Consultando cajas preparadas':
+    fmtNum(cargosPreparados)+' cargos · sin fecha de envío IM';
   renderMonthlyCargoStats();
   if (activeExpiryGroup) renderCargoExpiry();
 
@@ -1129,6 +1142,12 @@ async function reloadPreparedImSummary() {
     if(epoch!==preparedImSummaryEpoch || generation!==authGeneration || !appReady || !isAdmin)return;
     preparedImSummary=null; // No presentar una cantidad anterior como actual.
   }
+  const overviewMetric=document.getElementById('imOverviewPrepared');
+  if(overviewMetric)overviewMetric.textContent=preparedImSummary?fmtNum(preparedImSummary.cajas):'—';
+  const overviewNote=document.getElementById('imOverviewPreparedNote');
+  if(overviewNote)overviewNote.textContent=preparedImSummary
+    ?fmtNum(preparedImSummary.cargos)+' cargos · sin fecha de envío IM'
+    :'No se pudo consultar el detalle de cajas';
   const metric=document.getElementById('preparedImSummaryMetric');
   if(metric)metric.innerHTML=
     `${preparedImSummary?fmtNum(preparedImSummary.cajas):'—'}`+
@@ -1633,7 +1652,7 @@ async function handleSession(session) {
     adminRequestStatus=null;
     // Un correo confirmado con código de solicitud no crea un administrador:
     // primero registra la petición y espera una aprobación de la cuenta principal.
-    if (!isAdmin && user.user_metadata?.kardex_admin_request_code && repository.requestAdminAccess) {
+    if (!isPreview && !isAdmin && user.user_metadata?.kardex_admin_request_code && repository.requestAdminAccess) {
       try {
         const r=await repository.requestAdminAccess();
         adminRequestStatus=r?.estado || null;
@@ -1688,6 +1707,7 @@ document.getElementById('authForm').addEventListener('submit', async ev => {
   finally { button.disabled = false; }
 });
 document.getElementById('btnMagicLink').addEventListener('click', async ev => {
+  if(isPreview){message('authMessage','En esta Preview no se envían correos de acceso.',true);return;}
   const email = document.getElementById('authEmail').value.trim().toLowerCase();
   if (!supabase || !document.getElementById('authEmail').reportValidity()) return;
   const button = ev.currentTarget; button.disabled = true;
@@ -1699,6 +1719,7 @@ document.getElementById('btnMagicLink').addEventListener('click', async ev => {
   finally { button.disabled = false; }
 });
 document.getElementById('btnForgotPassword').addEventListener('click',async ev=>{
+  if(isPreview){message('authMessage','La recuperación de cuentas está deshabilitada en la Preview.',true);return;}
   const input=document.getElementById('authEmail');
   if(!supabase || !input.reportValidity()) return;
   const button=ev.currentTarget;button.disabled=true;
@@ -1711,7 +1732,8 @@ document.getElementById('btnForgotPassword').addEventListener('click',async ev=>
   finally{button.disabled=false;}
 });
 document.getElementById('resetPasswordForm').addEventListener('submit',async ev=>{
-  ev.preventDefault();if(!supabase || !passwordRecovery)return;
+  ev.preventDefault();if(isPreview){message('authMessage','No se cambian contraseñas desde la Preview.',true);return;}
+  if(!supabase || !passwordRecovery)return;
   const password=document.getElementById('newPassword').value;
   if(password.length<8){message('authMessage','Usa al menos 8 caracteres.',true);return;}
   if(password!==document.getElementById('confirmPassword').value){message('authMessage','Las contraseñas no coinciden.',true);return;}
