@@ -21,7 +21,7 @@ const flush=()=>new Promise(resolve=>setTimeout(resolve,20));
 const reqRow={id:randomUUID(),numero:'REQ-00001',tipo:'Cajas nuevas para acondicionar',fecha_solicitud:'2026-10-01',cantidad_cajas:2,numeros_cargo:'',fecha_recepcion:'2026-10-02',fecha_devolucion:null,usuario:'Juan',updated_at:'2026-10-13T00:00:00.123456Z'};
 const docRow={id:randomUUID(),kardex:'SA-00001',fecha_registro:'2026-10-13',tipo_doc:'Facturas-Guia',periodo:'2026-01-01',ubicacion:'Santa Anita',folios:30,cargos:['C001'],caja_asignada:reqRow.id,f_envio:null,sustento:'',sustento_imagen:'',usuario:'Juan',facturas:'F-001',obs:'',updated_at:'2026-10-13T00:00:00.123456Z'};
 
-async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recovery=false,adminLink='',loginError=null,enableSearch=false,now=Date.now()}={}) {
+async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recovery=false,adminLink='',loginError=null,enableSearch=false,username='',now=Date.now()}={}) {
   const html=await readFile(new URL('../index.html',import.meta.url),'utf8');
   const source=(await readFile(new URL('../src/app.js',import.meta.url),'utf8')).replace(/^import .*;\n/gm,'');
   const dom=new JSDOM(html,{url:'https://kardex.example.test'+adminLink+(recovery?'#type=recovery':''),runScripts:'outside-only'});
@@ -29,7 +29,7 @@ async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recov
   dom.window.HTMLDialogElement.prototype.showModal=function(){this.open=true;};
   dom.window.HTMLDialogElement.prototype.close=function(){if(this.open){this.open=false;this.dispatchEvent(new dom.window.Event('close'));}};
   const state={reqs:[structuredClone(reqRow)],docs:[structuredClone(docRow)],updates:[],snapshots:0,events:[],status:null,authCallback:null};
-  state.session=signedIn?{user:{id:'owner',email:'owner@example.test'}}:null;
+  state.session=signedIn?{user:{id:'owner',email:'owner@example.test',user_metadata:username?{kardex_username:username}:{}}}:null;
   state.syncRow={enabled:true,status:'Revisión completada: 276 cargos ya registrados. 1480 filas pendientes.',
     last_checked_at:'2026-10-17T03:09:17Z',
     last_result:{groups:276,pending_rows:1480,conflictos:0,cargos_nuevos:0,cargos_actualizados:0}};
@@ -105,6 +105,14 @@ test('blank login page hides the entire Kardex until successful authentication a
  }finally{a.close();}
 });
 
+test('el nombre de usuario se muestra en el encabezado sin alterar permisos',async()=>{
+ const a=await app({username:'Juan Alexis'});
+ try {
+   assert.equal(a.node('sessionUser').textContent,'Juan Alexis');
+   assert.equal(a.node('appShell').hidden,false);
+ } finally {a.close();}
+});
+
 test('login uses Farmacias Peruanas reference layout without changing access actions',async()=>{
  const html=await readFile(new URL('../index.html',import.meta.url),'utf8');
  const css=await readFile(new URL('../src/connection.css',import.meta.url),'utf8');
@@ -119,7 +127,9 @@ test('login uses Farmacias Peruanas reference layout without changing access act
    assert.match(d.querySelector('.auth-brand').textContent,/CD SANTA ANITA/);
    assert.equal(d.getElementById('authTitle').textContent,'Iniciar sesión');
    assert.equal(d.getElementById('btnLogin').textContent,'Ingresar');
-   assert.equal(d.getElementById('btnRegister').textContent,'Crear cuenta de invitado');
+   assert.equal(d.getElementById('btnRegister').textContent,'Crear una cuenta');
+    assert.ok(d.getElementById('registerOverlay').hidden);
+    assert.ok(d.getElementById('registerForm'));
    assert.equal(d.getElementById('btnForgotPassword').textContent,'Olvidé mi contraseña');
    assert.equal(d.getElementById('btnMagicLink').textContent,'Recibir enlace de acceso por correo');
    assert.equal(d.querySelectorAll('#authOverlay .auth-decoration').length,1);
@@ -247,15 +257,33 @@ test('repository update always filters by the original timestamp and asks Supaba
   assert.deepEqual(calls.filter(c=>c[0]==='eq'),[['eq','id',docRow.id],['eq','updated_at',docRow.updated_at]]);
 });
 
-test('guest registration requires a password and does not authorize the account',async()=>{
- const a=await app({signedIn:false});
- try{
-  a.node('authEmail').value='GUEST@EXAMPLE.TEST';a.node('authPassword').value='short';
-  a.node('btnRegister').click();await flush();assert.equal(a.state.authCalls.length,0);
-  a.node('authPassword').value='test-password';a.node('btnRegister').click();await flush();
-  assert.equal(a.state.authCalls[0][0],'signup');assert.equal(a.state.authCalls[0][1].email,'guest@example.test');
-  assert.equal(a.node('appShell').hidden,true);assert.equal(a.state.snapshots,0);
- }finally{a.close();}
+test('registro de invitado se abre aparte, valida datos y envía enlace',async()=>{
+  const a=await app({signedIn:false});
+  try{
+    a.node('btnRegister').click();
+    assert.equal(a.node('authOverlay').hidden,true);
+    assert.equal(a.node('registerOverlay').hidden,false);
+    assert.equal(a.node('appShell').hidden,true);
+    a.node('registerUsername').value='Invitado Prueba';
+    a.node('registerEmail').value='GUEST@EXAMPLE.TEST';
+    a.node('registerPassword').value='short';
+    a.node('registerConfirmPassword').value='short';
+    a.node('registerForm').dispatchEvent(new a.dom.window.Event('submit',{cancelable:true}));await flush();
+    assert.equal(a.state.authCalls.length,0);
+    a.node('registerPassword').value='test-password';
+    a.node('registerConfirmPassword').value='test-password';
+    a.node('registerForm').dispatchEvent(new a.dom.window.Event('submit',{cancelable:true}));await flush();
+    assert.equal(a.state.authCalls[0][0],'signup');
+    const signup=a.state.authCalls[0][1];
+    assert.equal(signup.email,'guest@example.test');
+    assert.equal(signup.options.data.kardex_username,'Invitado Prueba');
+    assert.equal(signup.options.emailRedirectTo,'https://kardex.example.test/');
+    assert.equal(a.node('appShell').hidden,true);
+    assert.match(a.node('registerMessage').textContent,/Revisa tu correo/);
+    a.node('btnBackLogin').click();
+    assert.equal(a.node('authOverlay').hidden,false);
+    assert.equal(a.node('registerOverlay').hidden,true);
+  }finally{a.close();}
 });
 
 test('admin and guest export only the selected cargo with its complete invoices',async()=>{
@@ -1089,31 +1117,29 @@ test('ojo muestra y oculta contraseña sin cambiar los valores ni ejecutar login
  }finally{a.close();}
 });
 
-test('solicitud de administrativo requiere correo, contraseña y código; no asigna permisos por sí sola',async()=>{
- const a=await app({signedIn:false});
- try{
-  a.node('btnAdminRegister').click();
-  assert.equal(a.node('adminRegisterForm').hidden,false);
-  assert.equal(a.node('authForm').hidden,true);
-  assert.equal(a.node('authTitle').textContent,'Crear cuenta administrativa');
-  a.node('adminRegisterEmail').value='NUEVO@EXAMPLE.TEST';
-  a.node('adminRegisterPassword').value='UnaClaveSegura123';
-  a.node('adminRegisterCode').value='INCORRECTO';
-  a.node('adminRegisterForm').dispatchEvent(new a.dom.window.Event('submit',{cancelable:true}));await flush();
-  assert.equal(a.state.authCalls.length,0);
-  assert.match(a.node('authMessage').textContent,/código administrativo no es correcto/i);
-  a.node('adminRegisterCode').value='FPCARGOS';
-  a.node('adminRegisterForm').dispatchEvent(new a.dom.window.Event('submit',{cancelable:true}));await flush();
-  assert.equal(a.state.authCalls.length,1);
-  assert.equal(a.state.authCalls[0][0],'signup');
-  const signup=a.state.authCalls[0][1];
-  assert.equal(signup.email,'nuevo@example.test');
-  assert.equal(signup.options.data.kardex_admin_request_code,'FPCARGOS');
-  assert.equal(a.node('appShell').hidden,true);
-  assert.match(a.node('authMessage').textContent,/cuenta principal apruebe/i);
-  a.node('btnAdminRequestCancel').click();
-  assert.equal(a.node('authForm').hidden,false);
- }finally{a.close();}
+test('registro administrativo incluye nombre y requiere aprobación sin asignar permisos',async()=>{
+  const a=await app({signedIn:false});
+  try{
+    a.node('btnRegister').click();
+    a.node('registerRole').value='admin';
+    a.node('registerUsername').value='Administrador Nuevo';
+    a.node('registerEmail').value='NUEVO@EXAMPLE.TEST';
+    a.node('registerPassword').value='UnaClaveSegura123';
+    a.node('registerConfirmPassword').value='Diferente';
+    a.node('registerForm').dispatchEvent(new a.dom.window.Event('submit',{cancelable:true}));await flush();
+    assert.equal(a.state.authCalls.length,0);
+    assert.match(a.node('registerMessage').textContent,/no coinciden/i);
+    a.node('registerConfirmPassword').value='UnaClaveSegura123';
+    a.node('registerForm').dispatchEvent(new a.dom.window.Event('submit',{cancelable:true}));await flush();
+    assert.equal(a.state.authCalls.length,1);
+    assert.equal(a.state.authCalls[0][0],'signup');
+    const signup=a.state.authCalls[0][1];
+    assert.equal(signup.email,'nuevo@example.test');
+    assert.equal(signup.options.data.kardex_username,'Administrador Nuevo');
+    assert.equal(signup.options.data.kardex_admin_request_code,'FPCARGOS');
+    assert.equal(a.node('appShell').hidden,true);
+    assert.match(a.node('registerMessage').textContent,/cuenta principal apruebe/i);
+  }finally{a.close();}
 });
 
 test('cuenta principal aprueba o rechaza desde Solicitudes y el contador vuelve a cero',async()=>{
