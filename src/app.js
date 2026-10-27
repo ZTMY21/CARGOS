@@ -318,6 +318,29 @@ workspaceNav.addEventListener('keydown',event=>{
 });
 // La nueva barra lateral dirige a los mismos módulos y acciones existentes.
 const sidebarNode=document.getElementById('kardexSidebar');
+const sidebarCollapseButton=document.getElementById('sidebarCollapseButton');
+function setSidebarCollapsed(collapsed){
+  document.getElementById('appShell').classList.toggle('sidebar-collapsed',collapsed);
+  sidebarCollapseButton.setAttribute('aria-expanded',String(!collapsed));
+  const label=collapsed?'Expandir menú lateral':'Contraer menú lateral';
+  sidebarCollapseButton.setAttribute('aria-label',label);
+  sidebarCollapseButton.title=label;
+}
+sidebarCollapseButton.addEventListener('click',()=>{
+  setSidebarCollapsed(!document.getElementById('appShell').classList.contains('sidebar-collapsed'));
+});
+// Desplegar el menú antes de abrir una subcategoría en modo compacto.
+for(const summary of sidebarNode.querySelectorAll('.sidebar-category>summary')){
+  summary.title=summary.textContent.trim().replace(/\\s+/g,' ');
+  summary.addEventListener('click',()=>{
+    if(document.getElementById('appShell').classList.contains('sidebar-collapsed')){
+      setSidebarCollapsed(false);
+    }
+  });
+}
+for(const link of sidebarNode.querySelectorAll('.sidebar-link')){
+  link.title=link.textContent.trim().replace(/\\s+/g,' ');
+}
 sidebarNode.addEventListener('click',event=>{
   const button=event.target.closest('button[data-sidebar-view],button[data-sidebar-action]');
   if(!button || !sidebarNode.contains(button) || !appReady || !isAdmin)return;
