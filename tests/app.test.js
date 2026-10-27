@@ -324,6 +324,25 @@ test('Cargo anterior muestra raya cuando no hay coincidencias, escapando datos n
   } finally {risky.close();}
 });
 
+
+test('al buscar una factura concreta solo aparece el cargo anterior de esa factura',async()=>{
+  const a=await app({enableSearch:true,previousMapping:{[docRow.id]:[
+    {cargo:'0110',anio:2025,coincidencias:1,codigos:['f001']},
+    {cargo:'0210',anio:2025,coincidencias:1,codigos:['f002']}
+  ]}});
+  try{
+    await flush();
+    const input=a.node('buscar');
+    input.value='F-001';
+    a.node('btnBuscar').click();
+    await flush();await flush();
+    const previous=a.dom.window.document.querySelector('[data-previous-cargo-id]');
+    assert.ok(previous);
+    assert.match(previous.textContent,/0110/);
+    assert.doesNotMatch(previous.textContent,/0210/);
+  }finally{a.close();}
+});
+
 test('admin and guest export only the selected cargo with its complete invoices',async()=>{
  for(const isAdmin of [true,false]){
   const a=await app({isAdmin});
