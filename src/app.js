@@ -1475,6 +1475,7 @@ function showSessionLoading(){
 function showAuthPage(visible) {
   document.getElementById('sessionLoading').hidden=true;
   document.getElementById('authOverlay').hidden = !visible;
+  document.getElementById('registerOverlay').hidden = true;
   document.getElementById('appShell').hidden = visible;
   document.getElementById('appShell').inert = visible;
 }
@@ -1494,8 +1495,6 @@ function clearCompletedPasswordRecoveryLink() {
 }
 function showRecoveryForm(recovering) {
   document.getElementById('btnRegister').hidden=recovering;
-  document.getElementById('btnAdminRegister').hidden=recovering;
-  document.getElementById('registerHelp').hidden=recovering;
   document.getElementById('authForm').hidden = recovering;
   document.getElementById('resetPasswordForm').hidden = !recovering;
   document.getElementById('btnForgotPassword').hidden = recovering;
@@ -1592,7 +1591,7 @@ async function handleSession(session) {
         : 'Invitado · Acceso administrativo todavía no autorizado';
     } else document.getElementById('readOnlyNotice').textContent='Invitado · Solo consulta de cargos y facturas';
     message('authMessage','');
-    document.getElementById('sessionUser').textContent = user.email || '';
+    document.getElementById('sessionUser').textContent = (typeof user.user_metadata?.kardex_username === 'string' && user.user_metadata.kardex_username.trim()) || user.email || '';
     document.getElementById('sessionProfile').hidden = !user.email;
     document.getElementById('btnSignOut').hidden = false;
     await subscribeRealtime(); setAvailability();
@@ -1741,53 +1740,57 @@ function passwordVisibility(inputId,buttonId) {
   });
 }
 passwordVisibility('authPassword','toggleAuthPassword');
-passwordVisibility('adminRegisterPassword','toggleAdminRegisterPassword');
 
-function showAdminRegistration(open) {
-  document.getElementById('adminRegisterForm').hidden=!open;
-  document.getElementById('authForm').hidden=open;
-  document.getElementById('btnRegister').hidden=open;
-  document.getElementById('registerHelp').hidden=open;
-  document.getElementById('btnMagicLink').hidden=open;
-  document.getElementById('btnForgotPassword').hidden=open;
-  document.getElementById('btnAdminRegister').hidden=open;
-  document.getElementById('authTitle').textContent=open?'Crear cuenta administrativa':'Iniciar sesión';
-  document.getElementById('authDescription').textContent=open
-    ? 'Ingresa tus datos para solicitar acceso administrativo. Después de verificar el correo, la cuenta principal debe aprobarte.'
-    : 'Ingresa a Kardex Digital con tu correo electrónico y contraseña.';
-  message('authMessage','');
+passwordVisibility('registerPassword','toggleRegisterPassword');
+function showRegistrationPage(visible) {
+  // Registro y acceso son pantallas separadas; nunca se muestra el Kardex al registrarse.
+  showAuthPage(true);
+  document.getElementById('authOverlay').hidden=visible;
+  document.getElementById('registerOverlay').hidden=!visible;
+  document.getElementById('appShell').hidden=true;
+  document.getElementById('appShell').inert=true;
+  message('registerMessage','');
+  if(visible)document.getElementById('registerUsername').focus();
 }
-document.getElementById('btnAdminRegister').addEventListener('click',()=>showAdminRegistration(true));
-document.getElementById('btnAdminRequestCancel').addEventListener('click',()=>{
-  document.getElementById('adminRegisterForm').reset();
-  document.getElementById('adminRegisterPassword').type='password';
-  showAdminRegistration(false);
+document.getElementById('btnRegister').addEventListener('click',()=>showRegistrationPage(true));
+document.getElementById('btnBackLogin').addEventListener('click',()=>{
+  document.getElementById('registerForm').reset();
+  document.getElementById('registerPassword').type='password';
+  showRegistrationPage(false);
 });
-document.getElementById('adminRegisterForm').addEventListener('submit',async event=>{
+document.getElementById('registerForm').addEventListener('submit',async event=>{
   event.preventDefault();
-  if(!supabase)return;
   const form=event.currentTarget;
-  const email=document.getElementById('adminRegisterEmail').value.trim().toLowerCase();
-  const password=document.getElementById('adminRegisterPassword').value;
-  const code=document.getElementById('adminRegisterCode').value;
-  if(!form.reportValidity())return;
-  if(password.length<8){message('authMessage','La contraseña debe tener al menos 8 caracteres.',true);return;}
-  if(code!=='FPCARGOS'){message('authMessage','El código administrativo no es correcto.',true);return;}
-  const submit=document.getElementById('btnAdminRequestSubmit');
-  submit.disabled=true;
-  try{
+  if(!form.reportValidity() || !supabase)return;
+  const username=document.getElementById('registerUsername').value.trim().replace(/\s+/g,' ');
+  const email=document.getElementById('registerEmail').value.trim().toLowerCase();
+  const password=document.getElementById('registerPassword').value;
+  const confirmation=document.getElementById('registerConfirmPassword').value;
+  const wantsAdmin=document.getElementById('registerRole').value==='admin';
+  if(username.length<3 || username.length>60){message('registerMessage','Ingresa un nombre de usuario entre 3 y 60 caracteres.',true);return;}
+  if(password.length<8){message('registerMessage','La contraseña debe tener al menos 8 caracteres.',true);return;}
+  if(password!==confirmation){message('registerMessage','Las contraseñas no coinciden.',true);return;}
+  if(isPreview){message('registerMessage','Esta es una vista previa de diseño. No se crean cuentas reales hasta publicar los cambios.',true);return;}
+  const button=document.getElementById('btnCreateAccount');
+  button.disabled=true;
+  message('registerMessage','Creando cuenta y enviando enlace de verificación…');
+  try {
+    // Compatibilidad con la solicitud existente: el código sólo identifica el trámite.
+    // No concede acceso administrativo; la cuenta principal debe aprobarlo.
+    const data={kardex_username:username};
+    if(wantsAdmin)data.kardex_admin_request_code='FPCARGOS';
     const {error}=await supabase.auth.signUp({
-      email,password,
-      options:{emailRedirectTo:window.location.origin+'/',
-        data:{kardex_admin_request_code:code}}
+      email,password,options:{emailRedirectTo:window.location.origin+'/',data}
     });
     if(error)throw error;
-    form.reset();
-    message('authMessage','Revisa tu correo y confirma la cuenta. Después recibirás acceso de consulta hasta que la cuenta principal apruebe los permisos administrativos.');
-  }catch(error){message('authMessage',readableError(error),true);}
-  finally{submit.disabled=false;}
+    document.getElementById('registerPassword').value='';
+    document.getElementById('registerConfirmPassword').value='';
+    message('registerMessage',wantsAdmin
+      ? 'Revisa tu correo y abre el enlace para verificar tu cuenta. Ingresarás como invitado hasta que la cuenta principal apruebe tu solicitud administrativa.'
+      : 'Revisa tu correo y abre el enlace para verificar tu cuenta. Después podrás ingresar como invitado con tu nombre de usuario.');
+  }catch(error){message('registerMessage',readableError(error),true);}
+  finally{button.disabled=false;}
 });
-
 async function refreshAdminRequests() {
   const panel=document.getElementById('adminRequestsPanel');
   const epoch=++adminRequestsEpoch,generation=authGeneration;
@@ -1870,21 +1873,6 @@ document.getElementById('adminRequestsList').addEventListener('click',async even
     await refreshAdminRequests();
     alert(approved?'Acceso administrativo autorizado. La persona deberá volver a iniciar sesión.':'Solicitud rechazada.');
   } catch(error){alert('No se pudo revisar la solicitud: '+readableError(error));}
-  finally{button.disabled=false;}
-});
-
-document.getElementById('btnRegister').addEventListener('click',async ev=>{
-  if(!supabase)return;
-  const input=document.getElementById('authEmail'),password=document.getElementById('authPassword').value;
-  if(!input.reportValidity())return;
-  if(password.length<8){message('authMessage','Escribe una contraseña de al menos 8 caracteres para crear tu cuenta.',true);return;}
-  const button=ev.currentTarget;button.disabled=true;
-  try {
-    const {error}=await supabase.auth.signUp({email:input.value.trim().toLowerCase(),password,options:{emailRedirectTo:window.location.origin+'/'}});
-    if(error)throw error;
-    document.getElementById('authPassword').value='';
-    message('authMessage','Revisa tu correo y confirma tu cuenta. Al abrir el enlace entrarás automáticamente como invitado de solo consulta.');
-  }catch(error){message('authMessage',readableError(error),true);}
   finally{button.disabled=false;}
 });
 
