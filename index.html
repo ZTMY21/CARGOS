@@ -1231,8 +1231,7 @@
 #appShell.has-sidebar #createdDashboardComparisonStats{
   margin:0 0 18px;
 }
-#appShell.has-sidebar #createdDashboardComparisonStats[hidden],
-#createdDashboardComparisonHighlight[hidden]{display:none!important}
+#appShell.has-sidebar #createdDashboardComparisonStats[hidden]{display:none!important}
 #appShell.has-sidebar .created-comparison-card-grid{
   display:grid;
   grid-template-columns:repeat(auto-fit,minmax(min(100%,190px),1fr));
@@ -1261,15 +1260,6 @@
   color:var(--comparison-color);font-variant-numeric:tabular-nums;
 }
 .created-comparison-label{font-size:11px;color:#697f92;line-height:1.45;margin-top:auto}
-#appShell.has-sidebar .created-comparison-highlight{
-  display:flex;align-items:flex-start;gap:8px;
-  margin:12px 0 0;padding:10px 14px;
-  font-size:12px;line-height:1.5;color:#4d657a;
-  background:#f8fafc;border:1px solid #e7edf2;border-radius:9px;
-}
-#appShell.has-sidebar .created-comparison-highlight::before{
-  content:"↗";color:#bd2b3d;font-weight:900;line-height:1.3;
-}
 @media(max-width:690px){
   #appShell.has-sidebar .created-comparison-card-grid{
     grid-template-columns:repeat(auto-fit,minmax(min(100%,145px),1fr));
@@ -1702,7 +1692,6 @@
         <section id="createdDashboardComparisonStats" class="created-dashboard-comparison-stats" hidden
           aria-label="Indicadores comparativos de cargos realizados" aria-live="polite">
           <div id="createdDashboardComparisonCards" class="created-comparison-card-grid"></div>
-          <p id="createdDashboardComparisonHighlight" class="created-comparison-highlight" hidden></p>
         </section>
         <div class="created-dashboard-plot">
           <div class="created-dashboard-plot-heading">
