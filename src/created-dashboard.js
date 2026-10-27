@@ -99,7 +99,10 @@ export function createCreatedDashboard() {
     const measuredWidth=Math.round(surface.getBoundingClientRect().width);
     const chartWidth=Math.max(700,measuredWidth||960);
     // Mantiene una zona de datos amplia sin desperdiciar altura bajo los meses.
-    const chartHeight=Math.round(Math.min(590,Math.max(445,chartWidth*0.46)));
+    // Un solo tamaño de lienzo en Vista individual y Comparar años.
+    // Depende únicamente del ancho de pantalla, no de la cantidad de series,
+    // valores, tarjetas ni modo seleccionado.
+    const chartHeight=Math.round(Math.min(535,Math.max(460,chartWidth*0.49)));
     renderCargoLineChart(surface,legend,categories,lines,{
       showLabels,width:chartWidth,height:chartHeight,fontSize:14,highlightIndex,compactLayout:true
     });
