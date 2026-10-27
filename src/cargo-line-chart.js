@@ -1,15 +1,15 @@
 // Gráfico SVG sin dependencias. Se utiliza únicamente en la ventana «Ver detalle».
-export function renderCargoLineChart(surface,legend,categories,lines,{showLabels=false,width=960,height=360,fontSize=12,highlightIndex=null}={}){
+export function renderCargoLineChart(surface,legend,categories,lines,{showLabels=false,width=960,height=360,fontSize=12,highlightIndex=null,compactLayout=false}={}){
   surface.replaceChildren();
   legend.replaceChildren();
   const W=Math.max(640,width),H=Math.max(340,height);
   const responsive=width!==960 || height!==360;
   // Mayor margen interior para que puntos, leyendas y números no toquen los bordes.
   // La ventana histórica conserva su geometría original (responsive === false).
-  const L=responsive?Math.max(94,Math.round(W*.082)):62;
-  const R=responsive?W-Math.max(84,Math.round(W*.075)):930;
-  const T=responsive?Math.max(88,Math.round(H*.13)):40;
-  const B=responsive?H-Math.max(101,Math.round(H*.16)):294;
+  const L=compactLayout?Math.max(83,Math.round(W*.07)):responsive?Math.max(94,Math.round(W*.082)):62;
+  const R=compactLayout?W-Math.max(67,Math.round(W*.057)):responsive?W-Math.max(84,Math.round(W*.075)):930;
+  const T=compactLayout?Math.max(58,Math.round(H*.11)):responsive?Math.max(88,Math.round(H*.13)):40;
+  const B=compactLayout?H-Math.max(62,Math.round(H*.115)):responsive?H-Math.max(101,Math.round(H*.16)):294;
   const numbers=lines.flatMap(line=>line.values).filter(value=>Number.isFinite(value));
   const max=Math.max(1,...numbers);
   const scale=Math.pow(10,Math.floor(Math.log10(max/5)));
