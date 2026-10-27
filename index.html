@@ -887,6 +887,68 @@
   .created-dashboard-year-options{gap:6px}
   .created-dashboard-year-option{padding:9px 10px}
 }
+
+/* Preview: gráfica anual con espacio real para los doce meses y aire visual. */
+#appShell.has-sidebar .created-dashboard-plot{
+  min-height:0;
+  padding:26px clamp(22px,3vw,44px) 26px;
+}
+#appShell.has-sidebar .created-dashboard-plot-heading{
+  align-items:flex-start;
+  justify-content:space-between;
+  flex-wrap:wrap;
+  gap:12px 26px;
+  padding:0 8px 18px;
+  border-bottom:1px solid #edf1f6;
+  margin-bottom:18px;
+}
+#appShell.has-sidebar .created-dashboard-plot h3{
+  font-size:17px;
+  line-height:1.45;
+}
+#appShell.has-sidebar .created-dashboard-plot-heading>span{
+  font-size:12px;
+  line-height:1.55;
+  max-width:470px;
+  text-align:right;
+}
+#appShell.has-sidebar #createdDashboardChart{
+  width:100%;
+  max-width:1320px;
+  margin:0 auto;
+  min-height:0;
+  padding:16px 0 12px;
+  overflow-x:auto;
+  overflow-y:hidden;
+}
+#appShell.has-sidebar #createdDashboardChart svg{
+  display:block;
+  width:100%;
+  min-width:700px;
+  height:auto;
+  max-height:none!important;
+}
+#appShell.has-sidebar #createdDashboardLegend{
+  max-width:1320px;
+  margin:12px auto 0;
+  padding:16px 10px 4px;
+  border-top:1px solid #eff3f7;
+}
+#appShell.has-sidebar .created-dashboard-footnote{
+  max-width:1320px;
+  line-height:1.75;
+  margin:18px 5px 8px;
+  font-size:12px;
+}
+@media(max-width:1040px){
+  #appShell.has-sidebar .created-dashboard-plot{padding:20px 18px 22px}
+}
+@media(max-width:680px){
+  #appShell.has-sidebar .created-dashboard-plot{padding:18px 12px 18px}
+  #appShell.has-sidebar .created-dashboard-plot-heading{padding:0 6px 14px;gap:5px}
+  #appShell.has-sidebar .created-dashboard-plot-heading>span{text-align:left}
+  #appShell.has-sidebar #createdDashboardChart{padding-top:11px}
+}
 </style>
 </head>
 <body>
