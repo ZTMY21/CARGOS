@@ -1469,6 +1469,7 @@ async function subscribeRealtime() {
 function showSessionLoading(){
   document.getElementById('sessionLoading').hidden=false;
   document.getElementById('authOverlay').hidden=true;
+  document.getElementById('registerOverlay').hidden=true;
   document.getElementById('appShell').hidden=true;
   document.getElementById('appShell').inert=true;
 }
