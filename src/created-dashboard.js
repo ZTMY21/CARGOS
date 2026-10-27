@@ -88,7 +88,7 @@ export function createCreatedDashboard() {
     return years;
   }
 
-  function drawGraph(categories, lines, showLabels) {
+  function drawGraph(categories, lines, showLabels, highlightIndex=null) {
     status.hidden=true;
     surface.hidden=false;
     legend.hidden=false;
@@ -96,7 +96,7 @@ export function createCreatedDashboard() {
     const chartWidth=Math.max(700,measuredWidth||960);
     const chartHeight=Math.round(Math.min(560,Math.max(430,chartWidth*0.51)));
     renderCargoLineChart(surface,legend,categories,lines,{
-      showLabels,width:chartWidth,height:chartHeight,fontSize:14
+      showLabels,width:chartWidth,height:chartHeight,fontSize:14,highlightIndex
     });
     lastChartWidth=measuredWidth;
   }
@@ -171,14 +171,17 @@ export function createCreatedDashboard() {
     periodLabel.textContent=selectedMonth?'Cargos realizados en '+period:'Cargos realizados entre '+period;
     title.textContent='Evolución mensual de cargos realizados · '+selectedYear;
     explain.textContent=selectedMonth
-      ? 'Evolución desde enero hasta '+nameOf(range)+'.'
-      : 'Evolución mensual del año seleccionado.';
+      ? nameOf(selectedMonth)[0].toUpperCase()+nameOf(selectedMonth).slice(1)+
+        ' seleccionado: '+fmt(currentCount)+' cargos · evolución anual completa.'
+      : 'Todos los meses disponibles de '+selectedYear+' · sin mes destacado.';
     footnote.textContent=fmt(missingDate)+' cargos de '+selectedYear+
       ' sin fecha original válida del mismo año se conservan en el histórico anual, no se asignan a ningún mes.';
 
-    drawGraph(MONTHS.slice(0,range),[
-      {label:String(selectedYear),color:'#c6253e',values:series.slice(0,range),width:3.4}
-    ],true);
+    // El mes seleccionado cambia los KPI y se resalta en el gráfico.
+    // La serie siempre muestra todos los meses disponibles del año.
+    drawGraph(MONTHS.slice(0,upper),[
+      {label:String(selectedYear),color:'#c6253e',values:series.slice(0,upper),width:3.4}
+    ],true,selectedMonth?selectedMonth-1:null);
   }
 
   function renderComparison(years) {
