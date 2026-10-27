@@ -8,6 +8,7 @@ import { createIdleSession } from './idle-session.js';
 import { cargoYear, locationLabel, groupsForCodes } from './cargo-details.js';
 import { summarizeCreatedCargos } from './monthly-created-summary.js';
 import { renderCargoLineChart } from './cargo-line-chart.js';
+import { createCreatedDashboard } from './created-dashboard.js';
 import { summarizeShippedBoxes } from './im-shipped-summary.js';
 import { renderImBarChart } from './im-bar-chart.js';
 import { cargoExpiryGroups, formatCargoDuration } from './cargo-expiry.js';
@@ -28,6 +29,7 @@ const idleSession = createIdleSession({window, onExpire: async()=>{
 let googleSyncEnabled=true;
 let activeWorkspaceTab='resumen';
 let activeSidebarAction='';
+const renderCreatedDashboard = createCreatedDashboard();
 let appReady = false, isAdmin = false, mutationBusy = false, channelReady = false;
 let adminRequestStatus = null;
 let adminRequestsTimer = null, adminRequestsEpoch = 0;
@@ -200,9 +202,20 @@ function setStatus(value, state = '') {
 // Navegación entre apartados sin desmontar formularios ni desconectar Supabase.
 const WORKSPACE_SECTIONS={
   resumen:'grp-resumen',
+  control:'grp-resumen',
+  iron:'grp-resumen',
+  historicos:'grp-resumen',
   requerimientos:'grp-requerimientos',
   existencias:'grp-existencias',
-  solicitudes:'grp-solicitudes'
+  solicitudes:'grp-solicitudes',
+  sync:'googleSyncPanel',
+  reportes:'sidebarReportsPanel'
+};
+const SUMMARY_VIEWS = new Set(['resumen','control','iron','historicos']);
+const SECTION_COPY={
+  control:['CONTROL DOCUMENTAL','Seguimiento de vencimientos','Cargos por vencer y vencidos de 2025–2026, con acceso al detalle original.'],
+  iron:['IRON MOUNTAIN','Estado de envíos a Iron Mountain','Cargos enviados, pendientes y cajas preparadas, con histórico de movimientos.'],
+  historicos:['HISTÓRICO DOCUMENTAL','Cargos registrados por año','Detalle anual conservado del control documental, de 2020 a 2026.']
 };
 function setAdminRequestBadge(count) {
   const valid=Number.isSafeInteger(count) && count>=0;
@@ -234,7 +247,16 @@ function updateSidebarSelection(){
 }
 function updateWorkspaceVisibility() {
   const adminReady=appReady && isAdmin;
-  const showSync=adminReady && activeWorkspaceTab==='resumen';
+  const showSync=adminReady && activeWorkspaceTab==='sync';
+  document.getElementById('appShell').dataset.module=activeWorkspaceTab;
+  const heading=document.getElementById('sidebarSectionHeading');
+  const copy=SECTION_COPY[activeWorkspaceTab];
+  heading.hidden=!copy;
+  if(copy){
+    document.getElementById('sidebarSectionEyebrow').textContent=copy[0];
+    document.getElementById('sidebarSectionTitle').textContent=copy[1];
+    document.getElementById('sidebarSectionSubtitle').textContent=copy[2];
+  }
   document.getElementById('appShell').classList.toggle('has-sidebar',adminReady);
   document.getElementById('kardexSidebar').hidden=!adminReady;
   document.getElementById('sidebarMenuToggle').hidden=!adminReady;
@@ -246,11 +268,13 @@ function updateWorkspaceVisibility() {
   document.getElementById('googleSyncContent').hidden=!showSync;
   document.getElementById('googleSyncPanel').classList.toggle('workspace-tabs-only',adminReady && !showSync);
   for(const [name,id] of Object.entries(WORKSPACE_SECTIONS)) {
+    if(['control','iron','historicos'].includes(name))continue;
     const section=document.getElementById(id);
-    const active=adminReady && activeWorkspaceTab===name;
-    // Los invitados conservan su buscador; el resto de secciones es administrativo.
+    const active=adminReady && (name==='resumen'
+      ? SUMMARY_VIEWS.has(activeWorkspaceTab) : activeWorkspaceTab===name);
+    // Los invitados conservan su buscador, sin acceso a las vistas administrativas.
     section.hidden=adminReady ? !active : name!=='existencias';
-    if(active)section.open=true;
+    if(active && section.tagName==='DETAILS')section.open=true;
   }
   for(const button of document.querySelectorAll('#workspaceTabs [data-workspace]')) {
     const active=adminReady && button.dataset.workspace===activeWorkspaceTab;
@@ -303,19 +327,19 @@ sidebarNode.addEventListener('click',event=>{
   }else{
     const action=button.dataset.sidebarAction;
     if(['expiry-upcoming','expiry-overdue'].includes(action)){
-      selectWorkspaceTab('resumen');
+      selectWorkspaceTab('control');
       openCargoExpiry(action==='expiry-overdue'?'overdue':'upcoming');
     }else if(action==='im-requested'){
-      selectWorkspaceTab('resumen');
+      selectWorkspaceTab('iron');
       document.getElementById('btnRequestedIMDetail').click();
     }else if(action==='im-prepared'){
-      selectWorkspaceTab('resumen');
+      selectWorkspaceTab('iron');
       openPreparedIm();
     }else if(action==='im-sent'){
-      selectWorkspaceTab('resumen');
+      selectWorkspaceTab('iron');
       document.getElementById('btnMonthlyShippedDetail').click();
     }else if(action==='im-historical'){
-      selectWorkspaceTab('resumen');
+      selectWorkspaceTab('iron');
       document.getElementById('btnOpenIronMountainHistorical').click();
     }else if(action==='export-cargo'){
       selectWorkspaceTab('existencias');
@@ -340,6 +364,17 @@ document.getElementById('sidebarCloseMobile').addEventListener('click',()=>{
   closeSidebarDrawer();document.getElementById('sidebarMenuToggle').focus();
 });
 document.getElementById('sidebarScrim').addEventListener('click',closeSidebarDrawer);
+document.getElementById('sidebarGoExistencias').addEventListener('click',()=>{
+  selectWorkspaceTab('existencias');
+  document.getElementById('buscar').focus();
+});
+document.getElementById('createdOpenComparison').addEventListener('click',()=>{
+  if(!appReady || !isAdmin)return;
+  monthlyCreatedView='comparison';
+  const dialog=document.getElementById('monthlyCreatedSheet');
+  dialog.showModal();
+  renderMonthlyCreatedDetail();
+});
 document.addEventListener('keydown',event=>{
   if(event.key==='Escape' && document.getElementById('appShell').classList.contains('sidebar-open')){
     closeSidebarDrawer();
@@ -882,6 +917,7 @@ function renderMonthlyCargoStats(){
   periodNode.textContent=
     new Intl.DateTimeFormat('es-PE',{timeZone:'America/Lima',month:'long',year:'numeric'}).format(new Date());
   monthlyCreatedSummary=summarizeCreatedCargos(docs,new Date());
+  renderCreatedDashboard(monthlyCreatedSummary);
   document.getElementById('monthlyCargosCreated').textContent=fmtNum(monthlyCreatedSummary.currentCount);
   document.getElementById('monthlyCreatedNote').textContent=`Durante el mes (${monthlyCreatedNames[monthlyCreatedSummary.currentMonth-1].toLowerCase()})`;
   renderMonthlyCreatedDetail();
