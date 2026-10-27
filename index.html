@@ -630,6 +630,60 @@
   .previous-cargo-none{color:#8893a2;}
   .previous-cargo-pending{color:#8893a2;font-size:12px;}
   .previous-cargo-error{color:#8a6671;font-size:11px;}
+
+  /* PREVIEW: menú lateral reversible. Conserva los IDs y vistas originales. */
+  #appShell.has-sidebar{max-width:1560px}
+  #sidebarLayout{display:grid;grid-template-columns:minmax(0,1fr);align-items:start;gap:19px;min-width:0}
+  #appShell.has-sidebar #sidebarLayout{grid-template-columns:244px minmax(0,1fr)}
+  #sidebarMain{min-width:0}
+  #appShell.has-sidebar #workspaceTabs{display:none!important}
+  #appShell.has-sidebar #googleSyncPanel.workspace-tabs-only{display:none!important}
+  #appShell.has-sidebar #googleSyncPanel:not(.workspace-tabs-only){padding-top:17px}
+  #kardexSidebar[hidden],#sidebarMenuToggle[hidden],#sidebarScrim[hidden]{display:none!important}
+  #kardexSidebar.kardex-sidebar{position:sticky;top:16px;max-height:calc(100vh - 30px);display:flex;flex-direction:column;overflow:auto;
+    background:#fff;border:1px solid #dbe4ec;border-radius:15px;box-shadow:0 4px 20px #192e4310;color:#2b4054;min-width:0}
+  .sidebar-brand{display:flex;align-items:center;gap:10px;padding:18px 15px;border-bottom:1px solid #eaf0f4}
+  .sidebar-brand-icon{display:grid;place-items:center;width:37px;height:37px;flex:none;border-radius:10px;background:#faeaed;color:#aa2435;font-size:24px}
+  .sidebar-brand strong{display:block;font-size:13px;color:#1e3042;line-height:1.35}
+  .sidebar-brand span:not(.sidebar-brand-icon){display:block;font-size:11px;color:#7e8c9b;margin-top:3px}
+  .sidebar-navigation{display:flex;flex-direction:column;gap:3px;padding:13px 10px 18px}
+  .sidebar-eyebrow{font-size:10px;font-weight:850;letter-spacing:.11em;color:#91a0ae;padding:13px 12px 7px}
+  .sidebar-link,.sidebar-category>summary{display:flex;align-items:center;gap:10px;width:100%;min-height:42px;padding:10px 11px;
+    border:0;border-radius:9px;background:transparent;color:#465e73;text-align:left;font-size:12px;font-weight:750;cursor:pointer;list-style:none}
+  .sidebar-category>summary::-webkit-details-marker{display:none}
+  .sidebar-category>summary .sidebar-chevron{margin-left:auto;font-size:18px;line-height:1;color:#8192a0;transition:transform .15s}
+  .sidebar-category[open]>summary .sidebar-chevron{transform:rotate(180deg)}
+  .sidebar-link:hover,.sidebar-category>summary:hover,.sidebar-submenu button:hover{background:#f3f7fa;color:#25445e}
+  .sidebar-link[aria-current="page"],.sidebar-submenu button[aria-current="page"]{background:#fff0f2;color:#a51e30;font-weight:800}
+  .sidebar-icon{display:grid;place-items:center;width:24px;height:24px;flex:none;color:#708398;font-size:19px;line-height:1;font-weight:600}
+  .sidebar-link[aria-current="page"] .sidebar-icon{color:#b52838}
+  .sidebar-category[open]>summary{color:#293f54}
+  .sidebar-category[open]>summary .sidebar-icon{color:#b52838}
+  .sidebar-submenu{display:flex;flex-direction:column;gap:3px;margin:0 0 3px 22px;border-left:1px solid #e1e9ef;padding:4px 0 5px 12px}
+  .sidebar-submenu button{font-family:inherit;background:transparent;border:0;border-radius:8px;cursor:pointer;text-align:left;
+    font-size:11px;font-weight:650;color:#587084;padding:9px 9px;line-height:1.35;min-height:34px}
+  .sidebar-submenu .sidebar-planned{display:flex;align-items:center;justify-content:space-between;gap:3px;padding:8px 9px;
+    border-radius:8px;font-size:11px;color:#97a5b2;cursor:default}
+  .sidebar-planned small{font-size:9px;color:#97a5b2;white-space:nowrap}
+  #kardexSidebar button:focus-visible,#kardexSidebar summary:focus-visible,#sidebarMenuToggle:focus-visible{outline:2px solid #b72a39;outline-offset:2px}
+  .sidebar-bottom{display:flex;align-items:center;gap:9px;padding:15px;border-top:1px solid #ecf0f4;background:#fafbfc;margin-top:auto}
+  .sidebar-preview-dot{width:8px;height:8px;background:#279467;border-radius:50%;flex:none}
+  .sidebar-bottom strong{font-size:10px;color:#31475b;display:block}
+  .sidebar-bottom small{font-size:10px;color:#8795a2;display:block;margin-top:3px}
+  #sidebarMenuToggle.sidebar-mobile-toggle{padding:9px 13px;border:1px solid #d8e1ea;background:#fff;color:#344a61;
+    font-weight:750;font-size:12px;border-radius:9px;margin-bottom:12px}
+  .sidebar-close{display:none}
+  #sidebarScrim.sidebar-scrim{position:fixed;inset:0;z-index:170;background:#0f20358c}
+  @media(max-width:1040px){
+    #appShell.has-sidebar #sidebarLayout{grid-template-columns:minmax(0,1fr)}
+    #appShell.has-sidebar #sidebarMenuToggle:not([hidden]){display:inline-flex;align-items:center;gap:9px}
+    #kardexSidebar.kardex-sidebar{position:fixed;left:0;top:0;height:100dvh;max-height:100dvh;width:min(295px,85vw);
+      border-radius:0 14px 14px 0;z-index:180;transform:translateX(-110%);transition:transform .18s ease;box-shadow:0 10px 60px #05172d50}
+    #appShell.sidebar-open #kardexSidebar.kardex-sidebar{transform:translateX(0)}
+    .sidebar-close{display:grid;place-items:center;border:0;background:#f0f4f7;border-radius:7px;
+      height:30px;width:30px;margin-left:auto;color:#53687b;font-size:23px}
+  }
+  @media(prefers-reduced-motion:reduce){#kardexSidebar.kardex-sidebar,.sidebar-category>summary .sidebar-chevron{transition:none}}
 </style>
 </head>
 <body>
@@ -675,6 +729,64 @@
     <button id="btnToggleGoogleSync" type="button" class="secondary connection-action" disabled>Pausar sincronización</button>
     <button id="btnSignOut" class="secondary connection-action signout-action" hidden>Salir</button>
   </div>
+  <!-- Vista previa independiente: nueva navegación visual; las secciones existentes se conservan. -->
+  <button id="sidebarMenuToggle" class="sidebar-mobile-toggle" type="button" aria-controls="kardexSidebar" aria-expanded="false" hidden>
+    <span aria-hidden="true">☰</span> Abrir menú
+  </button>
+  <div id="sidebarScrim" class="sidebar-scrim" hidden></div>
+  <div id="sidebarLayout" class="sidebar-layout">
+    <aside id="kardexSidebar" class="kardex-sidebar" aria-label="Menú principal del administrador" hidden>
+      <div class="sidebar-brand">
+        <div class="sidebar-brand-icon" aria-hidden="true">▦</div>
+        <div><strong>Panel administrativo</strong><span>CD Santa Anita</span></div>
+        <button id="sidebarCloseMobile" class="sidebar-close" type="button" aria-label="Cerrar menú">×</button>
+      </div>
+      <nav class="sidebar-navigation" aria-label="Módulos del Kardex">
+        <div class="sidebar-eyebrow">PRINCIPAL</div>
+        <button type="button" class="sidebar-link" data-sidebar-view="resumen">
+          <span class="sidebar-icon" aria-hidden="true">▦</span><span>Dashboard General</span>
+        </button>
+        <details class="sidebar-category" data-sidebar-group="control">
+          <summary><span class="sidebar-icon" aria-hidden="true">◷</span><span>Control Documental</span><span class="sidebar-chevron" aria-hidden="true">⌄</span></summary>
+          <div class="sidebar-submenu">
+            <button type="button" data-sidebar-action="expiry-upcoming">Cargos por vencer</button>
+            <button type="button" data-sidebar-action="expiry-overdue">Cargos vencidos</button>
+          </div>
+        </details>
+        <details class="sidebar-category" data-sidebar-group="im">
+          <summary><span class="sidebar-icon" aria-hidden="true">▤</span><span>Iron Mountain</span><span class="sidebar-chevron" aria-hidden="true">⌄</span></summary>
+          <div class="sidebar-submenu">
+            <button type="button" data-sidebar-action="im-requested">Cajas solicitadas</button>
+            <button type="button" data-sidebar-action="im-prepared">Cajas preparadas</button>
+            <button type="button" data-sidebar-action="im-sent">Estadísticas de envíos</button>
+            <button type="button" data-sidebar-action="im-historical">Histórico IM</button>
+          </div>
+        </details>
+        <button type="button" class="sidebar-link" data-sidebar-view="requerimientos">
+          <span class="sidebar-icon" aria-hidden="true">▣</span><span>Requerimientos</span>
+        </button>
+        <button type="button" class="sidebar-link" data-sidebar-view="existencias">
+          <span class="sidebar-icon" aria-hidden="true">⌕</span><span>Existencias</span>
+        </button>
+        <div class="sidebar-eyebrow">GESTIÓN</div>
+        <details class="sidebar-category" data-sidebar-group="reportes">
+          <summary><span class="sidebar-icon" aria-hidden="true">⇩</span><span>Reportes y descargas</span><span class="sidebar-chevron" aria-hidden="true">⌄</span></summary>
+          <div class="sidebar-submenu">
+            <button type="button" data-sidebar-action="export-cargo">Exportar cargo individual</button>
+            <span class="sidebar-planned">Descarga por año <small>Próxima etapa</small></span>
+            <span class="sidebar-planned">Data cruda <small>Próxima etapa</small></span>
+          </div>
+        </details>
+        <details class="sidebar-category" data-sidebar-group="accesos">
+          <summary><span class="sidebar-icon" aria-hidden="true">♙</span><span>Usuarios y accesos</span><span class="sidebar-chevron" aria-hidden="true">⌄</span></summary>
+          <div class="sidebar-submenu">
+            <button type="button" data-sidebar-action="admin-requests">Solicitudes administrativas</button>
+          </div>
+        </details>
+      </nav>
+      <div class="sidebar-bottom"><span class="sidebar-preview-dot" aria-hidden="true"></span><div><strong>Vista previa · Menú lateral</strong><small>Sin cambios en producción</small></div></div>
+    </aside>
+    <main id="sidebarMain" class="sidebar-main" aria-label="Contenido de Kardex Digital">
   <section id="googleSyncPanel" hidden class="sync-panel" aria-labelledby="googleSyncTitle">
     <nav id="workspaceTabs" class="workspace-tabs" role="tablist" aria-label="Navegación administrativa">
       <button id="workspaceTabResumen" class="workspace-tab" type="button" role="tab" data-workspace="resumen"
@@ -1004,6 +1116,8 @@
       </section>
     </div>
   </details>
+    </main>
+  </div>
 
 </div>
 
