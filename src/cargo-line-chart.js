@@ -1,8 +1,10 @@
 // Gráfico SVG sin dependencias. Se utiliza únicamente en la ventana «Ver detalle».
-export function renderCargoLineChart(surface,legend,categories,lines,{showLabels=false}={}){
+export function renderCargoLineChart(surface,legend,categories,lines,{showLabels=false,width=960,height=360,fontSize=12}={}){
   surface.replaceChildren();
   legend.replaceChildren();
-  const W=960,H=360,L=62,R=930,T=40,B=294;
+  const W=Math.max(640,width),H=Math.max(340,height);
+  const responsive=width!==960 || height!==360;
+  const L=responsive?74:62,R=responsive?W-36:930,T=responsive?56:40,B=responsive?H-69:294;
   const numbers=lines.flatMap(line=>line.values).filter(value=>Number.isFinite(value));
   const max=Math.max(1,...numbers);
   const scale=Math.pow(10,Math.floor(Math.log10(max/5)));
@@ -31,10 +33,10 @@ export function renderCargoLineChart(surface,legend,categories,lines,{showLabels
   for(let mark=0;mark<=ceiling+0.00001;mark+=step){
     const cy=Y(mark);
     add(svg,'line',{x1:L,y1:cy,x2:R,y2:cy,stroke:'#dae5ee','stroke-width':1,'stroke-dasharray':'4 5'});
-    add(svg,'text',{x:L-10,y:cy+4,'text-anchor':'end','font-size':12,fill:'#77899a'},fmt(mark));
+    add(svg,'text',{x:L-10,y:cy+4,'text-anchor':'end','font-size':fontSize,fill:'#77899a'},fmt(mark));
   }
   categories.forEach((category,i)=>add(svg,'text',{
-    x:X(i),y:B+28,'text-anchor':'middle','font-size':12,'font-weight':600,fill:'#66798b'
+    x:X(i),y:B+28,'text-anchor':'middle','font-size':fontSize,'font-weight':600,fill:'#66798b'
   },category));
   const tip=document.createElement('div');
   tip.className='monthly-created-chart-tooltip';tip.hidden=true;
@@ -57,10 +59,10 @@ export function renderCargoLineChart(surface,legend,categories,lines,{showLabels
       const [cx,cy,value,i]=p;
       const group=add(svg,'g',{tabindex:0,'aria-label':`${line.label}, ${categories[i]}: ${fmt(value)} cargos`});
       add(group,'circle',{cx,cy,r:12,fill:'transparent'});
-      add(group,'circle',{cx,cy,r:showLabels?4.7:4,fill:'#fff',stroke:line.color,'stroke-width':2.8});
+      add(group,'circle',{cx,cy,r:showLabels?5.3:4,fill:'#fff',stroke:line.color,'stroke-width':3});
       add(group,'title',{},`${line.label} · ${categories[i]}: ${fmt(value)} cargos`);
       if(showLabels)add(group,'text',{
-        x:cx,y:Math.max(T-8,cy-13),'text-anchor':'middle','font-size':12,'font-weight':800,fill:line.color
+        x:cx,y:Math.max(T-8,cy-16),'text-anchor':'middle','font-size':fontSize,'font-weight':800,fill:line.color
       },fmt(value));
       const showTip=()=>{
         tip.textContent=`${line.label} · ${categories[i]}: ${fmt(value)} cargos`;
