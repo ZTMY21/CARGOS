@@ -24,6 +24,9 @@ export function createCreatedDashboard() {
   const compareButton = document.getElementById('createdDashboardModeCompare');
   const filters = document.getElementById('createdDashboardFilters');
   const stats = root.querySelector('.created-dashboard-stats');
+  const comparisonStats = document.getElementById('createdDashboardComparisonStats');
+  const comparisonCards = document.getElementById('createdDashboardComparisonCards');
+  const comparisonHighlight = document.getElementById('createdDashboardComparisonHighlight');
   const comparison = document.getElementById('createdDashboardCompareFilters');
   const comparisonYears = document.getElementById('createdDashboardCompareYears');
   const comparisonNote = document.getElementById('createdDashboardCompareNote');
@@ -192,10 +195,68 @@ export function createCreatedDashboard() {
     ],true,selectedMonth?selectedMonth-1:null);
   }
 
+  function renderComparisonCards(selected, upper) {
+    // Conteo por fecha original válida. El mismo corte mensual se aplica a
+    // todos los años comparados (no se suman registros sin fecha verificable).
+    comparisonCards.replaceChildren();
+    const period=upper===12?'enero a diciembre':'enero a '+nameOf(upper);
+    const rows=selected.map(year=>({
+      year,count:sumValid(datedValues(year),0,upper),
+      color:COMPARE_COLORS[year] || '#64748b'
+    }));
+    for(const item of rows) {
+      const card=document.createElement('article');
+      card.className='created-comparison-card';
+      card.style.setProperty('--comparison-color',item.color);
+      const heading=document.createElement('div');
+      heading.className='created-comparison-year';
+      const dot=document.createElement('span');
+      dot.className='created-comparison-swatch';
+      dot.setAttribute('aria-hidden','true');
+      const yearLabel=document.createElement('span');
+      yearLabel.textContent=String(item.year);
+      heading.append(dot,yearLabel);
+      const count=document.createElement('strong');
+      count.className='created-comparison-number';
+      count.textContent=fmt(item.count);
+      const description=document.createElement('span');
+      description.className='created-comparison-label';
+      description.textContent='Cargos · '+period+' (fecha válida)';
+      card.append(heading,count,description);
+      comparisonCards.append(card);
+    }
+    if(!rows.length) {
+      const empty=document.createElement('p');
+      empty.className='created-comparison-empty';
+      empty.textContent='Selecciona uno o más años para ver sus indicadores.';
+      comparisonCards.append(empty);
+      comparisonHighlight.hidden=true;
+      return;
+    }
+    const sorted=[...rows].sort((a,b)=>b.count-a.count || b.year-a.year);
+    if(sorted.length===1) {
+      comparisonHighlight.textContent='Selecciona otro año para comparar resultados del mismo período.';
+    } else {
+      const most=sorted[0],second=sorted[1],difference=most.count-second.count;
+      comparisonHighlight.textContent=difference===0
+        ? 'Mayor actividad compartida: '+sorted.filter(row=>row.count===most.count)
+            .map(row=>row.year).join(', ')+' · '+fmt(most.count)+' cargos cada uno ('+period+').'
+        : 'Mayor actividad: '+most.year+' con '+fmt(most.count)+
+          ' cargos; '+fmt(difference)+' más que '+second.year+
+          ' (segundo mayor), en el período '+period+'.';
+    }
+    comparisonHighlight.hidden=false;
+  }
+
   function renderComparison(years) {
     const selected=[...years].filter(year=>comparisonSelection.has(year)).sort((a,b)=>a-b);
+    // Si está incluido el año en curso, la comparación se realiza hasta
+    // el mes actual para TODOS los años; si no, son doce meses completos.
+    const upper=selected.includes(data.currentYear)?data.currentMonth:12;
+    const period=upper===12?'enero a diciembre':'enero a '+nameOf(upper);
     comparisonNote.textContent=selected.length
-      ? 'Comparando '+selected.join(', ')+' · meses enero a diciembre. Los meses futuros del año actual no se cuentan.'
+      ? 'Comparando '+selected.join(', ')+' · '+period+
+        '. Todos los años usan el mismo período; sin fechas válidas no se asignan cargos a un mes.'
       : 'Selecciona al menos un año para mostrar su evolución.';
     periodLabel.textContent=selected.length
       ? 'Comparando: '+selected.join(', ')
@@ -204,7 +265,9 @@ export function createCreatedDashboard() {
     chartBadge.textContent=selected.length===1?String(selected[0]):selected.length+' años';
     explain.textContent=selected.length===1?'Evolución mensual de '+selected[0]:
       selected.length+' años en una sola gráfica';
-    footnote.textContent='Se comparan cargos únicos con fecha original válida. Los cargos sin fecha válida permanecen en el histórico y no se inventan fechas.';
+    footnote.textContent='Las tarjetas y la gráfica comparan cargos únicos con fecha original válida, de '+
+      period+'. Se excluyen cargos sin fecha válida del desglose mensual.';
+    renderComparisonCards(selected,upper);
     if(!selected.length){
       surface.replaceChildren();
       legend.replaceChildren();
@@ -216,7 +279,7 @@ export function createCreatedDashboard() {
     }
     const lines=selected.map(year=>({
       label:String(year),color:COMPARE_COLORS[year]||'#64748b',
-      values:datedValues(year),width:3.1
+      values:datedValues(year).map((value,index)=>index>=upper?null:value),width:3.1
     }));
     drawGraph(MONTHS,lines,selected.length<=2);
   }
@@ -228,6 +291,7 @@ export function createCreatedDashboard() {
     individualButton.setAttribute('aria-pressed',String(individual));
     compareButton.setAttribute('aria-pressed',String(!individual));
     stats.hidden=!individual;
+    comparisonStats.hidden=individual;
     filters.hidden=!individual;
     comparison.hidden=individual;
     if(individual)renderIndividual();
