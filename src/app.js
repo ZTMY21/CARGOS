@@ -45,12 +45,14 @@ function clearPreviousCargoCache(){
 function previousCargoSignature(doc){
   return [doc.id,doc.updatedAt||'',doc.fechaOrigen||'',(doc.cargos||[]).join('|')].join('~');
 }
-function previousCargoMarkup(items){
+function previousCargoMarkup(items,invoiceCodes=[]){
+  const matched=new Set(invoiceCodes.map(normalizeSearch).filter(Boolean));
   if(!Array.isArray(items)||!items.length)return '<span class="previous-cargo-none">—</span>';
   const seen=new Set(),data=[];
   for(const row of items){
     const cargo=String(row?.cargo??'').trim(),year=Number(row?.anio);
     if(!cargo||cargo.length>80)continue;
+    if(matched.size && !(row?.codigos||[]).some(code=>matched.has(normalizeSearch(code))))continue;
     const anio=Number.isInteger(year)&&year>=1900&&year<=2200?year:null;
     const key=cargo+'|'+String(anio||'');
     if(seen.has(key))continue;
@@ -82,7 +84,8 @@ function fetchPreviousCargos(rows){
     document.querySelectorAll('[data-previous-cargo-id]').forEach(cell=>{
       const id=cell.dataset.previousCargoId;
       if(signatures.has(id)&&previousCargoCache.get(id)?.signature===signatures.get(id))
-        cell.innerHTML=previousCargoMarkup(previousCargoCache.get(id).items);
+        cell.innerHTML=previousCargoMarkup(previousCargoCache.get(id).items,
+          (cell.dataset.matchedInvoiceCodes||'').split(',').filter(Boolean));
     });
   }).catch(()=>{
     if(epoch!==previousCargoEpoch||generation!==authGeneration)return;
@@ -971,11 +974,6 @@ function renderDocs(){
     tbody.innerHTML = `<tr><td colspan="${showLocationColumn?13:12}" class="empty">${escapeHtml(queryError||'Sin registros que coincidan con la consulta actual.')}</td></tr>`;
   } else {
     tbody.innerHTML = filtered.map(d=>{
-      const cachedPrevious=previousCargoCache.get(d.id);
-      const previousCargoHtml=cachedPrevious?.signature===previousCargoSignature(d)
-        ? previousCargoMarkup(cachedPrevious.items)
-        : repository?.previousCargos ? '<span class="previous-cargo-pending">Consultando…</span>'
-        : '<span class="previous-cargo-none">—</span>';
       const cajaTxt = d.imLiveCodigoCaja || assignedBoxCode(d,reqs) || '—';
       const fechaEnvioTxt = d.imLiveCodigoCaja ? d.imLiveFechaEnvio
         : d.imConfirmado ? d.imFechaEnvio : d.fEnvio;
@@ -990,6 +988,12 @@ function renderDocs(){
       const invoiceView=['solo-cargos','solo-cajas'].includes(filters.type)
         ? {...invoiceSearchPresentation(d,''),kind:'cargo',codes:[]}
         : invoiceSearchPresentation(d,search);
+      const matchedInvoiceCodes=invoiceView.kind==='invoice'?invoiceView.codes.map(normalizeSearch):[];
+      const cachedPrevious=previousCargoCache.get(d.id);
+      const previousCargoHtml=cachedPrevious?.signature===previousCargoSignature(d)
+        ? previousCargoMarkup(cachedPrevious.items,matchedInvoiceCodes)
+        : repository?.previousCargos ? '<span class="previous-cargo-pending">Consultando…</span>'
+        : '<span class="previous-cargo-none">—</span>';
       // Do not calculate group locations unless the document-code column is visible.
       const groupLocation=showLocationColumn && invoiceView.kind!=='cargo'
         ? (d.ubicacionesCodigo
@@ -1014,7 +1018,7 @@ function renderDocs(){
         <td>${highlightMatch(cajaTxt,search)}</td>
         <td>${fmtDate(fechaEnvioTxt)}</td>
         <td><span class="badge ${docBadgeClass(d.estado)}">${escapeHtml(estadoTxt)}</span></td>
-        <td class="previous-cargo-cell" data-previous-cargo-id="${escapeHtml(d.id)}">${previousCargoHtml}</td>
+        <td class="previous-cargo-cell" data-previous-cargo-id="${escapeHtml(d.id)}" data-matched-invoice-codes="${escapeHtml(matchedInvoiceCodes.join(','))}">${previousCargoHtml}</td>
         <td>${highlightMatch(responsableTxt||'',search)}</td>
         <td>
           <button class="secondary" data-export-cargo="${d.id}" ${!d.cargos?.length?'disabled title="Este registro no tiene cargo asignado"':''}>Exportar este cargo</button>
