@@ -196,7 +196,10 @@ function message(id, value, error = false) {
   node.style.color = error ? 'var(--red)' : 'var(--green)';
 }
 function setStatus(value, state = '') {
-  document.getElementById('connectionStatus').textContent = value;
+  const status=document.getElementById('connectionStatus');
+  status.textContent=value;
+  // Se conserva el mensaje completo de conexión aunque la cabecera sea compacta.
+  status.title=value;
   document.getElementById('connectionDot').className = `connection-dot ${state}`;
 }
 // Navegación entre apartados sin desmontar formularios ni desconectar Supabase.
@@ -249,6 +252,20 @@ function updateWorkspaceVisibility() {
   const adminReady=appReady && isAdmin;
   const showSync=adminReady && activeWorkspaceTab==='sync';
   document.getElementById('appShell').dataset.module=activeWorkspaceTab;
+  // Miga de navegación informativa; sin modificar la sección seleccionada.
+  const breadcrumbs={
+    resumen:'Dashboard General',control:'Control Documental',
+    historicos:'Histórico de cargos',iron:'Iron Mountain',
+    requerimientos:'Requerimientos',existencias:'Existencias',
+    sync:'Actividad y sincronización',reportes:'Reportes y descargas',
+    solicitudes:'Usuarios y accesos'
+  };
+  document.getElementById('executiveBreadcrumbRoot').textContent=
+    adminReady?'Panel administrativo':'Consulta documental';
+  document.getElementById('executiveBreadcrumbCurrent').textContent=
+    adminReady?(breadcrumbs[activeWorkspaceTab]||'Dashboard General'):'Existencias';
+  document.getElementById('executiveRole').textContent=
+    adminReady?'Vista del administrador':'Vista de consulta';
   const heading=document.getElementById('sidebarSectionHeading');
   const copy=SECTION_COPY[activeWorkspaceTab];
   heading.hidden=!copy;
@@ -315,6 +332,28 @@ workspaceNav.addEventListener('keydown',event=>{
   else if(event.key==='Home')next=names[0];
   else if(event.key==='End')next=names[names.length-1];
   if(next){event.preventDefault();selectWorkspaceTab(next,true);}
+});
+// Menú de cuenta accesible: cerrar sesión conserva el manejador existente.
+const profileTrigger=document.getElementById('sessionProfile');
+const profileMenu=document.getElementById('executiveProfileMenu');
+function closeExecutiveProfileMenu(){
+  profileMenu.hidden=true;
+  profileTrigger.setAttribute('aria-expanded','false');
+}
+profileTrigger.addEventListener('click',()=>{
+  if(profileTrigger.hidden)return;
+  const willOpen=profileMenu.hidden;
+  profileMenu.hidden=!willOpen;
+  profileTrigger.setAttribute('aria-expanded',String(willOpen));
+  if(willOpen)profileMenu.querySelector('#btnSignOut:not([hidden])')?.focus();
+});
+document.addEventListener('pointerdown',event=>{
+  if(!event.target.closest('#executiveAccount'))closeExecutiveProfileMenu();
+});
+document.addEventListener('keydown',event=>{
+  if(event.key==='Escape'&&!profileMenu.hidden){
+    closeExecutiveProfileMenu();profileTrigger.focus();
+  }
 });
 // La nueva barra lateral dirige a los mismos módulos y acciones existentes.
 const sidebarNode=document.getElementById('kardexSidebar');
@@ -1862,6 +1901,7 @@ document.getElementById('resetPasswordForm').addEventListener('submit',async ev=
   finally{button.disabled=false;}
 });
 async function signOut() {
+  closeExecutiveProfileMenu();
   const {error} = await supabase.auth.signOut({scope:'local'});
   if (error) message('authMessage',readableError(error),true);
   else message('authMessage','');
@@ -1880,7 +1920,9 @@ document.getElementById('btnRefreshNewCargos').addEventListener('click',async ev
   if(!appReady||!isAdmin||!currentUserId||!repository)return;
   const button=event.currentTarget;
   button.disabled=true;
-  button.textContent='Refrescando…';
+  button.title='Refrescando cargos…';
+  button.setAttribute('aria-label','Refrescando cargos…');
+  button.dataset.busy='true';
   const previous=cargoTotals2026().total;
   try {
     await refreshData();
@@ -1895,8 +1937,10 @@ document.getElementById('btnRefreshNewCargos').addEventListener('click',async ev
   } catch(error) {
     setStatus('No se pudo refrescar: '+readableError(error),'error');
   } finally {
-    button.textContent='↻ Refrescar cargos nuevos';
     button.disabled=false;
+    button.dataset.busy='false';
+    button.title='Refrescar cargos nuevos';
+    button.setAttribute('aria-label','Refrescar cargos nuevos');
   }
 });
 window.addEventListener('offline',()=>{channelReady=false;setStatus('Sin conexión — Los cambios requieren conexión en línea','error');});
