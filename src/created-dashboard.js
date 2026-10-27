@@ -36,14 +36,55 @@ export function createCreatedDashboard() {
     monthEl.value=selectedMonth===0?'all':String(selectedMonth);
     const series=data.comparison.find(v=>v.year===selectedYear)?.values||Array(12).fill(0);
     const range=selectedMonth||upper;
-    const annual=data.annual.find(v=>v.year===selectedYear)?.count||0;
-    const dated=series.reduce((sum,v)=>sum+(Number.isFinite(v)?v:0),0);
-    const selected=selectedMonth?series[selectedMonth-1]||0:dated;
-    const undated=Math.max(0,annual-dated);
-    document.getElementById('createdDashboardSelected').textContent=fmt(selected);
-    document.getElementById('createdDashboardAnnual').textContent=fmt(annual);
-    document.getElementById('createdDashboardDated').textContent=fmt(dated);
-    document.getElementById('createdDashboardUndated').textContent=fmt(undated);
+    const countIn=(arr,start,end)=>arr.slice(start,end).reduce((sum,n)=>sum+(Number.isFinite(n)?n:0),0);
+    const validYearCount=countIn(series,0,upper);
+    const currentCount=selectedMonth
+      ? (Number.isFinite(series[selectedMonth-1])?series[selectedMonth-1]:0)
+      : validYearCount;
+    let previousCount=null, previousLabel='', comparisonKind='';
+    if(selectedMonth){
+      const previousYear=selectedMonth===1?selectedYear-1:selectedYear;
+      const previousMonth=selectedMonth===1?12:selectedMonth-1;
+      const previousSeries=data.comparison.find(v=>v.year===previousYear)?.values;
+      const previousValue=previousSeries?.[previousMonth-1];
+      previousCount=Number.isFinite(previousValue)?previousValue:null;
+      previousLabel=FULL_MONTHS[previousMonth-1]+' de '+previousYear;
+      comparisonKind='mensual';
+    }else{
+      const priorYear=selectedYear-1;
+      const previousSeries=data.comparison.find(v=>v.year===priorYear)?.values;
+      previousCount=previousSeries?countIn(previousSeries,0,upper):null;
+      previousLabel='enero–'+FULL_MONTHS[upper-1]+' de '+priorYear;
+      comparisonKind='interanual';
+    }
+    const difference=previousCount===null?null:currentCount-previousCount;
+    const variance=previousCount>0?(difference/previousCount*100):null;
+    const varianceText=variance===null?'—':
+      (variance>0?'+':'')+variance.toLocaleString('es-PE',{minimumFractionDigits:1,maximumFractionDigits:1})+'%';
+    const accumulated=countIn(series,0,selectedMonth||upper);
+    const latestYearCount=data.annual.find(v=>v.year===selectedYear)?.count||0;
+    const missingDate=Math.max(0,latestYearCount-validYearCount);
+    const text=(id,value)=>{document.getElementById(id).textContent=value;};
+    text('createdDashboardSelected',fmt(currentCount));
+    text('createdDashboardAnnual',previousCount===null?'—':fmt(previousCount));
+    text('createdDashboardDated',varianceText);
+    text('createdDashboardUndated',fmt(selectedMonth?accumulated:latestYearCount));
+    text('createdDashboardSelectedLabel',selectedMonth?'CARGOS DEL MES SELECCIONADO':'CARGOS CON FECHA DEL PERÍODO');
+    text('createdDashboardSelectedNote',selectedMonth?
+      FULL_MONTHS[selectedMonth-1]+' de '+selectedYear:'Enero–'+FULL_MONTHS[upper-1]+' de '+selectedYear);
+    text('createdDashboardPreviousLabel',selectedMonth?'CARGOS DEL MES ANTERIOR':'CARGOS DEL AÑO ANTERIOR');
+    text('createdDashboardPreviousNote',previousCount===null?
+      'Sin datos históricos para comparar':previousLabel);
+    text('createdDashboardVariationLabel','VARIACIÓN '+comparisonKind.toUpperCase());
+    text('createdDashboardVariationNote',variance===null?
+      (previousCount===0?'Sin variación porcentual: base 0':'Sin período comparable'):
+      (difference>=0?'+':'')+fmt(difference)+' cargos respecto a '+(selectedMonth?'mes anterior':'período equivalente'));
+    text('createdDashboardAccumulatedLabel',selectedMonth?'ACUMULADO DEL AÑO':'TOTAL DE CARGOS DEL AÑO');
+    text('createdDashboardAccumulatedNote',selectedMonth?
+      'Enero–'+FULL_MONTHS[selectedMonth-1]+' · con fecha válida':
+      fmt(missingDate)+' sin fecha válida incluidos en el total');
+    const variationCard=document.getElementById('createdDashboardDated').closest('.created-stat');
+    variationCard.dataset.trend=variance===null?'unavailable':variance>0?'up':variance<0?'down':'flat';
     const period=selectedMonth?FULL_MONTHS[selectedMonth-1]+' de '+selectedYear
       : 'enero–'+FULL_MONTHS[upper-1]+' de '+selectedYear;
     document.getElementById('createdDashboardSelectionLabel').textContent=selectedMonth
@@ -53,7 +94,7 @@ export function createCreatedDashboard() {
       ? 'Se muestra la evolución desde enero hasta '+FULL_MONTHS[range-1]+'.'
       : 'Se muestra la evolución mensual del año seleccionado.';
     document.getElementById('createdDashboardFootnote').textContent=
-      fmt(undated)+' cargos de '+selectedYear+' sin fecha original válida del mismo año se contabilizan en el total anual, no en los meses.';
+      fmt(missingDate)+' cargos de '+selectedYear+' sin fecha original válida del mismo año se contabilizan en el histórico anual, no se asignan a ningún mes.';
     const values=series.slice(0,range);
     status.hidden=true;
     surface.hidden=false;
