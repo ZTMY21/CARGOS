@@ -1675,26 +1675,9 @@
   margin:0;
   padding:14px 22px 13px;
   gap:20px;
-  box-shadow:inset 0 -1px 0 rgba(255,255,255,.08);
-}
-#appShell .executive-header-main::before{
-  content:"";
-  position:absolute;
-  z-index:0;
-  top:0;left:0;
-  height:3px;
-  width:min(210px,34%);
-  border-radius:13px 0 6px 0;
-  background:linear-gradient(90deg,#e02137,#f25b64 72%,transparent);
-  pointer-events:none;
-}
-#appShell .executive-header-main::after{
-  content:"";
-  position:absolute;
-  right:7%;top:0;bottom:0;width:28%;
-  background:linear-gradient(120deg,transparent,rgba(255,255,255,.028));
-  transform:skewX(-20deg);
-  z-index:0;pointer-events:none;
+  /* Borde continuo y sobrio: sin línea roja cortada ni efectos oblicuos. */
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.12),
+             inset 0 -1px 0 rgba(255,255,255,.08);
 }
 #appShell .executive-brand,
 #appShell .executive-header-tools{
