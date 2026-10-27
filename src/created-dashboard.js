@@ -30,6 +30,7 @@ export function createCreatedDashboard() {
   const recentButton = document.getElementById('createdDashboardCompareRecent');
   const surface = document.getElementById('createdDashboardChart');
   const legend = document.getElementById('createdDashboardLegend');
+  const periodMeta = document.getElementById('createdDashboardMeta');
   const status = document.getElementById('createdDashboardStatus');
   const title = document.getElementById('createdDashboardChartTitle');
   const chartBadge = document.getElementById('createdDashboardChartBadge');
@@ -231,6 +232,10 @@ export function createCreatedDashboard() {
     comparison.hidden=individual;
     if(individual)renderIndividual();
     else renderComparison(years);
+    // Una sola leyenda inferior: vista individual muestra año y resumen,
+    // comparación muestra las series de colores existentes sin duplicar datos.
+    periodMeta.hidden=!individual;
+    legend.hidden=individual || !comparisonSelection || comparisonSelection.size===0;
   }
 
   individualButton.addEventListener('click',()=>{mode='individual';render();});
