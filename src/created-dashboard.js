@@ -28,7 +28,6 @@ export function createCreatedDashboard() {
   const stats = root.querySelector('.created-dashboard-stats');
   const comparisonStats = document.getElementById('createdDashboardComparisonStats');
   const comparisonCards = document.getElementById('createdDashboardComparisonCards');
-  const comparisonHighlight = document.getElementById('createdDashboardComparisonHighlight');
   const comparison = document.getElementById('createdDashboardCompareFilters');
   const comparisonYears = document.getElementById('createdDashboardCompareYears');
   const comparisonNote = document.getElementById('createdDashboardCompareNote');
@@ -232,22 +231,9 @@ export function createCreatedDashboard() {
       empty.className='created-comparison-empty';
       empty.textContent='Selecciona uno o más años para ver sus indicadores.';
       comparisonCards.append(empty);
-      comparisonHighlight.hidden=true;
       return;
     }
-    const sorted=[...rows].sort((a,b)=>b.count-a.count || b.year-a.year);
-    if(sorted.length===1) {
-      comparisonHighlight.textContent='Selecciona otro año para comparar resultados del mismo período.';
-    } else {
-      const most=sorted[0],second=sorted[1],difference=most.count-second.count;
-      comparisonHighlight.textContent=difference===0
-        ? 'Mayor actividad compartida: '+sorted.filter(row=>row.count===most.count)
-            .map(row=>row.year).join(', ')+' · '+fmt(most.count)+' cargos cada uno ('+period+').'
-        : 'Mayor actividad: '+most.year+' con '+fmt(most.count)+
-          ' cargos; '+fmt(difference)+' más que '+second.year+
-          ' (segundo mayor), en el período '+period+'.';
-    }
-    comparisonHighlight.hidden=false;
+
   }
 
   function renderComparison(years) {
