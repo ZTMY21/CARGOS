@@ -845,6 +845,48 @@
 .created-dashboard-stats .created-stat[data-trend="unavailable"] strong{color:#60788e}
 .created-dashboard-stats .created-stat small{overflow-wrap:anywhere}
 .created-dashboard-stats .created-stat>span{line-height:1.45}
+
+/* Dos modalidades en el mismo gráfico: individual (año/mes) y comparar (años). */
+.created-dashboard-mode{display:inline-flex;align-items:center;gap:6px;border:1px solid #e1e8ef;
+  border-radius:11px;background:#f7f9fb;padding:5px;margin:0 0 18px}
+.created-dashboard-mode .created-mode-button{cursor:pointer;border:1px solid transparent;
+  border-radius:8px;background:transparent;color:#50677e;padding:10px 16px;font-size:12px;
+  font-weight:800;line-height:1.35;min-height:40px;white-space:nowrap}
+.created-dashboard-mode .created-mode-button[aria-pressed="true"]{background:#fff0f2;
+  border-color:#efc2c9;color:#ad2739}
+.created-dashboard-mode .created-mode-button:hover{color:#aa2638}
+.created-dashboard-mode .created-mode-button:focus-visible,
+.created-dashboard-compare button:focus-visible,
+.created-dashboard-compare input:focus-visible{outline:2px solid #c42c40;outline-offset:2px}
+#createdDashboardFilters[hidden],#createdDashboardCompareFilters[hidden],
+#createdDashboard .created-dashboard-stats[hidden]{display:none!important}
+.created-dashboard-compare{margin:0 0 16px;border:1px solid #e1e8ef;background:#f8fafc;
+  border-radius:11px;padding:15px}
+.created-dashboard-compare-heading{display:flex;align-items:center;justify-content:space-between;
+  gap:14px;flex-wrap:wrap}
+.created-dashboard-compare-heading strong{font-size:13px;color:#2b4359}
+.created-dashboard-compare-heading p{font-size:11px;color:#75879a;margin:5px 0 0;line-height:1.45}
+.created-dashboard-compare .created-compare-recent{background:#fff;color:#486781;
+  border:1px solid #d5e0ea;border-radius:8px;padding:9px 12px;font-size:11px;
+  font-weight:750;cursor:pointer}
+.created-dashboard-year-options{display:flex;flex-wrap:wrap;align-items:center;
+  gap:9px;margin-top:14px}
+.created-dashboard-year-option{display:inline-flex;align-items:center;gap:7px;cursor:pointer;
+  border:1px solid #dbe5ed;background:#fff;padding:10px 12px;border-radius:9px;
+  color:#435a6d;font-size:12px;font-weight:800;line-height:1.2}
+.created-dashboard-year-option:has(input:checked){border-color:var(--series-color,#bf2b3b);
+  background:color-mix(in srgb, var(--series-color,#bf2b3b) 9%, white)}
+.created-dashboard-year-option input{accent-color:var(--series-color,#bd2b3f);margin:0}
+.created-dashboard-year-option .series-swatch{width:9px;height:9px;border-radius:50%;
+  background:var(--series-color,#bd2b3f);flex:none}
+.created-dashboard-compare-note{font-size:11px;color:#6b8194;margin:13px 0 0;line-height:1.5}
+@media(max-width:660px){
+  .created-dashboard-mode{display:flex;width:100%}
+  .created-dashboard-mode .created-mode-button{flex:1;min-width:0;padding:10px 9px}
+  .created-dashboard-compare-heading{align-items:flex-start}
+  .created-dashboard-year-options{gap:6px}
+  .created-dashboard-year-option{padding:9px 10px}
+}
 </style>
 </head>
 <body>
@@ -1146,18 +1188,32 @@
           <h2>Cargos realizados</h2>
           <p>Consulta el avance mensual e histórico de los cargos registrados en CD Santa Anita.</p>
         </div>
+        <div class="created-dashboard-mode" role="group" aria-label="Modo de visualización del gráfico">
+          <button type="button" id="createdDashboardModeIndividual" class="created-mode-button" aria-pressed="true">Vista individual</button>
+          <button type="button" id="createdDashboardModeCompare" class="created-mode-button" aria-pressed="false">Comparar años</button>
+        </div>
         <div class="created-dashboard-stats" aria-live="polite" aria-label="Indicadores del período seleccionado">
           <div class="created-stat"><small id="createdDashboardSelectedLabel">CARGOS DEL MES SELECCIONADO</small><strong id="createdDashboardSelected">—</strong><span id="createdDashboardSelectedNote">Según el filtro seleccionado</span></div>
           <div class="created-stat"><small id="createdDashboardPreviousLabel">CARGOS DEL MES ANTERIOR</small><strong id="createdDashboardAnnual">—</strong><span id="createdDashboardPreviousNote">Período anterior</span></div>
           <div class="created-stat"><small id="createdDashboardVariationLabel">VARIACIÓN MENSUAL</small><strong id="createdDashboardDated">—</strong><span id="createdDashboardVariationNote">Comparación entre períodos</span></div>
           <div class="created-stat"><small id="createdDashboardAccumulatedLabel">ACUMULADO DEL AÑO</small><strong id="createdDashboardUndated">—</strong><span id="createdDashboardAccumulatedNote">Enero hasta el mes seleccionado</span></div>
         </div>
-        <div class="created-dashboard-filters" aria-label="Filtros del Dashboard General">
+        <div class="created-dashboard-filters" id="createdDashboardFilters" aria-label="Filtros de la vista individual">
           <div class="created-filter-heading">
             <strong>Período de consulta</strong><p id="createdDashboardSelectionLabel">Selecciona un año y mes</p>
           </div>
           <label for="createdDashboardYear">Año <select id="createdDashboardYear" aria-label="Año de cargos realizados"></select></label>
           <label for="createdDashboardMonth">Mes <select id="createdDashboardMonth" aria-label="Mes de cargos realizados"></select></label>
+        </div>
+        <div class="created-dashboard-compare" id="createdDashboardCompareFilters" hidden aria-label="Comparar cargos por año">
+          <div class="created-dashboard-compare-heading">
+            <div><strong>Selecciona los años para comparar</strong>
+              <p>Las líneas muestran la evolución mensual de cada año elegido, en esta misma gráfica.</p>
+            </div>
+            <button id="createdDashboardCompareRecent" type="button" class="created-compare-recent">Últimos 2 años</button>
+          </div>
+          <div class="created-dashboard-year-options" id="createdDashboardCompareYears" role="group" aria-label="Años de comparación"></div>
+          <p class="created-dashboard-compare-note" id="createdDashboardCompareNote" aria-live="polite"></p>
         </div>
         <div class="created-dashboard-plot">
           <div class="created-dashboard-plot-heading"><h3 id="createdDashboardChartTitle">Evolución mensual de cargos realizados</h3><span id="createdDashboardExplain"></span></div>
@@ -1166,7 +1222,6 @@
           <div id="createdDashboardLegend" class="monthly-created-chart-legend" hidden></div>
         </div>
         <p class="created-dashboard-footnote" id="createdDashboardFootnote"></p>
-        <button type="button" class="created-compare-button" id="createdOpenComparison">Ver comparación histórica de todos los años</button>
       </section>
 
       <div id="resumenTablas"></div>
