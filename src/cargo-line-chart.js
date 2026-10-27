@@ -53,10 +53,6 @@ export function renderCargoLineChart(surface,legend,categories,lines,{showLabels
     'font-weight':highlighted&&i===highlightIndex?850:600,
     fill:highlighted&&i===highlightIndex?'#b71f34':'#66798b'
   },category));
-  if(highlighted){
-    add(svg,'text',{x:X(highlightIndex),y:B+47,'text-anchor':'middle',
-      'font-size':Math.max(10,fontSize-2),'font-weight':800,fill:'#b71f34'},'SELECCIONADO');
-  }
   const tip=document.createElement('div');
   tip.className='monthly-created-chart-tooltip';tip.hidden=true;
   const hideTip=()=>{tip.hidden=true;};
