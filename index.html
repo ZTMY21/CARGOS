@@ -1278,6 +1278,104 @@
   #appShell.has-sidebar .created-comparison-card{padding:13px 11px;min-height:115px}
   .created-comparison-number{font-size:25px}
 }
+
+/* Preview · navegación de períodos estable: se sitúa ANTES de las tarjetas
+   dinámicas y mantiene la misma geometría en las dos vistas. */
+#appShell.has-sidebar .created-dashboard-stable-toolbar{
+ display:grid;
+ grid-template-columns: minmax(230px,max-content) minmax(300px,1fr);
+ align-items:center;gap:14px 22px;
+ min-width:0;
+ margin:0 0 17px;
+ padding:12px 15px;
+ background:#f8fafc;border:1px solid #e1e9f0;border-radius:13px;
+}
+#appShell.has-sidebar .created-dashboard-stable-toolbar .created-dashboard-mode{
+ display:inline-flex;
+ flex-wrap:nowrap;
+ justify-self:start;
+ align-items:center;
+ margin:0;
+ width:max-content;
+ flex:none;
+}
+#appShell.has-sidebar .created-dashboard-stable-toolbar .created-mode-button{
+ display:inline-flex;justify-content:center;align-items:center;
+ min-height:41px;
+ font-size:12px;
+ padding:9px 15px;
+ white-space:nowrap;
+}
+#appShell.has-sidebar .created-dashboard-toolbar-slot{
+ display:flex;align-items:center;justify-content:flex-end;
+ min-width:0;
+ min-height:43px;
+}
+#appShell.has-sidebar .created-dashboard-toolbar-slot .created-dashboard-filters{
+ display:flex;
+ margin:0;padding:0;border:0;border-radius:0;
+ gap:12px 18px;
+ background:transparent;
+ align-items:center;
+ justify-content:flex-end;
+ flex-wrap:wrap;
+ min-width:0;
+ width:100%;
+}
+#appShell.has-sidebar .created-dashboard-toolbar-slot .created-dashboard-filters>label{
+ display:flex;align-items:center;flex:none;gap:9px;
+ white-space:nowrap;justify-content:flex-start;
+}
+#appShell.has-sidebar .created-dashboard-toolbar-slot .created-dashboard-filters select{
+ background:white;min-width:122px;max-width:172px;
+ font-size:12px;
+}
+#appShell.has-sidebar .created-dashboard-toolbar-slot .created-dashboard-filters[hidden],
+#appShell.has-sidebar .created-dashboard-compare-scope[hidden]{
+ display:none!important;
+}
+#appShell.has-sidebar .created-dashboard-compare-scope{
+ display:inline-flex;
+ align-items:center;justify-content:flex-end;
+ gap:9px;
+ min-height:38px;
+ color:#50667b;font-size:12px;font-weight:700;
+}
+#appShell.has-sidebar .created-dashboard-compare-scope-dot{
+ width:9px;height:9px;border-radius:50%;background:#2b7bdc;flex:none;
+}
+#appShell.has-sidebar .created-dashboard-plot-heading{
+ min-height:55px;
+}
+@media(max-width:1040px){
+ #appShell.has-sidebar .created-dashboard-stable-toolbar{
+  grid-template-columns:minmax(0,1fr);
+  gap:9px;
+ }
+ #appShell.has-sidebar .created-dashboard-toolbar-slot{justify-content:flex-start}
+ #appShell.has-sidebar .created-dashboard-toolbar-slot .created-dashboard-filters{
+  justify-content:flex-start;
+ }
+ #appShell.has-sidebar .created-dashboard-compare-scope{justify-content:flex-start}
+}
+@media(max-width:580px){
+ #appShell.has-sidebar .created-dashboard-stable-toolbar{padding:11px 10px}
+ #appShell.has-sidebar .created-dashboard-stable-toolbar .created-dashboard-mode{
+   width:100%;display:flex;justify-self:stretch;
+ }
+ #appShell.has-sidebar .created-dashboard-stable-toolbar .created-mode-button{
+   flex:1;min-width:0;padding:9px 8px;
+ }
+ #appShell.has-sidebar .created-dashboard-toolbar-slot .created-dashboard-filters{
+   display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;
+ }
+ #appShell.has-sidebar .created-dashboard-toolbar-slot .created-dashboard-filters>label{
+   min-width:0;
+ }
+ #appShell.has-sidebar .created-dashboard-toolbar-slot .created-dashboard-filters select{
+   min-width:0;width:100%;max-width:none;
+ }
+}
 </style>
 </head>
 <body>
@@ -1579,6 +1677,22 @@
           <h2>Cargos realizados</h2>
           <p>Consulta el avance mensual e histórico de los cargos registrados en CD Santa Anita.</p>
         </div>
+        <section class="created-dashboard-stable-toolbar" aria-label="Controles de consulta de cargos realizados">
+          <div class="created-dashboard-mode" role="group" aria-label="Tipo de consulta">
+            <button type="button" id="createdDashboardModeIndividual" class="created-mode-button" aria-pressed="true">Vista individual</button>
+            <button type="button" id="createdDashboardModeCompare" class="created-mode-button" aria-pressed="false">Comparar años</button>
+          </div>
+          <div class="created-dashboard-toolbar-slot">
+            <div class="created-dashboard-filters" id="createdDashboardFilters" aria-label="Filtros de la vista individual">
+              <label for="createdDashboardYear">Año <select id="createdDashboardYear" aria-label="Año de cargos realizados"></select></label>
+              <label for="createdDashboardMonth">Mes <select id="createdDashboardMonth" aria-label="Mes de cargos realizados"></select></label>
+            </div>
+            <div id="createdDashboardCompareScope" class="created-dashboard-compare-scope" aria-live="polite" hidden>
+              <span class="created-dashboard-compare-scope-dot" aria-hidden="true"></span>
+              <strong id="createdDashboardComparedCount">2 años seleccionados</strong>
+            </div>
+          </div>
+        </section>
         <div class="created-dashboard-stats" aria-live="polite" aria-label="Indicadores del período seleccionado">
           <div class="created-stat"><small id="createdDashboardSelectedLabel">CARGOS DEL MES SELECCIONADO</small><strong id="createdDashboardSelected">—</strong><span id="createdDashboardSelectedNote">Según el filtro seleccionado</span></div>
           <div class="created-stat"><small id="createdDashboardPreviousLabel">CARGOS DEL MES ANTERIOR</small><strong id="createdDashboardAnnual">—</strong><span id="createdDashboardPreviousNote">Período anterior</span></div>
@@ -1605,16 +1719,7 @@
                             <h3 id="createdDashboardChartTitle">Evolución de cargos realizados</h3>
                           </div>
                         </div>
-            <div class="created-dashboard-controls-row" role="group" aria-label="Opciones del gráfico y período de consulta">
-              <div class="created-dashboard-mode" role="group" aria-label="Tipo de consulta">
-                <button type="button" id="createdDashboardModeIndividual" class="created-mode-button" aria-pressed="true">Vista individual</button>
-                <button type="button" id="createdDashboardModeCompare" class="created-mode-button" aria-pressed="false">Comparar años</button>
-              </div>
-              <div class="created-dashboard-filters" id="createdDashboardFilters" aria-label="Filtros de la vista individual">
-                <label for="createdDashboardYear">Año <select id="createdDashboardYear" aria-label="Año de cargos realizados"></select></label>
-                <label for="createdDashboardMonth">Mes <select id="createdDashboardMonth" aria-label="Mes de cargos realizados"></select></label>
-              </div>
-            </div>
+
           </div>
           <p id="createdDashboardSelectionLabel" class="created-dashboard-period-sr" aria-live="polite">Selecciona un año y mes</p>
           <div class="created-dashboard-compare" id="createdDashboardCompareFilters" hidden aria-label="Comparar cargos por año">
