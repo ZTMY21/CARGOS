@@ -27,6 +27,7 @@ const idleSession = createIdleSession({window, onExpire: async()=>{
 }});
 let googleSyncEnabled=true;
 let activeWorkspaceTab='resumen';
+let activeSidebarAction='';
 let appReady = false, isAdmin = false, mutationBusy = false, channelReady = false;
 let adminRequestStatus = null;
 let adminRequestsTimer = null, adminRequestsEpoch = 0;
@@ -108,8 +109,8 @@ let requestedIMLoaded = false;
 const requestedDemo = new URLSearchParams(window.location.search).get('demo-solicitudes') === '1'
   && /-ztmy1\.vercel\.app$/i.test(window.location.hostname)
   && !['kardex-digital-santa-anita-ztmy1.vercel.app','kardex-digital-santa-anita-git-main-ztmy1.vercel.app'].includes(window.location.hostname);
-const isPreview = /-ztmy1\.vercel\.app$/i.test(window.location.hostname)
-  && !['kardex-digital-santa-anita-ztmy1.vercel.app','kardex-digital-santa-anita-git-main-ztmy1.vercel.app'].includes(window.location.hostname);
+// Rama de validación del menú: bloquear mutaciones aunque cambie el alias de Vercel.
+const isPreview = true;
 let appliedFilters = {query:'',state:'',type:'',location:'',year:'',invoiceExact:false};
 const browseOrder = new Map();
 function showRandomCargos(filters=appliedFilters) {
@@ -215,9 +216,29 @@ function setAdminRequestBadge(count) {
     ? `Solicitudes de Cuentas Adm.: ${total} ${total===1?'pendiente':'pendientes'}. Abrir solicitudes`
     : 'Solicitudes de Cuentas Adm. sin consultar. Abrir solicitudes');
 }
+function closeSidebarDrawer(){
+  document.getElementById('appShell').classList.remove('sidebar-open');
+  document.getElementById('sidebarScrim').hidden=true;
+  document.getElementById('sidebarMenuToggle').setAttribute('aria-expanded','false');
+}
+function updateSidebarSelection(){
+  const sidebar=document.getElementById('kardexSidebar');
+  if(!sidebar)return;
+  for(const button of sidebar.querySelectorAll('button[data-sidebar-view],button[data-sidebar-action]')){
+    const selected=button.dataset.sidebarAction
+      ? button.dataset.sidebarAction===activeSidebarAction
+      : !activeSidebarAction && button.dataset.sidebarView===activeWorkspaceTab;
+    if(selected)button.setAttribute('aria-current','page');
+    else button.removeAttribute('aria-current');
+  }
+}
 function updateWorkspaceVisibility() {
   const adminReady=appReady && isAdmin;
   const showSync=adminReady && activeWorkspaceTab==='resumen';
+  document.getElementById('appShell').classList.toggle('has-sidebar',adminReady);
+  document.getElementById('kardexSidebar').hidden=!adminReady;
+  document.getElementById('sidebarMenuToggle').hidden=!adminReady;
+  if(!adminReady)closeSidebarDrawer();
   const adminRequestsButton=document.getElementById('btnTopAdminRequests');
   adminRequestsButton.setAttribute('aria-pressed',String(adminReady && activeWorkspaceTab==='solicitudes'));
   // La barra de pestañas permanece visible en todas las vistas administrativas.
@@ -236,10 +257,12 @@ function updateWorkspaceVisibility() {
     button.setAttribute('aria-selected',String(active));
     button.tabIndex=active?0:-1;
   }
+  updateSidebarSelection();
 }
 function selectWorkspaceTab(tab,focus=false) {
   if(!appReady || !isAdmin || !Object.hasOwn(WORKSPACE_SECTIONS,tab))return;
   activeWorkspaceTab=tab;
+  activeSidebarAction='';
   updateWorkspaceVisibility();
   if(focus)(document.querySelector(`#workspaceTabs [data-workspace="${tab}"]`)
     || (tab==='solicitudes'?document.getElementById('btnTopAdminRequests'):null))?.focus();
@@ -268,6 +291,60 @@ workspaceNav.addEventListener('keydown',event=>{
   else if(event.key==='Home')next=names[0];
   else if(event.key==='End')next=names[names.length-1];
   if(next){event.preventDefault();selectWorkspaceTab(next,true);}
+});
+// La nueva barra lateral dirige a los mismos módulos y acciones existentes.
+const sidebarNode=document.getElementById('kardexSidebar');
+sidebarNode.addEventListener('click',event=>{
+  const button=event.target.closest('button[data-sidebar-view],button[data-sidebar-action]');
+  if(!button || !sidebarNode.contains(button) || !appReady || !isAdmin)return;
+  const view=button.dataset.sidebarView;
+  if(view){
+    selectWorkspaceTab(view);
+  }else{
+    const action=button.dataset.sidebarAction;
+    if(['expiry-upcoming','expiry-overdue'].includes(action)){
+      selectWorkspaceTab('resumen');
+      openCargoExpiry(action==='expiry-overdue'?'overdue':'upcoming');
+    }else if(action==='im-requested'){
+      selectWorkspaceTab('resumen');
+      document.getElementById('btnRequestedIMDetail').click();
+    }else if(action==='im-prepared'){
+      selectWorkspaceTab('resumen');
+      openPreparedIm();
+    }else if(action==='im-sent'){
+      selectWorkspaceTab('resumen');
+      document.getElementById('btnMonthlyShippedDetail').click();
+    }else if(action==='im-historical'){
+      selectWorkspaceTab('resumen');
+      document.getElementById('btnOpenIronMountainHistorical').click();
+    }else if(action==='export-cargo'){
+      selectWorkspaceTab('existencias');
+      document.getElementById('buscar').focus();
+    }else if(action==='admin-requests'){
+      selectWorkspaceTab('solicitudes');
+    }else return;
+    activeSidebarAction=action;
+    updateSidebarSelection();
+  }
+  closeSidebarDrawer();
+});
+document.getElementById('sidebarMenuToggle').addEventListener('click',()=>{
+  const shell=document.getElementById('appShell');
+  const open=!shell.classList.contains('sidebar-open');
+  shell.classList.toggle('sidebar-open',open);
+  document.getElementById('sidebarScrim').hidden=!open;
+  document.getElementById('sidebarMenuToggle').setAttribute('aria-expanded',String(open));
+  if(open)document.querySelector('#kardexSidebar [data-sidebar-view="resumen"]').focus();
+});
+document.getElementById('sidebarCloseMobile').addEventListener('click',()=>{
+  closeSidebarDrawer();document.getElementById('sidebarMenuToggle').focus();
+});
+document.getElementById('sidebarScrim').addEventListener('click',closeSidebarDrawer);
+document.addEventListener('keydown',event=>{
+  if(event.key==='Escape' && document.getElementById('appShell').classList.contains('sidebar-open')){
+    closeSidebarDrawer();
+    document.getElementById('sidebarMenuToggle').focus();
+  }
 });
 function setAvailability() {
   if (!appReady || !isAdmin) { closeCargoExpiry(); closePreparedIm(); closeRequestedIM(); }
@@ -1602,7 +1679,7 @@ async function handleSession(session) {
     passwordRecovery = false;
     showRecoveryForm(false);
     currentUserId = null; appReady = isAdmin = dataReady = channelReady = false;
-    activeWorkspaceTab='resumen';
+    activeWorkspaceTab='resumen';activeSidebarAction='';
     clearTimeout(refreshTimer);
     if (realtimeChannel) { await supabase.removeChannel(realtimeChannel); realtimeChannel = null; }
     queryResults=null;queryError='';searchController?.abort();currentPage=0;
@@ -1633,7 +1710,7 @@ async function handleSession(session) {
     adminRequestStatus=null;
     // Un correo confirmado con código de solicitud no crea un administrador:
     // primero registra la petición y espera una aprobación de la cuenta principal.
-    if (!isAdmin && user.user_metadata?.kardex_admin_request_code && repository.requestAdminAccess) {
+    if (!isPreview && !isAdmin && user.user_metadata?.kardex_admin_request_code && repository.requestAdminAccess) {
       try {
         const r=await repository.requestAdminAccess();
         adminRequestStatus=r?.estado || null;
@@ -1688,6 +1765,7 @@ document.getElementById('authForm').addEventListener('submit', async ev => {
   finally { button.disabled = false; }
 });
 document.getElementById('btnMagicLink').addEventListener('click', async ev => {
+  if(isPreview){message('authMessage','En esta Preview no se envían correos de acceso.',true);return;}
   const email = document.getElementById('authEmail').value.trim().toLowerCase();
   if (!supabase || !document.getElementById('authEmail').reportValidity()) return;
   const button = ev.currentTarget; button.disabled = true;
@@ -1699,6 +1777,7 @@ document.getElementById('btnMagicLink').addEventListener('click', async ev => {
   finally { button.disabled = false; }
 });
 document.getElementById('btnForgotPassword').addEventListener('click',async ev=>{
+  if(isPreview){message('authMessage','La recuperación de contraseñas está deshabilitada en esta Preview.',true);return;}
   const input=document.getElementById('authEmail');
   if(!supabase || !input.reportValidity()) return;
   const button=ev.currentTarget;button.disabled=true;
@@ -1711,7 +1790,8 @@ document.getElementById('btnForgotPassword').addEventListener('click',async ev=>
   finally{button.disabled=false;}
 });
 document.getElementById('resetPasswordForm').addEventListener('submit',async ev=>{
-  ev.preventDefault();if(!supabase || !passwordRecovery)return;
+  ev.preventDefault();if(isPreview){message('authMessage','No se cambian contraseñas desde la Preview.',true);return;}
+  if(!supabase || !passwordRecovery)return;
   const password=document.getElementById('newPassword').value;
   if(password.length<8){message('authMessage','Usa al menos 8 caracteres.',true);return;}
   if(password!==document.getElementById('confirmPassword').value){message('authMessage','Las contraseñas no coinciden.',true);return;}
