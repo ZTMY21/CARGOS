@@ -391,13 +391,7 @@ document.getElementById('sidebarGoExistencias').addEventListener('click',()=>{
   selectWorkspaceTab('existencias');
   document.getElementById('buscar').focus();
 });
-document.getElementById('createdOpenComparison').addEventListener('click',()=>{
-  if(!appReady || !isAdmin)return;
-  monthlyCreatedView='comparison';
-  const dialog=document.getElementById('monthlyCreatedSheet');
-  dialog.showModal();
-  renderMonthlyCreatedDetail();
-});
+// Comparación histórica integrada en la misma gráfica del Dashboard General.
 document.addEventListener('keydown',event=>{
   if(event.key==='Escape' && document.getElementById('appShell').classList.contains('sidebar-open')){
     closeSidebarDrawer();
