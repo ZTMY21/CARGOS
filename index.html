@@ -1514,29 +1514,58 @@
   <span class="loading-only-a11y">Cargando…</span>
 </div>
 <div class="wrap" id="appShell" hidden inert>
-  <div class="header-row">
-    <img src="/farmacias-heart.svg" alt="Farmacias Peruanas" class="header-logo" width="62" height="49">
-    <h1>Kardex Digital — Control de Existencias Documentos Contables (CD Santa Anita)</h1>
-    <div id="sessionProfile" class="session-profile" hidden aria-label="Cuenta conectada">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="8.5" r="3.2"></circle><path d="M5.6 19a7.1 7.1 0 0 1 12.8 0"></path>
-      </svg>
-      <span id="sessionUser" class="session-profile-email"></span>
+  <header class="executive-header" aria-label="Cabecera de Kardex Digital">
+    <div class="header-row executive-header-main">
+      <div class="executive-brand">
+        <img src="/farmacias-heart.svg" alt="Farmacias Peruanas" class="header-logo" width="62" height="49">
+        <div class="executive-brand-copy">
+          <h1>Kardex Digital</h1>
+          <p>CD Santa Anita · Control documental</p>
+        </div>
+      </div>
+      <div class="executive-header-tools">
+        <div class="connection-row executive-connection" role="status" aria-live="polite" aria-label="Estado de conexión">
+          <span id="connectionDot" class="connection-dot" aria-hidden="true"></span>
+          <span id="connectionStatus">Conexión pendiente</span>
+          <button id="btnReconnect" class="secondary connection-action" hidden aria-hidden="true" tabindex="-1">Actualizar</button>
+        </div>
+        <button id="btnRefreshNewCargos" type="button" class="secondary connection-action executive-refresh" hidden
+          title="Refrescar cargos nuevos" aria-label="Refrescar cargos nuevos">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M20 11a8 8 0 0 0-14.6-4M4 3v4h4M4 13a8 8 0 0 0 14.6 4M20 21v-4h-4"/>
+          </svg>
+        </button>
+        <div class="executive-account" id="executiveAccount">
+          <button id="sessionProfile" type="button" class="session-profile executive-profile-trigger" hidden
+            aria-label="Opciones de la cuenta" aria-controls="executiveProfileMenu" aria-expanded="false"
+            aria-haspopup="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+              stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="8.5" r="3.2"></circle>
+              <path d="M5.6 19a7.1 7.1 0 0 1 12.8 0"></path>
+            </svg>
+            <span id="sessionUser" class="session-profile-email"></span>
+            <svg class="executive-profile-chevron" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+              aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+          </button>
+          <div id="executiveProfileMenu" class="executive-profile-menu" hidden>
+            <div class="executive-profile-menu-label">Cuenta conectada</div>
+                <button id="btnSignOut" class="secondary connection-action signout-action" hidden>Cerrar sesión</button>
+          </div>
+        </div>
+      </div>
     </div>
-  </div>
-
-  <div class="connection-row" aria-live="polite">
-    <span id="connectionDot" class="connection-dot"></span>
-    <span id="connectionStatus">Conexión pendiente</span>
-    <button id="btnReconnect" class="secondary connection-action" hidden aria-hidden="true" tabindex="-1">Actualizar</button>
-    <button id="btnTopAdminRequests" type="button" class="secondary connection-action admin-requests-top-button" data-status="unknown" aria-controls="grp-solicitudes" aria-label="Consultar solicitudes de cuentas administrativas" hidden>
-      <span class="admin-requests-top-label">Solicitudes de Cuentas Adm.</span>
-      <span id="topAdminRequestsCount" class="admin-requests-top-count" aria-hidden="true">—</span>
-    </button>
-    <button id="btnRefreshNewCargos" type="button" class="secondary connection-action" hidden title="Volver a consultar los cargos nuevos que ya recibió Supabase">↻ Refrescar cargos nuevos</button>
-    <button id="btnToggleGoogleSync" type="button" class="secondary connection-action" disabled>Pausar sincronización</button>
-    <button id="btnSignOut" class="secondary connection-action signout-action" hidden>Salir</button>
-  </div>
+    <div class="executive-context">
+      <nav class="executive-breadcrumb" aria-label="Ubicación actual">
+        <span id="executiveBreadcrumbRoot">Panel administrativo</span>
+        <span class="executive-breadcrumb-separator" aria-hidden="true">/</span>
+        <strong id="executiveBreadcrumbCurrent">Dashboard General</strong>
+      </nav>
+      <span class="executive-context-role" id="executiveRole">Vista del administrador</span>
+    </div>
+  </header>
   <!-- Vista previa independiente: nueva navegación visual; las secciones existentes se conservan. -->
   <button id="sidebarMenuToggle" class="sidebar-mobile-toggle" type="button" aria-controls="kardexSidebar" aria-expanded="false" hidden>
     <span aria-hidden="true">☰</span> Abrir menú
@@ -1600,6 +1629,10 @@
           <summary><svg class="sidebar-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M5 21a7 7 0 0 1 14 0M19 9.5l2 2-2 2"/></svg><span>Usuarios y accesos</span><span class="sidebar-chevron" aria-hidden="true">⌄</span></summary>
           <div class="sidebar-submenu">
             <button type="button" data-sidebar-action="admin-requests">Solicitudes administrativas</button>
+            <button id="btnTopAdminRequests" type="button" class="secondary connection-action admin-requests-top-button" data-status="unknown" aria-controls="grp-solicitudes" aria-label="Consultar solicitudes de cuentas administrativas" hidden>
+      <span class="admin-requests-top-label">Solicitudes de Cuentas Adm.</span>
+      <span id="topAdminRequestsCount" class="admin-requests-top-count" aria-hidden="true">—</span>
+    </button>
           </div>
         </details>
       </nav>
@@ -1681,6 +1714,7 @@
         <p id="googleSyncStatus" aria-live="polite">Consultando estado de sincronización…</p>
       </div>
       <div class="sync-panel-actions">
+        <button id="btnToggleGoogleSync" type="button" class="secondary connection-action" disabled>Pausar sincronización</button>
         <div class="google-excel-links" aria-label="Archivos de cargos de Google Drive">
           <a id="btnOpenGoogleExcel" class="excel-link-button" href="https://docs.google.com/spreadsheets/d/18TbKWiVUWKfkJOXvR0kGEMb5eVKTDCfoXAUtD5rCxts/edit" target="_blank" rel="noopener noreferrer">Cargos Actuales</a>
           <a id="btnOpenIronMountainExcel" class="excel-link-button" href="https://docs.google.com/spreadsheets/d/1aWqIoj5UXAeyKhNN1paoYnTa4jdfN8LhDEcdH_lQ4mk/edit" target="_blank" rel="noopener noreferrer">Cargos Enviados</a>
