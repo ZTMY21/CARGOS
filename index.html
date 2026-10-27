@@ -1624,6 +1624,10 @@
  color:#627184;background:#eef2f7;border-color:#d9e2eb;
 }
 #appShell #kardexSidebar #btnTopAdminRequests[hidden]{display:none!important}
+#appShell #kardexSidebar #btnTopAdminRequests[aria-pressed="true"]{
+  background:#fff0f2;color:#b5263b;
+  box-shadow:inset 3px 0 0 #b5263b;
+}
 #appShell #googleSyncPanel .sync-panel-actions #btnToggleGoogleSync{
  display:inline-flex;align-items:center;justify-content:center;
  min-height:38px;margin:0;
@@ -1784,9 +1788,8 @@
         <details class="sidebar-category" data-sidebar-group="accesos">
           <summary><svg class="sidebar-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M5 21a7 7 0 0 1 14 0M19 9.5l2 2-2 2"/></svg><span>Usuarios y accesos</span><span class="sidebar-chevron" aria-hidden="true">⌄</span></summary>
           <div class="sidebar-submenu">
-            <button type="button" data-sidebar-action="admin-requests">Solicitudes administrativas</button>
             <button id="btnTopAdminRequests" type="button" class="secondary connection-action admin-requests-top-button" data-status="unknown" aria-controls="grp-solicitudes" aria-label="Consultar solicitudes de cuentas administrativas" hidden>
-      <span class="admin-requests-top-label">Solicitudes de Cuentas Adm.</span>
+      <span class="admin-requests-top-label">Solicitudes administrativas</span>
       <span id="topAdminRequestsCount" class="admin-requests-top-count" aria-hidden="true">—</span>
     </button>
           </div>
