@@ -691,6 +691,60 @@
       </span>
       <span>Estado de sincronización</span>
     </div>
+    <!-- Preview aislada: visualización de cajas físicas enviadas; sin escrituras. -->
+    <section id="imDashboard" class="im-main-dashboard" aria-labelledby="imDashboardTitle">
+      <div class="im-dashboard-header">
+        <div>
+          <p class="im-dashboard-eyebrow">Dashboard · Control histórico</p>
+          <h2 id="imDashboardTitle">Cajas enviadas a Iron Mountain</h2>
+          <p class="im-dashboard-description">Evolución de envíos confirmados por fecha real de envío; cada punto es una cantidad de cajas, no de cargos.</p>
+        </div>
+      </div>
+      <div class="im-dashboard-controls" aria-label="Filtros de evolución de envíos">
+        <button type="button" id="imDashboardByMonth" class="im-dashboard-switch" aria-pressed="true">Por mes</button>
+        <button type="button" id="imDashboardByYear" class="im-dashboard-switch" aria-pressed="false">Por año</button>
+        <label id="imDashboardYearWrap" class="im-dashboard-year" for="imDashboardYear">Año
+          <select id="imDashboardYear" aria-label="Año de cajas enviadas"></select>
+        </label>
+      </div>
+      <div class="im-dashboard-period">
+        <div>
+          <div id="imDashboardPeriod" class="im-dashboard-period-label">Envíos a Iron Mountain</div>
+          <div id="imDashboardDescription" class="im-dashboard-period-sub">Consultando movimientos…</div>
+        </div>
+        <div><strong id="imDashboardTotal" aria-label="Total de cajas enviadas">—</strong></div>
+      </div>
+      <div class="im-dashboard-chart-frame">
+        <h3 class="im-dashboard-chart-title">Tendencia de envíos de cajas</h3>
+        <div id="imDashboardStatus" role="status">Cargando evolución histórica…</div>
+        <div id="imDashboardChart" class="im-dashboard-chart-surface" aria-live="polite"></div>
+        <div id="imDashboardLegend" class="im-dashboard-chart-legend"></div>
+      </div>
+      <p class="im-dashboard-footnote" id="imDashboardLast"></p>
+      <p class="im-dashboard-footnote">Fuente: envíos históricos y registros nuevos de Iron Mountain. Se cuenta una caja física única por mes; T, TD y P no duplican cajas. Cajas sin fecha de envío no suman.</p>
+      <div class="im-dashboard-overview" aria-label="Indicadores generales del Kardex">
+        <div class="im-overview-card" style="--im-card:#252b32">
+          <div class="im-overview-label">Total de cargos</div>
+          <div class="im-overview-value" id="imOverviewTotal">—</div>
+          <div class="im-overview-note">Histórico documental</div>
+        </div>
+        <div class="im-overview-card" style="--im-card:#238356">
+          <div class="im-overview-label">Cargos enviados IM</div>
+          <div class="im-overview-value" id="imOverviewShipped">—</div>
+          <div class="im-overview-note">Cantidad de cargos, no de cajas</div>
+        </div>
+        <div class="im-overview-card" style="--im-card:#c63e4a">
+          <div class="im-overview-label">Cargos pendientes IM</div>
+          <div class="im-overview-value" id="imOverviewPending">—</div>
+          <div class="im-overview-note">Pendientes de envío</div>
+        </div>
+        <div class="im-overview-card" style="--im-card:#087cae">
+          <div class="im-overview-label">Cajas preparadas</div>
+          <div class="im-overview-value" id="imOverviewPrepared">—</div>
+          <div class="im-overview-note" id="imOverviewPreparedNote">Sin fecha de envío IM</div>
+        </div>
+      </div>
+    </section>
     <div class="monthly-panel-title">
       <div>
         <h2 id="googleSyncTitle">Actividad de cargos de este mes</h2>
@@ -838,7 +892,10 @@
   <details class="group" id="grp-resumen" open>
     <summary><span class="stitle">Resumen<small>Indicadores generales</small></span><span class="chev">▶</span></summary>
     <div class="group-body">
-      <div id="resumenTablas"></div>
+      <details id="dashboardLegacyDetails" class="dashboard-legacy-toggle">
+        <summary>Explorar control documental, vencimientos y cifras históricas detalladas</summary>
+        <div class="dashboard-legacy-inner"><div id="resumenTablas"></div></div>
+      </details>
     </div>
   </details>
 
