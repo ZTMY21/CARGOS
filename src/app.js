@@ -331,7 +331,7 @@ sidebarCollapseButton.addEventListener('click',()=>{
 });
 // Desplegar el menú antes de abrir una subcategoría en modo compacto.
 for(const summary of sidebarNode.querySelectorAll('.sidebar-category>summary')){
-  summary.title=summary.textContent.trim().replace(/\\s+/g,' ');
+  summary.title=summary.textContent.trim().replace(/\s+/g,' ');
   summary.addEventListener('click',()=>{
     if(document.getElementById('appShell').classList.contains('sidebar-collapsed')){
       setSidebarCollapsed(false);
@@ -339,7 +339,7 @@ for(const summary of sidebarNode.querySelectorAll('.sidebar-category>summary')){
   });
 }
 for(const link of sidebarNode.querySelectorAll('.sidebar-link')){
-  link.title=link.textContent.trim().replace(/\\s+/g,' ');
+  link.title=link.textContent.trim().replace(/\s+/g,' ');
 }
 sidebarNode.addEventListener('click',event=>{
   const button=event.target.closest('button[data-sidebar-view],button[data-sidebar-action]');
