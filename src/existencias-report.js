@@ -28,6 +28,12 @@ function cargoGroups(docs){
   }
   return groups;
 }
+function allSourceCargos(docs){
+  // El listado general no omite ningún Kardex del Excel principal, incluso
+  // si dos registros históricos o sincronizados tienen el mismo Nº Cargo.
+  return docs.flatMap((doc,i)=>(doc.cargos||[]).filter(cargo=>code(cargo))
+    .map((cargo,j)=>({key:String(i)+':'+String(j),cargo,doc})));
+}
 function selected(docs,now){
   return [...cargoGroups(docs)].map(([key,{cargo,entries}])=>({
     key,cargo,doc:entries.find(d=>computeDocEstado(d,now).estado==='Enviado a Iron Mountain')||entries[0]
@@ -133,7 +139,7 @@ export function buildExistenciasReport(docs,now=new Date(),reqs=[]){
     cell.font={name:'Arial',size:10,bold:true,color:{argb:BLUE},underline:true};
   }
   const reqNumbers=new Map(reqs.map(r=>[r.id,r.numero]));
-  addCargoSheet(wb,items,now,reqNumbers);
+  addCargoSheet(wb,allSourceCargos(docs),now,reqNumbers);
   const annualStartRows=addAnnualSheet(wb,items,now,reqNumbers);
   addReqSheet(wb);
   redHeader(sheet,6,['Total Cargos','Enviado a Iron Mountain',
