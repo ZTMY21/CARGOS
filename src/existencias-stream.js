@@ -70,7 +70,7 @@ function annualTemplate(xml){
 }
 const detailSorter=new Intl.Collator('es',{numeric:true,sensitivity:'base'});
 const normalizedCargo=value=>String(value??'').trim()
-  .replace(/\\.0+$/,'').replace(/^0+(?=\\d)/,'');
+  .replace(/\.0+$/,'').replace(/^0+(?=\d)/,'');
 function compareDetails(a,b){
   const compare= (x,y)=>detailSorter.compare(String(x??'').trim(),String(y??'').trim());
   const byCargo=compare(normalizedCargo(a.Cargo),normalizedCargo(b.Cargo));
