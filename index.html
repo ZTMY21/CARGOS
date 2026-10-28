@@ -2812,6 +2812,21 @@
 #appShell.has-sidebar .expiry-month-chart-header p{
  font-size:11.5px;color:#687f94;margin:0;
 }
+#appShell.has-sidebar .expiry-month-chart-selectors{
+ display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+}
+#appShell.has-sidebar .expiry-month-chart-selectors label{
+ display:flex;flex-direction:column;gap:6px;
+}
+#appShell.has-sidebar #expiryMonthChartMonth{
+ min-width:164px;
+}
+#appShell.has-sidebar .expiry-month-chart-surface g[data-selectable-month]{
+ cursor:pointer;
+}
+#appShell.has-sidebar .expiry-month-chart-surface g[data-selectable-month]:focus-visible{
+ outline:2px solid #c52540;
+}
 #appShell.has-sidebar .expiry-month-chart-header label{
  display:flex;flex-direction:column;gap:6px;flex:none;
  font-size:11px;color:#3c5971;font-weight:800;
@@ -3301,18 +3316,31 @@
             <div>
               <span class="doc-expiry-overline">EVOLUCIÓN DOCUMENTAL · CD SANTA ANITA</span>
               <h3 id="expiryMonthChartTitle">Vencimientos por mes</h3>
-              <p>Cargos que cumplen seis meses de plazo, agrupados por mes y año de vencimiento.</p>
+              <p>Elige un mes o pulsa un punto de la gráfica para actualizar los indicadores y el listado.</p>
             </div>
-            <label for="expiryMonthChartYear">Año de vencimiento
-              <select id="expiryMonthChartYear" aria-label="Año de la fecha límite del cargo"></select>
-            </label>
+            <div class="expiry-month-chart-selectors">
+              <label for="expiryMonthChartYear">Año de vencimiento
+                <select id="expiryMonthChartYear" aria-label="Año de vencimiento seleccionado"></select>
+              </label>
+              <label for="expiryMonthChartMonth">Mes de vencimiento
+                <select id="expiryMonthChartMonth" aria-label="Mes de vencimiento seleccionado">
+                  <option value="all">Todos los meses</option>
+                  <option value="1">Enero</option><option value="2">Febrero</option>
+                  <option value="3">Marzo</option><option value="4">Abril</option>
+                  <option value="5">Mayo</option><option value="6">Junio</option>
+                  <option value="7">Julio</option><option value="8">Agosto</option>
+                  <option value="9">Septiembre</option><option value="10">Octubre</option>
+                  <option value="11">Noviembre</option><option value="12">Diciembre</option>
+                </select>
+              </label>
+            </div>
           </div>
           <div class="expiry-month-chart-content">
             <div id="expiryMonthChartSurface" class="expiry-month-chart-surface" aria-live="polite"></div>
             <div id="expiryMonthChartLegend" class="expiry-month-chart-legend"></div>
             <p id="expiryMonthChartSummary" class="expiry-month-chart-summary" aria-live="polite">Calculando vencimientos mensuales…</p>
           </div>
-          <p class="expiry-month-chart-method">Las líneas representan <strong>años de vencimiento</strong>. Cada punto corresponde al mes de la fecha límite del cargo (seis meses calendario). Las tarjetas y el listado usan el mismo período seleccionado. Los registros sin fecha válida se informan aparte, sin inventar un mes.</p>
+          <p class="expiry-month-chart-method">La gráfica muestra <strong>una sola línea</strong> del año seleccionado. Cada punto indica cuántos cargos pendientes cumplen seis meses en ese mes. Las tarjetas y el listado corresponden al mismo año y mes de vencimiento; los cargos sin fecha válida no se asignan a ningún mes.</p>
         </section>
         <div class="doc-expiry-panel">
           <div class="doc-expiry-panel-top">
