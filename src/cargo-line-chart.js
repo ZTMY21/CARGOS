@@ -85,7 +85,7 @@ export function renderCargoLineChart(surface,legend,categories,lines,{showLabels
       add(group,'circle',{cx,cy,r:pointSelected?7.5:showLabels?5.3:4,
         fill:pointSelected?line.color:'#fff',stroke:pointSelected?'#fff':line.color,'stroke-width':pointSelected?2.8:3});
       add(group,'title',{},`${line.label} · ${categories[i]}: ${fmt(value)} cargos`);
-      if(showLabels)add(group,'text',{
+      if(showLabels && (showLabels!=='positive' || value>0))add(group,'text',{
         x:cx,y:Math.max(T-8,cy-16),'text-anchor':'middle','font-size':fontSize,'font-weight':800,fill:line.color
       },fmt(value));
       const showTip=()=>{
