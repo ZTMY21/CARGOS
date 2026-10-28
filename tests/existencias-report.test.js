@@ -12,7 +12,7 @@ const base={id:'base',kardex:'SA-00001',cargos:['653'],anioOrigen:2026,fechaOrig
   datosOrigen:{cantidad_registros:3}};
 const save=async wb=>{const result=new ExcelJS.Workbook();await result.xlsx.load(await wb.xlsx.writeBuffer());return result;};
 
-test('annual quantities navigate inside the same Excel with the tab bar hidden',async()=>{
+test('annual quantities navigate inside the same Excel with the tab bar visible',async()=>{
   const historical=REPORT_YEARS.slice(0,-1).map((year,i)=>({...base,id:'h'+i,
     kardex:'SA-'+String(i+2).padStart(5,'0'),anioOrigen:year,cargos:[String(100+i)],fechaOrigen:year+'-02-05'}));
   const sent={...base,id:'sent',kardex:'SA-00020',imConfirmado:true,imFechaEnvio:'2026-10-20',
@@ -22,7 +22,7 @@ test('annual quantities navigate inside the same Excel with the tab bar hidden',
   const workbookXml=await zip.file('xl/workbook.xml').async('string');
   const summaryXml=await zip.file('xl/worksheets/sheet1.xml').async('string');
   const summaryRels=await zip.file('xl/worksheets/_rels/sheet1.xml.rels')?.async('string')||'';
-  assert.match(workbookXml,/<workbookView[^>]*showSheetTabs="0"/);
+  assert.match(workbookXml,/<workbookView[^>]*showSheetTabs="1"/);
   assert.doesNotMatch(workbookXml,/<sheet[^>]*state="hidden"/);
   assert.match(summaryXml,/ref="C24"[^>]*location="&apos;Cargos por Año&apos;!A7"/);
   assert.match(summaryXml,/ref="B4"[^>]*location="&apos;Cargos&apos;!A1"/);
