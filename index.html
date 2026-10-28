@@ -1855,151 +1855,194 @@
   #appShell .executive-context-role{display:none}
 }
 
-/* PREVIEW · KPI con mayor presencia: tipografía dominante, menos texto y acentos FAPE. */
-#appShell.has-sidebar .created-dashboard-stats{
+/* PREVIEW · Tarjetas KPI compactas con lenguaje visual de los aplicativos FAPE.
+   Estructura título + icono + número; sólo la variación lleva una nota lateral. */
+#appShell.has-sidebar .created-dashboard-stats,
+#appShell.has-sidebar .created-comparison-card-grid{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
   gap:14px;
-  margin-bottom:21px;
+  margin-bottom:19px;
+}
+#appShell.has-sidebar .created-dashboard-stats[hidden],
+#appShell.has-sidebar #createdDashboardComparisonStats[hidden]{
+  display:none!important;
 }
 #appShell.has-sidebar .created-dashboard-stats .created-stat{
-  --kpi-accent:#c51e3a;
-  --kpi-tint:#fff5f6;
-  display:grid;
-  grid-template-columns:minmax(0,1fr);
-  grid-template-rows:24px minmax(0,1fr) 50px 25px;
-  height:164px;
-  min-height:164px;
-  padding:16px 18px;
-  row-gap:0;
-  align-items:start;
-  border:1px solid #dce5ec;
-  border-top:4px solid var(--kpi-accent);
+  --kpi-accent:#c8243d;
+  --kpi-icon:#b92c44;
+  --kpi-icon-bg:#fff0f2;
+  --kpi-tint:#fff5f7;
+  display:flex;
+  flex-direction:column;
+  align-items:stretch;
+  justify-content:flex-start;
+  position:relative;
+  gap:13px;
+  height:auto;
+  min-height:122px;
+  min-width:0;
+  padding:16px 17px 15px;
+  border:1px solid #dce5ed;
+  border-top:3px solid var(--kpi-accent);
   border-radius:13px;
-  background:linear-gradient(152deg,#fff 55%,var(--kpi-tint) 160%);
-  box-shadow:0 5px 16px rgba(23,42,61,.065);
+  background:linear-gradient(120deg,#fff 55%,var(--kpi-tint) 175%);
+  box-shadow:0 3px 11px rgba(35,56,73,.055);
 }
 #appShell.has-sidebar .created-dashboard-stats .created-stat:nth-child(2){
-  --kpi-accent:#274761;
-  --kpi-tint:#f0f5f9;
+  --kpi-accent:#5a7694;
+  --kpi-icon:#486c8d;
+  --kpi-icon-bg:#eff4f8;
+  --kpi-tint:#f4f8fb;
 }
 #appShell.has-sidebar .created-dashboard-stats .created-stat:nth-child(3){
-  --kpi-accent:#16875b;
-  --kpi-tint:#eff9f4;
+  --kpi-accent:#25956e;
+  --kpi-icon:#16865d;
+  --kpi-icon-bg:#e9f7ef;
+  --kpi-tint:#f0faf5;
 }
 #appShell.has-sidebar .created-dashboard-stats .created-stat:nth-child(4){
-  --kpi-accent:#c3841f;
-  --kpi-tint:#fff9ee;
+  --kpi-accent:#d39526;
+  --kpi-icon:#b97d14;
+  --kpi-icon-bg:#fff2dc;
+  --kpi-tint:#fffbf2;
 }
 #appShell.has-sidebar .created-dashboard-stats .created-stat small{
   display:block;
-  font-size:11px;
-  font-weight:850;
-  letter-spacing:.025em;
-  line-height:1.4;
-  color:#36516a;
-  grid-row:1;
-  align-self:start;
+  padding:4px 43px 0 0;
+  overflow-wrap:normal;
+  color:#3b506b;
+  font-size:12px;
+  font-weight:800;
+  letter-spacing:0;
+  line-height:1.3;
 }
-#appShell.has-sidebar .created-dashboard-stats .created-stat strong{
+#appShell.has-sidebar .created-dashboard-stats .created-stat .created-stat-icon{
+  display:grid;
+  place-items:center;
+  position:absolute;
+  top:13px;right:14px;
+  width:34px;height:34px;
+  padding:0;
+  border-radius:10px;
+  background:var(--kpi-icon-bg);
+  color:var(--kpi-icon);
+  flex:none;
+}
+#appShell.has-sidebar .created-dashboard-stats .created-stat .created-stat-icon svg{
+  width:19px;height:19px;display:block;
+}
+#appShell.has-sidebar .created-dashboard-stats .created-stat .created-stat-value{
+  display:flex;
+  align-items:baseline;
+  justify-content:flex-start;
+  flex-wrap:wrap;
+  column-gap:11px;
+  row-gap:3px;
+  min-width:0;
+  margin:0;
+}
+#appShell.has-sidebar .created-dashboard-stats .created-stat .created-stat-value strong{
   display:block;
-  font-size:clamp(32px,2.65vw,43px);
+  flex:none;
+  margin:0;
+  color:#c8243d;
+  font-size:clamp(29px,2.65vw,40px);
   font-weight:900;
   letter-spacing:-.035em;
-  line-height:1.07;
+  line-height:1.15;
   font-variant-numeric:tabular-nums;
-  color:var(--kpi-accent);
-  grid-row:3;
-  align-self:end;
-  margin:0;
   white-space:nowrap;
 }
-#appShell.has-sidebar .created-dashboard-stats .created-stat:nth-child(3) strong{
-  color:#bf2740;
+#appShell.has-sidebar .created-dashboard-stats .created-stat:nth-child(2) .created-stat-value strong{
+  color:#24465f;
 }
-#appShell.has-sidebar .created-dashboard-stats .created-stat:nth-child(3)[data-trend="up"] strong{
-  color:#188458;
+#appShell.has-sidebar .created-dashboard-stats .created-stat:nth-child(4) .created-stat-value strong{
+  color:#be801c;
 }
-#appShell.has-sidebar .created-dashboard-stats .created-stat:nth-child(3)[data-trend="flat"] strong,
-#appShell.has-sidebar .created-dashboard-stats .created-stat:nth-child(3)[data-trend="unavailable"] strong{
-  color:#64798b;
+#appShell.has-sidebar .created-dashboard-stats .created-stat:nth-child(3)[data-trend="up"] .created-stat-value strong{
+  color:#16865d;
 }
-/* Los filtros ya identifican el mes y año: no duplicarlos bajo el número. */
-#appShell.has-sidebar .created-dashboard-stats .created-stat:not(:nth-child(3))>span{
+#appShell.has-sidebar .created-dashboard-stats .created-stat:nth-child(3)[data-trend="flat"] .created-stat-value strong,
+#appShell.has-sidebar .created-dashboard-stats .created-stat:nth-child(3)[data-trend="unavailable"] .created-stat-value strong{
+  color:#60788e;
+}
+#appShell.has-sidebar .created-dashboard-stats .created-stat .created-stat-note{
   display:none!important;
 }
-#appShell.has-sidebar .created-dashboard-stats .created-stat:nth-child(3)>span{
-  display:inline-flex;
-  grid-row:4;
-  align-self:center;
-  justify-self:start;
+#appShell.has-sidebar .created-dashboard-stats .created-stat:nth-child(3) .created-stat-value .created-stat-note{
+  display:inline!important;
   margin:0;
-  padding:4px 9px;
-  background:#fff0f2;
-  color:#af2a40;
-  border-radius:6px;
+  padding:0;
+  background:none;
+  border:0;
+  border-radius:0;
+  color:#8a4653;
   font-size:11px;
-  font-weight:750;
-  line-height:1.25;
+  font-weight:650;
+  line-height:1.3;
 }
-#appShell.has-sidebar .created-dashboard-stats .created-stat:nth-child(3)[data-trend="up"]>span{
-  background:#e9f6ef;color:#16734d;
+#appShell.has-sidebar .created-dashboard-stats .created-stat:nth-child(3)[data-trend="up"] .created-stat-note{
+  color:#26734f;
 }
-#appShell.has-sidebar .created-dashboard-stats .created-stat:nth-child(3)[data-trend="flat"]>span,
-#appShell.has-sidebar .created-dashboard-stats .created-stat:nth-child(3)[data-trend="unavailable"]>span{
-  background:#eef2f6;color:#62778a;
-}
-/* En la comparación una sola tarjeta no debe estirarse ni perder presencia. */
-#appShell.has-sidebar .created-comparison-card-grid{
-  gap:14px;
-}
+/* Mismo formato compacto para tarjetas de los años seleccionados. */
 #appShell.has-sidebar .created-comparison-card-grid .created-comparison-card{
-  min-height:142px;
-  padding:17px 18px 16px;
-  border:1px solid #dce5ec;
-  border-top:4px solid var(--comparison-color);
+  min-height:122px;
+  padding:16px 17px 15px;
+  border:1px solid #dce5ed;
+  border-top:3px solid var(--comparison-color);
   border-radius:13px;
   background:#fff;
-  box-shadow:0 5px 16px rgba(23,42,61,.065);
-  gap:11px;
-  justify-content:space-between;
+  box-shadow:0 3px 11px rgba(35,56,73,.055);
+  display:flex;
+  flex-direction:column;
+  justify-content:flex-start;
+  gap:13px;
 }
 #appShell.has-sidebar .created-comparison-card-grid .created-comparison-year{
-  color:#36516a;font-size:12px;font-weight:850;
+  color:#3b506b;
+  font-size:12px;
+  font-weight:800;
 }
 #appShell.has-sidebar .created-comparison-card-grid .created-comparison-number{
-  font-size:clamp(32px,2.65vw,43px);
+  margin:0;
+  font-size:clamp(29px,2.65vw,40px);
   font-weight:900;
+  line-height:1.15;
   letter-spacing:-.035em;
-  line-height:1.07;
-  margin-top:auto;
 }
 #appShell.has-sidebar .created-comparison-card-grid .created-comparison-label{
   display:none;
 }
 @media(max-width:1100px){
-  #appShell.has-sidebar .created-dashboard-stats .created-stat{
-    grid-template-rows:24px minmax(0,1fr) 48px 24px;
-    height:151px;
-    min-height:151px;
-  }
-  #appShell.has-sidebar .created-comparison-card-grid .created-comparison-card{
-    min-height:127px;
+  #appShell.has-sidebar .created-dashboard-stats,
+  #appShell.has-sidebar .created-comparison-card-grid{
+    grid-template-columns:repeat(2,minmax(0,1fr));
   }
 }
 @media(max-width:570px){
   #appShell.has-sidebar .created-dashboard-stats,
   #appShell.has-sidebar .created-comparison-card-grid{gap:9px}
-  #appShell.has-sidebar .created-dashboard-stats .created-stat{
-    grid-template-rows:minmax(26px,auto) minmax(0,1fr) 40px 23px;
-    height:143px;
-    min-height:143px;
-    padding:13px 11px;
-  }
+  #appShell.has-sidebar .created-dashboard-stats .created-stat,
   #appShell.has-sidebar .created-comparison-card-grid .created-comparison-card{
-    min-height:122px;padding:13px 11px;
+    min-height:112px;
+    padding:13px 11px;
+    gap:11px;
   }
-  #appShell.has-sidebar .created-dashboard-stats .created-stat small{font-size:10px}
-  #appShell.has-sidebar .created-dashboard-stats .created-stat strong,
-  #appShell.has-sidebar .created-comparison-card-grid .created-comparison-number{font-size:clamp(25px,6vw,34px)}
+  #appShell.has-sidebar .created-dashboard-stats .created-stat small{
+    font-size:10px;
+    padding-right:31px;
+  }
+  #appShell.has-sidebar .created-dashboard-stats .created-stat .created-stat-icon{
+    width:28px;height:28px;top:11px;right:10px;
+  }
+  #appShell.has-sidebar .created-dashboard-stats .created-stat .created-stat-icon svg{
+    width:16px;height:16px;
+  }
+  #appShell.has-sidebar .created-dashboard-stats .created-stat .created-stat-value strong,
+  #appShell.has-sidebar .created-comparison-card-grid .created-comparison-number{
+    font-size:clamp(25px,6vw,34px);
+  }
 }
 </style>
 </head>
@@ -2358,10 +2401,38 @@
           </div>
         </section>
         <div class="created-dashboard-stats" aria-live="polite" aria-label="Indicadores del período seleccionado">
-          <div class="created-stat"><small id="createdDashboardSelectedLabel">CARGOS DEL MES SELECCIONADO</small><strong id="createdDashboardSelected">—</strong><span id="createdDashboardSelectedNote">Según el filtro seleccionado</span></div>
-          <div class="created-stat"><small id="createdDashboardPreviousLabel">CARGOS DEL MES ANTERIOR</small><strong id="createdDashboardAnnual">—</strong><span id="createdDashboardPreviousNote">Período anterior</span></div>
-          <div class="created-stat"><small id="createdDashboardVariationLabel">VARIACIÓN MENSUAL</small><strong id="createdDashboardDated">—</strong><span id="createdDashboardVariationNote">Comparación entre períodos</span></div>
-          <div class="created-stat"><small id="createdDashboardAccumulatedLabel">ACUMULADO DEL AÑO</small><strong id="createdDashboardUndated">—</strong><span id="createdDashboardAccumulatedNote">Enero hasta el mes seleccionado</span></div>
+          <div class="created-stat">
+            <small id="createdDashboardSelectedLabel">Cargos del mes</small>
+            <span class="created-stat-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4M17 3v4M3 10h18"/><path d="m9 15 2 2 4-4"/></svg></span>
+            <div class="created-stat-value">
+              <strong id="createdDashboardSelected">—</strong>
+              <span id="createdDashboardSelectedNote" class="created-stat-note">Según el filtro seleccionado</span>
+            </div>
+          </div>
+          <div class="created-stat">
+            <small id="createdDashboardPreviousLabel">Mes anterior</small>
+            <span class="created-stat-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
+            <div class="created-stat-value">
+              <strong id="createdDashboardAnnual">—</strong>
+              <span id="createdDashboardPreviousNote" class="created-stat-note">Período anterior</span>
+            </div>
+          </div>
+          <div class="created-stat">
+            <small id="createdDashboardVariationLabel">Variación mensual</small>
+            <span class="created-stat-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4v16h18"/><path d="m6 8 5 5 4-4 4 4"/><path d="M16 13h3v-3"/></svg></span>
+            <div class="created-stat-value">
+              <strong id="createdDashboardDated">—</strong>
+              <span id="createdDashboardVariationNote" class="created-stat-note">Comparación entre períodos</span>
+            </div>
+          </div>
+          <div class="created-stat">
+            <small id="createdDashboardAccumulatedLabel">Acumulado del año</small>
+            <span class="created-stat-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="17" rx="2"/><path d="M8 2v4M16 2v4M4 9h16"/><path d="M8 14h8M8 17h5"/></svg></span>
+            <div class="created-stat-value">
+              <strong id="createdDashboardUndated">—</strong>
+              <span id="createdDashboardAccumulatedNote" class="created-stat-note">Enero hasta el mes seleccionado</span>
+            </div>
+          </div>
         </div>
         <section id="createdDashboardComparisonStats" class="created-dashboard-comparison-stats" hidden
           aria-label="Indicadores comparativos de cargos realizados" aria-live="polite">
