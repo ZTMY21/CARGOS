@@ -76,6 +76,22 @@ export class KardexRepository {
   async reviewAdminRequest(id,approved) { return checked(await this.client.rpc('kardex_admin_review',{p_id:id,p_approve:approved})); }
   async fetchDoc(id) { return docFromDb(checked(await this.client.from('documentos').select().eq('id',id).single())); }
   async fetchImage(id) { return safeImage(checked(await this.client.from('documentos').select('sustento_imagen').eq('id',id).single()).sustento_imagen); }
+  async reportDocs(snapshotDocs,year=null) {
+    const selected=snapshotDocs.filter(d=>year===null || String(d.anioOrigen||d.periodo?.slice(0,4)||d.fechaOrigen?.slice(0,4))===String(year));
+    const result=[];
+    for(let i=0;i<selected.length;i+=40) {
+      const page=selected.slice(i,i+40);
+      const rows=checked(await this.client.from('documentos').select(year===null?'id,datos_origen':'id,datos_origen,facturas')
+        .in('id',page.map(d=>d.id)));
+      const byId=new Map(rows.map(row=>[row.id,row]));
+      for(const doc of page) {
+        const extra=byId.get(doc.id);
+        if(!extra)throw new Error('No se pudo consultar el origen de todos los cargos.');
+        result.push({...doc,datosOrigen:extra.datos_origen||{},facturas:extra.facturas||''});
+      }
+    }
+    return result;
+  }
   async search(filters, offset=0, limit=100, signal) {
     let query=this.client.rpc('kardex_search',{
       query_text:filters.query||'',estado_filter:filters.state||'',tipo_filter:filters.type||'',

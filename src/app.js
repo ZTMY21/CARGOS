@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { computeReqEstado as reqEstado, computeDocEstado as docEstado, fmtDate, escapeHtml, limaDate } from './rules.js';
 import { KardexRepository, reqFromDb, docFromDb } from './repository.js';
-import { buildCargoWorkbook, parseWorkbook } from './excel-api.js';
+import { buildCargoWorkbook, buildExistenciasReport, buildYearDetailReport, parseWorkbook } from './excel-api.js';
 import { highlightMatch, normalizeSearch, filterDocuments, filterRequirements, invoiceSearchPresentation, assignedBoxCode } from './search.js';
 import './connection.css';
 import { createIdleSession } from './idle-session.js';
@@ -33,6 +33,7 @@ let adminRequestsTimer = null, adminRequestsEpoch = 0;
 let adminEmailLinkReviewed = false;
 let dataReady = false, realtimeChannel = null, refreshTimer = null, refreshPromise = null;
 let refreshRequested = false;
+let pendingYearDownload = new URLSearchParams(window.location.search).get('detalleCargo');
 let authGeneration = 0, currentUserId = null;
 let pendingReqId = null, pendingDocId = null;
 let queryResults = null, queryError = '', searchEpoch = 0, searchController = null;
@@ -271,7 +272,7 @@ workspaceNav.addEventListener('keydown',event=>{
 });
 function setAvailability() {
   if (!appReady || !isAdmin) { closeCargoExpiry(); closePreparedIm(); closeRequestedIM(); }
-  document.getElementById('btnExportar').hidden=true;
+  document.getElementById('btnExportar').hidden=!isAdmin;
   document.getElementById('appShell').classList.toggle('read-only', !isAdmin);
   ['googleSyncPanel','btnImportar','btnReset'].forEach(id=>document.getElementById(id).hidden=!isAdmin);
   updateWorkspaceVisibility();
@@ -286,7 +287,7 @@ function setAvailability() {
     : 'Consulta, búsqueda y exportación de documentos';
 
   document.querySelectorAll('.group button').forEach(b => b.disabled = !appReady || mutationBusy);
-  ['btnReset','btnImportar','btnGuardar','btnGuardarReq'].forEach(id => document.getElementById(id).disabled = !appReady || !isAdmin || mutationBusy || isPreview);
+  ['btnExportar','btnReset','btnImportar','btnGuardar','btnGuardarReq'].forEach(id => document.getElementById(id).disabled = !appReady || !isAdmin || mutationBusy || (isPreview && id!=='btnExportar'));
   const total=queryResults?.total??lastFiltered.length;
   document.getElementById('btnPaginaAnterior').disabled=!appReady||mutationBusy||currentPage===0;
   document.getElementById('btnPaginaSiguiente').disabled=!appReady||mutationBusy||total<=(currentPage+1)*PAGE_SIZE;
@@ -340,6 +341,10 @@ async function refreshData() {
       if (channelReady) setStatus('Conectado en línea — Sincronizado', 'online');
       else setStatus('Datos actualizados — Conectando en tiempo real');
       setAvailability();
+      if(pendingYearDownload && isAdmin && appReady) {
+        const year=pendingYearDownload;pendingYearDownload=null;
+        void exportYearDetail(year);
+      }
     } while (refreshRequested && currentUserId);
   })();
   try { return await refreshPromise; }
@@ -1481,6 +1486,34 @@ async function exportCargo(id,button) {
   }catch(error){alert(`No se pudo exportar el cargo: ${readableError(error)}`);}
   finally{button.disabled=false;}
 }
+function downloadExcel(wb,name) {
+  return wb.xlsx.writeBuffer().then(buffer=>{
+    const url=URL.createObjectURL(new Blob([buffer],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
+    const a=document.createElement('a');a.href=url;a.download=name;
+    document.body.appendChild(a);a.click();a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),1000);
+  });
+}
+async function exportYearDetail(year) {
+  try {
+    if(!isAdmin || !appReady || !/^(2023|2024|2025|2026)$/.test(String(year)))
+      throw new Error('Inicia sesión administrativa y selecciona un año entre 2023 y 2026.');
+    const source=await repository.reportDocs(docs,year);
+    const wb=await buildYearDetailReport(source,year);
+    await downloadExcel(wb,`Detalle_de_Cargo_${year}_${limaDate()}.xlsx`);
+  } catch(error) { alert(`No se pudo exportar el detalle: ${readableError(error)}`); }
+}
+document.getElementById('btnExportar').addEventListener('click',async event=>{
+  if(!isAdmin || !appReady)return;
+  const button=event.currentTarget;button.disabled=true;
+  try {
+    const source=await repository.reportDocs(docs);
+    const appUrl=window.location.origin+window.location.pathname;
+    const wb=buildExistenciasReport(source,new Date(),appUrl);
+    await downloadExcel(wb,`Kardex_Santa_Anita_${limaDate()}.xlsx`);
+  } catch(error) { alert(`No se pudo exportar el reporte: ${readableError(error)}`); }
+  finally { button.disabled=false; }
+});
 document.getElementById('btnImportar').addEventListener('click', ()=>document.getElementById('fileImportar').click());
 document.getElementById('fileImportar').addEventListener('change', async ev => {
   const input = ev.target, file = input.files[0];
@@ -1665,6 +1698,10 @@ async function handleSession(session) {
     document.getElementById('sessionProfile').hidden = !user.email;
     document.getElementById('btnSignOut').hidden = false;
     await subscribeRealtime(); setAvailability();
+    if(pendingYearDownload && isAdmin) {
+      const year=pendingYearDownload;pendingYearDownload=null;
+      void exportYearDetail(year);
+    }
   } catch (error) {
     appReady = false; setAvailability();
     showAuthPage(true);

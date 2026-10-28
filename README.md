@@ -73,6 +73,10 @@ Ese JSON contiene información real del archivo y no debe agregarse a Git.
 
 ## Excel
 
+El botón administrativo **Reporte de Existencias** descarga `Kardex_Santa_Anita_YYYY-MM-DD.xlsx` con fecha de Lima. La hoja `Resumen` muestra el total y los estados de los cargos, alertas pendientes y años 2023–2026. Cada cantidad anual enlaza al aplicativo para descargar, tras autenticación, un libro independiente `Detalle_de_Cargo_AAAA_YYYY-MM-DD.xlsx` con las columnas originales del histórico. Se combinan los registros de origen y los nuevos de 2026, evitando filas idénticas duplicadas. La hoja `Cargos` conserva un registro por cargo, con ubicación, estado, antigüedad y cantidades actuales; `Requerimientos` queda vacía temporalmente. Los enlaces anuales necesitan conexión y acceso administrativo.
+
+La exportación histórica de cuatro hojas (`buildWorkbook`) permanece en el código para compatibilidad con el formato de importación existente.
+
 La exportación conserva las hojas Resumen, Cargos, Detalle por Cargo y Requerimientos, sus estilos y las fórmulas `COUNTIF`, `SUMIF`, `COUNTIFS` y `SUMPRODUCT`. Las columnas ocultas fragmentan imágenes, listas largas de facturas y metadatos de origen para respetar el límite de texto por celda. Las fórmulas consultan las columnas correctas de estado y antigüedad, incluyen todos los cargos y exportaciones de más de 1.000 filas, y se recalculan al abrir en Excel.
 
 Las imágenes no pueden recuperarse de exportaciones antiguas que solo guardaban la indicación de su existencia; las exportaciones de esta versión sí contienen los bytes JPEG.
