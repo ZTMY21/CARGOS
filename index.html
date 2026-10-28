@@ -2430,105 +2430,106 @@
  #appShell.has-sidebar .doc-expiry-kpi{transition:none}
 }
 
-/* PREVIEW · Explorador documental histórico. Identidad visual FAPE. */
+/* PREVIEW · Histórico documental simplificado con identidad FAPE.
+   La consulta original, la paginación y los conteos permanecen intactos. */
 #documentHistoryWorkspace[hidden]{display:none!important}
 #appShell.has-sidebar[data-module="historicos"] #resumenTablas{display:none!important}
 #appShell.has-sidebar[data-module="historicos"] #sidebarSectionHeading{
- position:relative;padding:18px 22px;margin-bottom:17px;
+ position:relative;padding:17px 22px;margin:0 0 16px;
  border:1px solid #e5e8ee;border-left:4px solid #d21938;
  border-radius:12px;background:linear-gradient(110deg,#fff7f8,#fff 65%);
  box-shadow:0 3px 13px rgba(28,48,66,.045);
 }
 #appShell.has-sidebar[data-module="historicos"] #sidebarSectionTitle{
- font-size:24px;font-weight:850;letter-spacing:-.025em;color:#18364f;
+ font-size:23px;font-weight:850;letter-spacing:-.025em;color:#18364f;
 }
 #appShell.has-sidebar[data-module="historicos"] #sidebarSectionEyebrow{
  font-size:10px;letter-spacing:.09em;font-weight:850;color:#c8233d;
 }
 #appShell.has-sidebar .document-history-workspace{margin-bottom:6px}
-#appShell.has-sidebar .history-workspace-heading{
- display:flex;align-items:center;gap:13px;
- padding:18px 20px;background:#fff;
- border:1px solid #dfe6ed;border-radius:12px;
- box-shadow:0 3px 12px rgba(27,49,65,.045);
- margin-bottom:15px;
+#appShell.has-sidebar .history-overview{
+ display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;
+ gap:14px;padding:15px 19px;margin-bottom:14px;
+ border:1px solid #dfe7ed;background:#f8fafc;
+ border-radius:11px;
 }
-#appShell.has-sidebar .history-workspace-heading-icon{
- display:grid;place-items:center;flex:none;
- width:43px;height:43px;border-radius:11px;
- border:1px solid #f5d7de;background:#fff0f3;color:#c7243c;
+#appShell.has-sidebar .history-overview-selector{
+ display:flex;align-items:center;gap:13px;flex-wrap:wrap;
+ font-weight:800;font-size:12px;color:#304d66;
 }
-#appShell.has-sidebar .history-workspace-heading-icon svg{width:22px;height:22px}
-#appShell.has-sidebar .history-workspace-overline{
- font-size:10px;color:#bf253e;font-weight:850;letter-spacing:.065em;
+#appShell.has-sidebar .history-overview-selector select{
+ min-width:152px;min-height:39px;padding:8px 12px;
+ border:1px solid #d4dfe8;border-radius:8px;background:#fff;
+ color:#203f58;font-weight:800;font-size:12px;cursor:pointer;
 }
-#appShell.has-sidebar .history-workspace-heading h3{
- margin:4px 0;font-size:19px;color:#1c3953;font-weight:850;line-height:1.3;
+#appShell.has-sidebar .history-overview-selector select:focus-visible{
+ outline:2px solid #d72343;outline-offset:2px;
 }
-#appShell.has-sidebar .history-workspace-heading p{margin:0;color:#677f93;font-size:11.5px}
-#appShell.has-sidebar .history-year-buttons{
- display:grid;grid-template-columns:repeat(7,minmax(0,1fr));
- gap:11px;margin-bottom:16px;
+#appShell.has-sidebar .history-overview-total{
+ display:flex;align-items:baseline;gap:8px;
+ white-space:nowrap;color:#677f91;font-size:11px;
 }
-#appShell.has-sidebar .history-placeholder{font-size:12px;color:#6e8395;padding:12px}
-#appShell.has-sidebar .history-year-button{
- display:flex;flex-direction:column;align-items:center;justify-content:center;
- gap:7px;min-height:94px;min-width:0;padding:10px;
- background:#fff;border:1px solid #e0e8ef;border-top:3px solid #596c7c;
- border-radius:11px;cursor:pointer;text-align:center;
- color:#36506a;box-shadow:0 3px 10px rgba(30,52,69,.05);
- transition:border-color .15s ease,box-shadow .15s ease;
+#appShell.has-sidebar .history-overview-total strong{
+ font-size:16px;color:#253f55;font-weight:900;font-variant-numeric:tabular-nums;
 }
-#appShell.has-sidebar .history-year-button:hover{
- border-color:#ca2942;
- box-shadow:0 5px 16px rgba(29,49,68,.10);
+#appShell.has-sidebar .history-summary{
+ display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+ gap:14px;margin-bottom:16px;
 }
-#appShell.has-sidebar .history-year-button[aria-pressed="true"]{
- border-color:#ca2942;border-top:3px solid #ca2942;
- background:#fff5f6;
- box-shadow:inset 0 0 0 1px rgba(203,37,62,.10),0 4px 13px rgba(33,47,61,.065);
-}
-#appShell.has-sidebar .history-year-button .history-year-number{
- font-weight:850;font-size:12px;color:#3b526a;
-}
-#appShell.has-sidebar .history-year-button[aria-pressed="true"] .history-year-number{color:#bc263e}
-#appShell.has-sidebar .history-year-button strong{
- font-weight:900;color:#233e57;
- font-size:clamp(23px,1.85vw,31px);font-variant-numeric:tabular-nums;
- line-height:1.05;
-}
-#appShell.has-sidebar .history-year-button small{font-size:10px;color:#75899a}
-#appShell.has-sidebar .history-metrics{
- display:grid;grid-template-columns:repeat(4,minmax(0,1fr));
- gap:12px;margin-bottom:18px;
-}
-#appShell.has-sidebar .history-metric{
- --metric-color:#203f58;
- display:flex;flex-direction:column;
- justify-content:flex-start;gap:9px;
- min-width:0;min-height:116px;padding:15px 17px;
- border:1px solid #dfe7ee;border-top:3px solid var(--metric-color);
+#appShell.has-sidebar .history-summary-card{
+ position:relative;display:flex;flex-direction:column;
+ justify-content:center;gap:9px;
+ min-height:112px;padding:16px 18px;
+ border:1px solid #dfe7ee;border-top:3px solid #c92840;
  border-radius:12px;background:#fff;
- box-shadow:0 3px 11px rgba(31,52,70,.045);
+ box-shadow:0 3px 12px rgba(27,48,63,.055);
 }
-#appShell.has-sidebar .history-metric:nth-child(2){--metric-color:#c52b43}
-#appShell.has-sidebar .history-metric:nth-child(3){--metric-color:#21895f}
-#appShell.has-sidebar .history-metric:nth-child(4){--metric-color:#cb8a20}
-#appShell.has-sidebar .history-metric>span{font-size:11px;font-weight:850;color:#3c546c}
-#appShell.has-sidebar .history-metric strong{
- font-size:clamp(26px,2.55vw,38px);line-height:1.1;
- font-weight:900;letter-spacing:-.025em;color:var(--metric-color);
+#appShell.has-sidebar .history-summary-count{
+ background:linear-gradient(135deg,#fff 46%,#fff5f6 155%);
+}
+#appShell.has-sidebar .history-summary-shipping{
+ border-top-color:#287d62;
+ background:linear-gradient(135deg,#fff 48%,#f4faf6 165%);
+}
+#appShell.has-sidebar .history-summary-icon{
+ position:absolute;right:17px;top:14px;
+ display:grid;place-items:center;width:35px;height:35px;
+ background:#fff0f2;color:#c92840;border-radius:10px;
+}
+#appShell.has-sidebar .history-summary-shipping .history-summary-icon{
+ background:#eaf7ef;color:#20815c;
+}
+#appShell.has-sidebar .history-summary-icon svg{width:19px;height:19px;display:block}
+#appShell.has-sidebar .history-summary-label{
+ padding-right:46px;
+ color:#354e65;font-weight:850;font-size:12px;
+}
+#appShell.has-sidebar .history-summary-label b{font-weight:850}
+#appShell.has-sidebar .history-summary-count>strong{
+ font-size:clamp(32px,2.9vw,44px);line-height:1.05;
+ font-weight:900;letter-spacing:-.035em;
+ color:#c62940;font-variant-numeric:tabular-nums;
+}
+#appShell.has-sidebar .history-shipping-values{
+ display:flex;align-items:baseline;gap:8px;
+ flex-wrap:wrap;font-size:12px;color:#637a8a;
+}
+#appShell.has-sidebar .history-shipping-values strong{
+ font-size:clamp(23px,2.3vw,34px);
+ font-weight:900;line-height:1.1;
  font-variant-numeric:tabular-nums;
 }
-#appShell.has-sidebar .history-metric small{font-size:10.5px;color:#72899b}
+#appShell.has-sidebar .history-shipping-sent strong{color:#21825b}
+#appShell.has-sidebar .history-shipping-pending strong{color:#c28522}
+#appShell.has-sidebar .history-shipping-separator{color:#a0b0bd;font-weight:800;font-size:19px}
 #appShell.has-sidebar .history-detail{
- border:1px solid #dfe7ee;border-radius:13px;overflow:hidden;
+ border:1px solid #dfe7ee;border-radius:12px;overflow:hidden;
  background:#fff;box-shadow:0 4px 14px rgba(23,44,62,.045);
 }
 #appShell.has-sidebar .history-detail-heading{
  position:relative;display:flex;align-items:center;justify-content:space-between;
- gap:12px;padding:18px 21px 17px 23px;
- background:linear-gradient(104deg,#fff8f9,#fff 62%);
+ gap:12px;padding:17px 20px 16px 23px;
+ background:linear-gradient(104deg,#fff8f9,#fff 65%);
  border-bottom:1px solid #e8edf1;
 }
 #appShell.has-sidebar .history-detail-heading::before{
@@ -2539,13 +2540,14 @@
  font-size:10px;color:#be293f;font-weight:850;letter-spacing:.08em;
 }
 #appShell.has-sidebar .history-detail-heading h3{
- font-weight:850;color:#1d3852;font-size:20px;margin:5px 0 0;
+ font-weight:850;color:#1d3852;font-size:19px;margin:5px 0 0;
 }
 #appShell.has-sidebar .history-detail-meta{
  background:#f7f9fb;border:1px solid #dfe7ee;
- border-radius:7px;color:#60768a;font-size:10.5px;
+ border-radius:7px;color:#60768a;font-size:11px;
  padding:7px 10px;white-space:nowrap;
 }
+#appShell.has-sidebar .history-detail-meta b{font-weight:850;color:#bc253e}
 #appShell.has-sidebar .history-toolbar{
  display:flex;align-items:end;gap:13px;flex-wrap:wrap;
  padding:15px 20px;border-bottom:1px solid #e6edf2;
@@ -2620,22 +2622,19 @@
  color:#728699;border-top:1px solid #e9eef3;
  font-size:10.5px;line-height:1.5;
 }
-@media(max-width:1250px){
- #appShell.has-sidebar .history-year-buttons{grid-template-columns:repeat(4,minmax(0,1fr))}
-}
-@media(max-width:860px){
- #appShell.has-sidebar .history-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
+@media(max-width:790px){
+ #appShell.has-sidebar .history-summary{grid-template-columns:1fr}
+ #appShell.has-sidebar .history-summary-card{min-height:105px}
+ #appShell.has-sidebar .history-overview{align-items:flex-start}
 }
 @media(max-width:540px){
- #appShell.has-sidebar .history-workspace-heading{padding:14px}
- #appShell.has-sidebar .history-detail-heading{padding:15px}
+ #appShell.has-sidebar .history-overview{padding:13px}
+ #appShell.has-sidebar .history-overview-selector{width:100%;justify-content:space-between}
+ #appShell.has-sidebar .history-overview-selector select{min-width:132px}
+ #appShell.has-sidebar .history-shipping-values{gap:5px}
+ #appShell.has-sidebar .history-detail-heading{padding:15px;flex-wrap:wrap}
  #appShell.has-sidebar .history-toolbar{padding:13px}
- #appShell.has-sidebar .history-year-buttons{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
- #appShell.has-sidebar .history-year-button{min-height:83px;padding:8px}
- #appShell.has-sidebar .history-year-button strong{font-size:23px}
- #appShell.has-sidebar .history-metrics{gap:9px}
- #appShell.has-sidebar .history-metric{padding:12px 11px;min-height:103px}
- #appShell.has-sidebar .history-metric strong{font-size:28px}
+ #appShell.has-sidebar .history-summary-card{padding:14px}
 }
 </style>
 </head>
@@ -3133,44 +3132,49 @@
         </div>
       </section>
       <section id="documentHistoryWorkspace" class="document-history-workspace" aria-label="Inventario histórico documental" hidden>
-        <div class="history-workspace-heading">
-          <div class="history-workspace-heading-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="15" rx="2"/><path d="M3 10h18M8 14h8"/></svg>
-          </div>
-          <div>
-            <span class="history-workspace-overline">INVENTARIO HISTÓRICO · CD SANTA ANITA</span>
-            <h3>Consulta de cargos por año</h3>
-            <p>Selecciona un año para revisar sus cargos y su situación documental.</p>
+        <div class="history-overview">
+          <label class="history-overview-selector" for="historyYearSelect">
+            <span>Período de consulta</span>
+            <select id="historyYearSelect" aria-label="Seleccionar año del histórico documental">
+              <option value="2026">2026</option><option value="2025">2025</option>
+              <option value="2024">2024</option><option value="2023">2023</option>
+              <option value="2022">2022</option><option value="2021">2021</option>
+              <option value="2020">2020</option>
+            </select>
+          </label>
+          <div class="history-overview-total" aria-label="Total histórico de cargos únicos">
+            <span>Total histórico</span>
+            <strong id="historyAllCount">—</strong>
+            <span>cargos</span>
           </div>
         </div>
-        <div id="historyYearButtons" class="history-year-buttons" role="group" aria-label="Seleccionar año del inventario">
-          <span class="history-placeholder">Consultando años disponibles…</span>
-        </div>
-        <div class="history-metrics" aria-label="Indicadores históricos">
-          <div class="history-metric">
-            <span>Total histórico</span><strong id="historyAllCount">—</strong>
-            <small>Todos los años registrados</small>
+        <div class="history-summary" aria-label="Resumen del año seleccionado">
+          <div class="history-summary-card history-summary-count">
+            <div class="history-summary-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="15" rx="2"/><path d="M3 10h18M8 14h8"/></svg>
+            </div>
+            <span class="history-summary-label">Cargos del <b id="historySelectedYearLabel">2026</b></span>
+            <strong id="historyYearCount">—</strong>
           </div>
-          <div class="history-metric">
-            <span>Cargos del año <b id="historySelectedYearLabel">2026</b></span>
-            <strong id="historyYearCount">—</strong><small>Sin duplicar números de cargo</small>
-          </div>
-          <div class="history-metric">
-            <span>Enviados a IM</span><strong id="historySentCount">—</strong>
-            <small>Confirmados del año seleccionado</small>
-          </div>
-          <div class="history-metric">
-            <span>Pendientes de IM</span><strong id="historyPendingCount">—</strong>
-            <small>Sin envío confirmado</small>
+          <div class="history-summary-card history-summary-shipping">
+            <div class="history-summary-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="7" width="12.5" height="10" rx="1.5"/><path d="M15 10h3.5l3 4v3H15"/><circle cx="7" cy="17" r="2"/><circle cx="18" cy="17" r="2"/></svg>
+            </div>
+            <span class="history-summary-label">Situación de envío IM</span>
+            <div class="history-shipping-values">
+              <span class="history-shipping-sent"><strong id="historySentCount">—</strong> enviados</span>
+              <span class="history-shipping-separator" aria-hidden="true">·</span>
+              <span class="history-shipping-pending"><strong id="historyPendingCount">—</strong> pendientes</span>
+            </div>
           </div>
         </div>
         <div class="history-detail">
           <div class="history-detail-heading">
             <div>
-              <span>CONSULTA DOCUMENTAL</span>
-              <h3>Listado de cargos · <b id="historyDetailYear">2026</b></h3>
+              <span>CONSULTA DOCUMENTAL · CD SANTA ANITA</span>
+              <h3>Listado documental</h3>
             </div>
-            <span class="history-detail-meta">15 cargos por página</span>
+            <span class="history-detail-meta"><b id="historyDetailYear">2026</b> · 15 cargos por página</span>
           </div>
           <div class="history-toolbar">
             <label for="historyQuery">Buscar cargo o Kardex
@@ -3203,7 +3207,7 @@
               <button type="button" id="historyNextPage">Siguiente</button>
             </div>
           </div>
-          <p class="history-footnote">Las cifras corresponden a cargos únicos por año. El estado se obtiene del registro sincronizado; un cargo sin confirmación de envío se considera pendiente. No se generan grupos ni fechas inexistentes.</p>
+          <p class="history-footnote">Los totales corresponden a cargos únicos por año. El estado de envío se obtiene de los registros sincronizados. No se asignan grupos ni fechas sin respaldo documental.</p>
         </div>
       </section>
       <div id="resumenTablas"></div>
