@@ -362,7 +362,12 @@ test('admin and guest export only the selected cargo with its complete invoices'
 test('administrator downloads report on demand with the Lima date and all snapshot cargos',async()=>{
  const a=await app();
  try{
-  a.node('btnExportar').click();await flush();
+  const button=a.node('btnExportar');
+  assert.equal(button.previousElementSibling,a.node('btnOpenGoogleExcel'));
+  assert.equal(button.closest('#googleSyncContent'),a.node('googleSyncContent'));
+  assert.equal(a.node('workspaceTabResumen').getAttribute('aria-selected'),'true');
+  assert.equal(a.dom.window.getComputedStyle(button).backgroundColor,'rgb(36, 134, 74)');
+  button.click();await flush();
   assert.equal(a.state.reportRequestedYear,null);
   assert.equal(a.state.reportArgs[0].length,1);
   assert.equal(a.state.reportArgs.length,2);
