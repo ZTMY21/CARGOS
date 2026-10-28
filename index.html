@@ -2786,6 +2786,68 @@
 #appShell.has-sidebar[data-module="iron-cajas"] #resumenTablas{
  display:none!important;
 }
+
+/* PREVIEW · Vencimientos por MES, no por año de origen.
+   Gráfico de línea existente, una sola serie y un selector de año de vencimiento. */
+#appShell.has-sidebar .expiry-month-chart{
+ background:#fff;border:1px solid #dfe7ef;border-radius:13px;
+ margin:0 0 17px;overflow:hidden;
+ box-shadow:0 4px 14px rgba(24,44,65,.045);
+}
+#appShell.has-sidebar .expiry-month-chart-header{
+ display:flex;align-items:center;justify-content:space-between;
+ flex-wrap:wrap;gap:13px;padding:17px 20px;
+ background:linear-gradient(105deg,#fff8f9,#fff 65%);
+ border-bottom:1px solid #e8edf2;
+ position:relative;
+}
+#appShell.has-sidebar .expiry-month-chart-header::before{
+ content:"";position:absolute;top:17px;bottom:17px;left:0;
+ width:3px;border-radius:0 4px 4px 0;background:#c92743;
+}
+#appShell.has-sidebar .expiry-month-chart-header h3{
+ color:#1f3b54;font-size:19px;font-weight:850;
+ margin:5px 0 4px;letter-spacing:-.015em;
+}
+#appShell.has-sidebar .expiry-month-chart-header p{
+ font-size:11.5px;color:#687f94;margin:0;
+}
+#appShell.has-sidebar .expiry-month-chart-header label{
+ display:flex;flex-direction:column;gap:6px;flex:none;
+ font-size:11px;color:#3c5971;font-weight:800;
+}
+#appShell.has-sidebar .expiry-month-chart-header select{
+ min-width:139px;min-height:38px;border:1px solid #d6e1ea;
+ background:#fff;color:#28485f;font-size:12px;font-weight:750;
+ border-radius:8px;padding:7px 10px;
+}
+#appShell.has-sidebar .expiry-month-chart-content{
+ padding:7px 15px 7px;min-width:0;
+}
+#appShell.has-sidebar .expiry-month-chart-surface{
+ position:relative;width:100%;min-width:0;
+}
+#appShell.has-sidebar .expiry-month-chart-surface svg{
+ display:block;width:100%;height:auto;max-height:325px;
+}
+#appShell.has-sidebar .expiry-month-chart-legend{
+ display:flex;justify-content:center;gap:10px;align-items:center;
+ font-size:11px;color:#566f82;margin:-3px 0 4px;
+}
+#appShell.has-sidebar .expiry-month-chart-summary{
+ font-size:11px;color:#5c768b;text-align:center;
+ font-weight:650;margin:5px 0 10px;
+}
+#appShell.has-sidebar .expiry-month-chart-method{
+ background:#fafcfe;border-top:1px solid #e9edf2;
+ font-size:10.5px;line-height:1.5;color:#75889b;
+ margin:0;padding:11px 19px;
+}
+@media(max-width:600px){
+ #appShell.has-sidebar .expiry-month-chart-header{padding:14px}
+ #appShell.has-sidebar .expiry-month-chart-content{padding:7px 4px}
+ #appShell.has-sidebar .expiry-month-chart-header h3{font-size:17px}
+}
 </style>
 </head>
 <body>
@@ -3234,6 +3296,24 @@
             <small>Sin fecha base válida</small>
           </button>
         </div>
+        <section class="expiry-month-chart" aria-labelledby="expiryMonthChartTitle">
+          <div class="expiry-month-chart-header">
+            <div>
+              <span class="doc-expiry-overline">EVOLUCIÓN DOCUMENTAL · CD SANTA ANITA</span>
+              <h3 id="expiryMonthChartTitle">Vencimientos por mes</h3>
+              <p>Cargos que cumplen seis meses de plazo en cada mes del año.</p>
+            </div>
+            <label for="expiryMonthChartYear">Año de vencimiento
+              <select id="expiryMonthChartYear" aria-label="Año de la fecha límite del cargo"></select>
+            </label>
+          </div>
+          <div class="expiry-month-chart-content">
+            <div id="expiryMonthChartSurface" class="expiry-month-chart-surface" aria-live="polite"></div>
+            <div id="expiryMonthChartLegend" class="expiry-month-chart-legend"></div>
+            <p id="expiryMonthChartSummary" class="expiry-month-chart-summary">Calculando vencimientos mensuales…</p>
+          </div>
+          <p class="expiry-month-chart-method">Cada cargo se agrupa por el mes de su <strong>fecha límite (seis meses calendario)</strong>, no por el mes en que fue registrado. Incluye cargos vencidos y por vencer que continúan pendientes; excluye enviados a IM y fechas no válidas.</p>
+        </section>
         <div class="doc-expiry-panel">
           <div class="doc-expiry-panel-top">
             <div>
