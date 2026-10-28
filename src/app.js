@@ -105,7 +105,7 @@ let currentPage = 0;
 let expiryGroups = {today:'', overdue:[], upcoming:[], unknown:[]};
 let activeExpiryGroup = null, expiryPage = 0, expiryReturnButton = '';
 // Filtros independientes del nuevo módulo; no alteran las búsquedas generales.
-let expiryWorkspaceView='all', expiryWorkspacePage=0;
+let expiryWorkspaceView='all', expiryWorkspacePage=0, expiryChartYear=null;
 const EXPIRY_WORKSPACE_PAGE_SIZE=15;
 let historySelectedYear='2026',historyPage=0;
 const HISTORY_PAGE_SIZE=15;
@@ -1702,6 +1702,61 @@ function documentExpiryRows() {
   collect(expiryGroups.unknown,'unknown');
   return rows;
 }
+// Serie temporal de vencimientos: mes exacto en que cada cargo pendiente
+// alcanza sus seis meses, no el año de registro. Comparte la misma fuente
+// y los filtros de cargo/año que los KPI, pero usa su año de FECHA LÍMITE.
+function renderMonthlyExpiryChart(rows) {
+  const today=expiryGroups.today;
+  const currentYear=today.slice(0,4);
+  const years=[...new Set(rows.map(row=>row.doc.expiry?.dueDate?.slice(0,4))
+    .filter(y=>/^\d{4}$/.test(y)))];
+  if(!years.includes(currentYear))years.push(currentYear);
+  years.sort((a,b)=>Number(b)-Number(a));
+  if(!years.includes(expiryChartYear)){
+    expiryChartYear=years.includes(currentYear)?currentYear:years[0];
+  }
+  const select=document.getElementById('expiryMonthChartYear');
+  const key=years.join(',');
+  if(select.dataset.years!==key){
+    select.replaceChildren();
+    for(const y of years)select.add(new Option(y,y));
+    select.dataset.years=key;
+  }
+  select.value=expiryChartYear;
+  const months=Array(12).fill(0);
+  for(const row of rows){
+    const due=row.doc.expiry?.dueDate;
+    if(!due||due.slice(0,4)!==expiryChartYear)continue;
+    const month=Number(due.slice(5,7));
+    if(month>=1&&month<=12)months[month-1]++;
+  }
+  const labels=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  const total=months.reduce((sum,n)=>sum+n,0);
+  const chart=document.getElementById('expiryMonthChartSurface');
+  const legend=document.getElementById('expiryMonthChartLegend');
+  // Línea FAPE, destacando el mes actual cuando se muestra el año actual.
+  renderCargoLineChart(chart,legend,labels,[{
+    label:'Vencimientos '+expiryChartYear,
+    color:'#c52540',values:months,width:3.4
+  }],{
+    width:Math.max(760,Math.min(1160,Math.round(chart.getBoundingClientRect().width||930))),
+    height:326,fontSize:11,compactLayout:true,
+    showLabels:'positive',
+    highlightIndex:expiryChartYear===currentYear?Number(today.slice(5,7))-1:null
+  });
+  const peak=Math.max(...months);
+  const peakMonth=peak>0?labels[months.indexOf(peak)]:'—';
+  document.getElementById('expiryMonthChartSummary').textContent=
+    total
+      ?'Total con fecha límite en '+expiryChartYear+': '+fmtNum(total)+
+        ' cargos · Mayor concentración: '+peakMonth+' ('+fmtNum(peak)+' cargos)'
+      :'Sin cargos pendientes con fecha límite en '+expiryChartYear+'.';
+}
+document.getElementById('expiryMonthChartYear').addEventListener('change',event=>{
+  expiryChartYear=event.target.value;
+  renderDocumentExpiryWorkspace();
+});
+
 function renderDocumentExpiryWorkspace() {
   const root=document.getElementById('documentExpiryWorkspace');
   if(!root)return;
@@ -1719,6 +1774,7 @@ function renderDocumentExpiryWorkspace() {
   });
   const counts={valid:0,soon:0,overdue:0,unknown:0};
   scoped.forEach(row=>{counts[row.category]++});
+  renderMonthlyExpiryChart(scoped);
   for(const key of Object.keys(counts)){
     const id={valid:'docExpiryValidCount',soon:'docExpirySoonCount',
       overdue:'docExpiryOverdueCount',unknown:'docExpiryUnknownCount'}[key];
