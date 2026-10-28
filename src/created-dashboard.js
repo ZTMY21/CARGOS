@@ -157,17 +157,17 @@ export function createCreatedDashboard() {
     text('createdDashboardAnnual',previousCount===null?'—':fmt(previousCount));
     text('createdDashboardDated',varianceText);
     text('createdDashboardUndated',fmt(selectedMonth?accumulated:annualTotal(selectedYear)));
-    text('createdDashboardSelectedLabel',selectedMonth?'CARGOS DEL MES':'CARGOS CON FECHA DEL PERÍODO');
+    text('createdDashboardSelectedLabel',selectedMonth?'Cargos del mes':'Cargos con fecha del período');
     text('createdDashboardSelectedNote',selectedMonth?
       nameOf(selectedMonth)+' de '+selectedYear:'Enero–'+nameOf(upper)+' de '+selectedYear);
-    text('createdDashboardPreviousLabel',selectedMonth?'MES ANTERIOR':'CARGOS DEL AÑO ANTERIOR');
+    text('createdDashboardPreviousLabel',selectedMonth?'Mes anterior':'Cargos del año anterior');
     text('createdDashboardPreviousNote',previousCount===null?'Sin datos históricos para comparar':previousLabel);
-    text('createdDashboardVariationLabel','VARIACIÓN '+comparisonKind.toUpperCase());
+    text('createdDashboardVariationLabel','Variación '+comparisonKind);
     text('createdDashboardVariationNote',variance===null?
       (previousCount===0?'Sin base comparable':'Sin comparativo'):
       fmt(Math.abs(difference))+' '+(Math.abs(difference)===1?'cargo':'cargos')+
       (difference>0?' más':difference<0?' menos':' · sin cambio'));
-    text('createdDashboardAccumulatedLabel',selectedMonth?'ACUMULADO DEL AÑO':'TOTAL DE CARGOS DEL AÑO');
+    text('createdDashboardAccumulatedLabel',selectedMonth?'Acumulado del año':'Total de cargos del año');
     text('createdDashboardAccumulatedNote',selectedMonth?
       'Enero–'+nameOf(selectedMonth)+' · con fecha válida':
       fmt(missingDate)+' sin fecha válida incluidos en el total');
