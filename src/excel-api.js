@@ -8,8 +8,8 @@ export async function buildCargoWorkbook(...args) {
 export async function buildExistenciasReport(...args) {
   return (await import('./existencias-report.js')).buildExistenciasReport(...args);
 }
-export async function buildAnnualCargoReport(...args) {
-  return (await import('./existencias-report.js')).buildAnnualCargoReport(...args);
+export async function serializeExistenciasReport(...args) {
+  return (await import('./existencias-report.js')).serializeExistenciasReport(...args);
 }
 export async function parseWorkbook(...args) {
   const buffer=args[0];

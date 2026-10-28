@@ -1,4 +1,5 @@
 import ExcelJS from 'exceljs';
+import JSZip from 'jszip';
 import {computeDocEstado, fmtDate, limaDate, monthsBetween} from './rules.js';
 import {cargoYear} from './cargo-details.js';
 import {cargoExpiryGroups} from './cargo-expiry.js';
@@ -88,8 +89,11 @@ function addReqSheet(workbook){
 function redHeader(sheet,row,labels){
   labels.forEach((value,i)=>{const cell=sheet.getCell(row,i+2);cell.value=value;style(cell,'red');});
 }
-export function buildExistenciasReport(docs,now=new Date(),detailBaseUrl='',reqs=[]){
+export function buildExistenciasReport(docs,now=new Date(),reqs=[]){
   const wb=new ExcelJS.Workbook(),items=selected(docs,now);
+  // These sheets stay navigable by internal links. The workbook's tab strip
+  // is hidden during serialization, so six yearly tabs do not crowd the UI.
+  wb.views=[{activeTab:0,firstSheet:0}];
   const sheet=wb.addWorksheet('Resumen');
   sheet.views=[{showGridLines:false}];
   [3,26,26,30,26].forEach((width,i)=>sheet.getColumn(i+1).width=width);
@@ -97,6 +101,14 @@ export function buildExistenciasReport(docs,now=new Date(),detailBaseUrl='',reqs
   sheet.getCell('B2').font={name:'Arial',size:16,bold:true,color:{argb:BLUE}};
   sheet.getCell('B3').value='Actualizado el '+limaDate(now);
   sheet.getCell('B3').font={name:'Arial',size:10,italic:true,color:{argb:'FF808080'}};
+  for(const [address,label,target] of [
+    ['B4','Cargos',"#'Cargos'!A1"],
+    ['C4','Requerimientos',"#'Requerimientos'!A1"]
+  ]){
+    const cell=sheet.getCell(address);
+    cell.value={text:label,hyperlink:target};
+    cell.font={name:'Arial',size:10,bold:true,color:{argb:BLUE},underline:true};
+  }
   redHeader(sheet,6,['Total Cargos','Enviado a Iron Mountain',
     'En Proceso de Acondicionamiento','Pendientes de Envío IM']);
   sheet.getRow(6).height=34;
@@ -131,21 +143,68 @@ export function buildExistenciasReport(docs,now=new Date(),detailBaseUrl='',reqs
     const row=19+i,group=items.filter(x=>x.key.startsWith(year+':'));
     const yearCell=sheet.getCell('B'+row);yearCell.value=year;style(yearCell);
     yearCell.font={name:'Arial',size:12,bold:true,color:{argb:DARK}};
-    const count=sheet.getCell('C'+row);count.value=detailBaseUrl
-      ?{text:String(group.length),hyperlink:detailBaseUrl+'?detalleCargo='+year,
-        tooltip:'Abrir Detalle de Cargo '+year}
-      :group.length;style(count);
-    count.font={name:'Arial',size:12,bold:true,color:{argb:DARK}};
-    if(detailBaseUrl){count.font={name:'Arial',size:12,bold:true,color:{argb:'FF0563C1'},underline:true};}
+    const count=sheet.getCell('C'+row);
+    count.value={text:String(group.length),hyperlink:"#'Detalle de Cargo "+year+"'!A1",
+      tooltip:'Ver los '+group.length+' cargos de '+year+' en este Excel'};
+    style(count);
+    count.font={name:'Arial',size:12,bold:true,color:{argb:'FF0563C1'},underline:true};
     sheet.getRow(row).height=15.75;
   }
   sheet.mergeCells('B29:E31');
-  const note=sheet.getCell('B29');note.value='Pulsa la cantidad de un año para abrir su detalle de cargos.';
+  const note=sheet.getCell('B29');note.value='Pulsa la cantidad de un año para ver sus cargos en este Excel.';
   note.font={name:'Arial',size:8,italic:true,color:{argb:'FF808080'}};
   note.alignment={wrapText:true,vertical:'middle'};
   addCargoSheet(wb,items,now,new Map(reqs.map(r=>[r.id,r.numero])));
   addReqSheet(wb);
+  for(const year of REPORT_YEARS){
+    const detail=wb.addWorksheet('Detalle de Cargo '+year);
+    header(detail,DETAIL_COLUMNS,[14,13,18,14,13,12,13,90]);
+    for(const item of items.filter(x=>x.key.startsWith(year+':'))){
+      const {doc}=item;
+      rowStyle(detail.addRow([doc.kardex,fmtDate(doc.fechaOrigen||doc.fechaRegistro),
+        doc.tipoDoc||'',fmtDate(doc.periodo),location(doc,now),Number(doc.folios)||0,
+        item.cargo,Number(doc.cantidadFacturas)||0]),DETAIL_COLUMNS.length);
+    }
+    detail.autoFilter={from:'A1',to:'H'+Math.max(2,detail.rowCount)};
+  }
+  for(const target of [wb.getWorksheet('Cargos'),wb.getWorksheet('Requerimientos'),
+    ...REPORT_YEARS.map(year=>wb.getWorksheet('Detalle de Cargo '+year))]){
+    const col=target.name==='Cargos'?'Q':target.name==='Requerimientos'?'K':'I';
+    const back=target.getCell(col+'1');
+    back.value={text:'← Resumen',hyperlink:"#'Resumen'!B2"};
+    back.font={name:'Arial',size:10,bold:true,color:{argb:BLUE},underline:true};
+    target.getColumn(col).width=15;
+  }
   return wb;
+}
+export async function serializeExistenciasReport(workbook){
+  const zip=await JSZip.loadAsync(await workbook.xlsx.writeBuffer());
+  const part=zip.file('xl/workbook.xml');
+  if(!part)throw new Error('No se pudo preparar la navegación del Excel.');
+  const xml=await part.async('string');
+  let found=false;
+  const updated=xml.replace(/<workbookView\b([^>]*)\/>/,(_,attributes)=>{
+    found=true;
+    return '<workbookView'+attributes.replace(/\s+showSheetTabs="[^"]*"/,'')+' showSheetTabs="0"/>';
+  });
+  if(!found)throw new Error('No se pudo ocultar la barra de pestañas del Excel.');
+  zip.file('xl/workbook.xml',updated);
+  // ExcelJS attaches a relationship marked External even to in-workbook
+  // hyperlinks. Emit native OOXML locations without external relationships.
+  for(const name of Object.keys(zip.files).filter(n=>/^xl\/worksheets\/sheet\d+\.xml$/.test(n))){
+    const xml=await zip.file(name).async('string');
+    const internal=xml.replace(/<hyperlink\b[^>]*\blocation="#[^"]*"[^>]*\/>/g,tag=>
+      tag.replace(/\s+r:id="[^"]*"/,'').replace(/\blocation="#/,'location="'));
+    if(internal===xml)continue;
+    zip.file(name,internal);
+    const rels=name.replace('/worksheets/','/worksheets/_rels/')+'.rels';
+    const relPart=zip.file(rels);
+    if(relPart){
+      const relXml=await relPart.async('string');
+      zip.file(rels,relXml.replace(/<Relationship\b(?=[^>]*\bTarget="#)[^>]*\/>/g,''));
+    }
+  }
+  return zip.generateAsync({type:'uint8array',compression:'DEFLATE',compressionOptions:{level:3}});
 }
 export function buildAnnualCargoReport(docs,year,now=new Date()){
   if(!REPORT_YEARS.includes(Number(year)))throw new Error('Año de cargos no disponible.');
