@@ -2002,6 +2002,9 @@ async function refreshGoogleSync(){
   try{
     const {data,error}=await supabase.from('kardex_google_sync').select().eq('id',true).single();
     if(error)throw error;
+    // El informe de resguardos requiere permiso de administrador. Un
+    // problema en esa consulta no debe ocultar el estado de sincronización.
+    const protection=await repository.cargoSafetyStatus().catch(()=>null);
     googleSyncEnabled=!!data.enabled;
     button.textContent=data.enabled?'Pausar sincronización':'Activar sincronización';
     const badge=document.getElementById('googleSyncBadge');
@@ -2033,9 +2036,19 @@ async function refreshGoogleSync(){
     document.getElementById('googleSyncStatus').textContent=onEditMode && !!data.enabled && (result.verified!==true || result.delete_verified!==true)
       ? 'La sincronización está activada, pero aún falta verificar las altas y/o el archivado de bajas con una operación real. Revisa las fechas y resultados en INSTRUCCIONES D2 y D7 del Google Sheets y las ejecuciones de Apps Script.'
       : data.status||'Sin estado informado';
-    document.getElementById('googleSyncDetails').textContent=onEditMode
+    const safetyDetail=protection
+      ? ' Seguridad: '+syncMetric(protection.resguardos)+' versiones protegidas; '+
+        syncMetric(protection.cargos_archivados)+' cargos archivados; '+
+        syncMetric(protection.bajas_por_revisar)+' bajas por revisar. Las bajas detectadas se conservan hasta validación administrativa.'
+      : ' Seguridad: consulta de resguardos pendiente.';
+    document.getElementById('googleSyncDetails').textContent=(onEditMode
       ? `Cargos de 2026: ${fmtNum(conteo2026.historicos)} del Excel base + ${fmtNum(conteo2026.nuevos)} incorporados desde Google Sheets = ${groups} cargos únicos. Los errores se registran en las columnas técnicas ocultas de la hoja.`
-      : `Último procesamiento: ${groups} cargos revisados; ${syncMetric(result.cargos_nuevos)} nuevos; ${syncMetric(result.cargos_actualizados)} actualizados; ${pending} filas pendientes; ${conflicts} conflictos.`;
+      : `Último procesamiento: ${groups} cargos revisados; ${syncMetric(result.cargos_nuevos)} nuevos; ${syncMetric(result.cargos_actualizados)} actualizados; ${pending} filas pendientes; ${conflicts} conflictos.`)
+      +safetyDetail;
+    if(protection && Number(protection.bajas_por_revisar)>0){
+      badge.dataset.status='loading';
+      document.getElementById('googleSyncBadgeText').textContent='BAJAS POR REVISAR';
+    }
   }catch(error){
     document.getElementById('googleSyncBadge').dataset.status='error';
     document.getElementById('googleSyncBadgeText').textContent='SIN CONEXIÓN';
