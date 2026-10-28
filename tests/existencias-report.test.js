@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import ExcelJS from 'exceljs';
 import JSZip from 'jszip';
 import {buildExistenciasReport,buildAnnualCargoReport,serializeExistenciasReport,
-  REPORT_YEARS,CARGO_COLUMNS,REQ_COLUMNS} from '../src/existencias-report.js';
+  REPORT_YEARS,CARGO_COLUMNS,ORIGINAL_COLUMNS,REQ_COLUMNS} from '../src/existencias-report.js';
 
 const now=new Date('2026-10-28T02:00:00Z');
 const base={id:'base',kardex:'SA-00001',cargos:['653'],anioOrigen:2026,fechaOrigen:'2026-01-06',
@@ -19,8 +19,20 @@ test('reporte conserva barra inferior y enlaza cada año a su propia hoja',async
   const sent={...base,id:'sent',kardex:'SA-00020',imConfirmado:true,imFechaEnvio:'2026-10-20',
     imResponsable:'Responsable del envío'};
   const data=buildExistenciasReport([...historical,base,sent],now);
-  const buffer=await serializeExistenciasReport(data);
-  const zip=await JSZip.loadAsync(buffer);
+  const original={
+    columnas:['Fecha','Cargo','Grupo','Codigo','Archivo_Principal','PDF','Total_Paginas',
+      'Tipo','Fuente','Observaciones','ESTADO_REGULARIZADO'],
+    registros:[{Fecha:'06-01-2026',Cargo:'653',Grupo:'1',Codigo:'01FF0100084457',
+      Archivo_Principal:'Imagen.jpg',PDF:'01-0FF01-0084457.pdf',Total_Paginas:'2',
+      Tipo:'PATRON_FF',Fuente:'F1_FAST',Observaciones:'OK',ESTADO_REGULARIZADO:''}]
+  };
+  const originalSource=async function* (year){
+    for(const doc of [...historical,base,sent].filter(d=>String(d.anioOrigen)===String(year)))
+      yield {doc,origin:year==='2026'?original:{registros:[]}};
+  };
+  const buffer=await serializeExistenciasReport(data,originalSource);
+  const raw=buffer instanceof Blob?await buffer.arrayBuffer():buffer;
+  const zip=await JSZip.loadAsync(raw);
   const workbookXml=await zip.file('xl/workbook.xml').async('string');
   const summaryXml=await zip.file('xl/worksheets/sheet1.xml').async('string');
   const summaryRels=await zip.file('xl/worksheets/_rels/sheet1.xml.rels')?.async('string')||'';
@@ -31,7 +43,7 @@ test('reporte conserva barra inferior y enlaza cada año a su propia hoja',async
   assert.match(summaryXml,/ref="B4"[^>]*location="&apos;Cargos&apos;!A1"/);
   assert.match(summaryXml,/ref="C4"[^>]*location="&apos;Requerimientos&apos;!A1"/);
   assert.doesNotMatch(summaryRels,/TargetMode="External"/);
-  const wb=new ExcelJS.Workbook();await wb.xlsx.load(buffer);
+  const wb=new ExcelJS.Workbook();await wb.xlsx.load(raw);
   assert.deepEqual(wb.worksheets.map(s=>s.name),
     ['Resumen','Cargos',...REPORT_YEARS.map(year=>'Cargos '+year),'Requerimientos']);
   const res=wb.getWorksheet('Resumen'),cargos=wb.getWorksheet('Cargos'),
@@ -44,7 +56,7 @@ test('reporte conserva barra inferior y enlaza cada año a su propia hoja',async
   assert.equal(res.getCell('C19').value,'0');
   assert.equal(res.getCell('C25').value,'1');
   assert.deepEqual(cargos.getRow(1).values.slice(1,17),CARGO_COLUMNS);
-  assert.deepEqual(detail.getRow(1).values.slice(1,17),CARGO_COLUMNS);
+  assert.deepEqual(detail.getRow(1).values.slice(1,12),ORIGINAL_COLUMNS);
   assert.deepEqual(req.getRow(1).values.slice(1,11),REQ_COLUMNS);
   assert.equal(req.rowCount,1);
   assert.equal(cargos.getCell('A2').value,'SA-00001');
@@ -53,9 +65,11 @@ test('reporte conserva barra inferior y enlaza cada año a su propia hoja',async
   assert.equal(cargos.getCell('M8').value,'Enviado');
   assert.equal(cargos.getCell('O8').value,'Responsable del envío');
   assert.equal(cargos.getCell('G8').value,3);
-  assert.equal(detail.rowCount,2);
-  assert.equal(detail.getCell('I2').value,'653');
-  assert.equal(detail.getCell('M2').value,'Enviado');
+  assert.equal(detail.rowCount,3);
+  assert.equal(detail.getCell('B2').value,'653');
+  assert.equal(detail.getCell('D2').value,'01FF0100084457');
+  assert.equal(detail.getCell('F2').value,'01-0FF01-0084457.pdf');
+  assert.equal(detail.getCell('G2').value,2);
   const detailXml=await zip.file('xl/worksheets/sheet9.xml').async('string');
   assert.match(detailXml,/ref="Q1"[^>]*location="&apos;Resumen&apos;!B2"/);
 });
@@ -64,7 +78,8 @@ test('2026 une cargos repetidos del resumen, pero Cargos conserva todos los Kard
   const added={...base,id:'added',kardex:'SA-00022',cargos:['654'],fechaOrigen:'2026-10-27'};
   const wb=buildExistenciasReport([base,{...base,id:'duplicate',kardex:'SA-00030'},added],now);
   assert.equal(wb.getWorksheet('Resumen').getCell('C25').value.text,'2');
-  assert.equal(wb.getWorksheet('Cargos 2026').rowCount,3);
+  assert.equal(wb.getWorksheet('Cargos 2026').getRow(1).values.slice(1,12).join('|'),ORIGINAL_COLUMNS.join('|'));
+  assert.equal(wb.getWorksheet('Cargos 2026').rowCount,2);
   assert.equal(wb.getWorksheet('Cargos').rowCount,4);
   assert.equal(buildAnnualCargoReport([base,{...base,id:'duplicate'},added],2026,now)
     .getWorksheet('Detalle de Cargo 2026').rowCount,3);
@@ -80,9 +95,9 @@ test('el listado de cada año ordena los números de cargo de menor a mayor',()=
   const wb=buildExistenciasReport([a,b],now);
   const tab=wb.getWorksheet('Cargos 2020'),summary=wb.getWorksheet('Resumen');
   assert.equal(summary.getCell('C19').value.hyperlink,"#'Cargos 2020'!A1");
-  assert.equal(tab.getCell('I2').value,'2');
-  assert.equal(tab.getCell('I3').value,'10');
-  assert.equal(tab.getCell('A2').value,'SA-00002');
+  assert.equal(tab.getCell('B1').value,'Cargo');
+  assert.equal(tab.getCell('D1').value,'Codigo');
+  assert.equal(tab.getCell('K1').value,'ESTADO_REGULARIZADO');
 });
 
 test('porcentajes vencidos y por vencer coinciden con base 100 por número de cargos',()=>{
