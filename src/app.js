@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { computeReqEstado as reqEstado, computeDocEstado as docEstado, fmtDate, escapeHtml, limaDate } from './rules.js';
 import { KardexRepository, reqFromDb, docFromDb } from './repository.js';
-import { buildCargoWorkbook, buildExistenciasReport, parseWorkbook } from './excel-api.js';
+import { buildCargoWorkbook, buildExistenciasReport, buildAnnualCargoReport, parseWorkbook } from './excel-api.js';
 import { highlightMatch, normalizeSearch, filterDocuments, filterRequirements, invoiceSearchPresentation, assignedBoxCode } from './search.js';
 import './connection.css';
 import { createIdleSession } from './idle-session.js';
@@ -1511,11 +1511,28 @@ document.getElementById('btnExportar').addEventListener('click',async event=>{
   button.disabled=true;button.textContent='Preparando reporte…';
   try {
     const source=await repository.reportDocs(docs);
-    const wb=await buildExistenciasReport(source,new Date());
+    const wb=await buildExistenciasReport(source,new Date(),window.location.origin+'/',reqs);
     await downloadExcel(wb,`Kardex_Santa_Anita_${limaDate()}.xlsx`);
   } catch(error) { alert(`No se pudo exportar el reporte: ${readableError(error)}`); }
   finally { button.textContent=label;button.disabled=false; }
 });
+// Excel cannot make an internal link reveal a hidden worksheet. Its yearly
+// quantities therefore open this authenticated, on-demand annual workbook.
+let detailDownloadStarted=false;
+async function downloadRequestedYear(){
+  const year=new URLSearchParams(window.location.search).get('detalleCargo');
+  if(!year||detailDownloadStarted||!appReady||!isAdmin)return;
+  detailDownloadStarted=true;
+  try{
+    if(!['2021','2022','2023','2024','2025','2026'].includes(year))throw new Error('Año no disponible.');
+    const source=await repository.reportDocs(docs,year);
+    const wb=await buildAnnualCargoReport(source,year,new Date());
+    await downloadExcel(wb,`Detalle_de_Cargo_${year}_${limaDate()}.xlsx`);
+  }catch(error){
+    detailDownloadStarted=false;
+    alert('No se pudo abrir el detalle del año: '+readableError(error));
+  }
+}
 document.getElementById('btnImportar').addEventListener('click', ()=>document.getElementById('fileImportar').click());
 document.getElementById('fileImportar').addEventListener('change', async ev => {
   const input = ev.target, file = input.files[0];
@@ -1700,6 +1717,7 @@ async function handleSession(session) {
     document.getElementById('sessionProfile').hidden = !user.email;
     document.getElementById('btnSignOut').hidden = false;
     await subscribeRealtime(); setAvailability();
+    void downloadRequestedYear();
   } catch (error) {
     appReady = false; setAvailability();
     showAuthPage(true);

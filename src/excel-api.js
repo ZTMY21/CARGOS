@@ -8,6 +8,9 @@ export async function buildCargoWorkbook(...args) {
 export async function buildExistenciasReport(...args) {
   return (await import('./existencias-report.js')).buildExistenciasReport(...args);
 }
+export async function buildAnnualCargoReport(...args) {
+  return (await import('./existencias-report.js')).buildAnnualCargoReport(...args);
+}
 export async function parseWorkbook(...args) {
   const buffer=args[0];
   if(typeof Worker==='undefined')return (await import('./import-parser.js')).parseImport(buffer);
