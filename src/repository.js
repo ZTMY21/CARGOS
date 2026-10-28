@@ -87,6 +87,24 @@ export class KardexRepository {
         imLiveResponsableEntrega:extra.responsable_entrega||''};
     });
   }
+  async *reportOriginalRows(year,sourceDocs) {
+    const relevant=sourceDocs
+      .filter(d=>String(d.anioOrigen||d.periodo?.slice(0,4)||d.fechaOrigen?.slice(0,4))===String(year))
+      .sort((a,b)=>String(a.cargos?.[0]||'').localeCompare(String(b.cargos?.[0]||''),'es',{numeric:true})
+        ||String(a.kardex).localeCompare(String(b.kardex),'es',{numeric:true}));
+    // Cada bloque solo consulta el origen de los documentos del año: no
+    // transfiere imágenes de sustento ni el catálogo completo al navegador.
+    for(let i=0;i<relevant.length;i+=12) {
+      const group=relevant.slice(i,i+12);
+      const rows=checked(await this.client.from('documentos')
+        .select('id,datos_origen').in('id',group.map(d=>d.id)));
+      const byId=new Map(rows.map(r=>[r.id,r.datos_origen]));
+      for(const doc of group) {
+        if(!byId.has(doc.id))throw new Error('No se pudo leer el detalle original del Kardex '+doc.kardex);
+        yield {doc,origin:byId.get(doc.id)||{}};
+      }
+    }
+  }
   async search(filters, offset=0, limit=100, signal) {
     let query=this.client.rpc('kardex_search',{
       query_text:filters.query||'',estado_filter:filters.state||'',tipo_filter:filters.type||'',
