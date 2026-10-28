@@ -1741,6 +1741,7 @@ function renderMonthlyExpiryChart(rows,selectedRows,availableYears) {
     highlightIndex:expiryChartMonth>0?expiryChartMonth-1:null,
     onPointSelect:month=>{
       expiryChartMonth=month;
+      expiryWorkspaceView='all';
       expiryWorkspacePage=0;
       renderDocumentExpiryWorkspace();
     }
@@ -1758,11 +1759,13 @@ function renderMonthlyExpiryChart(rows,selectedRows,availableYears) {
 document.getElementById('expiryMonthChartYear').addEventListener('change',event=>{
   expiryChartYear=event.target.value;
   expiryChartMonth=0;
+  expiryWorkspaceView='all';
   expiryWorkspacePage=0;
   renderDocumentExpiryWorkspace();
 });
 document.getElementById('expiryMonthChartMonth').addEventListener('change',event=>{
   expiryChartMonth=event.target.value==='all'?0:Number(event.target.value);
+  expiryWorkspaceView='all';
   expiryWorkspacePage=0;
   renderDocumentExpiryWorkspace();
 });
