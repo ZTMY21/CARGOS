@@ -2649,6 +2649,175 @@
  #appShell.has-sidebar .history-toolbar{padding:13px}
  #appShell.has-sidebar .history-summary-card{padding:14px}
 }
+
+/* PREVIEW · Tres espacios claros de gestión: cargos, vencimientos, envíos IM. */
+#imShippingDashboard[hidden],#imBoxesWorkspace[hidden]{display:none!important}
+#appShell.has-sidebar[data-module="iron"] #resumenTablas,
+#appShell.has-sidebar[data-module="iron-cajas"] #resumenTablas{display:none!important}
+#appShell.has-sidebar .doc-expiry-visual,
+#appShell.has-sidebar .im-dash-chart-panel{
+ background:#fff;border:1px solid #dce6ee;
+ border-radius:12px;box-shadow:0 4px 13px rgba(26,50,71,.05);
+ margin:0 0 17px;overflow:hidden;
+}
+#appShell.has-sidebar .doc-expiry-visual-top,
+#appShell.has-sidebar .im-dash-chart-top{
+ display:flex;align-items:center;justify-content:space-between;gap:12px;
+ flex-wrap:wrap;padding:16px 19px 12px;
+}
+#appShell.has-sidebar .doc-expiry-visual-top h3,
+#appShell.has-sidebar .im-dash-chart-top h3{
+ font-size:18px;color:#1b3c58;margin:4px 0 0;
+ font-weight:850;letter-spacing:-.01em;
+}
+#appShell.has-sidebar .doc-expiry-visual-note{
+ color:#73869a;font-weight:650;font-size:11px;
+}
+#appShell.has-sidebar .doc-expiry-legend{
+ display:flex;align-items:center;gap:15px;flex-wrap:wrap;
+ padding:2px 19px 11px;font-size:10.5px;color:#667c8f;
+}
+#appShell.has-sidebar .doc-expiry-legend span{
+ display:inline-flex;align-items:center;gap:6px;
+}
+#appShell.has-sidebar .doc-expiry-legend i{
+ display:inline-block;width:10px;height:10px;border-radius:3px;
+ background:#29885f;
+}
+#appShell.has-sidebar .doc-expiry-legend i.soon{background:#d49a2c}
+#appShell.has-sidebar .doc-expiry-legend i.overdue{background:#c72a44}
+#appShell.has-sidebar .doc-expiry-legend i.unknown{background:#71879a}
+#appShell.has-sidebar .doc-expiry-distribution{
+ padding:6px 19px 18px;display:grid;gap:13px;
+}
+#appShell.has-sidebar .doc-expiry-chart-row{
+ display:grid;grid-template-columns:55px minmax(0,1fr) 65px;
+ gap:12px;align-items:center;font-size:11px;
+ font-weight:750;color:#344d64;
+}
+#appShell.has-sidebar .doc-expiry-stack{
+ display:flex;width:100%;height:18px;border-radius:5px;
+ overflow:hidden;background:#f1f5f8;
+}
+#appShell.has-sidebar .doc-expiry-segment.valid{background:#29885f}
+#appShell.has-sidebar .doc-expiry-segment.soon{background:#d49a2c}
+#appShell.has-sidebar .doc-expiry-segment.overdue{background:#c72a44}
+#appShell.has-sidebar .doc-expiry-segment.unknown{background:#71879a}
+#appShell.has-sidebar .doc-expiry-chart-row-total{text-align:right;font-variant-numeric:tabular-nums}
+#appShell.has-sidebar .im-dash-heading{
+ position:relative;padding:19px 20px;margin-bottom:16px;
+ border:1px solid #e3e8ed;border-left:4px solid #ca2941;
+ border-radius:12px;background:linear-gradient(112deg,#fff6f8,#fff 65%);
+}
+#appShell.has-sidebar .im-dash-heading h3{
+ font-size:22px;font-weight:850;color:#1b3952;margin:6px 0 4px;
+}
+#appShell.has-sidebar .im-dash-heading p{
+ font-size:11.5px;color:#657d91;margin:0;line-height:1.5;
+}
+#appShell.has-sidebar .im-dash-eyebrow{
+ font-weight:850;color:#c02a40;font-size:10px;letter-spacing:.08em;
+}
+#appShell.has-sidebar .im-dash-kpis{
+ display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
+ gap:13px;margin-bottom:16px;
+}
+#appShell.has-sidebar .im-dash-kpi,
+#appShell.has-sidebar .im-box-card{
+ display:flex;flex-direction:column;align-items:flex-start;
+ gap:12px;padding:18px;border:1px solid #dfe7ee;border-top:3px solid #c72c43;
+ background:#fff;border-radius:12px;
+ box-shadow:0 3px 12px rgba(31,53,69,.05);
+}
+#appShell.has-sidebar .im-dash-kpi:nth-child(2){border-top-color:#247f60}
+#appShell.has-sidebar .im-dash-kpi:nth-child(3){border-top-color:#ca8c24}
+#appShell.has-sidebar .im-dash-kpi span,
+#appShell.has-sidebar .im-box-card>span{
+ color:#3c5670;font-size:12px;font-weight:830;
+}
+#appShell.has-sidebar .im-dash-kpi strong,
+#appShell.has-sidebar .im-box-card strong{
+ color:#c72c43;font-size:36px;line-height:1;
+ font-weight:900;font-variant-numeric:tabular-nums;
+}
+#appShell.has-sidebar .im-dash-kpi:nth-child(2) strong{color:#247f60}
+#appShell.has-sidebar .im-dash-kpi:nth-child(3) strong{color:#ba821f}
+#appShell.has-sidebar .im-dash-chart-panel{margin-bottom:0}
+#appShell.has-sidebar .im-dash-chart-top{
+ background:linear-gradient(110deg,#fff8f9,#fff 70%);
+ border-bottom:1px solid #e5ebf0;
+ padding:17px 20px;
+}
+#appShell.has-sidebar .im-dash-chart-top>div:first-child>span{
+ color:#b92339;font-size:10px;font-weight:850;letter-spacing:.07em;
+}
+#appShell.has-sidebar .im-dash-chart-controls{
+ display:flex;gap:10px;align-items:center;flex-wrap:wrap;
+}
+#appShell.has-sidebar .im-dash-tabs{
+ display:flex;gap:4px;padding:3px;background:#f2f5f8;
+ border:1px solid #e0e7ec;border-radius:8px;
+}
+#appShell.has-sidebar .im-dash-tabs button{
+ font-size:11px;font-weight:800;padding:8px 11px;
+ border:0;border-radius:6px;background:transparent;color:#61788c;cursor:pointer;
+}
+#appShell.has-sidebar .im-dash-tabs button[aria-pressed="true"]{
+ color:#b82841;background:#fff;box-shadow:0 1px 4px rgba(27,48,65,.07);
+}
+#appShell.has-sidebar .im-dash-chart-controls label{
+ display:flex;align-items:center;gap:7px;
+ font-size:11px;font-weight:800;color:#425e72;
+}
+#appShell.has-sidebar .im-dash-chart-controls select{
+ background:#fff;color:#28485f;border:1px solid #d6e2e9;
+ border-radius:7px;padding:8px;font-size:12px;
+}
+#appShell.has-sidebar .im-dash-chart{
+ position:relative;min-height:260px;width:100%;padding:6px 10px;
+}
+#appShell.has-sidebar .im-dash-chart svg{
+ width:100%;display:block;max-height:330px;
+}
+#appShell.has-sidebar .im-dash-note{
+ font-size:11px;color:#6a8193;line-height:1.5;
+ padding:11px 18px 14px;margin:0;
+}
+#appShell.has-sidebar .im-boxes-cards{
+ display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+ gap:14px;margin-bottom:15px;
+}
+#appShell.has-sidebar .im-box-card{min-height:165px;border-top-color:#cc2a42}
+#appShell.has-sidebar .im-box-card:nth-child(2){border-top-color:#bc861c}
+#appShell.has-sidebar .im-box-card:nth-child(2) strong{color:#bb861f}
+#appShell.has-sidebar .im-box-card small{
+ color:#6c8398;font-size:11px;
+}
+#appShell.has-sidebar .im-box-card button,
+#appShell.has-sidebar .im-boxes-actions button{
+ padding:10px 13px;border:1px solid #e9b8c2;
+ border-radius:8px;background:#fff6f8;color:#b5273d;
+ font-size:11.5px;font-weight:800;cursor:pointer;
+}
+#appShell.has-sidebar .im-box-card button:hover,
+#appShell.has-sidebar .im-boxes-actions button:hover{
+ border-color:#c52b43;background:#ffedf0;
+}
+#appShell.has-sidebar .im-boxes-actions{
+ display:flex;gap:10px;flex-wrap:wrap;margin-bottom:8px;
+}
+@media(max-width:850px){
+ #appShell.has-sidebar .im-dash-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+ #appShell.has-sidebar .im-boxes-cards{grid-template-columns:1fr}
+}
+@media(max-width:590px){
+ #appShell.has-sidebar .im-dash-kpis{grid-template-columns:1fr}
+ #appShell.has-sidebar .doc-expiry-chart-row{
+  grid-template-columns:44px minmax(0,1fr) 45px;gap:8px;
+ }
+ #appShell.has-sidebar .doc-expiry-visual-top,
+ #appShell.has-sidebar .im-dash-chart-top{padding:13px}
+}
 </style>
 </head>
 <body>
@@ -2748,18 +2917,15 @@
         <details class="sidebar-category" data-sidebar-group="control">
           <summary><svg class="sidebar-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span>Control Documental</span><span class="sidebar-chevron" aria-hidden="true">⌄</span></summary>
           <div class="sidebar-submenu">
-            <button type="button" data-sidebar-view="control">Control de vencimientos</button>
+            <button type="button" data-sidebar-view="control">Dashboard de Vencimientos</button>
             <button type="button" data-sidebar-view="historicos">Histórico documental</button>
           </div>
         </details>
         <details class="sidebar-category" data-sidebar-group="im">
           <summary><svg class="sidebar-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="7" width="13" height="10" rx="1"/><path d="M15 10h4l3 4v3h-7M5 17a2 2 0 1 0 4 0M17 17a2 2 0 1 0 4 0"/></svg><span>Iron Mountain</span><span class="sidebar-chevron" aria-hidden="true">⌄</span></summary>
           <div class="sidebar-submenu">
-            <button type="button" data-sidebar-view="iron">Resumen de envíos IM</button>
-            <button type="button" data-sidebar-action="im-requested">Cajas solicitadas</button>
-            <button type="button" data-sidebar-action="im-prepared">Cajas preparadas</button>
-            <button type="button" data-sidebar-action="im-sent">Estadísticas de envíos</button>
-            <button type="button" data-sidebar-action="im-historical">Histórico IM</button>
+            <button type="button" data-sidebar-view="iron">Dashboard de Envíos</button>
+            <button type="button" data-sidebar-view="iron-cajas">Gestión y seguimiento de cajas</button>
           </div>
         </details>
         <button type="button" class="sidebar-link" data-sidebar-view="requerimientos">
@@ -3100,6 +3266,19 @@
             <small>Sin fecha base válida</small>
           </button>
         </div>
+        <section class="doc-expiry-visual" aria-label="Panorama de vencimientos por año">
+          <div class="doc-expiry-visual-top">
+            <div><span class="doc-expiry-overline">PANORAMA DOCUMENTAL</span><h3>Distribución de vencimientos</h3></div>
+            <span class="doc-expiry-visual-note">Cargos pendientes · 2025–2026</span>
+          </div>
+          <div class="doc-expiry-legend" aria-hidden="true">
+            <span><i class="valid"></i> Vigentes</span>
+            <span><i class="soon"></i> Próximos 30 días</span>
+            <span><i class="overdue"></i> Vencidos</span>
+            <span><i class="unknown"></i> Por validar</span>
+          </div>
+          <div id="docExpiryDistribution" class="doc-expiry-distribution" aria-live="polite"></div>
+        </section>
         <div class="doc-expiry-panel">
           <div class="doc-expiry-panel-top">
             <div>
@@ -3225,6 +3404,56 @@
           </div>
           <p class="history-footnote">Los totales cuentan registros Kardex/cargo sin descartar códigos repetidos entre Kardex distintos. «Pendientes» incluye cajas solicitadas o preparadas que todavía no registran envío confirmado. No se inventan ubicaciones ni fechas.</p>
         </div>
+      </section>
+      <section id="imShippingDashboard" class="im-executive-dashboard" aria-label="Dashboard de envíos a Iron Mountain" hidden>
+        <div class="im-dash-heading">
+          <span class="im-dash-eyebrow">OPERACIÓN IRON MOUNTAIN · CD SANTA ANITA</span>
+          <h3>Evolución de cajas enviadas</h3>
+          <p>Seguimiento por fecha efectiva de envío. La unidad principal es la caja física, no la cantidad de cargos.</p>
+        </div>
+        <div class="im-dash-kpis">
+          <div class="im-dash-kpi"><span>Cajas enviadas este mes</span><strong id="imDashThisMonth">—</strong></div>
+          <div class="im-dash-kpi"><span>Cajas enviadas en <b id="imDashSelectedYearLabel">2026</b></span><strong id="imDashYearCount">—</strong></div>
+          <div class="im-dash-kpi"><span>Total histórico enviado</span><strong id="imDashAllCount">—</strong></div>
+        </div>
+        <div class="im-dash-chart-panel">
+          <div class="im-dash-chart-top">
+            <div><span>EVOLUCIÓN DE ENVÍOS</span><h3 id="imDashChartTitle">Cajas enviadas por mes</h3></div>
+            <div class="im-dash-chart-controls">
+              <div class="im-dash-tabs" role="group" aria-label="Tipo de período de envíos">
+                <button type="button" data-im-chart-view="monthly" aria-pressed="true">Por mes</button>
+                <button type="button" data-im-chart-view="annual" aria-pressed="false">Por año</button>
+              </div>
+              <label id="imDashYearWrap" for="imDashYear">Año <select id="imDashYear"></select></label>
+            </div>
+          </div>
+          <div id="imDashChart" class="im-dash-chart" aria-live="polite"></div>
+          <p id="imDashChartNote" class="im-dash-note">Consultando el historial de cajas enviadas…</p>
+        </div>
+      </section>
+      <section id="imBoxesWorkspace" class="im-boxes-workspace" aria-label="Gestión y seguimiento de cajas Iron Mountain" hidden>
+        <div class="im-dash-heading">
+          <span class="im-dash-eyebrow">GESTIÓN OPERATIVA · CD SANTA ANITA</span>
+          <h3>Seguimiento de cajas</h3>
+          <p>Consulta la preparación, las solicitudes y el historial de cajas de Iron Mountain.</p>
+        </div>
+        <div class="im-boxes-cards">
+          <article class="im-box-card">
+            <span>Preparadas para envío</span><strong id="imBoxesPrepared">—</strong>
+            <small>Cajas sin fecha de envío registrada</small>
+            <button type="button" id="imBoxesOpenPrepared">Ver cajas preparadas</button>
+          </article>
+          <article class="im-box-card">
+            <span>Cajas solicitadas</span><strong id="imBoxesRequested">—</strong>
+            <small>Solicitudes pendientes, según Google Sheets</small>
+            <button type="button" id="imBoxesOpenRequested">Ver cajas solicitadas</button>
+          </article>
+        </div>
+        <div class="im-boxes-actions">
+          <button type="button" id="imBoxesOpenStats">Ver estadísticas de envíos</button>
+          <button type="button" id="imBoxesOpenHistory">Ver histórico Iron Mountain</button>
+        </div>
+        <p class="im-dash-note">Las cajas preparadas y solicitadas no se contabilizan como enviadas hasta registrar el envío. Los datos dependen de la sincronización con Iron Mountain.</p>
       </section>
       <div id="resumenTablas"></div>
     </div>
