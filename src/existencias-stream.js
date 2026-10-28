@@ -36,12 +36,24 @@ function rowXml(row,index,styleId){
   }
   return html+'</row>';
 }
-function fallbackRows(doc){
-  return (doc.cargos||[]).map(cargo=>({
-    Fecha:doc.fechaOrigen||doc.fechaRegistro||'',
-    Cargo:cargo,Grupo:'',Codigo:'',Archivo_Principal:'',PDF:'',
+function fallbackRows(doc,origin={}){
+  const date=String(doc.fechaOrigen||doc.fechaRegistro||'');
+  const fecha=/^\d{4}-\d{2}-\d{2}$/.test(date)
+    ?date.slice(8,10)+'-'+date.slice(5,7)+'-'+date.slice(0,4):date;
+  const cargo=(doc.cargos||[])[0]||'';
+  // Los nuevos cargos de Google Sheets conservan cada código y su Grupo,
+  // aunque todavía no tengan Archivo_Principal, PDF, Tipo o Fuente.
+  const codes=Object.entries(origin.grupos_por_codigo||{});
+  if(codes.length) return codes.flatMap(([codigo,grupos])=>{
+    const groups=Array.isArray(grupos)&&grupos.length?grupos:[''];
+    return groups.map(grupo=>({Fecha:fecha,Cargo:cargo,Grupo:grupo,
+      Codigo:codigo.toUpperCase(),Archivo_Principal:'',PDF:'',Total_Paginas:'',
+      Tipo:'',Fuente:'',Observaciones:'',ESTADO_REGULARIZADO:''}));
+  });
+  return (doc.cargos||[]).map(c=>({
+    Fecha:fecha,Cargo:c,Grupo:'',Codigo:'',Archivo_Principal:'',PDF:'',
     Total_Paginas:'',Tipo:'',Fuente:'',
-    Observaciones:'Sin registros de detalle originales disponibles',ESTADO_REGULARIZADO:''
+    Observaciones:'Sin detalle original en la base',ESTADO_REGULARIZADO:''
   }));
 }
 function annualTemplate(xml){
@@ -62,7 +74,7 @@ async function* annualXml(xml,year,docSource,progress){
   let rowIndex=2,buffer='';
   for await(const {doc,origin} of docSource(year)){
     const original=await sourceRecords(origin||doc.datosOrigen||{});
-    const rows=original.length?original:fallbackRows(doc);
+    const rows=original.length?original:fallbackRows(doc,origin);
     for(const row of rows){
       if(rowIndex>1048576)throw new Error('El detalle de '+year+' supera el máximo de filas de Excel.');
       buffer+=rowXml(row,rowIndex++,template.styleId);
