@@ -1,10 +1,11 @@
 import ExcelJS from 'exceljs';
-import JSZip from 'jszip';
 import {computeDocEstado, fmtDate, limaDate, monthsBetween} from './rules.js';
 import {cargoYear} from './cargo-details.js';
 import {cargoExpiryGroups} from './cargo-expiry.js';
 
 export const REPORT_YEARS=[2020,2021,2022,2023,2024,2025,2026];
+export const ORIGINAL_COLUMNS=['Fecha','Cargo','Grupo','Codigo','Archivo_Principal','PDF',
+  'Total_Paginas','Tipo','Fuente','Observaciones','ESTADO_REGULARIZADO'];
 export const CARGO_COLUMNS=['Kardex Nº','Fecha Registro','Tipo de Documento','Período Contable',
   'Ubicación','Cantidad Folios','Cantidad Registros','Cantidad Códigos','Nº Cargo',
   'Requerimiento Asignado','Fecha de Envío','Sustento (Guía de Traslado)',
@@ -92,14 +93,13 @@ function addCargoSheet(workbook,items,now,reqNumbers){
     rowStyle(sheet.addRow(cargoValues(item,now,reqNumbers)),CARGO_COLUMNS.length);
   sheet.autoFilter={from:'A1',to:'P'+Math.max(2,sheet.rowCount)};
 }
-function addYearSheet(workbook,year,items,now,reqNumbers){
-  // Una hoja visible por año, con los mismos encabezados del Kardex general.
+function addYearSheet(workbook,year,items){
+  // El detalle original se incorpora en flujo, sin millones de celdas ExcelJS.
   const sheet=workbook.addWorksheet('Cargos '+year);
-  header(sheet,CARGO_COLUMNS,[14,13,18,14,13,12,17,16,13,16,13,20,26,14,16,22]);
-  for(const item of [...items].sort(compareAnnual)){
-    rowStyle(sheet.addRow(cargoValues(item,now,reqNumbers)),CARGO_COLUMNS.length);
-  }
-  sheet.autoFilter={from:'A1',to:'P'+Math.max(2,sheet.rowCount)};
+  header(sheet,ORIGINAL_COLUMNS,[14,12,11,24,40,30,17,20,17,40,26],30);
+  rowStyle(sheet.addRow(Array(ORIGINAL_COLUMNS.length).fill('')),ORIGINAL_COLUMNS.length);
+  const expected=items.reduce((n,item)=>n+Math.max(1,Number(item.doc.cantidadRegistros)||1),0);
+  sheet.autoFilter={from:'A1',to:'K'+Math.min(1048576,Math.max(2,expected+1))};
   return sheet;
 }
 function addReqSheet(workbook){
@@ -134,9 +134,11 @@ export function buildExistenciasReport(docs,now=new Date(),reqs=[]){
     .sort(compareNumbered);
   addCargoSheet(wb,allSourceCargos(docs),now,reqNumbers);
   for(const year of years){
-    addYearSheet(wb,year,items.filter(x=>String(cargoYear(x.doc))===year),now,reqNumbers);
+    addYearSheet(wb,year,allSourceCargos(docs).filter(x=>String(cargoYear(x.doc))===year));
   }
   addReqSheet(wb);
+  wb._existenciasDocs=docs;
+  wb._existenciasYears=years;
   redHeader(sheet,6,['Total Cargos','Enviado a Iron Mountain',
     'En Proceso de Acondicionamiento','Pendientes de Envío IM']);
   sheet.getRow(6).height=34;
@@ -206,34 +208,9 @@ export function buildExistenciasReport(docs,now=new Date(),reqs=[]){
   }
   return wb;
 }
-export async function serializeExistenciasReport(workbook){
-  const zip=await JSZip.loadAsync(await workbook.xlsx.writeBuffer());
-  const part=zip.file('xl/workbook.xml');
-  if(!part)throw new Error('No se pudo preparar la navegación del Excel.');
-  const xml=await part.async('string');
-  let found=false;
-  const updated=xml.replace(/<workbookView\b([^>]*)\/>/,(_,attributes)=>{
-    found=true;
-    return '<workbookView'+attributes.replace(/\s+showSheetTabs="[^"]*"/,'')+' showSheetTabs="1"/>';
-  });
-  if(!found)throw new Error('No se pudo configurar la barra de pestañas del Excel.');
-  zip.file('xl/workbook.xml',updated);
-  // ExcelJS attaches a relationship marked External even to in-workbook
-  // hyperlinks. Emit native OOXML locations without external relationships.
-  for(const name of Object.keys(zip.files).filter(n=>/^xl\/worksheets\/sheet\d+\.xml$/.test(n))){
-    const xml=await zip.file(name).async('string');
-    const internal=xml.replace(/<hyperlink\b[^>]*\blocation="#[^"]*"[^>]*\/>/g,tag=>
-      tag.replace(/\s+r:id="[^"]*"/,'').replace(/\blocation="#/,'location="'));
-    if(internal===xml)continue;
-    zip.file(name,internal);
-    const rels=name.replace('/worksheets/','/worksheets/_rels/')+'.rels';
-    const relPart=zip.file(rels);
-    if(relPart){
-      const relXml=await relPart.async('string');
-      zip.file(rels,relXml.replace(/<Relationship\b(?=[^>]*\bTarget="#)[^>]*\/>/g,''));
-    }
-  }
-  return zip.generateAsync({type:'uint8array',compression:'DEFLATE',compressionOptions:{level:3}});
+export async function serializeExistenciasReport(workbook,getOriginalSource,progress){
+  const {serializeOriginalAnnualReport}=await import('./existencias-stream.js');
+  return serializeOriginalAnnualReport(workbook,getOriginalSource,progress);
 }
 export function buildAnnualCargoReport(docs,year,now=new Date()){
   if(!REPORT_YEARS.includes(Number(year)))throw new Error('Año de cargos no disponible.');
