@@ -212,6 +212,7 @@ const WORKSPACE_SECTIONS={
   resumen:'grp-resumen',
   control:'grp-resumen',
   iron:'grp-resumen',
+  'iron-cajas':'grp-resumen',
   historicos:'grp-resumen',
   requerimientos:'grp-requerimientos',
   existencias:'grp-existencias',
@@ -219,10 +220,11 @@ const WORKSPACE_SECTIONS={
   sync:'googleSyncPanel',
   reportes:'sidebarReportsPanel'
 };
-const SUMMARY_VIEWS = new Set(['resumen','control','iron','historicos']);
+const SUMMARY_VIEWS = new Set(['resumen','control','iron','iron-cajas','historicos']);
 const SECTION_COPY={
-  control:['CONTROL DOCUMENTAL','Control de vencimientos','Consulta de pendientes, plazos y prioridades de 2025–2026.'],
-  iron:['IRON MOUNTAIN','Estado de envíos a Iron Mountain','Cargos enviados, pendientes y cajas preparadas, con histórico de movimientos.'],
+  control:['CONTROL DOCUMENTAL','Dashboard de Vencimientos','Prioridades y plazos documentales de 2025 y 2026.'],
+  iron:['IRON MOUNTAIN','Dashboard de Envíos','Evolución de cajas enviadas a Iron Mountain por mes y año.'],
+  'iron-cajas':['IRON MOUNTAIN','Gestión y seguimiento de cajas','Cajas preparadas, solicitadas e histórico de Iron Mountain.'],
   historicos:['HISTÓRICO DOCUMENTAL','Histórico documental','Consulta anual de cargos registrados entre 2020 y 2026.']
 };
 function setAdminRequestBadge(count) {
@@ -261,10 +263,15 @@ function updateWorkspaceVisibility() {
     !adminReady || activeWorkspaceTab!=='control';
   document.getElementById('documentHistoryWorkspace').hidden=
     !adminReady || activeWorkspaceTab!=='historicos';
+  document.getElementById('imShippingDashboard').hidden=
+    !adminReady || activeWorkspaceTab!=='iron';
+  document.getElementById('imBoxesWorkspace').hidden=
+    !adminReady || activeWorkspaceTab!=='iron-cajas';
   // Miga de navegación informativa; sin modificar la sección seleccionada.
   const breadcrumbs={
-    resumen:'Dashboard General',control:'Control de vencimientos',
-    historicos:'Histórico documental',iron:'Iron Mountain',
+    resumen:'Dashboard General',control:'Dashboard de Vencimientos',
+    historicos:'Histórico documental',iron:'Dashboard de Envíos',
+    'iron-cajas':'Gestión y seguimiento de cajas',
     requerimientos:'Requerimientos',existencias:'Existencias',
     sync:'Actividad y sincronización',reportes:'Reportes y descargas',
     solicitudes:'Usuarios y accesos'
@@ -294,7 +301,7 @@ function updateWorkspaceVisibility() {
   document.getElementById('googleSyncContent').hidden=!showSync;
   document.getElementById('googleSyncPanel').classList.toggle('workspace-tabs-only',adminReady && !showSync);
   for(const [name,id] of Object.entries(WORKSPACE_SECTIONS)) {
-    if(['control','iron','historicos'].includes(name))continue;
+    if(['control','iron','iron-cajas','historicos'].includes(name))continue;
     const section=document.getElementById(id);
     const active=adminReady && (name==='resumen'
       ? SUMMARY_VIEWS.has(activeWorkspaceTab) : activeWorkspaceTab===name);
@@ -401,16 +408,16 @@ sidebarNode.addEventListener('click',event=>{
       selectWorkspaceTab('control');
       openCargoExpiry(action==='expiry-overdue'?'overdue':'upcoming');
     }else if(action==='im-requested'){
-      selectWorkspaceTab('iron');
+      selectWorkspaceTab('iron-cajas');
       document.getElementById('btnRequestedIMDetail').click();
     }else if(action==='im-prepared'){
-      selectWorkspaceTab('iron');
+      selectWorkspaceTab('iron-cajas');
       openPreparedIm();
     }else if(action==='im-sent'){
       selectWorkspaceTab('iron');
       document.getElementById('btnMonthlyShippedDetail').click();
     }else if(action==='im-historical'){
-      selectWorkspaceTab('iron');
+      selectWorkspaceTab('iron-cajas');
       document.getElementById('btnOpenIronMountainHistorical').click();
     }else if(action==='export-cargo'){
       selectWorkspaceTab('existencias');
@@ -1616,6 +1623,30 @@ function renderDocumentExpiryWorkspace() {
   });
   const counts={valid:0,soon:0,overdue:0,unknown:0};
   scoped.forEach(row=>{counts[row.category]++});
+  // Visualización comparativa por año, alimentada por las mismas filas de KPI.
+  const distribution=document.getElementById('docExpiryDistribution');
+  const years=year?[year]:['2025','2026'];
+  distribution.innerHTML=years.map(y=>{
+    const group=scoped.filter(record=>record.year===y);
+    const parts={valid:0,soon:0,overdue:0,unknown:0};
+    for(const record of group)parts[record.category]++;
+    const total=group.length;
+    const bars=['valid','soon','overdue','unknown'].map(key=>{
+      const n=parts[key];
+      if(!n || !total)return '';
+      const label={valid:'vigentes',soon:'próximos a vencer',
+        overdue:'vencidos',unknown:'fechas por validar'}[key];
+      return '<span class="doc-expiry-segment '+key+'" style="width:'+
+        (100*n/total).toFixed(3)+'%" title="'+fmtNum(n)+' '+label+'"></span>';
+    }).join('');
+    const summary='Año '+y+': '+fmtNum(total)+' cargos. '+fmtNum(parts.valid)+
+      ' vigentes, '+fmtNum(parts.soon)+' próximos, '+fmtNum(parts.overdue)+
+      ' vencidos y '+fmtNum(parts.unknown)+' por validar.';
+    return '<div class="doc-expiry-chart-row"><strong>'+y+
+      '</strong><div class="doc-expiry-stack" role="img" aria-label="'+summary+
+      '">'+bars+'</div><span class="doc-expiry-chart-row-total">'+fmtNum(total)+
+      '</span></div>';
+  }).join('');
   for(const key of Object.keys(counts)){
     const id={valid:'docExpiryValidCount',soon:'docExpirySoonCount',
       overdue:'docExpiryOverdueCount',unknown:'docExpiryUnknownCount'}[key];
