@@ -3301,7 +3301,7 @@
             <div>
               <span class="doc-expiry-overline">EVOLUCIÓN DOCUMENTAL · CD SANTA ANITA</span>
               <h3 id="expiryMonthChartTitle">Vencimientos por mes</h3>
-              <p>Cargos que cumplen seis meses de plazo en cada mes del año.</p>
+              <p>Cargos que cumplen seis meses de plazo, agrupados por mes y año de vencimiento.</p>
             </div>
             <label for="expiryMonthChartYear">Año de vencimiento
               <select id="expiryMonthChartYear" aria-label="Año de la fecha límite del cargo"></select>
@@ -3310,9 +3310,9 @@
           <div class="expiry-month-chart-content">
             <div id="expiryMonthChartSurface" class="expiry-month-chart-surface" aria-live="polite"></div>
             <div id="expiryMonthChartLegend" class="expiry-month-chart-legend"></div>
-            <p id="expiryMonthChartSummary" class="expiry-month-chart-summary">Calculando vencimientos mensuales…</p>
+            <p id="expiryMonthChartSummary" class="expiry-month-chart-summary" aria-live="polite">Calculando vencimientos mensuales…</p>
           </div>
-          <p class="expiry-month-chart-method">Cada cargo se agrupa por el mes de su <strong>fecha límite (seis meses calendario)</strong>, no por el mes en que fue registrado. Incluye cargos vencidos y por vencer que continúan pendientes; excluye enviados a IM y fechas no válidas.</p>
+          <p class="expiry-month-chart-method">Las líneas representan <strong>años de vencimiento</strong>. Cada punto corresponde al mes de la fecha límite del cargo (seis meses calendario). Las tarjetas y el listado usan el mismo período seleccionado. Los registros sin fecha válida se informan aparte, sin inventar un mes.</p>
         </section>
         <div class="doc-expiry-panel">
           <div class="doc-expiry-panel-top">
@@ -3332,7 +3332,7 @@
               <button type="button" data-expiry-view="unknown" aria-pressed="false">Sin fecha válida</button>
             </div>
             <div class="doc-expiry-filter-fields">
-              <label for="docExpiryYear">Año
+              <label for="docExpiryYear">Año de origen del cargo
                 <select id="docExpiryYear"><option value="">2025 y 2026</option><option value="2026">2026</option><option value="2025">2025</option></select>
               </label>
               <label for="docExpirySearch">Buscar cargo o Kardex
