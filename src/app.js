@@ -1719,30 +1719,6 @@ function renderDocumentExpiryWorkspace() {
   });
   const counts={valid:0,soon:0,overdue:0,unknown:0};
   scoped.forEach(row=>{counts[row.category]++});
-  // Visualización comparativa por año, alimentada por las mismas filas de KPI.
-  const distribution=document.getElementById('docExpiryDistribution');
-  const years=year?[year]:['2025','2026'];
-  distribution.innerHTML=years.map(y=>{
-    const group=scoped.filter(record=>record.year===y);
-    const parts={valid:0,soon:0,overdue:0,unknown:0};
-    for(const record of group)parts[record.category]++;
-    const total=group.length;
-    const bars=['valid','soon','overdue','unknown'].map(key=>{
-      const n=parts[key];
-      if(!n || !total)return '';
-      const label={valid:'vigentes',soon:'próximos a vencer',
-        overdue:'vencidos',unknown:'fechas por validar'}[key];
-      return '<span class="doc-expiry-segment '+key+'" style="width:'+
-        (100*n/total).toFixed(3)+'%" title="'+fmtNum(n)+' '+label+'"></span>';
-    }).join('');
-    const summary='Año '+y+': '+fmtNum(total)+' cargos. '+fmtNum(parts.valid)+
-      ' vigentes, '+fmtNum(parts.soon)+' próximos, '+fmtNum(parts.overdue)+
-      ' vencidos y '+fmtNum(parts.unknown)+' por validar.';
-    return '<div class="doc-expiry-chart-row"><strong>'+y+
-      '</strong><div class="doc-expiry-stack" role="img" aria-label="'+summary+
-      '">'+bars+'</div><span class="doc-expiry-chart-row-total">'+fmtNum(total)+
-      '</span></div>';
-  }).join('');
   for(const key of Object.keys(counts)){
     const id={valid:'docExpiryValidCount',soon:'docExpirySoonCount',
       overdue:'docExpiryOverdueCount',unknown:'docExpiryUnknownCount'}[key];
