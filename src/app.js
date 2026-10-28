@@ -105,7 +105,7 @@ let currentPage = 0;
 let expiryGroups = {today:'', overdue:[], upcoming:[], unknown:[]};
 let activeExpiryGroup = null, expiryPage = 0, expiryReturnButton = '';
 // Filtros independientes del nuevo módulo; no alteran las búsquedas generales.
-let expiryWorkspaceView='all', expiryWorkspacePage=0, expiryChartYear=null;
+let expiryWorkspaceView='all', expiryWorkspacePage=0, expiryChartYear=null, expiryChartMonth=0;
 const EXPIRY_WORKSPACE_PAGE_SIZE=15;
 let historySelectedYear='2026',historyPage=0;
 const HISTORY_PAGE_SIZE=15;
@@ -1705,61 +1705,65 @@ function documentExpiryRows() {
 // Serie temporal de vencimientos: mes exacto en que cada cargo pendiente
 // alcanza sus seis meses, no el año de registro. Comparte la misma fuente
 // y los filtros de cargo/año que los KPI, pero usa su año de FECHA LÍMITE.
-function renderMonthlyExpiryChart(sourceRows, scopedRows, availableYears) {
-  const today=expiryGroups.today;
-  const currentYear=today.slice(0,4);
-  const select=document.getElementById('expiryMonthChartYear');
-  const options=['all',...availableYears];
-  const optionsKey=options.join(',');
-  if(select.dataset.years!==optionsKey){
-    select.replaceChildren();
-    const allLabel=availableYears.length>1
-      ?'Todos ('+availableYears[0]+'–'+availableYears.at(-1)+')'
-      :'Todos los vencimientos';
-    select.add(new Option(allLabel,'all'));
-    for(const year of availableYears)select.add(new Option(year,year));
-    select.dataset.years=optionsKey;
+// Gráfica ORIGINAL de una sola línea: año de fecha límite, enero–diciembre.
+// Al elegir un mes, las cuatro tarjetas y la tabla se filtran con las
+// MISMAS filas que el punto del mes en la gráfica. No altera los datos.
+function renderMonthlyExpiryChart(rows,selectedRows,availableYears) {
+  const currentYear=expiryGroups.today.slice(0,4);
+  const years=[...new Set([...availableYears,currentYear])].sort((a,b)=>Number(b)-Number(a));
+  const yearSelect=document.getElementById('expiryMonthChartYear');
+  const yearsKey=years.join(',');
+  if(yearSelect.dataset.years!==yearsKey){
+    yearSelect.replaceChildren();
+    for(const year of years)yearSelect.add(new Option(year,year));
+    yearSelect.dataset.years=yearsKey;
   }
-  select.value=expiryChartYear;
-  // Cada línea usa el año exacto de fecha límite. La suma de todas las
-  // líneas equivale a los KPI cuando se elige «Todos».
-  const visibleYears=expiryChartYear==='all' ? availableYears : [expiryChartYear];
-  const months=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
-  const colors={'2025':'#778ba2','2026':'#c52540','2027':'#248563'};
-  const lines=visibleYears.map(year=>{
-    const values=Array(12).fill(0);
-    for(const row of sourceRows){
-      const due=row.doc.expiry?.dueDate;
-      if(!due || due.slice(0,4)!==year)continue;
-      const month=Number(due.slice(5,7));
-      if(month>=1 && month<=12)values[month-1]++;
-    }
-    return {label:'Vencimientos '+year,
-      color:colors[year]||'#bc872d',values,width:3.1};
-  });
+  yearSelect.value=expiryChartYear;
+  document.getElementById('expiryMonthChartMonth').value=
+    expiryChartMonth===0?'all':String(expiryChartMonth);
+  const months=Array(12).fill(0);
+  for(const row of rows){
+    const due=row.doc.expiry?.dueDate;
+    if(!due||due.slice(0,4)!==expiryChartYear)continue;
+    const month=Number(due.slice(5,7));
+    if(month>=1&&month<=12)months[month-1]++;
+  }
+  const monthNames=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
   const chart=document.getElementById('expiryMonthChartSurface');
   const legend=document.getElementById('expiryMonthChartLegend');
-  renderCargoLineChart(chart,legend,months,lines,{
+  renderCargoLineChart(chart,legend,monthNames,[{
+    label:'Vencimientos '+expiryChartYear,
+    color:'#c52540',values:months,width:3.4
+  }],{
     width:Math.max(760,Math.min(1160,Math.round(chart.getBoundingClientRect().width||930))),
     height:326,fontSize:11,compactLayout:true,
-    showLabels:visibleYears.length===1?'positive':false,
-    highlightIndex:visibleYears.length===1 && expiryChartYear===currentYear
-      ?Number(today.slice(5,7))-1:null
+    showLabels:'positive',
+    highlightIndex:expiryChartMonth>0?expiryChartMonth-1:null,
+    onPointSelect:month=>{
+      expiryChartMonth=month;
+      expiryWorkspacePage=0;
+      renderDocumentExpiryWorkspace();
+    }
   });
-  const plotted=lines.reduce((total,line)=>
-    total+line.values.reduce((sum,value)=>sum+value,0),0);
-  const withoutDate=scopedRows.filter(row=>!row.doc.expiry?.dueDate).length;
-  const total=scopedRows.length;
-  const period=expiryChartYear==='all'
-    ?'todos los años de vencimiento'
-    :'el año de vencimiento '+expiryChartYear;
-  document.getElementById('expiryMonthChartSummary').textContent=
-    fmtNum(plotted)+' cargos con fecha límite en '+period+
-    (withoutDate?' · '+fmtNum(withoutDate)+' sin fecha válida':'')+
-    ' · Total de las tarjetas: '+fmtNum(total)+' cargos';
+  const yearTotal=months.reduce((sum,n)=>sum+n,0);
+  const shown=selectedRows.length;
+  const selectedDescription=expiryChartMonth
+    ? monthNames[expiryChartMonth-1]+' '+expiryChartYear
+    :'Enero–diciembre '+expiryChartYear;
+  const summary=document.getElementById('expiryMonthChartSummary');
+  summary.textContent=selectedDescription+' · '+fmtNum(shown)+
+    ' cargos en las tarjetas y el listado'+
+    (expiryChartMonth===0?' · Total de la gráfica: '+fmtNum(yearTotal):'');
 }
 document.getElementById('expiryMonthChartYear').addEventListener('change',event=>{
   expiryChartYear=event.target.value;
+  expiryChartMonth=0;
+  expiryWorkspacePage=0;
+  renderDocumentExpiryWorkspace();
+});
+document.getElementById('expiryMonthChartMonth').addEventListener('change',event=>{
+  expiryChartMonth=event.target.value==='all'?0:Number(event.target.value);
+  expiryWorkspacePage=0;
   renderDocumentExpiryWorkspace();
 });
 
@@ -1780,12 +1784,19 @@ function renderDocumentExpiryWorkspace() {
   });
   const availableYears=[...new Set(originScoped.map(row=>
     row.doc.expiry?.dueDate?.slice(0,4)).filter(value=>/^\d{4}$/.test(value)))].sort();
-  // «Todos» es la vista inicial para conservar la suma completa de los KPI.
-  // El selector de fecha límite filtra conjuntamente KPI, gráfico y tabla.
-  if(expiryChartYear===null || (expiryChartYear!=='all' &&
-      !availableYears.includes(expiryChartYear)))expiryChartYear='all';
-  const scoped=originScoped.filter(row=>expiryChartYear==='all' ||
-    row.doc.expiry?.dueDate?.slice(0,4)===expiryChartYear);
+  const currentYear=expiryGroups.today.slice(0,4);
+  // A diferencia de la versión con múltiples líneas, se consulta UN año.
+  // El mes seleccionado aplica a KPI y tabla; la línea sigue mostrando
+  // los doce meses para que sea posible comparar y elegir otro mes.
+  if(!expiryChartYear || ![...availableYears,currentYear].includes(expiryChartYear)){
+    expiryChartYear=currentYear;
+    expiryChartMonth=0;
+  }
+  const scoped=originScoped.filter(row=>{
+    const due=row.doc.expiry?.dueDate;
+    return due && due.slice(0,4)===expiryChartYear
+      && (expiryChartMonth===0 || Number(due.slice(5,7))===expiryChartMonth);
+  });
   const counts={valid:0,soon:0,overdue:0,unknown:0};
   scoped.forEach(row=>{counts[row.category]++});
   renderMonthlyExpiryChart(originScoped,scoped,availableYears);
