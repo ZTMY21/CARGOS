@@ -1490,15 +1490,9 @@ function renderHistoricalWorkspace() {
   const root=document.getElementById('documentHistoryWorkspace');
   if(!root)return;
   const allRows=historicalRows();
-  const years=['2026','2025','2024','2023','2022','2021','2020'];
-  const totals=new Map(years.map(y=>[y,0]));
-  for(const record of allRows)totals.set(record.year,(totals.get(record.year)||0)+1);
-  const cards=document.getElementById('historyYearButtons');
-  cards.innerHTML=years.map(year=>
-    '<button type="button" class="history-year-button" data-history-year="'+year+'" aria-pressed="'+
-    (year===historySelectedYear)+'"><span class="history-year-number">'+year+
-    '</span><strong>'+fmtNum(totals.get(year))+'</strong><small>cargos</small></button>'
-  ).join('');
+  // Una sola selección de año; conservar cifras y cálculo original.
+  const yearSelector=document.getElementById('historyYearSelect');
+  yearSelector.value=historySelectedYear;
   const yearRows=allRows.filter(row=>row.year===historySelectedYear);
   document.getElementById('historyAllCount').textContent=fmtNum(allRows.length);
   document.getElementById('historySelectedYearLabel').textContent=historySelectedYear;
@@ -1540,15 +1534,6 @@ function renderHistoricalWorkspace() {
 }
 const historyRoot=document.getElementById('documentHistoryWorkspace');
 historyRoot.addEventListener('click',event=>{
-  const yearButton=event.target.closest('button[data-history-year]');
-  if(yearButton){
-    historySelectedYear=yearButton.dataset.historyYear;
-    historyPage=0;
-    document.getElementById('historyQuery').value='';
-    document.getElementById('historyStatusFilter').value='all';
-    renderHistoricalWorkspace();
-    return;
-  }
   const cargoButton=event.target.closest('button[data-history-cargo]');
   if(cargoButton){
     const cargo=cargoButton.dataset.historyCargo;
@@ -1559,6 +1544,13 @@ historyRoot.addEventListener('click',event=>{
     searchNow();
     document.getElementById('grp-existencias').scrollIntoView({block:'start'});
   }
+});
+document.getElementById('historyYearSelect').addEventListener('change',event=>{
+  historySelectedYear=event.currentTarget.value;
+  historyPage=0;
+  document.getElementById('historyQuery').value='';
+  document.getElementById('historyStatusFilter').value='all';
+  renderHistoricalWorkspace();
 });
 document.getElementById('historyQuery').addEventListener('input',()=>{
   historyPage=0;renderHistoricalWorkspace();
