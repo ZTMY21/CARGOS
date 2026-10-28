@@ -105,7 +105,7 @@ let currentPage = 0;
 let expiryGroups = {today:'', overdue:[], upcoming:[], unknown:[]};
 let activeExpiryGroup = null, expiryPage = 0, expiryReturnButton = '';
 // Filtros independientes del nuevo módulo; no alteran las búsquedas generales.
-let expiryWorkspaceView='all', expiryWorkspacePage=0, expiryChartYear=null, expiryChartMonth=0;
+let expiryWorkspaceView='all', expiryWorkspacePage=0, expiryChartYear='2026', expiryChartMonth='all';
 const EXPIRY_WORKSPACE_PAGE_SIZE=15;
 let historySelectedYear='2026',historyPage=0;
 const HISTORY_PAGE_SIZE=15;
@@ -1702,71 +1702,77 @@ function documentExpiryRows() {
   collect(expiryGroups.unknown,'unknown');
   return rows;
 }
-// Serie temporal de vencimientos: mes exacto en que cada cargo pendiente
-// alcanza sus seis meses, no el año de registro. Comparte la misma fuente
-// y los filtros de cargo/año que los KPI, pero usa su año de FECHA LÍMITE.
-// Gráfica ORIGINAL de una sola línea: año de fecha límite, enero–diciembre.
-// Al elegir un mes, las cuatro tarjetas y la tabla se filtran con las
-// MISMAS filas que el punto del mes en la gráfica. No altera los datos.
-function renderMonthlyExpiryChart(rows,selectedRows,availableYears) {
-  const currentYear=expiryGroups.today.slice(0,4);
-  const years=[...new Set([...availableYears,currentYear])].sort((a,b)=>Number(b)-Number(a));
+// Histórico de vencimientos por MES para el año de ORIGEN seleccionado.
+// Siempre es una sola línea; los meses son fechas límite exactas, incluso
+// cuando pertenecen al año siguiente. Los puntos se pueden seleccionar.
+function renderMonthlyExpiryChart(originRows,selectedRows) {
+  const year=expiryChartYear;
+  const names=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  const dueMonths=originRows.map(row=>row.doc.expiry?.dueDate?.slice(0,7))
+    .filter(month=>/^\d{4}-(0[1-9]|1[0-2])$/.test(month)).sort();
+  // Base móvil: nunca ocultar un cargo por cambiar de año calendario.
+  // El mínimo son 12 meses, desde el primer vencimiento real del año de origen.
+  const first=dueMonths[0]||year+'-07';
+  const last=dueMonths.at(-1)||first;
+  const [startYear,startMonth]=first.split('-').map(Number);
+  const [endYear,endMonth]=last.split('-').map(Number);
+  const length=Math.max(12,(endYear-startYear)*12+endMonth-startMonth+1);
+  const monthKeys=Array.from({length},(_,i)=>new Date(
+    Date.UTC(startYear,startMonth-1+i,1)).toISOString().slice(0,7));
+  const values=monthKeys.map(key=>dueMonths.filter(due=>due===key).length);
+  const labels=monthKeys.map(key=>names[Number(key.slice(5,7))-1]+' '+key.slice(2,4));
+  const monthSelect=document.getElementById('expiryMonthChartMonth');
+  const monthsKey=monthKeys.join(',');
+  if(monthSelect.dataset.months!==monthsKey){
+    monthSelect.replaceChildren();
+    monthSelect.add(new Option('Todos los meses','all'));
+    for(let i=0;i<monthKeys.length;i++){
+      const key=monthKeys[i];
+      const full=names[Number(key.slice(5,7))-1]+' '+key.slice(0,4);
+      monthSelect.add(new Option(full,key));
+    }
+    monthSelect.dataset.months=monthsKey;
+  }
+  monthSelect.value=expiryChartMonth;
   const yearSelect=document.getElementById('expiryMonthChartYear');
-  const yearsKey=years.join(',');
-  if(yearSelect.dataset.years!==yearsKey){
-    yearSelect.replaceChildren();
-    for(const year of years)yearSelect.add(new Option(year,year));
-    yearSelect.dataset.years=yearsKey;
-  }
-  yearSelect.value=expiryChartYear;
-  document.getElementById('expiryMonthChartMonth').value=
-    expiryChartMonth===0?'all':String(expiryChartMonth);
-  const months=Array(12).fill(0);
-  for(const row of rows){
-    const due=row.doc.expiry?.dueDate;
-    if(!due||due.slice(0,4)!==expiryChartYear)continue;
-    const month=Number(due.slice(5,7));
-    if(month>=1&&month<=12)months[month-1]++;
-  }
-  const monthNames=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  yearSelect.value=year;
   const chart=document.getElementById('expiryMonthChartSurface');
   const legend=document.getElementById('expiryMonthChartLegend');
-  renderCargoLineChart(chart,legend,monthNames,[{
-    label:'Vencimientos '+expiryChartYear,
-    color:'#c52540',values:months,width:3.4
+  renderCargoLineChart(chart,legend,labels,[{
+    label:'Cargos '+year+' · vencen por mes',
+    color:'#c52540',values,width:3.4
   }],{
     width:Math.max(760,Math.min(1160,Math.round(chart.getBoundingClientRect().width||930))),
-    height:326,fontSize:11,compactLayout:true,
-    showLabels:'positive',
-    highlightIndex:expiryChartMonth>0?expiryChartMonth-1:null,
-    onPointSelect:month=>{
-      expiryChartMonth=month;
-      expiryWorkspaceView='all';
-      expiryWorkspacePage=0;
+    height:326,fontSize:11,compactLayout:true,showLabels:'positive',
+    highlightIndex:expiryChartMonth==='all'?null:monthKeys.indexOf(expiryChartMonth),
+    onPointSelect:index=>{
+      expiryChartMonth=monthKeys[index-1];
+      expiryWorkspaceView='all';expiryWorkspacePage=0;
       renderDocumentExpiryWorkspace();
     }
   });
-  const yearTotal=months.reduce((sum,n)=>sum+n,0);
-  const shown=selectedRows.length;
-  const selectedDescription=expiryChartMonth
-    ? monthNames[expiryChartMonth-1]+' '+expiryChartYear
-    :'Enero–diciembre '+expiryChartYear;
-  const summary=document.getElementById('expiryMonthChartSummary');
-  summary.textContent=selectedDescription+' · '+fmtNum(shown)+
-    ' cargos en las tarjetas y el listado'+
-    (expiryChartMonth===0?' · Total de la gráfica: '+fmtNum(yearTotal):'');
+  const plotted=values.reduce((sum,n)=>sum+n,0);
+  const unknown=originRows.length-plotted;
+  const lastDisplayed=monthKeys.at(-1);
+  const monthText=expiryChartMonth==='all'
+    ?'Cargos de '+year+' · '+names[startMonth-1]+' '+startYear+
+      '–'+names[Number(lastDisplayed.slice(5,7))-1]+' '+lastDisplayed.slice(0,4)
+    :names[Number(expiryChartMonth.slice(5,7))-1]+' '+
+      expiryChartMonth.slice(0,4)+' · cargos de '+year;
+  document.getElementById('expiryMonthChartSummary').textContent=
+    monthText+' · '+fmtNum(selectedRows.length)+' cargos en tarjetas y listado'+
+    (expiryChartMonth==='all' && unknown
+      ?' · '+fmtNum(unknown)+' sin fecha válida (fuera de la gráfica)':'');
 }
 document.getElementById('expiryMonthChartYear').addEventListener('change',event=>{
   expiryChartYear=event.target.value;
-  expiryChartMonth=0;
-  expiryWorkspaceView='all';
-  expiryWorkspacePage=0;
+  expiryChartMonth='all';
+  expiryWorkspaceView='all';expiryWorkspacePage=0;
   renderDocumentExpiryWorkspace();
 });
 document.getElementById('expiryMonthChartMonth').addEventListener('change',event=>{
-  expiryChartMonth=event.target.value==='all'?0:Number(event.target.value);
-  expiryWorkspaceView='all';
-  expiryWorkspacePage=0;
+  expiryChartMonth=event.target.value;
+  expiryWorkspaceView='all';expiryWorkspacePage=0;
   renderDocumentExpiryWorkspace();
 });
 
@@ -1774,35 +1780,21 @@ function renderDocumentExpiryWorkspace() {
   const root=document.getElementById('documentExpiryWorkspace');
   if(!root)return;
   const allRows=documentExpiryRows();
-  const year=document.getElementById('docExpiryYear').value;
   const query=document.getElementById('docExpirySearch').value.trim().toLowerCase();
-  // Todos los KPI se recalculan según Año y búsqueda; los botones de
-  // situación solamente determinan qué filas se muestran en la tabla.
-  const originScoped=allRows.filter(row=>{
-    if(year && row.year!==year)return false;
+  // Único filtro de año: año ORIGINAL del cargo, no el de su fecha límite.
+  const originRows=allRows.filter(row=>{
+    if(row.year!==expiryChartYear)return false;
     if(!query)return true;
-    const cargo=String(row.cargo).toLowerCase();
-    const kardex=String(row.doc.kardex||'').toLowerCase();
-    return cargo.includes(query) || kardex.includes(query);
+    return String(row.cargo).toLowerCase().includes(query) ||
+      String(row.doc.kardex||'').toLowerCase().includes(query);
   });
-  const availableYears=[...new Set(originScoped.map(row=>
-    row.doc.expiry?.dueDate?.slice(0,4)).filter(value=>/^\d{4}$/.test(value)))].sort();
-  const currentYear=expiryGroups.today.slice(0,4);
-  // A diferencia de la versión con múltiples líneas, se consulta UN año.
-  // El mes seleccionado aplica a KPI y tabla; la línea sigue mostrando
-  // los doce meses para que sea posible comparar y elegir otro mes.
-  if(!expiryChartYear || ![...availableYears,currentYear].includes(expiryChartYear)){
-    expiryChartYear=currentYear;
-    expiryChartMonth=0;
-  }
-  const scoped=originScoped.filter(row=>{
-    const due=row.doc.expiry?.dueDate;
-    return due && due.slice(0,4)===expiryChartYear
-      && (expiryChartMonth===0 || Number(due.slice(5,7))===expiryChartMonth);
-  });
+  // El selector del mes usa YYYY-MM para no mezclar, por ejemplo,
+  // abril de 2026 con abril de 2027.
+  const scoped=originRows.filter(row=>expiryChartMonth==='all' ||
+    row.doc.expiry?.dueDate?.slice(0,7)===expiryChartMonth);
   const counts={valid:0,soon:0,overdue:0,unknown:0};
   scoped.forEach(row=>{counts[row.category]++});
-  renderMonthlyExpiryChart(originScoped,scoped,availableYears);
+  renderMonthlyExpiryChart(originRows,scoped);
   for(const key of Object.keys(counts)){
     const id={valid:'docExpiryValidCount',soon:'docExpirySoonCount',
       overdue:'docExpiryOverdueCount',unknown:'docExpiryUnknownCount'}[key];
@@ -1875,17 +1867,13 @@ expiryWorkspaceElement.addEventListener('click',event=>{
     document.getElementById('grp-existencias').scrollIntoView({block:'start'});
   }
 });
-document.getElementById('docExpiryYear').addEventListener('change',()=>{
-  expiryWorkspacePage=0;renderDocumentExpiryWorkspace();
-});
 document.getElementById('docExpirySearch').addEventListener('input',()=>{
   expiryWorkspacePage=0;renderDocumentExpiryWorkspace();
 });
 document.getElementById('docExpiryReset').addEventListener('click',()=>{
   expiryWorkspaceView='all';expiryWorkspacePage=0;
-  expiryChartYear=expiryGroups.today.slice(0,4);
-  expiryChartMonth=0;
-  document.getElementById('docExpiryYear').value='';
+  expiryChartYear='2026';
+  expiryChartMonth='all';
   document.getElementById('docExpirySearch').value='';
   renderDocumentExpiryWorkspace();
 });
