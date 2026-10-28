@@ -90,6 +90,7 @@ class ZipStreamWriter {
     const nameBytes=encoder.encode(name),offset=this.offset;
     const local=new Uint8Array(30+nameBytes.length),h=new DataView(local.buffer);
     dword(h,0,0x04034b50);word(h,4,20);word(h,6,0x808);word(h,8,8);
+    word(h,26,nameBytes.length);
     local.set(nameBytes,30);this.push(local);
     let compressed=0,uncompressed=0,crc=0xFFFFFFFF;
     const compressor=new CompressionStream('deflate-raw');
