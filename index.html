@@ -3316,21 +3316,15 @@
             <div>
               <span class="doc-expiry-overline">EVOLUCIÓN DOCUMENTAL · CD SANTA ANITA</span>
               <h3 id="expiryMonthChartTitle">Vencimientos por mes</h3>
-              <p>Elige un mes o pulsa un punto de la gráfica para actualizar los indicadores y el listado.</p>
+              <p>Selecciona el año de origen y el mes de su fecha límite; las tarjetas y el listado se actualizan juntos.</p>
             </div>
             <div class="expiry-month-chart-selectors">
-              <label for="expiryMonthChartYear">Año de vencimiento
-                <select id="expiryMonthChartYear" aria-label="Año de vencimiento seleccionado"></select>
+              <label for="expiryMonthChartYear">Año del cargo
+                <select id="expiryMonthChartYear" aria-label="Año de origen del cargo"><option value="2026">2026</option><option value="2025">2025</option></select>
               </label>
               <label for="expiryMonthChartMonth">Mes de vencimiento
-                <select id="expiryMonthChartMonth" aria-label="Mes de vencimiento seleccionado">
+                <select id="expiryMonthChartMonth" aria-label="Mes y año de vencimiento">
                   <option value="all">Todos los meses</option>
-                  <option value="1">Enero</option><option value="2">Febrero</option>
-                  <option value="3">Marzo</option><option value="4">Abril</option>
-                  <option value="5">Mayo</option><option value="6">Junio</option>
-                  <option value="7">Julio</option><option value="8">Agosto</option>
-                  <option value="9">Septiembre</option><option value="10">Octubre</option>
-                  <option value="11">Noviembre</option><option value="12">Diciembre</option>
                 </select>
               </label>
             </div>
@@ -3340,7 +3334,7 @@
             <div id="expiryMonthChartLegend" class="expiry-month-chart-legend"></div>
             <p id="expiryMonthChartSummary" class="expiry-month-chart-summary" aria-live="polite">Calculando vencimientos mensuales…</p>
           </div>
-          <p class="expiry-month-chart-method">La gráfica muestra <strong>una sola línea</strong> del año seleccionado. Cada punto indica cuántos cargos pendientes cumplen seis meses en ese mes. Las tarjetas y el listado corresponden al mismo año y mes de vencimiento; los cargos sin fecha válida no se asignan a ningún mes.</p>
+          <p class="expiry-month-chart-method">Selecciona el <strong>año del cargo</strong> (2025 o 2026). La línea muestra los meses reales en que esos cargos cumplen seis meses, incluso si la fecha límite cae en el año siguiente. Al elegir un mes, las tarjetas y el listado muestran esos mismos cargos. Los cargos sin fecha válida solo se incluyen en «Todos los meses».</p>
         </section>
         <div class="doc-expiry-panel">
           <div class="doc-expiry-panel-top">
@@ -3360,9 +3354,6 @@
               <button type="button" data-expiry-view="unknown" aria-pressed="false">Sin fecha válida</button>
             </div>
             <div class="doc-expiry-filter-fields">
-              <label for="docExpiryYear">Año de origen del cargo
-                <select id="docExpiryYear"><option value="">2025 y 2026</option><option value="2026">2026</option><option value="2025">2025</option></select>
-              </label>
               <label for="docExpirySearch">Buscar cargo o Kardex
                 <input id="docExpirySearch" type="search" placeholder="N.º de cargo o Kardex" autocomplete="off">
               </label>
