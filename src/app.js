@@ -1451,8 +1451,10 @@ function renderCargoExpiry() {
 }
 // HISTÓRICO DOCUMENTAL · Consulta por año, sin inventar ubicaciones.
 // Los documentos pueden proceder del archivo histórico y de la hoja viva.
-// Se muestra un cargo una sola vez por año; prevalece el registro vivo
-// cuando existen múltiples entradas del mismo cargo.
+// La unidad histórica es el registro Kardex/cargo. Dos Kardex distintos
+// pueden tener el mismo código de cargo (p. ej. 0028 y 28 en 2024):
+// se conservan ambos y no se borran registros de origen.
+// Para un mismo Kardex y cargo se privilegia el dato sincronizado.
 function historicalRows() {
   const selected=new Map();
   const reqNumbers=new Map(reqs.map(req=>[req.id,req.numero]));
@@ -1470,7 +1472,7 @@ function historicalRows() {
       const cargo=String(rawCargo??'').trim();
       const canonical=cargo.replace(/\.0+$/,'').replace(/^0+(?=\d)/,'');
       if(!canonical)continue;
-      const key=year+'|'+canonical;
+      const key=year+'|'+String(doc.id||doc.kardex||'')+'|'+canonical;
       const record={year,cargo,canonical,doc,estado,sent,box,rank};
       const previous=selected.get(key);
       if(!previous || record.rank>previous.rank ||
