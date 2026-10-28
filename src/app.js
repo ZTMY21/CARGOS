@@ -1467,8 +1467,19 @@ function renderDocumentExpiryWorkspace() {
   const root=document.getElementById('documentExpiryWorkspace');
   if(!root)return;
   const allRows=documentExpiryRows();
+  const year=document.getElementById('docExpiryYear').value;
+  const query=document.getElementById('docExpirySearch').value.trim().toLowerCase();
+  // Todos los KPI se recalculan según Año y búsqueda; los botones de
+  // situación solamente determinan qué filas se muestran en la tabla.
+  const scoped=allRows.filter(row=>{
+    if(year && row.year!==year)return false;
+    if(!query)return true;
+    const cargo=String(row.cargo).toLowerCase();
+    const kardex=String(row.doc.kardex||'').toLowerCase();
+    return cargo.includes(query) || kardex.includes(query);
+  });
   const counts={valid:0,soon:0,overdue:0,unknown:0};
-  allRows.forEach(row=>{counts[row.category]++});
+  scoped.forEach(row=>{counts[row.category]++});
   for(const key of Object.keys(counts)){
     const id={valid:'docExpiryValidCount',soon:'docExpirySoonCount',
       overdue:'docExpiryOverdueCount',unknown:'docExpiryUnknownCount'}[key];
@@ -1479,16 +1490,9 @@ function renderDocumentExpiryWorkspace() {
   for(const button of root.querySelectorAll('[data-expiry-view]')){
     button.setAttribute('aria-pressed',String(button.dataset.expiryView===expiryWorkspaceView));
   }
-  const year=document.getElementById('docExpiryYear').value;
-  const query=document.getElementById('docExpirySearch').value.trim().toLowerCase();
-  const filtered=allRows.filter(row=>{
-    if(expiryWorkspaceView!=='all' && row.category!==expiryWorkspaceView)return false;
-    if(year && row.year!==year)return false;
-    if(!query)return true;
-    const cargo=String(row.cargo).toLowerCase();
-    const kardex=String(row.doc.kardex||'').toLowerCase();
-    return cargo.includes(query) || kardex.includes(query);
-  });
+  const filtered=scoped.filter(row=>
+    expiryWorkspaceView==='all' || row.category===expiryWorkspaceView
+  );
   const totalPages=Math.max(1,Math.ceil(filtered.length/EXPIRY_WORKSPACE_PAGE_SIZE));
   expiryWorkspacePage=Math.max(0,Math.min(expiryWorkspacePage,totalPages-1));
   const start=expiryWorkspacePage*EXPIRY_WORKSPACE_PAGE_SIZE;
