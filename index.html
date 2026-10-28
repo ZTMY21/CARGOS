@@ -1854,6 +1854,133 @@
   #appShell .executive-account .session-profile-email{max-width:85px}
   #appShell .executive-context-role{display:none}
 }
+
+/* PREVIEW · KPI con mayor presencia: tipografía dominante, menos texto y acentos FAPE. */
+#appShell.has-sidebar .created-dashboard-stats{
+  gap:14px;
+  margin-bottom:21px;
+}
+#appShell.has-sidebar .created-dashboard-stats .created-stat{
+  --kpi-accent:#c51e3a;
+  --kpi-tint:#fff5f6;
+  min-height:142px;
+  padding:18px 18px 16px;
+  gap:12px;
+  border:1px solid #dce5ec;
+  border-top:4px solid var(--kpi-accent);
+  border-radius:13px;
+  background:linear-gradient(152deg,#fff 55%,var(--kpi-tint) 160%);
+  box-shadow:0 5px 16px rgba(23,42,61,.065);
+  justify-content:space-between;
+}
+#appShell.has-sidebar .created-dashboard-stats .created-stat:nth-child(2){
+  --kpi-accent:#274761;
+  --kpi-tint:#f0f5f9;
+}
+#appShell.has-sidebar .created-dashboard-stats .created-stat:nth-child(3){
+  --kpi-accent:#16875b;
+  --kpi-tint:#eff9f4;
+}
+#appShell.has-sidebar .created-dashboard-stats .created-stat:nth-child(4){
+  --kpi-accent:#c3841f;
+  --kpi-tint:#fff9ee;
+}
+#appShell.has-sidebar .created-dashboard-stats .created-stat small{
+  display:block;
+  font-size:11px;
+  font-weight:850;
+  letter-spacing:.025em;
+  line-height:1.4;
+  color:#36516a;
+}
+#appShell.has-sidebar .created-dashboard-stats .created-stat strong{
+  display:block;
+  font-size:clamp(32px,2.65vw,43px);
+  font-weight:900;
+  letter-spacing:-.035em;
+  line-height:1.07;
+  font-variant-numeric:tabular-nums;
+  color:var(--kpi-accent);
+  margin-top:auto;
+}
+#appShell.has-sidebar .created-dashboard-stats .created-stat:nth-child(3) strong{
+  color:#bf2740;
+}
+#appShell.has-sidebar .created-dashboard-stats .created-stat:nth-child(3)[data-trend="up"] strong{
+  color:#188458;
+}
+#appShell.has-sidebar .created-dashboard-stats .created-stat:nth-child(3)[data-trend="flat"] strong,
+#appShell.has-sidebar .created-dashboard-stats .created-stat:nth-child(3)[data-trend="unavailable"] strong{
+  color:#64798b;
+}
+/* Los filtros ya identifican el mes y año: no duplicarlos bajo el número. */
+#appShell.has-sidebar .created-dashboard-stats .created-stat:not(:nth-child(3))>span{
+  display:none!important;
+}
+#appShell.has-sidebar .created-dashboard-stats .created-stat:nth-child(3)>span{
+  display:inline-flex;
+  align-self:flex-start;
+  margin:0;
+  padding:4px 9px;
+  background:#fff0f2;
+  color:#af2a40;
+  border-radius:6px;
+  font-size:11px;
+  font-weight:750;
+  line-height:1.25;
+}
+#appShell.has-sidebar .created-dashboard-stats .created-stat:nth-child(3)[data-trend="up"]>span{
+  background:#e9f6ef;color:#16734d;
+}
+#appShell.has-sidebar .created-dashboard-stats .created-stat:nth-child(3)[data-trend="flat"]>span,
+#appShell.has-sidebar .created-dashboard-stats .created-stat:nth-child(3)[data-trend="unavailable"]>span{
+  background:#eef2f6;color:#62778a;
+}
+/* En la comparación una sola tarjeta no debe estirarse ni perder presencia. */
+#appShell.has-sidebar .created-comparison-card-grid{
+  gap:14px;
+}
+#appShell.has-sidebar .created-comparison-card-grid .created-comparison-card{
+  min-height:142px;
+  padding:17px 18px 16px;
+  border:1px solid #dce5ec;
+  border-top:4px solid var(--comparison-color);
+  border-radius:13px;
+  background:#fff;
+  box-shadow:0 5px 16px rgba(23,42,61,.065);
+  gap:11px;
+  justify-content:space-between;
+}
+#appShell.has-sidebar .created-comparison-card-grid .created-comparison-year{
+  color:#36516a;font-size:12px;font-weight:850;
+}
+#appShell.has-sidebar .created-comparison-card-grid .created-comparison-number{
+  font-size:clamp(32px,2.65vw,43px);
+  font-weight:900;
+  letter-spacing:-.035em;
+  line-height:1.07;
+  margin-top:auto;
+}
+#appShell.has-sidebar .created-comparison-card-grid .created-comparison-label{
+  display:none;
+}
+@media(max-width:1100px){
+  #appShell.has-sidebar .created-dashboard-stats .created-stat,
+  #appShell.has-sidebar .created-comparison-card-grid .created-comparison-card{
+    min-height:127px;
+  }
+}
+@media(max-width:570px){
+  #appShell.has-sidebar .created-dashboard-stats,
+  #appShell.has-sidebar .created-comparison-card-grid{gap:9px}
+  #appShell.has-sidebar .created-dashboard-stats .created-stat,
+  #appShell.has-sidebar .created-comparison-card-grid .created-comparison-card{
+    min-height:122px;padding:13px 11px;
+  }
+  #appShell.has-sidebar .created-dashboard-stats .created-stat small{font-size:10px}
+  #appShell.has-sidebar .created-dashboard-stats .created-stat strong,
+  #appShell.has-sidebar .created-comparison-card-grid .created-comparison-number{font-size:clamp(25px,6vw,34px)}
+}
 </style>
 </head>
 <body>
