@@ -119,7 +119,12 @@ async function* annualXml(xml,year,docSource,progress){
   for await(const chunk of flushCargo())yield chunk;
   if(buffer)yield encoder.encode(buffer);
   progress?.(year,rowIndex-2);
-  yield encoder.encode(template.after);
+  // El detalle real puede tener más filas que el conteo inicial, sobre todo
+  // en cargos nuevos de 2026. Mantener el autofiltro sobre todos los datos.
+  const lastRow=Math.max(2,rowIndex-1);
+  const footer=template.after.replace(/<autoFilter\b[^>]*\bref="[^"]*"[^>]*\/>/,
+    tag=>tag.replace(/\bref="[^"]*"/,'ref="A1:K'+lastRow+'"'));
+  yield encoder.encode(footer);
 }
 function word(view,offset,value){view.setUint16(offset,value,true);}
 function dword(view,offset,value){view.setUint32(offset,value>>>0,true);}
