@@ -107,6 +107,8 @@ let activeExpiryGroup = null, expiryPage = 0, expiryReturnButton = '';
 // Filtros independientes del nuevo módulo; no alteran las búsquedas generales.
 let expiryWorkspaceView='all', expiryWorkspacePage=0;
 const EXPIRY_WORKSPACE_PAGE_SIZE=15;
+let historySelectedYear='2026',historyPage=0;
+const HISTORY_PAGE_SIZE=15;
 let preparedImRows = [], preparedImFetchEpoch = 0;
 let preparedImSummary = null, preparedImSummaryEpoch = 0;
 let requestedIMRows = [], requestedIMData = [], requestedIMError = '', requestedIMFetchEpoch = 0;
@@ -257,10 +259,12 @@ function updateWorkspaceVisibility() {
   document.getElementById('appShell').dataset.module=activeWorkspaceTab;
   document.getElementById('documentExpiryWorkspace').hidden=
     !adminReady || activeWorkspaceTab!=='control';
+  document.getElementById('documentHistoryWorkspace').hidden=
+    !adminReady || activeWorkspaceTab!=='historicos';
   // Miga de navegación informativa; sin modificar la sección seleccionada.
   const breadcrumbs={
     resumen:'Dashboard General',control:'Control de vencimientos',
-    historicos:'Histórico de cargos',iron:'Iron Mountain',
+    historicos:'Histórico documental',iron:'Iron Mountain',
     requerimientos:'Requerimientos',existencias:'Existencias',
     sync:'Actividad y sincronización',reportes:'Reportes y descargas',
     solicitudes:'Usuarios y accesos'
@@ -1011,6 +1015,7 @@ function renderDocs(){
 
   expiryGroups = cargoExpiryGroups(docs, new Date());
   renderDocumentExpiryWorkspace();
+  renderHistoricalWorkspace();
   const grupoPorVencer = expiryGroups.upcoming;
   const grupoVencidos = expiryGroups.overdue;
   const cargosPorVencer = cargosDe(grupoPorVencer), foliosPorVencer = foliosDe(grupoPorVencer);
@@ -1444,6 +1449,135 @@ function renderCargoExpiry() {
   document.getElementById('btnExpiryPrevious').disabled = expiryPage === 0;
   document.getElementById('btnExpiryNext').disabled = expiryPage >= pages - 1;
 }
+// HISTÓRICO DOCUMENTAL · Consulta por año, sin inventar ubicaciones.
+// Los documentos pueden proceder del archivo histórico y de la hoja viva.
+// Se muestra un cargo una sola vez por año; prevalece el registro vivo
+// cuando existen múltiples entradas del mismo cargo.
+function historicalRows() {
+  const selected=new Map();
+  const reqNumbers=new Map(reqs.map(req=>[req.id,req.numero]));
+  for(const doc of docs){
+    const year=cargoYear(doc);
+    if(!/^(202[0-6])$/.test(year))continue;
+    const estado=computeDocEstado(doc).estado;
+    const live=!!doc.imLiveCodigoCaja;
+    const sent=estado==='Enviado a Iron Mountain';
+    const box=assignedBoxCode(doc,reqNumbers);
+    // La fuente viva tiene prioridad frente a duplicados históricos
+    // para no marcar como enviados cargos solicitados o preparados.
+    const rank=(live?10:0)+(sent?2:0)+(box?1:0);
+    for(const rawCargo of doc.cargos||[]){
+      const cargo=String(rawCargo??'').trim();
+      const canonical=cargo.replace(/\.0+$/,'').replace(/^0+(?=\d)/,'');
+      if(!canonical)continue;
+      const key=year+'|'+canonical;
+      const record={year,cargo,canonical,doc,estado,sent,box,rank};
+      const previous=selected.get(key);
+      if(!previous || record.rank>previous.rank ||
+        (record.rank===previous.rank &&
+         String(record.doc.updatedAt||'')>String(previous.doc.updatedAt||''))){
+        selected.set(key,record);
+      }
+    }
+  }
+  return [...selected.values()].sort((a,b)=>
+    Number(b.year)-Number(a.year)
+    ||String(a.doc.kardex||'').localeCompare(String(b.doc.kardex||''),'es',{numeric:true})
+    ||a.cargo.localeCompare(b.cargo,'es',{numeric:true})
+  );
+}
+function renderHistoricalWorkspace() {
+  const root=document.getElementById('documentHistoryWorkspace');
+  if(!root)return;
+  const allRows=historicalRows();
+  const years=['2026','2025','2024','2023','2022','2021','2020'];
+  const totals=new Map(years.map(y=>[y,0]));
+  for(const record of allRows)totals.set(record.year,(totals.get(record.year)||0)+1);
+  const cards=document.getElementById('historyYearButtons');
+  cards.innerHTML=years.map(year=>
+    '<button type="button" class="history-year-button" data-history-year="'+year+'" aria-pressed="'+
+    (year===historySelectedYear)+'"><span class="history-year-number">'+year+
+    '</span><strong>'+fmtNum(totals.get(year))+'</strong><small>cargos</small></button>'
+  ).join('');
+  const yearRows=allRows.filter(row=>row.year===historySelectedYear);
+  document.getElementById('historyAllCount').textContent=fmtNum(allRows.length);
+  document.getElementById('historySelectedYearLabel').textContent=historySelectedYear;
+  document.getElementById('historyYearCount').textContent=fmtNum(yearRows.length);
+  document.getElementById('historyDetailYear').textContent=historySelectedYear;
+  document.getElementById('historySentCount').textContent=fmtNum(yearRows.filter(r=>r.sent).length);
+  document.getElementById('historyPendingCount').textContent=fmtNum(yearRows.filter(r=>!r.sent).length);
+  const query=normalizeSearch(document.getElementById('historyQuery').value.trim());
+  const status=document.getElementById('historyStatusFilter').value;
+  const rows=yearRows.filter(row=>
+    (!query || normalizeSearch(row.cargo).includes(query)
+      || normalizeSearch(row.doc.kardex||'').includes(query))
+    &&(status==='all'||(status==='sent')===row.sent)
+  );
+  const pages=Math.max(1,Math.ceil(rows.length/HISTORY_PAGE_SIZE));
+  historyPage=Math.min(historyPage,pages-1);
+  const first=historyPage*HISTORY_PAGE_SIZE;
+  const visible=rows.slice(first,first+HISTORY_PAGE_SIZE);
+  document.getElementById('historyTableBody').innerHTML=visible.length?visible.map(row=>{
+    const {doc,cargo,box,sent}=row;
+    const originalDate=/^\d{4}-\d{2}-\d{2}$/.test(doc.fechaOrigen||'')?fmtDate(doc.fechaOrigen):'—';
+    const docType=String(doc.tipoDoc||'No registrado');
+    return '<tr><td class="history-cargo-id">'+escapeHtml(cargo)+'</td>'
+      +'<td>'+escapeHtml(String(doc.kardex||'—'))+'</td>'
+      +'<td>'+escapeHtml(originalDate)+'</td>'
+      +'<td>'+escapeHtml(docType)+'</td>'
+      +'<td>'+escapeHtml(box||'No registrada')+'</td>'
+      +'<td><span class="history-status'+(sent?' sent':'')+'">'+
+        (sent?'Enviado IM':'Pendiente IM')+'</span></td>'
+      +'<td><button type="button" class="history-open" data-history-cargo="'+
+        escapeHtml(cargo)+'">Ver cargo</button></td></tr>';
+  }).join(''):'<tr><td colspan="7" class="history-empty">No se encontraron cargos para la consulta seleccionada.</td></tr>';
+  document.getElementById('historyListCount').textContent=rows.length
+    ? 'Mostrando '+fmtNum(first+1)+'–'+fmtNum(first+visible.length)+' de '+fmtNum(rows.length)+' cargos'
+    : '0 cargos encontrados';
+  document.getElementById('historyPageLabel').textContent='Página '+(historyPage+1)+' de '+pages;
+  document.getElementById('historyPreviousPage').disabled=historyPage===0;
+  document.getElementById('historyNextPage').disabled=historyPage>=pages-1;
+}
+const historyRoot=document.getElementById('documentHistoryWorkspace');
+historyRoot.addEventListener('click',event=>{
+  const yearButton=event.target.closest('button[data-history-year]');
+  if(yearButton){
+    historySelectedYear=yearButton.dataset.historyYear;
+    historyPage=0;
+    document.getElementById('historyQuery').value='';
+    document.getElementById('historyStatusFilter').value='all';
+    renderHistoricalWorkspace();
+    return;
+  }
+  const cargoButton=event.target.closest('button[data-history-cargo]');
+  if(cargoButton){
+    const cargo=cargoButton.dataset.historyCargo;
+    selectWorkspaceTab('existencias');
+    document.getElementById('btnLimpiarFiltros').click();
+    document.getElementById('filtroTipo').value='solo-cargos';
+    document.getElementById('buscar').value=cargo;
+    searchNow();
+    document.getElementById('grp-existencias').scrollIntoView({block:'start'});
+  }
+});
+document.getElementById('historyQuery').addEventListener('input',()=>{
+  historyPage=0;renderHistoricalWorkspace();
+});
+document.getElementById('historyStatusFilter').addEventListener('change',()=>{
+  historyPage=0;renderHistoricalWorkspace();
+});
+document.getElementById('historyClearFilters').addEventListener('click',()=>{
+  document.getElementById('historyQuery').value='';
+  document.getElementById('historyStatusFilter').value='all';
+  historyPage=0;renderHistoricalWorkspace();
+});
+document.getElementById('historyPreviousPage').addEventListener('click',()=>{
+  historyPage=Math.max(0,historyPage-1);renderHistoricalWorkspace();
+});
+document.getElementById('historyNextPage').addEventListener('click',()=>{
+  historyPage++;renderHistoricalWorkspace();
+});
+
 // Vista unificada de vencimientos. Usa la misma fuente del detalle heredado;
 // 30 días es un subconjunto de los cargos que aún NO han superado 6 meses.
 function documentExpiryRows() {
