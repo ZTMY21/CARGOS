@@ -21,16 +21,16 @@ function xmlEscape(v){
     .replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;')
     .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g,'');
 }
-function rowXml(row,index){
+function rowXml(row,index,styleId){
   let html='<row r="'+index+'">';
   for(let c=0;c<FIELDS.length;c++){
     const value=row[FIELDS[c]];
     if(value===undefined||value===null||value==='')continue;
     const cell=LETTERS[c]+index;
     if(c===6 && Number.isFinite(Number(value)) && String(value).trim()!==''){
-      html+='<c r="'+cell+'" s="1"><v>'+Number(value)+'</v></c>';
+      html+='<c r="'+cell+'" s="'+styleId+'"><v>'+Number(value)+'</v></c>';
     }else{
-      html+='<c r="'+cell+'" s="1" t="inlineStr"><is><t xml:space="preserve">'
+      html+='<c r="'+cell+'" s="'+styleId+'" t="inlineStr"><is><t xml:space="preserve">'
         +xmlEscape(value)+'</t></is></c>';
     }
   }
@@ -52,7 +52,9 @@ function annualTemplate(xml){
   if(!row)throw new Error('No se encontraron los encabezados del listado original.');
   const before=xml.slice(0,p).replace(/<dimension\b[^>]*\/>/,'');
   const after=xml.slice(e+close.length);
-  return {before:before+open+row[0],after:close+after};
+  const row2=xml.slice(p+open.length,e).match(/<row\b[^>]*\br="2"[^>]*>[\s\S]*?<\/row>/)?.[0]||'';
+  const styleId=Number(row2.match(/<c\b[^>]*\bs="(\d+)"/)?.[1]||0);
+  return {before:before+open+row[0],after:close+after,styleId};
 }
 async function* annualXml(xml,year,docSource,progress){
   const template=annualTemplate(xml);
@@ -63,7 +65,7 @@ async function* annualXml(xml,year,docSource,progress){
     const rows=original.length?original:fallbackRows(doc);
     for(const row of rows){
       if(rowIndex>1048576)throw new Error('El detalle de '+year+' supera el máximo de filas de Excel.');
-      buffer+=rowXml(row,rowIndex++);
+      buffer+=rowXml(row,rowIndex++,template.styleId);
       if(buffer.length>131072){
         yield encoder.encode(buffer);
         buffer='';
@@ -147,11 +149,19 @@ export async function serializeOriginalAnnualReport(workbook,getSource,progress)
   for(const [name,file] of Object.entries(template.files)){
     if(file.dir)continue;
     const data=await file.async('uint8array');
+    // Enlaces internos de Excel: sin relación externa; vuelven a funcionar
+    // desde Resumen y desde los detalles originales de cualquier año.
+    const isSheet=/^xl\/worksheets\/sheet\d+\.xml$/.test(name);
+    const isSheetRel=/^xl\/worksheets\/_rels\/sheet\d+\.xml\.rels$/.test(name);
+    let sourceXml=(isSheet||isSheetRel)?new TextDecoder().decode(data):'';
+    if(isSheet)sourceXml=sourceXml.replace(/<hyperlink\b[^>]*\blocation="#[^"]*"[^>]*\/>/g,tag=>
+      tag.replace(/\s+r:id="[^"]*"/,'').replace(/\blocation="#/,'location="'));
+    if(isSheetRel)sourceXml=sourceXml.replace(/<Relationship\b(?=[^>]*\bTarget="#)[^>]*\/>/g,'');
     if(annualFiles.has(name)){
       const year=annualFiles.get(name);
-      await output.add(name,annualXml(new TextDecoder().decode(data),year,source,progress));
+      await output.add(name,annualXml(sourceXml,year,source,progress));
     }else{
-      await output.add(name,binarySource(data));
+      await output.add(name,binarySource(isSheet||isSheetRel?encoder.encode(sourceXml):data));
     }
   }
   return output.finish();
