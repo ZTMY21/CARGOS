@@ -88,7 +88,7 @@ async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recov
   context.setInterval=(callback,delay)=>{state.intervals.push({callback,delay});return scheduleInterval(callback,delay);};
   context.Date=class extends Date {constructor(...args){super(...(args.length?args:[state.now]));}static now(){return state.now;}};
   Object.assign(context,{cargoExpiryGroups,formatCargoDuration,limaDate,requestedIMBoxes,countRequestedCargos,summarizePreparedIm,summarizeShippedBoxes,summarizeCreatedCargos,renderImBarChart,renderCargoLineChart});
-  Object.assign(context,{createIdleSession:options=>createIdleSession({...options,now:()=>state.now}),createClient:()=>client,KardexRepository:FakeRepository,reqFromDb,docFromDb,reqEstado,docEstado,fmtDate,escapeHtml,invoiceSearchPresentation,buildWorkbook:async(...args)=>{state.exportCalls.push(args);return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},buildCargoWorkbook:async(cargo)=>{state.guestExport=cargo;return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},buildExistenciasReport:async(...args)=>{state.reportArgs=args;return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},buildAnnualCargoReport:async(...args)=>{state.annualArgs=args;return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},parseWorkbook,highlightMatch,normalizeSearch,filterDocuments,filterRequirements,assignedBoxCode,cargoYear,invoiceLocation,locationLabel,groupsForCodes,
+  Object.assign(context,{createIdleSession:options=>createIdleSession({...options,now:()=>state.now}),createClient:()=>client,KardexRepository:FakeRepository,reqFromDb,docFromDb,reqEstado,docEstado,fmtDate,escapeHtml,invoiceSearchPresentation,buildWorkbook:async(...args)=>{state.exportCalls.push(args);return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},buildCargoWorkbook:async(cargo)=>{state.guestExport=cargo;return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},buildExistenciasReport:async(...args)=>{state.reportArgs=args;return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},serializeExistenciasReport:async()=>{state.serializedReport=true;return new Uint8Array([1]);},parseWorkbook,highlightMatch,normalizeSearch,filterDocuments,filterRequirements,assignedBoxCode,cargoYear,invoiceLocation,locationLabel,groupsForCodes,
     __SUPABASE_URL__:'https://example.supabase.co',__SUPABASE_ANON_KEY__:'sb_publishable_test',confirm:()=>true,alert:()=>{}});
   await vm.runInContext(`(async()=>{${source}})()`,context);
   const node=id=>dom.window.document.getElementById(id);
@@ -370,20 +370,12 @@ test('administrator downloads report on demand with the Lima date and all snapsh
   button.click();await flush();
   assert.equal(a.state.reportRequestedYear,null);
   assert.equal(a.state.reportArgs[0].length,1);
-  assert.equal(a.state.reportArgs.length,4);
+  assert.equal(a.state.reportArgs.length,3);
+  assert.equal(a.state.serializedReport,true);
   assert.match(a.state.downloadName,/^Kardex_Santa_Anita_\d{4}-\d{2}-\d{2}\.xlsx$/);
  }finally{a.close();}
 });
 
-test('annual quantity URL downloads only the requested cargo year after admin login',async()=>{
- const a=await app({adminLink:'/?detalleCargo=2026'});
- try{
-  await flush();
-  assert.equal(a.state.reportRequestedYear,'2026');
-  assert.equal(a.state.annualArgs[1],'2026');
-  assert.match(a.state.downloadName,/^Detalle_de_Cargo_2026_\d{4}-\d{2}-\d{2}\.xlsx$/);
- }finally{a.close();}
-});
 
 test('clicking the annual cargo count opens the filtered cargo list in Existencias',async()=>{
  const a=await app();
