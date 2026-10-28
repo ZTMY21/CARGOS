@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { computeReqEstado as reqEstado, computeDocEstado as docEstado, fmtDate, escapeHtml, limaDate } from './rules.js';
 import { KardexRepository, reqFromDb, docFromDb } from './repository.js';
-import { buildCargoWorkbook, parseWorkbook } from './excel-api.js';
+import { buildCargoWorkbook, buildExistenciasReport, parseWorkbook } from './excel-api.js';
 import { highlightMatch, normalizeSearch, filterDocuments, filterRequirements, invoiceSearchPresentation, assignedBoxCode } from './search.js';
 import './connection.css';
 import { createIdleSession } from './idle-session.js';
@@ -271,7 +271,7 @@ workspaceNav.addEventListener('keydown',event=>{
 });
 function setAvailability() {
   if (!appReady || !isAdmin) { closeCargoExpiry(); closePreparedIm(); closeRequestedIM(); }
-  document.getElementById('btnExportar').hidden=true;
+  document.getElementById('btnExportar').hidden=!isAdmin;
   document.getElementById('appShell').classList.toggle('read-only', !isAdmin);
   ['googleSyncPanel','btnImportar','btnReset'].forEach(id=>document.getElementById(id).hidden=!isAdmin);
   updateWorkspaceVisibility();
@@ -286,7 +286,7 @@ function setAvailability() {
     : 'Consulta, búsqueda y exportación de documentos';
 
   document.querySelectorAll('.group button').forEach(b => b.disabled = !appReady || mutationBusy);
-  ['btnReset','btnImportar','btnGuardar','btnGuardarReq'].forEach(id => document.getElementById(id).disabled = !appReady || !isAdmin || mutationBusy || isPreview);
+  ['btnExportar','btnReset','btnImportar','btnGuardar','btnGuardarReq'].forEach(id => document.getElementById(id).disabled = !appReady || !isAdmin || mutationBusy || (isPreview && id!=='btnExportar'));
   const total=queryResults?.total??lastFiltered.length;
   document.getElementById('btnPaginaAnterior').disabled=!appReady||mutationBusy||currentPage===0;
   document.getElementById('btnPaginaSiguiente').disabled=!appReady||mutationBusy||total<=(currentPage+1)*PAGE_SIZE;
@@ -880,7 +880,9 @@ function renderDocs(){
   const porPeriodoHtml = aniosOrdenados.length
     ? aniosOrdenados.map(a=>`<div class="periodo-fila ${a==='2026'?'year-current':''}">
          <span class="year-label">${escapeHtml(a)}</span>
-         <span class="year-value">${fmtNum(cargosPorAnio.get(a))} <span class="year-unit">cargos</span></span>
+         ${/^202[1-6]$/.test(a)
+           ? `<button type="button" class="year-value cargo-year-button" data-cargo-year="${a}" aria-label="Ver ${fmtNum(cargosPorAnio.get(a))} cargos de ${a}">${fmtNum(cargosPorAnio.get(a))} <span class="year-unit">cargos</span></button>`
+           : `<span class="year-value">${fmtNum(cargosPorAnio.get(a))} <span class="year-unit">cargos</span></span>`}
        </div>`).join('')
     : '<div class="year-empty">Sin cargos registrados</div>';
 
@@ -942,6 +944,20 @@ function renderDocs(){
       <div class="year-grid" id="imYearSummaryGrid" aria-live="polite">${enviadosPorAnioHtml}</div>
     </section>
   `;
+  document.getElementById('yearSummaryGrid').addEventListener('click',event=>{
+    const button=event.target.closest('button[data-cargo-year]');
+    if(!button || !appReady || !isAdmin)return;
+    document.getElementById('buscar').value='';
+    for(const id of ['filtroEstado','filtroUbicacion','filtroFactura'])document.getElementById(id).value='';
+    document.getElementById('filtroTipo').value='solo-cargos';
+    const yearSelect=document.getElementById('filtroAnio');
+    const originYear=`origen:${button.dataset.cargoYear}`;
+    yearSelect.value=[...yearSelect.options].some(option=>option.value===originYear)
+      ? originYear : button.dataset.cargoYear;
+    selectWorkspaceTab('existencias',true);
+    searchNow();
+    document.getElementById('grp-existencias').scrollIntoView({behavior:'smooth',block:'start'});
+  });
   renderMonthlyCargoStats();
   if (activeExpiryGroup) renderCargoExpiry();
 
@@ -1481,6 +1497,25 @@ async function exportCargo(id,button) {
   }catch(error){alert(`No se pudo exportar el cargo: ${readableError(error)}`);}
   finally{button.disabled=false;}
 }
+function downloadExcel(wb,name) {
+  return wb.xlsx.writeBuffer().then(buffer=>{
+    const url=URL.createObjectURL(new Blob([buffer],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
+    const a=document.createElement('a');a.href=url;a.download=name;
+    document.body.appendChild(a);a.click();a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),1000);
+  });
+}
+document.getElementById('btnExportar').addEventListener('click',async event=>{
+  if(!isAdmin || !appReady)return;
+  const button=event.currentTarget,label=button.textContent;
+  button.disabled=true;button.textContent='Preparando reporte…';
+  try {
+    const source=await repository.reportDocs(docs);
+    const wb=buildExistenciasReport(source,new Date());
+    await downloadExcel(wb,`Kardex_Santa_Anita_${limaDate()}.xlsx`);
+  } catch(error) { alert(`No se pudo exportar el reporte: ${readableError(error)}`); }
+  finally { button.textContent=label;button.disabled=false; }
+});
 document.getElementById('btnImportar').addEventListener('click', ()=>document.getElementById('fileImportar').click());
 document.getElementById('fileImportar').addEventListener('change', async ev => {
   const input = ev.target, file = input.files[0];

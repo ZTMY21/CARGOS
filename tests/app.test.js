@@ -51,6 +51,7 @@ async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recov
       signOut:async()=>{state.session=null;state.authCallback('SIGNED_OUT',null);return {error:null};}}
   };
   class FakeRepository {
+    async reportDocs(rows,year=null){state.reportRequestedYear=year;return rows.filter(d=>year===null||cargoYear(d)===String(year));}
     async fetchDoc(id){state.fetchedId=id;return docFromDb({...state.docs.find(d=>d.id===id),facturas:'F-001, F-002, F-003, F-004'});}
     async access(){state.loadingDuringAccess={loading:!dom.window.document.getElementById('sessionLoading').hidden,login:!dom.window.document.getElementById('authOverlay').hidden};return {allowed,is_admin:isAdmin};}
     async preparedImDetails(){state.preparedImCalls=(state.preparedImCalls||0)+1;return structuredClone(state.preparedImRows||[]);}
@@ -87,7 +88,7 @@ async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recov
   context.setInterval=(callback,delay)=>{state.intervals.push({callback,delay});return scheduleInterval(callback,delay);};
   context.Date=class extends Date {constructor(...args){super(...(args.length?args:[state.now]));}static now(){return state.now;}};
   Object.assign(context,{cargoExpiryGroups,formatCargoDuration,limaDate,requestedIMBoxes,countRequestedCargos,summarizePreparedIm,summarizeShippedBoxes,summarizeCreatedCargos,renderImBarChart,renderCargoLineChart});
-  Object.assign(context,{createIdleSession:options=>createIdleSession({...options,now:()=>state.now}),createClient:()=>client,KardexRepository:FakeRepository,reqFromDb,docFromDb,reqEstado,docEstado,fmtDate,escapeHtml,invoiceSearchPresentation,buildWorkbook:async(...args)=>{state.exportCalls.push(args);return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},buildCargoWorkbook:async(cargo)=>{state.guestExport=cargo;return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},parseWorkbook,highlightMatch,normalizeSearch,filterDocuments,filterRequirements,assignedBoxCode,cargoYear,invoiceLocation,locationLabel,groupsForCodes,
+  Object.assign(context,{createIdleSession:options=>createIdleSession({...options,now:()=>state.now}),createClient:()=>client,KardexRepository:FakeRepository,reqFromDb,docFromDb,reqEstado,docEstado,fmtDate,escapeHtml,invoiceSearchPresentation,buildWorkbook:async(...args)=>{state.exportCalls.push(args);return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},buildCargoWorkbook:async(cargo)=>{state.guestExport=cargo;return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},buildExistenciasReport:(...args)=>{state.reportArgs=args;return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},parseWorkbook,highlightMatch,normalizeSearch,filterDocuments,filterRequirements,assignedBoxCode,cargoYear,invoiceLocation,locationLabel,groupsForCodes,
     __SUPABASE_URL__:'https://example.supabase.co',__SUPABASE_ANON_KEY__:'sb_publishable_test',confirm:()=>true,alert:()=>{}});
   await vm.runInContext(`(async()=>{${source}})()`,context);
   const node=id=>dom.window.document.getElementById(id);
@@ -348,7 +349,7 @@ test('admin and guest export only the selected cargo with its complete invoices'
   const a=await app({isAdmin});
   try {
    a.state.docs.push({...docRow,id:randomUUID(),kardex:'SA-99999',cargos:['UNRELATED']});
-   assert.equal(a.node('btnExportar').hidden,true);
+   assert.equal(a.node('btnExportar').hidden,!isAdmin);
    const button=a.node('tbody').querySelector('[data-export-cargo]');assert.ok(button);assert.equal(button.disabled,false);
    button.click();await flush();
    assert.equal(a.state.fetchedId,docRow.id);
@@ -356,6 +357,30 @@ test('admin and guest export only the selected cargo with its complete invoices'
    assert.match(a.state.downloadName,/Cargo_C001_SA-00001/);
   }finally{a.close();}
  }
+});
+
+test('administrator downloads report on demand with the Lima date and all snapshot cargos',async()=>{
+ const a=await app();
+ try{
+  a.node('btnExportar').click();await flush();
+  assert.equal(a.state.reportRequestedYear,null);
+  assert.equal(a.state.reportArgs[0].length,1);
+  assert.equal(a.state.reportArgs.length,2);
+  assert.match(a.state.downloadName,/^Kardex_Santa_Anita_\d{4}-\d{2}-\d{2}\.xlsx$/);
+ }finally{a.close();}
+});
+
+test('clicking the annual cargo count opens the filtered cargo list in Existencias',async()=>{
+ const a=await app();
+ try {
+  const button=a.dom.window.document.querySelector('#yearSummaryGrid [data-cargo-year="2026"]');
+  assert.ok(button);
+  button.click();await flush();
+  assert.equal(a.node('workspaceTabExistencias').getAttribute('aria-selected'),'true');
+  assert.equal(a.node('filtroTipo').value,'solo-cargos');
+  assert.equal(a.node('filtroAnio').value,'2026');
+  assert.match(a.node('conteoResultados').textContent,/1 registro/);
+ } finally {a.close();}
 });
 
 test('sync status is inline and the Excel button opens the original file for admins',async()=>{

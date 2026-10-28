@@ -3,6 +3,9 @@
 .connection-dot.online{background:var(--green);}
 .connection-dot.error{background:var(--red);}
 .connection-action{font-size:11px;padding:4px 8px;}
+#grp-resumen .year-grid .cargo-year-button{width:100%;border:0;border-radius:0;background:transparent;cursor:pointer;font-family:inherit;}
+#grp-resumen .year-grid .cargo-year-button:hover{background:#eff7f2;text-decoration:underline;}
+#grp-resumen .year-grid .cargo-year-button:focus-visible{outline:2px solid #287d4a;outline-offset:-3px;}
 /* Pantalla de acceso Farmacias Peruanas: centrada, clara y adaptable. */
 .auth-overlay{min-height:100dvh;box-sizing:border-box;background:#fff;display:flex;align-items:center;justify-content:center;padding:26px 20px 30px;overflow-y:auto;}
 .auth-overlay[hidden]{display:none;}
