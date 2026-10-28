@@ -4,7 +4,7 @@ import {computeDocEstado, fmtDate, limaDate, monthsBetween} from './rules.js';
 import {cargoYear} from './cargo-details.js';
 import {cargoExpiryGroups} from './cargo-expiry.js';
 
-export const REPORT_YEARS=[2021,2022,2023,2024,2025,2026];
+export const REPORT_YEARS=[2020,2021,2022,2023,2024,2025,2026];
 export const CARGO_COLUMNS=['Kardex Nº','Fecha Registro','Tipo de Documento','Período Contable',
   'Ubicación','Cantidad Folios','Cantidad Registros','Cantidad Códigos','Nº Cargo',
   'Requerimiento Asignado','Fecha de Envío','Sustento (Guía de Traslado)',
@@ -55,8 +55,7 @@ const folios=items=>items.reduce((n,item)=>n+(Number(item.doc.folios)||0),0);
 const display=items=>items.length+' ('+folios(items).toLocaleString('en-US')+' folios)';
 const compareNumbered=(a,b)=>String(a??'').localeCompare(String(b??''),'es',{numeric:true,sensitivity:'base'});
 const compareGeneral=(a,b)=>compareNumbered(a.doc.kardex,b.doc.kardex)||compareNumbered(a.cargo,b.cargo)||compareNumbered(a.key,b.key);
-const compareAnnual=(a,b)=>compareNumbered(cargoYear(a.doc),cargoYear(b.doc))||
-  compareNumbered(a.cargo,b.cargo)||compareGeneral(a,b);
+const compareAnnual=(a,b)=>compareNumbered(a.cargo,b.cargo)||compareGeneral(a,b);
 function style(cell,kind='data',size=11){
   cell.font={name:'Arial',size,bold:kind!=='data',color:{argb:kind==='head'?WHITE:DARK}};
   if(kind==='head')cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:BLUE}};
@@ -93,24 +92,15 @@ function addCargoSheet(workbook,items,now,reqNumbers){
     rowStyle(sheet.addRow(cargoValues(item,now,reqNumbers)),CARGO_COLUMNS.length);
   sheet.autoFilter={from:'A1',to:'P'+Math.max(2,sheet.rowCount)};
 }
-function addAnnualSheet(workbook,items,now,reqNumbers){
-  // Una sola hoja para los años, con las mismas 16 columnas del listado principal.
-  const sheet=workbook.addWorksheet('Cargos por Año');
+function addYearSheet(workbook,year,items,now,reqNumbers){
+  // Una hoja visible por año, con los mismos encabezados del Kardex general.
+  const sheet=workbook.addWorksheet('Cargos '+year);
   header(sheet,CARGO_COLUMNS,[14,13,18,14,13,12,17,16,13,16,13,20,26,14,16,22]);
-  const firstRowByYear=new Map();
   for(const item of [...items].sort(compareAnnual)){
-    const year=String(cargoYear(item.doc));
-    const row=sheet.addRow(cargoValues(item,now,reqNumbers));
-    rowStyle(row,CARGO_COLUMNS.length);
-    if(!firstRowByYear.has(year)){
-      firstRowByYear.set(year,row.number);
-      const marker=sheet.getCell('Q'+row.number);
-      marker.value='Año '+year;
-      marker.font={name:'Arial',size:10,bold:true,color:{argb:BLUE}};
-    }
+    rowStyle(sheet.addRow(cargoValues(item,now,reqNumbers)),CARGO_COLUMNS.length);
   }
   sheet.autoFilter={from:'A1',to:'P'+Math.max(2,sheet.rowCount)};
-  return firstRowByYear;
+  return sheet;
 }
 function addReqSheet(workbook){
   const sheet=workbook.addWorksheet('Requerimientos');
@@ -121,7 +111,7 @@ function redHeader(sheet,row,labels){
 }
 export function buildExistenciasReport(docs,now=new Date(),reqs=[]){
   const wb=new ExcelJS.Workbook(),items=selected(docs,now);
-  // Navegación con enlaces internos y barra de hojas visible; sin hojas separadas por año.
+  // Resumen, Kardex general, una hoja por año y Requerimientos; barra de pestañas visible.
   wb.views=[{activeTab:0,firstSheet:0}];
   const sheet=wb.addWorksheet('Resumen');
   sheet.views=[{showGridLines:false}];
@@ -139,8 +129,13 @@ export function buildExistenciasReport(docs,now=new Date(),reqs=[]){
     cell.font={name:'Arial',size:10,bold:true,color:{argb:BLUE},underline:true};
   }
   const reqNumbers=new Map(reqs.map(r=>[r.id,r.numero]));
+  // Se conservan los años con datos, más la secuencia histórica 2020–2026.
+  const years=[...new Set([...REPORT_YEARS.map(String),...items.map(x=>String(cargoYear(x.doc)))])]
+    .sort(compareNumbered);
   addCargoSheet(wb,allSourceCargos(docs),now,reqNumbers);
-  const annualStartRows=addAnnualSheet(wb,items,now,reqNumbers);
+  for(const year of years){
+    addYearSheet(wb,year,items.filter(x=>String(cargoYear(x.doc))===year),now,reqNumbers);
+  }
   addReqSheet(wb);
   redHeader(sheet,6,['Total Cargos','Enviado a Iron Mountain',
     'En Proceso de Acondicionamiento','Pendientes de Envío IM']);
@@ -159,21 +154,29 @@ export function buildExistenciasReport(docs,now=new Date(),reqs=[]){
   sheet.getCell('B11').font={name:'Arial',size:11,bold:true,color:{argb:DARK}};
   redHeader(sheet,12,['Cargos por Vencer','Cargos Vencidos']);
   sheet.getRow(12).height=24;
+  // Coincide con las tarjetas del aplicativo: Nº cargos por documento de 2025/2026
+  // aún sin envío, no porcentaje sobre el Kardex general ni sobre otras épocas.
   const expiry=cargoExpiryGroups(docs,now);
+  const countCargos=group=>group.reduce((n,d)=>n+(d.cargos||[]).length,0);
+  const countFolios=group=>group.reduce((n,d)=>n+(Number(d.folios)||0),0);
+  const upcomingCount=countCargos(expiry.upcoming),overdueCount=countCargos(expiry.overdue);
+  const alertTotal=upcomingCount+overdueCount;
+  // Porcentajes enteros complementarios para mostrar 100% en todos los casos.
+  const upcomingPercentage=alertTotal?Math.round(upcomingCount*100/alertTotal):0;
   for(const [i,group] of [expiry.upcoming,expiry.overdue].entries()){
-    const ids=new Set(group.map(d=>d.id||d.kardex));
-    const list=items.filter(x=>ids.has(x.doc.id||x.doc.kardex)),col='BC'[i];
-    const value=sheet.getCell(col+'13');value.value=display(list);style(value);
+    const col='BC'[i];
+    const value=sheet.getCell(col+'13');
+    value.value=countCargos(group)+' ('+countFolios(group).toLocaleString('en-US')+' folios)';
+    style(value);
     value.font={name:'Arial',size:12,bold:true,color:{argb:DARK}};
-    const percent=sheet.getCell(col+'14');percent.value=items.length?list.length/items.length:0;
+    const percent=sheet.getCell(col+'14');
+    percent.value=alertTotal?(i===0?upcomingPercentage:100-upcomingPercentage)/100:0;
     percent.numFmt='0%';style(percent);
   }
   sheet.getRow(13).height=24;
   sheet.getCell('B17').value='Cargos por Período';
   sheet.getCell('B17').font={name:'Arial',size:11,bold:true,color:{argb:DARK}};
   redHeader(sheet,18,['Período','Cantidad de Cargos']);
-  const years=[...new Set([...REPORT_YEARS.map(String),...items.map(x=>String(cargoYear(x.doc)))])]
-    .sort(compareNumbered);
   for(const [i,year] of years.entries()){
     const row=19+i,group=items.filter(x=>String(cargoYear(x.doc))===year);
     const yearCell=sheet.getCell('B'+row);
@@ -181,8 +184,8 @@ export function buildExistenciasReport(docs,now=new Date(),reqs=[]){
     style(yearCell);
     yearCell.font={name:'Arial',size:12,bold:true,color:{argb:DARK}};
     const count=sheet.getCell('C'+row);
-    count.value={text:String(group.length),hyperlink:"#'Cargos por Año'!A"+(annualStartRows.get(year)||1),
-      tooltip:'Ver los '+group.length+' cargos de '+year+' en el mismo Excel'};
+    count.value={text:String(group.length),hyperlink:"#'Cargos "+year+"'!A1",
+      tooltip:'Abrir la hoja de cargos de '+year+' en este Excel'};
     style(count);
     count.font={name:'Arial',size:12,bold:true,color:{argb:'FF0563C1'},underline:true};
     sheet.getRow(row).height=15.75;
@@ -190,11 +193,11 @@ export function buildExistenciasReport(docs,now=new Date(),reqs=[]){
   const noteRow=Math.max(29,22+years.length);
   sheet.mergeCells('B'+noteRow+':E'+(noteRow+2));
   const note=sheet.getCell('B'+noteRow);
-  note.value='Pulsa la cantidad de un año para abrir sus cargos. Pulsa Cargos para ver todos los Kardex, desde el primero hasta el último.';
+  note.value='Haz clic en la cantidad de un período para abrir la hoja Cargos de ese año; Cargos abre el Kardex completo, de menor a mayor.';
   note.font={name:'Arial',size:8,italic:true,color:{argb:'FF808080'}};
   note.alignment={wrapText:true,vertical:'middle'};
-  for(const target of [wb.getWorksheet('Cargos'),wb.getWorksheet('Cargos por Año'),
-    wb.getWorksheet('Requerimientos')]){
+  for(const target of [wb.getWorksheet('Cargos'),
+    ...years.map(year=>wb.getWorksheet('Cargos '+year)),wb.getWorksheet('Requerimientos')]){
     const col=target.name==='Requerimientos'?'K':'Q';
     const back=target.getCell(col+'1');
     back.value={text:'← Resumen',hyperlink:"#'Resumen'!B2"};
