@@ -68,26 +68,55 @@ function annualTemplate(xml){
   const styleId=Number(row2.match(/<c\b[^>]*\bs="(\d+)"/)?.[1]||0);
   return {before:before+open+row[0],after:close+after,styleId};
 }
+const detailSorter=new Intl.Collator('es',{numeric:true,sensitivity:'base'});
+const normalizedCargo=value=>String(value??'').trim()
+  .replace(/\\.0+$/,'').replace(/^0+(?=\\d)/,'');
+function compareDetails(a,b){
+  const compare= (x,y)=>detailSorter.compare(String(x??'').trim(),String(y??'').trim());
+  const byCargo=compare(normalizedCargo(a.Cargo),normalizedCargo(b.Cargo));
+  if(byCargo)return byCargo;
+  const ga=String(a.Grupo??'').trim(),gb=String(b.Grupo??'').trim();
+  if(!ga&&!gb)return 0;
+  if(!ga)return 1;
+  if(!gb)return -1;
+  return compare(ga,gb);
+}
 async function* annualXml(xml,year,docSource,progress){
   const template=annualTemplate(xml);
   yield encoder.encode(template.before);
-  let rowIndex=2,buffer='';
-  for await(const {doc,origin} of docSource(year)){
-    const original=await sourceRecords(origin||doc.datosOrigen||{});
-    const rows=original.length?original:fallbackRows(doc,origin);
-    for(const row of rows){
+  let rowIndex=2,buffer='',currentCargo=null,cargoRows=[];
+  // Agrupa registros de un mismo cargo, incluso si provienen de varios
+  // Kardex. Ordena primero Cargo y luego Grupo; conserva el orden de origen
+  // dentro de cada grupo para no alterar la secuencia real de documentos.
+  async function* flushCargo(){
+    cargoRows.sort(compareDetails);
+    for(const row of cargoRows){
       if(rowIndex>1048576)throw new Error('El detalle de '+year+' supera el máximo de filas de Excel.');
       buffer+=rowXml(row,rowIndex++,template.styleId);
       if(buffer.length>131072){
         yield encoder.encode(buffer);
         buffer='';
-        if(rowIndex%10000<500) {
+        if(rowIndex%10000<500){
           progress?.(year,rowIndex-2);
           await new Promise(resolve=>setTimeout(resolve,0));
         }
       }
     }
+    cargoRows=[];
   }
+  for await(const {doc,origin} of docSource(year)){
+    const cargo=normalizedCargo((doc.cargos||[])[0]);
+    if(currentCargo!==null&&cargo!==currentCargo){
+      for await(const chunk of flushCargo())yield chunk;
+    }
+    currentCargo=cargo;
+    const original=await sourceRecords(origin||doc.datosOrigen||{});
+    const rows=original.length?original:fallbackRows(doc,origin);
+    for(const row of rows){
+      cargoRows.push({ ...row, Cargo:String(row.Cargo??'').trim()||cargo });
+    }
+  }
+  for await(const chunk of flushCargo())yield chunk;
   if(buffer)yield encoder.encode(buffer);
   progress?.(year,rowIndex-2);
   yield encoder.encode(template.after);
