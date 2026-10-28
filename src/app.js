@@ -324,6 +324,8 @@ function selectWorkspaceTab(tab,focus=false) {
   if(focus)(document.querySelector(`#workspaceTabs [data-workspace="${tab}"]`)
     || (tab==='solicitudes'?document.getElementById('btnTopAdminRequests'):null))?.focus();
   if(tab==='solicitudes')void refreshAdminRequests();
+  if(tab==='iron' && !monthlyShippedSummary)void reloadShippedBoxesSummary();
+  if(tab==='iron-cajas')renderIMBoxWorkspace();
 }
 document.getElementById('btnTopAdminRequests').addEventListener('click',()=>{
   if(!appReady||!isAdmin)return;
@@ -857,6 +859,7 @@ let monthlyShippedSummary=null;
 let monthlyShippedFetchEpoch=0;
 let monthlyShippedError='';
 let monthlyShippedSelectedYear=null;
+let imDashboardChartView='monthly',imDashboardYear=null;
 function renderMonthlyShippedDetail(){
   const sheet=document.getElementById('monthlyShippedSheet');
   if(!sheet.open)return;
@@ -942,6 +945,95 @@ document.getElementById('imShippedYearSelect').addEventListener('change',event=>
   renderMonthlyShippedDetail();
 });
 
+// Dashboard de Envíos: la fuente autoritativa es la agregación de
+// cajas físicas con fecha efectiva de envío; no se suman cargos.
+function renderIMShippingDashboard(){
+  const chart=document.getElementById('imDashChart');
+  const note=document.getElementById('imDashChartNote');
+  const yearSelect=document.getElementById('imDashYear');
+  for(const button of document.querySelectorAll('[data-im-chart-view]')){
+    button.setAttribute('aria-pressed',
+      String(button.dataset.imChartView===imDashboardChartView));
+  }
+  document.getElementById('imDashYearWrap').hidden=imDashboardChartView!=='monthly';
+  const stats=monthlyShippedSummary;
+  const yearCount=document.getElementById('imDashYearCount');
+  const currentCount=document.getElementById('imDashThisMonth');
+  const totalCount=document.getElementById('imDashAllCount');
+  if(!stats){
+    currentCount.textContent='—';
+    yearCount.textContent='—';
+    totalCount.textContent='—';
+    chart.replaceChildren();
+    note.textContent=monthlyShippedError
+      ||'Consultando envíos de cajas desde la base sincronizada…';
+    return;
+  }
+  const years=stats.annual.map(item=>item.year);
+  if(!years.includes(imDashboardYear))imDashboardYear=stats.currentYear;
+  const optionsKey=years.join(',');
+  if(yearSelect.dataset.years!==optionsKey){
+    yearSelect.replaceChildren();
+    for(const year of years.slice().reverse()){
+      yearSelect.add(new Option(String(year),String(year)));
+    }
+    yearSelect.dataset.years=optionsKey;
+  }
+  yearSelect.value=String(imDashboardYear);
+  const row=stats.annual.find(item=>item.year===imDashboardYear);
+  if(!row)return;
+  document.getElementById('imDashSelectedYearLabel').textContent=String(imDashboardYear);
+  currentCount.textContent=fmtNum(stats.currentCount);
+  yearCount.textContent=fmtNum(row.count);
+  totalCount.textContent=fmtNum(stats.total);
+  const months=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  const monthly=imDashboardChartView==='monthly';
+  document.getElementById('imDashChartTitle').textContent=
+    monthly?'Cajas enviadas por mes · '+imDashboardYear:
+      'Cajas enviadas por año';
+  if(monthly){
+    const length=imDashboardYear===stats.currentYear?stats.currentMonth:12;
+    renderImBarChart(chart,months.slice(0,length),row.months.slice(0,length),
+      {accent:'#c72c43',emptyLabel:'Sin envíos confirmados en '+imDashboardYear});
+    note.textContent='Total '+imDashboardYear+': '+fmtNum(row.count)+
+      ' cajas. Solo cuentan cajas con fecha efectiva de envío.';
+  } else {
+    renderImBarChart(chart,stats.annual.map(item=>String(item.year)),
+      stats.annual.map(item=>item.count),
+      {accent:'#c72c43',emptyLabel:'Sin envíos confirmados'});
+    note.textContent='Histórico de '+fmtNum(stats.total)+
+      ' cajas enviadas. Cada año corresponde a la fecha de salida de la caja.';
+  }
+}
+document.getElementById('imDashYear').addEventListener('change',event=>{
+  imDashboardYear=Number(event.target.value);
+  renderIMShippingDashboard();
+});
+document.getElementById('imShippingDashboard').addEventListener('click',event=>{
+  const button=event.target.closest('button[data-im-chart-view]');
+  if(!button)return;
+  imDashboardChartView=button.dataset.imChartView;
+  renderIMShippingDashboard();
+});
+function renderIMBoxWorkspace(){
+  const prepared=document.getElementById('imBoxesPrepared');
+  const requested=document.getElementById('imBoxesRequested');
+  prepared.textContent=preparedImSummary?fmtNum(preparedImSummary.cajas):'—';
+  // No presentar registros de demostración como si fueran cajas reales.
+  requested.textContent=requestedIMLoaded && !requestedIMError && !requestedDemo
+    ?fmtNum(requestedIMData.length):'—';
+}
+document.getElementById('imBoxesOpenPrepared').addEventListener('click',openPreparedIm);
+document.getElementById('imBoxesOpenRequested').addEventListener('click',()=>{
+  document.getElementById('btnRequestedIMDetail').click();
+});
+document.getElementById('imBoxesOpenStats').addEventListener('click',()=>{
+  document.getElementById('btnMonthlyShippedDetail').click();
+});
+document.getElementById('imBoxesOpenHistory').addEventListener('click',()=>{
+  document.getElementById('btnOpenIronMountainHistorical').click();
+});
+
 async function reloadShippedBoxesSummary(){
   if(!isAdmin||!appReady||!currentUserId)return;
   const epoch=++monthlyShippedFetchEpoch,generation=authGeneration;
@@ -958,6 +1050,7 @@ async function reloadShippedBoxesSummary(){
       '. Vuelve a abrir «Ver detalle» para reintentar.';
   }
   renderMonthlyCargoStats();
+  renderIMShippingDashboard();
 }
 function renderMonthlyCargoStats(){
   if(!isAdmin)return;
@@ -1002,6 +1095,8 @@ function renderMonthlyCargoStats(){
     requestedIMError?'No se pudo actualizar desde Google Sheets':
       requestedIMLoaded ? fmtNum(countRequestedCargos(requestedIMData))+' cargos'
         :'Consultando cajas y cargos pendientes…';
+  renderIMShippingDashboard();
+  renderIMBoxWorkspace();
 }
 function renderDocs(){
   const filters=appliedFilters;
@@ -1320,6 +1415,7 @@ async function reloadPreparedImSummary() {
   if(metric)metric.innerHTML=
     `${preparedImSummary?fmtNum(preparedImSummary.cajas):'—'}`+
     `<span class="folios-inline"> (${preparedImSummary?fmtNum(preparedImSummary.cargos):'—'} cargos)</span>`;
+  renderIMBoxWorkspace();
 }
 async function reloadPreparedImDetail() {
   const dialog=document.getElementById('preparedImSheet');
