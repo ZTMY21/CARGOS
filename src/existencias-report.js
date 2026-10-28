@@ -121,7 +121,7 @@ function redHeader(sheet,row,labels){
 }
 export function buildExistenciasReport(docs,now=new Date(),reqs=[]){
   const wb=new ExcelJS.Workbook(),items=selected(docs,now);
-  // Navegación mediante enlaces internos, sin pestañas anuales visibles.
+  // Navegación con enlaces internos y barra de hojas visible; sin hojas separadas por año.
   wb.views=[{activeTab:0,firstSheet:0}];
   const sheet=wb.addWorksheet('Resumen');
   sheet.views=[{showGridLines:false}];
@@ -211,9 +211,9 @@ export async function serializeExistenciasReport(workbook){
   let found=false;
   const updated=xml.replace(/<workbookView\b([^>]*)\/>/,(_,attributes)=>{
     found=true;
-    return '<workbookView'+attributes.replace(/\s+showSheetTabs="[^"]*"/,'')+' showSheetTabs="0"/>';
+    return '<workbookView'+attributes.replace(/\s+showSheetTabs="[^"]*"/,'')+' showSheetTabs="1"/>';
   });
-  if(!found)throw new Error('No se pudo ocultar la barra de pestañas del Excel.');
+  if(!found)throw new Error('No se pudo configurar la barra de pestañas del Excel.');
   zip.file('xl/workbook.xml',updated);
   // ExcelJS attaches a relationship marked External even to in-workbook
   // hyperlinks. Emit native OOXML locations without external relationships.
