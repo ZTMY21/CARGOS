@@ -47,6 +47,10 @@ function age(doc,now){
 }
 const folios=items=>items.reduce((n,item)=>n+(Number(item.doc.folios)||0),0);
 const display=items=>items.length+' ('+folios(items).toLocaleString('en-US')+' folios)';
+const compareNumbered=(a,b)=>String(a??'').localeCompare(String(b??''),'es',{numeric:true,sensitivity:'base'});
+const compareGeneral=(a,b)=>compareNumbered(a.doc.kardex,b.doc.kardex)||compareNumbered(a.cargo,b.cargo)||compareNumbered(a.key,b.key);
+const compareAnnual=(a,b)=>compareNumbered(cargoYear(a.doc),cargoYear(b.doc))||
+  compareNumbered(a.cargo,b.cargo)||compareGeneral(a,b);
 function style(cell,kind='data',size=11){
   cell.font={name:'Arial',size,bold:kind!=='data',color:{argb:kind==='head'?WHITE:DARK}};
   if(kind==='head')cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:BLUE}};
@@ -79,8 +83,28 @@ function cargoValues(item,now,reqNumbers){
 function addCargoSheet(workbook,items,now,reqNumbers){
   const sheet=workbook.addWorksheet('Cargos');
   header(sheet,CARGO_COLUMNS,[14,13,18,14,13,12,17,16,13,16,13,20,26,14,16,22]);
-  for(const item of items)rowStyle(sheet.addRow(cargoValues(item,now,reqNumbers)),CARGO_COLUMNS.length);
+  for(const item of [...items].sort(compareGeneral))
+    rowStyle(sheet.addRow(cargoValues(item,now,reqNumbers)),CARGO_COLUMNS.length);
   sheet.autoFilter={from:'A1',to:'P'+Math.max(2,sheet.rowCount)};
+}
+function addAnnualSheet(workbook,items,now,reqNumbers){
+  // Una sola hoja para los años, con las mismas 16 columnas del listado principal.
+  const sheet=workbook.addWorksheet('Cargos por Año');
+  header(sheet,CARGO_COLUMNS,[14,13,18,14,13,12,17,16,13,16,13,20,26,14,16,22]);
+  const firstRowByYear=new Map();
+  for(const item of [...items].sort(compareAnnual)){
+    const year=String(cargoYear(item.doc));
+    const row=sheet.addRow(cargoValues(item,now,reqNumbers));
+    rowStyle(row,CARGO_COLUMNS.length);
+    if(!firstRowByYear.has(year)){
+      firstRowByYear.set(year,row.number);
+      const marker=sheet.getCell('Q'+row.number);
+      marker.value='Año '+year;
+      marker.font={name:'Arial',size:10,bold:true,color:{argb:BLUE}};
+    }
+  }
+  sheet.autoFilter={from:'A1',to:'P'+Math.max(2,sheet.rowCount)};
+  return firstRowByYear;
 }
 function addReqSheet(workbook){
   const sheet=workbook.addWorksheet('Requerimientos');
@@ -91,8 +115,7 @@ function redHeader(sheet,row,labels){
 }
 export function buildExistenciasReport(docs,now=new Date(),reqs=[]){
   const wb=new ExcelJS.Workbook(),items=selected(docs,now);
-  // These sheets stay navigable by internal links. The workbook's tab strip
-  // is hidden during serialization, so six yearly tabs do not crowd the UI.
+  // Navegación mediante enlaces internos, sin pestañas anuales visibles.
   wb.views=[{activeTab:0,firstSheet:0}];
   const sheet=wb.addWorksheet('Resumen');
   sheet.views=[{showGridLines:false}];
@@ -109,6 +132,10 @@ export function buildExistenciasReport(docs,now=new Date(),reqs=[]){
     cell.value={text:label,hyperlink:target};
     cell.font={name:'Arial',size:10,bold:true,color:{argb:BLUE},underline:true};
   }
+  const reqNumbers=new Map(reqs.map(r=>[r.id,r.numero]));
+  addCargoSheet(wb,items,now,reqNumbers);
+  const annualStartRows=addAnnualSheet(wb,items,now,reqNumbers);
+  addReqSheet(wb);
   redHeader(sheet,6,['Total Cargos','Enviado a Iron Mountain',
     'En Proceso de Acondicionamiento','Pendientes de Envío IM']);
   sheet.getRow(6).height=34;
@@ -139,37 +166,30 @@ export function buildExistenciasReport(docs,now=new Date(),reqs=[]){
   sheet.getCell('B17').value='Cargos por Período';
   sheet.getCell('B17').font={name:'Arial',size:11,bold:true,color:{argb:DARK}};
   redHeader(sheet,18,['Período','Cantidad de Cargos']);
-  for(const [i,year] of REPORT_YEARS.entries()){
-    const row=19+i,group=items.filter(x=>x.key.startsWith(year+':'));
-    const yearCell=sheet.getCell('B'+row);yearCell.value=year;style(yearCell);
+  const years=[...new Set([...REPORT_YEARS.map(String),...items.map(x=>String(cargoYear(x.doc)))])]
+    .sort(compareNumbered);
+  for(const [i,year] of years.entries()){
+    const row=19+i,group=items.filter(x=>String(cargoYear(x.doc))===year);
+    const yearCell=sheet.getCell('B'+row);
+    yearCell.value=/^\\d{4}$/.test(year)?Number(year):year;
+    style(yearCell);
     yearCell.font={name:'Arial',size:12,bold:true,color:{argb:DARK}};
     const count=sheet.getCell('C'+row);
-    count.value={text:String(group.length),hyperlink:"#'Detalle de Cargo "+year+"'!A1",
-      tooltip:'Ver los '+group.length+' cargos de '+year+' en este Excel'};
+    count.value={text:String(group.length),hyperlink:"#'Cargos por Año'!A"+(annualStartRows.get(year)||1),
+      tooltip:'Ver los '+group.length+' cargos de '+year+' en el mismo Excel'};
     style(count);
     count.font={name:'Arial',size:12,bold:true,color:{argb:'FF0563C1'},underline:true};
     sheet.getRow(row).height=15.75;
   }
-  sheet.mergeCells('B29:E31');
-  const note=sheet.getCell('B29');note.value='Pulsa la cantidad de un año para ver sus cargos en este Excel.';
+  const noteRow=Math.max(29,22+years.length);
+  sheet.mergeCells('B'+noteRow+':E'+(noteRow+2));
+  const note=sheet.getCell('B'+noteRow);
+  note.value='Pulsa la cantidad de un año para abrir sus cargos. Pulsa Cargos para ver todos los Kardex, desde el primero hasta el último.';
   note.font={name:'Arial',size:8,italic:true,color:{argb:'FF808080'}};
   note.alignment={wrapText:true,vertical:'middle'};
-  addCargoSheet(wb,items,now,new Map(reqs.map(r=>[r.id,r.numero])));
-  addReqSheet(wb);
-  for(const year of REPORT_YEARS){
-    const detail=wb.addWorksheet('Detalle de Cargo '+year);
-    header(detail,DETAIL_COLUMNS,[14,13,18,14,13,12,13,90]);
-    for(const item of items.filter(x=>x.key.startsWith(year+':'))){
-      const {doc}=item;
-      rowStyle(detail.addRow([doc.kardex,fmtDate(doc.fechaOrigen||doc.fechaRegistro),
-        doc.tipoDoc||'',fmtDate(doc.periodo),location(doc,now),Number(doc.folios)||0,
-        item.cargo,Number(doc.cantidadFacturas)||0]),DETAIL_COLUMNS.length);
-    }
-    detail.autoFilter={from:'A1',to:'H'+Math.max(2,detail.rowCount)};
-  }
-  for(const target of [wb.getWorksheet('Cargos'),wb.getWorksheet('Requerimientos'),
-    ...REPORT_YEARS.map(year=>wb.getWorksheet('Detalle de Cargo '+year))]){
-    const col=target.name==='Cargos'?'Q':target.name==='Requerimientos'?'K':'I';
+  for(const target of [wb.getWorksheet('Cargos'),wb.getWorksheet('Cargos por Año'),
+    wb.getWorksheet('Requerimientos')]){
+    const col=target.name==='Requerimientos'?'K':'Q';
     const back=target.getCell(col+'1');
     back.value={text:'← Resumen',hyperlink:"#'Resumen'!B2"};
     back.font={name:'Arial',size:10,bold:true,color:{argb:BLUE},underline:true};
