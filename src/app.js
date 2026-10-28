@@ -1511,7 +1511,7 @@ document.getElementById('btnExportar').addEventListener('click',async event=>{
   button.disabled=true;button.textContent='Preparando reporte…';
   try {
     const source=await repository.reportDocs(docs);
-    const wb=buildExistenciasReport(source,new Date());
+    const wb=await buildExistenciasReport(source,new Date());
     await downloadExcel(wb,`Kardex_Santa_Anita_${limaDate()}.xlsx`);
   } catch(error) { alert(`No se pudo exportar el reporte: ${readableError(error)}`); }
   finally { button.textContent=label;button.disabled=false; }
