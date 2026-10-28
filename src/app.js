@@ -1500,8 +1500,16 @@ function renderHistoricalWorkspace() {
   document.getElementById('historySelectedYearLabel').textContent=historySelectedYear;
   document.getElementById('historyYearCount').textContent=fmtNum(yearRows.length);
   document.getElementById('historyDetailYear').textContent=historySelectedYear;
-  document.getElementById('historySentCount').textContent=fmtNum(yearRows.filter(r=>r.sent).length);
-  document.getElementById('historyPendingCount').textContent=fmtNum(yearRows.filter(r=>!r.sent).length);
+  const sentCount=yearRows.filter(r=>r.sent).length;
+  const pendingCount=yearRows.length-sentCount;
+  document.getElementById('historySentCount').textContent=fmtNum(sentCount);
+  document.getElementById('historyPendingCount').textContent=fmtNum(pendingCount);
+  // El micrográfico usa exactamente los mismos totales que las tarjetas.
+  const percentage=yearRows.length ? (100*sentCount/yearRows.length) : 0;
+  document.getElementById('historyShippingBar').style.width=percentage.toFixed(2)+'%';
+  document.getElementById('historyShippingProgress').setAttribute('aria-label',
+    'Enviados a Iron Mountain: '+fmtNum(sentCount)+' de '+fmtNum(yearRows.length)
+    +' cargos ('+percentage.toFixed(1)+' %). Pendientes: '+fmtNum(pendingCount));
   const query=normalizeSearch(document.getElementById('historyQuery').value.trim());
   const status=document.getElementById('historyStatusFilter').value;
   const rows=yearRows.filter(row=>
