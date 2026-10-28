@@ -1513,7 +1513,9 @@ document.getElementById('btnExportar').addEventListener('click',async event=>{
     const source=await repository.reportDocs(docs);
     const wb=await buildExistenciasReport(source,new Date(),reqs);
     await downloadExcel(wb,`Kardex_Santa_Anita_${limaDate()}.xlsx`,
-      ()=>serializeExistenciasReport(wb));
+      ()=>serializeExistenciasReport(wb,
+        year=>repository.reportOriginalRows(year,source),
+        (year,count)=>{button.textContent='Exportando '+year+' · '+count.toLocaleString('es-PE')+' filas…';}));
   } catch(error) { alert(`No se pudo exportar el reporte: ${readableError(error)}`); }
   finally { button.textContent=label;button.disabled=false; }
 });
