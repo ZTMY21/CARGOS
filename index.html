@@ -1863,15 +1863,19 @@
 #appShell.has-sidebar .created-dashboard-stats .created-stat{
   --kpi-accent:#c51e3a;
   --kpi-tint:#fff5f6;
-  min-height:142px;
-  padding:18px 18px 16px;
-  gap:12px;
+  display:grid;
+  grid-template-columns:minmax(0,1fr);
+  grid-template-rows:24px minmax(0,1fr) 50px 25px;
+  height:164px;
+  min-height:164px;
+  padding:16px 18px;
+  row-gap:0;
+  align-items:start;
   border:1px solid #dce5ec;
   border-top:4px solid var(--kpi-accent);
   border-radius:13px;
   background:linear-gradient(152deg,#fff 55%,var(--kpi-tint) 160%);
   box-shadow:0 5px 16px rgba(23,42,61,.065);
-  justify-content:space-between;
 }
 #appShell.has-sidebar .created-dashboard-stats .created-stat:nth-child(2){
   --kpi-accent:#274761;
@@ -1892,6 +1896,8 @@
   letter-spacing:.025em;
   line-height:1.4;
   color:#36516a;
+  grid-row:1;
+  align-self:start;
 }
 #appShell.has-sidebar .created-dashboard-stats .created-stat strong{
   display:block;
@@ -1901,7 +1907,10 @@
   line-height:1.07;
   font-variant-numeric:tabular-nums;
   color:var(--kpi-accent);
-  margin-top:auto;
+  grid-row:3;
+  align-self:end;
+  margin:0;
+  white-space:nowrap;
 }
 #appShell.has-sidebar .created-dashboard-stats .created-stat:nth-child(3) strong{
   color:#bf2740;
@@ -1919,7 +1928,9 @@
 }
 #appShell.has-sidebar .created-dashboard-stats .created-stat:nth-child(3)>span{
   display:inline-flex;
-  align-self:flex-start;
+  grid-row:4;
+  align-self:center;
+  justify-self:start;
   margin:0;
   padding:4px 9px;
   background:#fff0f2;
@@ -1965,7 +1976,11 @@
   display:none;
 }
 @media(max-width:1100px){
-  #appShell.has-sidebar .created-dashboard-stats .created-stat,
+  #appShell.has-sidebar .created-dashboard-stats .created-stat{
+    grid-template-rows:24px minmax(0,1fr) 48px 24px;
+    height:151px;
+    min-height:151px;
+  }
   #appShell.has-sidebar .created-comparison-card-grid .created-comparison-card{
     min-height:127px;
   }
@@ -1973,7 +1988,12 @@
 @media(max-width:570px){
   #appShell.has-sidebar .created-dashboard-stats,
   #appShell.has-sidebar .created-comparison-card-grid{gap:9px}
-  #appShell.has-sidebar .created-dashboard-stats .created-stat,
+  #appShell.has-sidebar .created-dashboard-stats .created-stat{
+    grid-template-rows:minmax(26px,auto) minmax(0,1fr) 40px 23px;
+    height:143px;
+    min-height:143px;
+    padding:13px 11px;
+  }
   #appShell.has-sidebar .created-comparison-card-grid .created-comparison-card{
     min-height:122px;padding:13px 11px;
   }
