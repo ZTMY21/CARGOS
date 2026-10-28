@@ -1510,8 +1510,13 @@ document.getElementById('btnExportar').addEventListener('click',async event=>{
   const button=event.currentTarget,label=button.textContent;
   button.disabled=true;button.textContent='Preparando reporte…';
   try {
-    const source=await repository.reportDocs(docs);
-    const wb=await buildExistenciasReport(source,new Date(),reqs);
+    // Exportar siempre el corte más reciente de Supabase, incluso si la
+    // sincronización llegó mientras el administrador tenía el panel abierto.
+    const latest=await repository.snapshot();
+    const currentDocs=latest.documentos.map(docFromDb);
+    const currentReqs=latest.requerimientos.map(reqFromDb);
+    const source=await repository.reportDocs(currentDocs);
+    const wb=await buildExistenciasReport(source,new Date(),currentReqs);
     await downloadExcel(wb,`Kardex_Santa_Anita_${limaDate()}.xlsx`,
       ()=>serializeExistenciasReport(wb,
         year=>repository.reportOriginalRows(year,source),
@@ -2058,7 +2063,16 @@ setInterval(()=>{
   if(appReady && isAdmin && currentUserId && !document.hidden && !mutationBusy)
     scheduleRefresh();
 },300000);
-document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshGoogleSync();});
+document.addEventListener('visibilitychange',()=>{
+  if(document.hidden)return;
+  void refreshGoogleSync();
+  // Una pestaña que estuvo en segundo plano debe traer el Kardex y
+  // recalcular cargos vencidos, preparados y envíos al volver a abrirse.
+  if(appReady&&currentUserId&&!mutationBusy)scheduleRefresh();
+});
+window.addEventListener('focus',()=>{
+  if(appReady&&currentUserId&&!document.hidden&&!mutationBusy)scheduleRefresh();
+});
 document.getElementById('btnToggleGoogleSync').addEventListener('click',async ev=>{
   if(!appReady||!isAdmin||isPreview)return;
   ev.currentTarget.disabled=true;
