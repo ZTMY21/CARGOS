@@ -105,6 +105,7 @@ export function buildExistenciasReport(docs,now=new Date(),detailBaseUrl='',reqs
   const pending=items.filter(item=>!sent.includes(item)&&!process.includes(item));
   [items,sent,process,pending].forEach((group,i)=>{
     const col='BCDE'[i];const value=sheet.getCell(col+'7');value.value=display(group);style(value);
+    value.font={name:'Arial',size:12,bold:true,color:{argb:DARK}};
     const percent=sheet.getCell(col+'8');percent.value=items.length?group.length/items.length:0;
     percent.numFmt='0%';style(percent,'data');
   });
@@ -118,6 +119,7 @@ export function buildExistenciasReport(docs,now=new Date(),detailBaseUrl='',reqs
     const ids=new Set(group.map(d=>d.id||d.kardex));
     const list=items.filter(x=>ids.has(x.doc.id||x.doc.kardex)),col='BC'[i];
     const value=sheet.getCell(col+'13');value.value=display(list);style(value);
+    value.font={name:'Arial',size:12,bold:true,color:{argb:DARK}};
     const percent=sheet.getCell(col+'14');percent.value=items.length?list.length/items.length:0;
     percent.numFmt='0%';style(percent);
   }
@@ -128,10 +130,12 @@ export function buildExistenciasReport(docs,now=new Date(),detailBaseUrl='',reqs
   for(const [i,year] of REPORT_YEARS.entries()){
     const row=19+i,group=items.filter(x=>x.key.startsWith(year+':'));
     const yearCell=sheet.getCell('B'+row);yearCell.value=year;style(yearCell);
+    yearCell.font={name:'Arial',size:12,bold:true,color:{argb:DARK}};
     const count=sheet.getCell('C'+row);count.value=detailBaseUrl
       ?{text:String(group.length),hyperlink:detailBaseUrl+'?detalleCargo='+year,
         tooltip:'Abrir Detalle de Cargo '+year}
       :group.length;style(count);
+    count.font={name:'Arial',size:12,bold:true,color:{argb:DARK}};
     if(detailBaseUrl){count.font={name:'Arial',size:12,bold:true,color:{argb:'FF0563C1'},underline:true};}
     sheet.getRow(row).height=15.75;
   }
