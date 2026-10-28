@@ -151,9 +151,12 @@ export async function serializeOriginalAnnualReport(workbook,getSource,progress)
     const data=await file.async('uint8array');
     // Enlaces internos de Excel: sin relación externa; vuelven a funcionar
     // desde Resumen y desde los detalles originales de cualquier año.
+    const isWorkbook=name==='xl/workbook.xml';
     const isSheet=/^xl\/worksheets\/sheet\d+\.xml$/.test(name);
     const isSheetRel=/^xl\/worksheets\/_rels\/sheet\d+\.xml\.rels$/.test(name);
-    let sourceXml=(isSheet||isSheetRel)?new TextDecoder().decode(data):'';
+    let sourceXml=(isSheet||isSheetRel||isWorkbook)?new TextDecoder().decode(data):'';
+    if(isWorkbook)sourceXml=sourceXml.replace(/<workbookView\b([^>]*)\/>/,(_,attrs)=>
+      '<workbookView'+attrs.replace(/\s+showSheetTabs="[^"]*"/,'')+' showSheetTabs="1"/>');
     if(isSheet)sourceXml=sourceXml.replace(/<hyperlink\b[^>]*\blocation="#[^"]*"[^>]*\/>/g,tag=>
       tag.replace(/\s+r:id="[^"]*"/,'').replace(/\blocation="#/,'location="'));
     if(isSheetRel)sourceXml=sourceXml.replace(/<Relationship\b(?=[^>]*\bTarget="#)[^>]*\/>/g,'');
@@ -161,7 +164,7 @@ export async function serializeOriginalAnnualReport(workbook,getSource,progress)
       const year=annualFiles.get(name);
       await output.add(name,annualXml(sourceXml,year,source,progress));
     }else{
-      await output.add(name,binarySource(isSheet||isSheetRel?encoder.encode(sourceXml):data));
+      await output.add(name,binarySource(isSheet||isSheetRel||isWorkbook?encoder.encode(sourceXml):data));
     }
   }
   return output.finish();
