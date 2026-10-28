@@ -104,6 +104,9 @@ function fetchPreviousCargos(rows){
 let currentPage = 0;
 let expiryGroups = {today:'', overdue:[], upcoming:[], unknown:[]};
 let activeExpiryGroup = null, expiryPage = 0, expiryReturnButton = '';
+// Filtros independientes del nuevo módulo; no alteran las búsquedas generales.
+let expiryWorkspaceView='all', expiryWorkspacePage=0;
+const EXPIRY_WORKSPACE_PAGE_SIZE=15;
 let preparedImRows = [], preparedImFetchEpoch = 0;
 let preparedImSummary = null, preparedImSummaryEpoch = 0;
 let requestedIMRows = [], requestedIMData = [], requestedIMError = '', requestedIMFetchEpoch = 0;
@@ -216,9 +219,9 @@ const WORKSPACE_SECTIONS={
 };
 const SUMMARY_VIEWS = new Set(['resumen','control','iron','historicos']);
 const SECTION_COPY={
-  control:['CONTROL DOCUMENTAL','Seguimiento de vencimientos','Cargos por vencer y vencidos de 2025–2026, con acceso al detalle original.'],
+  control:['CONTROL DOCUMENTAL','Control de vencimientos','Consulta de pendientes, plazos y prioridades de 2025–2026.'],
   iron:['IRON MOUNTAIN','Estado de envíos a Iron Mountain','Cargos enviados, pendientes y cajas preparadas, con histórico de movimientos.'],
-  historicos:['HISTÓRICO DOCUMENTAL','Cargos registrados por año','Detalle anual conservado del control documental, de 2020 a 2026.']
+  historicos:['HISTÓRICO DOCUMENTAL','Histórico documental','Consulta anual de cargos registrados entre 2020 y 2026.']
 };
 function setAdminRequestBadge(count) {
   const valid=Number.isSafeInteger(count) && count>=0;
@@ -252,9 +255,11 @@ function updateWorkspaceVisibility() {
   const adminReady=appReady && isAdmin;
   const showSync=adminReady && activeWorkspaceTab==='sync';
   document.getElementById('appShell').dataset.module=activeWorkspaceTab;
+  document.getElementById('documentExpiryWorkspace').hidden=
+    !adminReady || activeWorkspaceTab!=='control';
   // Miga de navegación informativa; sin modificar la sección seleccionada.
   const breadcrumbs={
-    resumen:'Dashboard General',control:'Control Documental',
+    resumen:'Dashboard General',control:'Control de vencimientos',
     historicos:'Histórico de cargos',iron:'Iron Mountain',
     requerimientos:'Requerimientos',existencias:'Existencias',
     sync:'Actividad y sincronización',reportes:'Reportes y descargas',
@@ -1005,6 +1010,7 @@ function renderDocs(){
   const cargosPendientes = cargosDe(grupoPendiente), foliosPendientes = foliosDe(grupoPendiente);
 
   expiryGroups = cargoExpiryGroups(docs, new Date());
+  renderDocumentExpiryWorkspace();
   const grupoPorVencer = expiryGroups.upcoming;
   const grupoVencidos = expiryGroups.overdue;
   const cargosPorVencer = cargosDe(grupoPorVencer), foliosPorVencer = foliosDe(grupoPorVencer);
@@ -1438,6 +1444,131 @@ function renderCargoExpiry() {
   document.getElementById('btnExpiryPrevious').disabled = expiryPage === 0;
   document.getElementById('btnExpiryNext').disabled = expiryPage >= pages - 1;
 }
+// Vista unificada de vencimientos. Usa la misma fuente del detalle heredado;
+// 30 días es un subconjunto de los cargos que aún NO han superado 6 meses.
+function documentExpiryRows() {
+  const rows=[];
+  const collect=(group,category)=>{
+    for(const doc of group){
+      for(const cargo of doc.cargos||[]){
+        if(!String(cargo??'').trim())continue;
+        const year=doc.expiry?.year || cargoYear(doc);
+        rows.push({doc,cargo:String(cargo),year,category});
+      }
+    }
+  };
+  collect(expiryGroups.overdue,'overdue');
+  collect(expiryGroups.upcoming.filter(d=>d.expiry.daysRemaining<=30),'soon');
+  collect(expiryGroups.upcoming.filter(d=>d.expiry.daysRemaining>30),'valid');
+  collect(expiryGroups.unknown,'unknown');
+  return rows;
+}
+function renderDocumentExpiryWorkspace() {
+  const root=document.getElementById('documentExpiryWorkspace');
+  if(!root)return;
+  const allRows=documentExpiryRows();
+  const counts={valid:0,soon:0,overdue:0,unknown:0};
+  allRows.forEach(row=>{counts[row.category]++});
+  for(const key of Object.keys(counts)){
+    const id={valid:'docExpiryValidCount',soon:'docExpirySoonCount',
+      overdue:'docExpiryOverdueCount',unknown:'docExpiryUnknownCount'}[key];
+    document.getElementById(id).textContent=fmtNum(counts[key]);
+  }
+  document.getElementById('docExpiryAsOf').textContent=
+    'Actualizado al '+fmtDate(expiryGroups.today);
+  for(const button of root.querySelectorAll('[data-expiry-view]')){
+    button.setAttribute('aria-pressed',String(button.dataset.expiryView===expiryWorkspaceView));
+  }
+  const year=document.getElementById('docExpiryYear').value;
+  const query=document.getElementById('docExpirySearch').value.trim().toLowerCase();
+  const filtered=allRows.filter(row=>{
+    if(expiryWorkspaceView!=='all' && row.category!==expiryWorkspaceView)return false;
+    if(year && row.year!==year)return false;
+    if(!query)return true;
+    const cargo=String(row.cargo).toLowerCase();
+    const kardex=String(row.doc.kardex||'').toLowerCase();
+    return cargo.includes(query) || kardex.includes(query);
+  });
+  const totalPages=Math.max(1,Math.ceil(filtered.length/EXPIRY_WORKSPACE_PAGE_SIZE));
+  expiryWorkspacePage=Math.max(0,Math.min(expiryWorkspacePage,totalPages-1));
+  const start=expiryWorkspacePage*EXPIRY_WORKSPACE_PAGE_SIZE;
+  const visible=filtered.slice(start,start+EXPIRY_WORKSPACE_PAGE_SIZE);
+  const html=visible.map(row=>{
+    const {doc,cargo,year,category}=row;
+    const exp=doc.expiry;
+    const base=exp?.baseDate?fmtDate(exp.baseDate):'—';
+    const due=exp?.dueDate?fmtDate(exp.dueDate):'—';
+    const durationText=!exp?'Sin fecha para calcular':
+      category==='overdue'?'Vencido '+formatCargoDuration(exp.time):
+      exp.daysRemaining===0?'Cumple 6 meses hoy':
+      'Faltan '+formatCargoDuration(exp.time);
+    const statusLabel={
+      valid:'Vigente',soon:'Por vencer',overdue:'Vencido',unknown:'Fecha por validar'
+    }[category];
+    return '<tr>'
+      +'<td class="doc-expiry-cargo-number">'+escapeHtml(cargo)+'</td>'
+      +'<td>'+escapeHtml(year)+'</td>'
+      +'<td>'+escapeHtml(String(doc.kardex||'—'))+'</td>'
+      +'<td>'+escapeHtml(base)+'</td>'
+      +'<td>'+escapeHtml(due)+'</td>'
+      +'<td>'+escapeHtml(durationText)+'</td>'
+      +'<td><span class="doc-expiry-status '+category+'">'+statusLabel+'</span></td>'
+      +'<td><button type="button" class="doc-expiry-open" data-doc-expiry-cargo="'
+      +escapeHtml(cargo)+'">Ver cargo</button></td>'
+      +'</tr>';
+  }).join('');
+  document.getElementById('docExpiryTableBody').innerHTML=
+    html||'<tr><td colspan="8" class="doc-expiry-empty">No hay cargos para los filtros seleccionados.</td></tr>';
+  document.getElementById('docExpiryTableCount').textContent=filtered.length
+    ? 'Mostrando '+fmtNum(start+1)+'–'+fmtNum(start+visible.length)
+      +' de '+fmtNum(filtered.length)+' cargos'
+    : '0 cargos encontrados';
+  document.getElementById('docExpiryPage').textContent=
+    'Página '+(expiryWorkspacePage+1)+' de '+totalPages;
+  document.getElementById('docExpiryPrevious').disabled=expiryWorkspacePage===0;
+  document.getElementById('docExpiryNext').disabled=expiryWorkspacePage>=totalPages-1;
+}
+const expiryWorkspaceElement=document.getElementById('documentExpiryWorkspace');
+expiryWorkspaceElement.addEventListener('click',event=>{
+  const selector=event.target.closest('button[data-expiry-view]');
+  if(selector){
+    expiryWorkspaceView=selector.dataset.expiryView;
+    expiryWorkspacePage=0;
+    renderDocumentExpiryWorkspace();
+    return;
+  }
+  const openButton=event.target.closest('button[data-doc-expiry-cargo]');
+  if(openButton){
+    // Reutilizar la búsqueda original (sin mostrar datos de ubicación del cargo).
+    const cargo=openButton.dataset.docExpiryCargo;
+    selectWorkspaceTab('existencias');
+    document.getElementById('btnLimpiarFiltros').click();
+    document.getElementById('buscar').value=cargo;
+    searchNow();
+    document.getElementById('grp-existencias').scrollIntoView({block:'start'});
+  }
+});
+document.getElementById('docExpiryYear').addEventListener('change',()=>{
+  expiryWorkspacePage=0;renderDocumentExpiryWorkspace();
+});
+document.getElementById('docExpirySearch').addEventListener('input',()=>{
+  expiryWorkspacePage=0;renderDocumentExpiryWorkspace();
+});
+document.getElementById('docExpiryReset').addEventListener('click',()=>{
+  expiryWorkspaceView='all';expiryWorkspacePage=0;
+  document.getElementById('docExpiryYear').value='';
+  document.getElementById('docExpirySearch').value='';
+  renderDocumentExpiryWorkspace();
+});
+document.getElementById('docExpiryPrevious').addEventListener('click',()=>{
+  if(expiryWorkspacePage>0)expiryWorkspacePage--;
+  renderDocumentExpiryWorkspace();
+});
+document.getElementById('docExpiryNext').addEventListener('click',()=>{
+  expiryWorkspacePage++;
+  renderDocumentExpiryWorkspace();
+});
+
 function openCargoExpiry(group) {
   if (!appReady || !isAdmin || !['overdue','upcoming'].includes(group)) return;
   activeExpiryGroup = group;
