@@ -94,8 +94,8 @@ export class KardexRepository {
         ||String(a.kardex).localeCompare(String(b.kardex),'es',{numeric:true}));
     // Cada bloque solo consulta el origen de los documentos del año: no
     // transfiere imágenes de sustento ni el catálogo completo al navegador.
-    for(let i=0;i<relevant.length;i+=12) {
-      const group=relevant.slice(i,i+12);
+    for(let i=0;i<relevant.length;i+=40) {
+      const group=relevant.slice(i,i+40);
       const rows=checked(await this.client.from('documentos')
         .select('id,datos_origen').in('id',group.map(d=>d.id)));
       const byId=new Map(rows.map(r=>[r.id,r.datos_origen]));
