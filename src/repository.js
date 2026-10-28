@@ -70,6 +70,7 @@ export class KardexRepository {
   async preparedImDetails() { return checked(await this.client.rpc('kardex_prepared_im_detail')); }
   async requestedIMDetails() { return checked(await this.client.rpc('kardex_requested_im_detail')); }
   async shippedIMBoxesMonthly() { return checked(await this.client.rpc('kardex_im_boxes_sent_monthly')); }
+  async cargoSafetyStatus() { return checked(await this.client.rpc('kardex_resguardo_estado')); }
   async previousCargos(ids) { return checked(await this.client.rpc('kardex_previous_cargos',{p_documento_ids:ids})); }
   async requestAdminAccess() { return checked(await this.client.rpc('kardex_admin_apply')); }
   async pendingAdminRequests() { return checked(await this.client.rpc('kardex_admin_pending')); }
@@ -101,7 +102,24 @@ export class KardexRepository {
       const byId=new Map(rows.map(r=>[r.id,r.datos_origen]));
       for(const doc of group) {
         if(!byId.has(doc.id))throw new Error('No se pudo leer el detalle original del Kardex '+doc.kardex);
-        yield {doc,origin:byId.get(doc.id)||{}};
+        let origin=byId.get(doc.id)||{};
+        // Si el nuevo cargo se archivó después de instalar V8, su detalle
+        // A:N quedó resguardado en Supabase y se recupera para el Excel anual.
+        if(!origin.registros_gzip_base64 && !(origin.registros||[]).length &&
+            origin.google_sheet_file && (doc.cargos||[]).length){
+          const result=await this.client.rpc('kardex_detalle_original_exportar',{
+            p_anio:Number(year),p_cargo:String(doc.cargos[0])
+          });
+          if(result.error)throw result.error;
+          if(Array.isArray(result.data)&&result.data.length){
+            const cols=['Fecha','Cargo','Grupo','Codigo','Archivo_Principal',
+              'PDF','Total_Paginas','Tipo','Fuente','Observaciones','ESTADO_REGULARIZADO',
+              'Estado','Detalle','Actualizado'];
+            origin={...origin,registros:result.data.map(values=>
+              Object.fromEntries(cols.map((column,index)=>[column,values[index]??''])))};
+          }
+        }
+        yield {doc,origin};
       }
     }
   }
