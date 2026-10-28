@@ -2207,6 +2207,228 @@
  #appShell.has-sidebar .doc-expiry-panel-top{padding:15px;flex-wrap:wrap}
  #appShell.has-sidebar .doc-expiry-toolbar{padding:12px}
 }
+
+/* PREVIEW — Identidad FAPE para Control de vencimientos.
+   Se preservan tarjetas, estados, consultas y cálculos existentes. */
+#appShell.has-sidebar[data-module="control"] #sidebarSectionHeading{
+ position:relative;isolation:isolate;
+ padding:17px 76px 17px 20px;
+ margin-bottom:18px;
+ border:1px solid #e6e7ec;
+ border-left:4px solid #d21535;
+ border-radius:12px;
+ background:linear-gradient(105deg,#fff6f7 0%,#fff 50%,#fff 100%);
+ box-shadow:0 3px 13px rgba(23,42,61,.045);
+}
+#appShell.has-sidebar[data-module="control"] #sidebarSectionEyebrow{
+ display:block;color:#c8233d;font-size:10px;
+ font-weight:850;letter-spacing:.1em;
+}
+#appShell.has-sidebar[data-module="control"] #sidebarSectionTitle{
+ color:#17334e;font-size:24px;
+ font-weight:850;letter-spacing:-.025em;line-height:1.2;
+ margin:6px 0 5px;
+}
+#appShell.has-sidebar[data-module="control"] #sidebarSectionSubtitle{
+ color:#627c91;font-size:12px;line-height:1.4;
+}
+#appShell .doc-expiry-heading-symbol{display:none}
+#appShell.has-sidebar[data-module="control"] .doc-expiry-heading-symbol{
+ position:absolute;right:20px;top:50%;transform:translateY(-50%);
+ display:grid;place-items:center;
+ width:43px;height:43px;
+ border:1px solid #f4d7dc;border-radius:11px;
+ color:#c41c38;background:#fff0f2;
+}
+#appShell.has-sidebar[data-module="control"] .doc-expiry-heading-symbol svg{
+ width:23px;height:23px;
+}
+#appShell.has-sidebar .doc-expiry-kpis{gap:14px;margin-bottom:20px}
+#appShell.has-sidebar .doc-expiry-kpi{
+ position:relative;
+ min-height:133px;
+ padding:17px 18px 15px;
+ gap:9px;
+ border:1px solid #dfe7ef;
+ border-top:3px solid var(--expiry-color);
+ border-radius:13px;
+ background:linear-gradient(125deg,#fff 46%,var(--expiry-wash) 165%);
+ box-shadow:0 4px 13px rgba(26,47,64,.065);
+ transition:border-color .15s ease,box-shadow .15s ease,transform .15s ease;
+}
+#appShell.has-sidebar .doc-expiry-kpi:hover{
+ transform:translateY(-1px);
+ box-shadow:0 7px 18px rgba(23,44,62,.105);
+}
+#appShell.has-sidebar .doc-expiry-kpi[aria-pressed="true"]{
+ box-shadow:0 0 0 1px var(--expiry-color),0 5px 16px rgba(22,40,59,.09);
+ background:linear-gradient(120deg,#fff 20%,var(--expiry-wash) 145%);
+}
+#appShell.has-sidebar .doc-expiry-kpi-label{
+ display:block;padding:2px 40px 0 0;
+ font-size:12px;font-weight:800;line-height:1.3;
+ color:#354e67;letter-spacing:0;
+}
+#appShell.has-sidebar .doc-expiry-kpi-icon{
+ position:absolute;right:15px;top:13px;
+ display:grid;place-items:center;
+ width:35px;height:35px;border-radius:10px;
+ color:var(--expiry-color);
+ background:var(--expiry-wash);
+}
+#appShell.has-sidebar .doc-expiry-kpi-icon svg{
+ display:block;width:19px;height:19px;
+}
+#appShell.has-sidebar .doc-expiry-kpi strong{
+ margin-top:0;font-size:clamp(32px,2.55vw,42px);
+ line-height:1;font-weight:900;letter-spacing:-.035em;
+}
+#appShell.has-sidebar .doc-expiry-kpi small{
+ margin:0;font-size:11px;font-weight:550;
+ color:#698197;line-height:1.4;
+}
+#appShell.has-sidebar .doc-expiry-panel{
+ border:1px solid #dfe7ee;border-radius:13px;
+ box-shadow:0 4px 16px rgba(25,46,64,.05);
+}
+#appShell.has-sidebar .doc-expiry-panel-top{
+ position:relative;
+ background:linear-gradient(98deg,#fff8f9 0%,#fff 60%);
+ border-bottom:1px solid #e9e9ed;
+ padding:20px 21px 19px 24px;
+}
+#appShell.has-sidebar .doc-expiry-panel-top::before{
+ content:"";position:absolute;left:0;top:18px;bottom:18px;
+ width:3px;border-radius:0 3px 3px 0;background:#d21c3a;
+}
+#appShell.has-sidebar .doc-expiry-overline{
+ color:#bf243b;font-size:10px;font-weight:850;letter-spacing:.08em;
+}
+#appShell.has-sidebar .doc-expiry-panel-top h3{
+ font-size:21px;line-height:1.25;
+ font-weight:850;color:#1d3851;letter-spacing:-.015em;
+ margin:6px 0;
+}
+#appShell.has-sidebar .doc-expiry-panel-top p{
+ color:#6c8193;font-size:12px;
+}
+#appShell.has-sidebar .doc-expiry-asof{
+ border:1px solid #dce6ed;border-radius:7px;
+ background:#f8fafc;color:#526f86;
+ padding:7px 11px;font-weight:650;font-size:11px;
+}
+#appShell.has-sidebar .doc-expiry-toolbar{
+ padding:16px 20px;
+ background:#f7f9fb;
+ border-bottom:1px solid #e3eaf1;
+ gap:15px;
+}
+#appShell.has-sidebar .doc-expiry-view-buttons{gap:8px}
+#appShell.has-sidebar .doc-expiry-view-buttons button{
+ min-height:36px;
+ padding:9px 14px;
+ border:1px solid #d8e3ec;
+ background:#fff;color:#3f5a72;
+ font-size:11.5px;font-weight:750;border-radius:8px;
+}
+#appShell.has-sidebar .doc-expiry-view-buttons button:hover{
+ border-color:#e9b2bd;background:#fff8f9;color:#b8263e;
+}
+#appShell.has-sidebar .doc-expiry-view-buttons button[aria-pressed="true"]{
+ background:#fff0f2;border-color:#edbfc6;color:#b8223a;
+ box-shadow:inset 0 0 0 1px rgba(188,39,59,.08);
+}
+#appShell.has-sidebar .doc-expiry-filter-fields{gap:13px}
+#appShell.has-sidebar .doc-expiry-filter-fields label{
+ font-size:11.5px;color:#344f68;font-weight:800;
+}
+#appShell.has-sidebar .doc-expiry-filter-fields select,
+#appShell.has-sidebar .doc-expiry-filter-fields input{
+ min-height:39px;
+ border:1px solid #d1deea;
+ border-radius:8px;
+ color:#26435b;
+ font-size:12px;
+ background:#fff;
+}
+#appShell.has-sidebar .doc-expiry-filter-fields input:focus,
+#appShell.has-sidebar .doc-expiry-filter-fields select:focus{
+ outline:2px solid #ebbac5;outline-offset:1px;
+ border-color:#c64a5e;
+}
+#appShell.has-sidebar .doc-expiry-reset{
+ min-height:39px;padding:9px 15px;
+ border:1px solid #d2dce6;border-radius:8px;
+ background:#fff;color:#455e73;font-weight:750;
+}
+#appShell.has-sidebar .doc-expiry-reset:hover{background:#fff7f8;color:#b8263e;border-color:#edbac3}
+#appShell.has-sidebar .doc-expiry-table{
+ color:#31495e;font-size:12px;
+}
+#appShell.has-sidebar .doc-expiry-table th{
+ background:#f1f5f8;
+ color:#324e67;font-size:10.5px;font-weight:850;
+ letter-spacing:.025em;
+ padding:13px 14px;
+ border-bottom:2px solid #e4e7ed;
+}
+#appShell.has-sidebar .doc-expiry-table td{padding:12px 14px;border-bottom:1px solid #edf1f4}
+#appShell.has-sidebar .doc-expiry-table tbody tr:nth-child(even) td{background:#fcfdfe}
+#appShell.has-sidebar .doc-expiry-table tbody tr:hover td{background:#fff7f8}
+#appShell.has-sidebar .doc-expiry-cargo-number{color:#183d57;font-size:12px;font-weight:850}
+#appShell.has-sidebar .doc-expiry-status{
+ font-size:11px;font-weight:800;border-radius:7px;
+ padding:6px 10px;
+}
+#appShell.has-sidebar .doc-expiry-open{
+ border:1px solid #e5c8ce;
+ border-radius:8px;
+ color:#b9253b;
+ font-size:11px;font-weight:800;padding:8px 12px;
+}
+#appShell.has-sidebar .doc-expiry-open:hover{
+ background:#fff0f2;border-color:#d7465d;color:#9a1730;
+}
+#appShell.has-sidebar .doc-expiry-pagination{
+ background:#fff;
+ padding:14px 20px;gap:14px;
+ color:#4e687c;font-size:11.5px;
+}
+#appShell.has-sidebar .doc-expiry-pagination-actions button{
+ min-height:35px;border-radius:8px;
+ border:1px solid #d9e2eb;color:#2e4c65;
+ font-weight:750;font-size:11px;
+}
+#appShell.has-sidebar .doc-expiry-pagination-actions button:not(:disabled):hover{
+ background:#fff1f3;border-color:#e5b4c0;color:#b32139;
+}
+#appShell.has-sidebar #docExpiryPage{font-weight:750;color:#263f56}
+#appShell.has-sidebar .doc-expiry-method{
+ color:#6e8393;
+ background:#fcfdff;padding:12px 20px;
+ border-top:1px solid #ebf0f5;
+ font-size:11px;
+}
+@media(max-width:1100px){
+ #appShell.has-sidebar .doc-expiry-kpi{min-height:126px;padding:15px}
+ #appShell.has-sidebar .doc-expiry-kpi-label{font-size:11.5px}
+}
+@media(max-width:650px){
+ #appShell.has-sidebar[data-module="control"] #sidebarSectionHeading{padding:15px 55px 15px 15px}
+ #appShell.has-sidebar[data-module="control"] #sidebarSectionTitle{font-size:21px}
+ #appShell.has-sidebar[data-module="control"] .doc-expiry-heading-symbol{right:12px;width:36px;height:36px}
+ #appShell.has-sidebar .doc-expiry-panel-top{padding:17px}
+ #appShell.has-sidebar .doc-expiry-toolbar{padding:13px}
+ #appShell.has-sidebar .doc-expiry-kpis{gap:9px}
+ #appShell.has-sidebar .doc-expiry-kpi{padding:13px 11px}
+ #appShell.has-sidebar .doc-expiry-kpi-icon{right:10px;top:10px;width:28px;height:28px}
+ #appShell.has-sidebar .doc-expiry-kpi-icon svg{width:16px;height:16px}
+ #appShell.has-sidebar .doc-expiry-kpi-label{padding-right:30px}
+ #appShell.has-sidebar .doc-expiry-kpi strong{font-size:30px}
+}
+@media(prefers-reduced-motion:reduce){
+ #appShell.has-sidebar .doc-expiry-kpi{transition:none}
+}
 </style>
 </head>
 <body>
@@ -2533,6 +2755,7 @@
         <span id="sidebarSectionEyebrow">CONTROL DOCUMENTAL</span>
         <h2 id="sidebarSectionTitle">Control Documental</h2>
         <p id="sidebarSectionSubtitle">Seguimiento documental y registros históricos</p>
+        <span class="doc-expiry-heading-symbol" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="17" rx="2"/><path d="M8 2v4M16 2v4M4 9h16"/><path d="m8 14 2.3 2.3L16 11"/></svg></span>
       </div>
       <section id="createdDashboard" class="created-dashboard" aria-label="Dashboard General de cargos realizados">
         <div class="created-dashboard-heading">
@@ -2634,21 +2857,25 @@
         <div class="doc-expiry-kpis" aria-label="Estado de vencimientos 2025 y 2026">
           <button type="button" class="doc-expiry-kpi" data-expiry-view="valid">
             <span class="doc-expiry-kpi-label">Vigentes</span>
+            <span class="doc-expiry-kpi-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m8 12 2.7 2.7L16 9"/></svg></span>
             <strong id="docExpiryValidCount">—</strong>
             <small>Más de 30 días disponibles</small>
           </button>
           <button type="button" class="doc-expiry-kpi" data-expiry-view="soon">
             <span class="doc-expiry-kpi-label">Próximos a vencer</span>
+            <span class="doc-expiry-kpi-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/><path d="m16.8 3.7 1.5 1.5"/></svg></span>
             <strong id="docExpirySoonCount">—</strong>
             <small>Dentro de los próximos 30 días</small>
           </button>
           <button type="button" class="doc-expiry-kpi" data-expiry-view="overdue">
             <span class="doc-expiry-kpi-label">Vencidos</span>
+            <span class="doc-expiry-kpi-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 10 18H2L12 3Z"/><path d="M12 9v5M12 18h.01"/></svg></span>
             <strong id="docExpiryOverdueCount">—</strong>
             <small>Superaron los 6 meses</small>
           </button>
           <button type="button" class="doc-expiry-kpi" data-expiry-view="unknown">
             <span class="doc-expiry-kpi-label">Fechas por validar</span>
+            <span class="doc-expiry-kpi-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="16" rx="2"/><path d="M7.5 3v4M16.5 3v4M3.5 10h17M9 14l6 4M15 14l-6 4"/></svg></span>
             <strong id="docExpiryUnknownCount">—</strong>
             <small>Sin fecha base válida</small>
           </button>
