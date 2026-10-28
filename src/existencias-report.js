@@ -131,7 +131,7 @@ export function buildExistenciasReport(docs,now=new Date(),reqs=[]){
   const reqNumbers=new Map(reqs.map(r=>[r.id,r.numero]));
   // Se conservan los años con datos, más la secuencia histórica 2020–2026.
   const years=[...new Set([...REPORT_YEARS.map(String),...items.map(x=>String(cargoYear(x.doc)))])]
-    .sort(compareNumbered);
+    .sort((a,b)=>compareNumbered(b,a));
   addCargoSheet(wb,allSourceCargos(docs),now,reqNumbers);
   for(const year of years){
     addYearSheet(wb,year,allSourceCargos(docs).filter(x=>String(cargoYear(x.doc))===year));
