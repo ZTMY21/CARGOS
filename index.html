@@ -2654,56 +2654,19 @@
 #imShippingDashboard[hidden],#imBoxesWorkspace[hidden]{display:none!important}
 #appShell.has-sidebar[data-module="iron"] #resumenTablas,
 #appShell.has-sidebar[data-module="iron-cajas"] #resumenTablas{display:none!important}
-#appShell.has-sidebar .doc-expiry-visual,
 #appShell.has-sidebar .im-dash-chart-panel{
  background:#fff;border:1px solid #dce6ee;
  border-radius:12px;box-shadow:0 4px 13px rgba(26,50,71,.05);
  margin:0 0 17px;overflow:hidden;
 }
-#appShell.has-sidebar .doc-expiry-visual-top,
 #appShell.has-sidebar .im-dash-chart-top{
  display:flex;align-items:center;justify-content:space-between;gap:12px;
  flex-wrap:wrap;padding:16px 19px 12px;
 }
-#appShell.has-sidebar .doc-expiry-visual-top h3,
 #appShell.has-sidebar .im-dash-chart-top h3{
  font-size:18px;color:#1b3c58;margin:4px 0 0;
  font-weight:850;letter-spacing:-.01em;
 }
-#appShell.has-sidebar .doc-expiry-visual-note{
- color:#73869a;font-weight:650;font-size:11px;
-}
-#appShell.has-sidebar .doc-expiry-legend{
- display:flex;align-items:center;gap:15px;flex-wrap:wrap;
- padding:2px 19px 11px;font-size:10.5px;color:#667c8f;
-}
-#appShell.has-sidebar .doc-expiry-legend span{
- display:inline-flex;align-items:center;gap:6px;
-}
-#appShell.has-sidebar .doc-expiry-legend i{
- display:inline-block;width:10px;height:10px;border-radius:3px;
- background:#29885f;
-}
-#appShell.has-sidebar .doc-expiry-legend i.soon{background:#d49a2c}
-#appShell.has-sidebar .doc-expiry-legend i.overdue{background:#c72a44}
-#appShell.has-sidebar .doc-expiry-legend i.unknown{background:#71879a}
-#appShell.has-sidebar .doc-expiry-distribution{
- padding:6px 19px 18px;display:grid;gap:13px;
-}
-#appShell.has-sidebar .doc-expiry-chart-row{
- display:grid;grid-template-columns:55px minmax(0,1fr) 65px;
- gap:12px;align-items:center;font-size:11px;
- font-weight:750;color:#344d64;
-}
-#appShell.has-sidebar .doc-expiry-stack{
- display:flex;width:100%;height:18px;border-radius:5px;
- overflow:hidden;background:#f1f5f8;
-}
-#appShell.has-sidebar .doc-expiry-segment.valid{background:#29885f}
-#appShell.has-sidebar .doc-expiry-segment.soon{background:#d49a2c}
-#appShell.has-sidebar .doc-expiry-segment.overdue{background:#c72a44}
-#appShell.has-sidebar .doc-expiry-segment.unknown{background:#71879a}
-#appShell.has-sidebar .doc-expiry-chart-row-total{text-align:right;font-variant-numeric:tabular-nums}
 #appShell.has-sidebar .im-dash-heading{
  position:relative;padding:19px 20px;margin-bottom:16px;
  border:1px solid #e3e8ed;border-left:4px solid #ca2941;
@@ -2812,10 +2775,6 @@
 }
 @media(max-width:590px){
  #appShell.has-sidebar .im-dash-kpis{grid-template-columns:1fr}
- #appShell.has-sidebar .doc-expiry-chart-row{
-  grid-template-columns:44px minmax(0,1fr) 45px;gap:8px;
- }
- #appShell.has-sidebar .doc-expiry-visual-top,
  #appShell.has-sidebar .im-dash-chart-top{padding:13px}
 }
 /* Vista única por módulo: evitar encabezados y resúmenes repetidos de IM. */
@@ -3275,19 +3234,6 @@
             <small>Sin fecha base válida</small>
           </button>
         </div>
-        <section class="doc-expiry-visual" aria-label="Panorama de vencimientos por año">
-          <div class="doc-expiry-visual-top">
-            <div><span class="doc-expiry-overline">PANORAMA DOCUMENTAL</span><h3>Distribución de vencimientos</h3></div>
-            <span class="doc-expiry-visual-note">Cargos pendientes · 2025–2026</span>
-          </div>
-          <div class="doc-expiry-legend" aria-hidden="true">
-            <span><i class="valid"></i> Vigentes</span>
-            <span><i class="soon"></i> Próximos 30 días</span>
-            <span><i class="overdue"></i> Vencidos</span>
-            <span><i class="unknown"></i> Por validar</span>
-          </div>
-          <div id="docExpiryDistribution" class="doc-expiry-distribution" aria-live="polite"></div>
-        </section>
         <div class="doc-expiry-panel">
           <div class="doc-expiry-panel-top">
             <div>
