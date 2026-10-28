@@ -1880,6 +1880,8 @@ document.getElementById('docExpirySearch').addEventListener('input',()=>{
 });
 document.getElementById('docExpiryReset').addEventListener('click',()=>{
   expiryWorkspaceView='all';expiryWorkspacePage=0;
+  expiryChartYear=expiryGroups.today.slice(0,4);
+  expiryChartMonth=0;
   document.getElementById('docExpiryYear').value='';
   document.getElementById('docExpirySearch').value='';
   renderDocumentExpiryWorkspace();
