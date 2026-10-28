@@ -2818,6 +2818,15 @@
  #appShell.has-sidebar .doc-expiry-visual-top,
  #appShell.has-sidebar .im-dash-chart-top{padding:13px}
 }
+/* Vista única por módulo: evitar encabezados y resúmenes repetidos de IM. */
+#appShell.has-sidebar[data-module="iron"] #sidebarSectionHeading,
+#appShell.has-sidebar[data-module="iron-cajas"] #sidebarSectionHeading{
+ display:none!important;
+}
+#appShell.has-sidebar[data-module="iron"] #resumenTablas,
+#appShell.has-sidebar[data-module="iron-cajas"] #resumenTablas{
+ display:none!important;
+}
 </style>
 </head>
 <body>
