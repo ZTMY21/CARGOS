@@ -1,60 +1,62 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import ExcelJS from 'exceljs';
-import {gzipSync} from 'node:zlib';
-import {buildExistenciasReport,buildYearDetailReport,DETAIL_COLUMNS} from '../src/existencias-report.js';
+import {buildExistenciasReport,REPORT_YEARS} from '../src/existencias-report.js';
 
 const now=new Date('2026-10-28T02:00:00Z'); // 27 de octubre en Lima.
 const base={kardex:'SA-00001',cargos:['653'],anioOrigen:2026,fechaOrigen:'2026-01-06',
   fechaRegistro:'2026-10-15',tipoDoc:'Facturas-Guia',periodo:'',ubicacion:'Santa Anita',
   folios:8,cantidadFacturas:2,usuario:'Operador',obs:'Observación original',
-  datosOrigen:{cantidad_registros:3,registros:[
-    {Fecha:'2026-01-06',Cargo:'653',Grupo:'A',Codigo:'F001',Total_Paginas:3},
-    {Fecha:'2026-01-06',Cargo:'653',Grupo:'B',Codigo:'F002',Total_Paginas:5}
-  ]}};
+  datosOrigen:{cantidad_registros:3}};
 
-test('report counts distinct cargos and retains only years 2023–2026 with live links',async()=>{
-  const sent={...base,kardex:'SA-00002',imConfirmado:true,imFechaEnvio:'2026-10-20',
-    datosOrigen:{cantidad_registros:3,registros:base.datosOrigen.registros}};
-  const old={...base,kardex:'SA-00003',anioOrigen:2023,cargos:['10'],fechaOrigen:'2023-02-05',
-    datosOrigen:{cantidad_registros:1},cantidadFacturas:1};
-  const wb=buildExistenciasReport([base,sent,old],now,'https://kardex.example.test/');
-  const reloaded=new ExcelJS.Workbook();await reloaded.xlsx.load(await wb.xlsx.writeBuffer());
-  assert.deepEqual(reloaded.worksheets.map(s=>s.name),['Resumen','Cargos','Requerimientos']);
-  const summary=reloaded.getWorksheet('Resumen');
-  assert.equal(summary.getCell('B7').value.result,'2 (16 folios)');
-  assert.deepEqual([19,20,21,22].map(r=>summary.getCell(`B${r}`).value),[2023,2024,2025,2026]);
-  assert.match(summary.getCell('B23').value,/detalle de ese año/);
-  assert.equal(summary.getCell('B24').value,null);
-  assert.equal(summary.getCell('C22').value.hyperlink,'https://kardex.example.test/?detalleCargo=2026');
-  const rows=reloaded.getWorksheet('Cargos');
-  assert.equal(rows.rowCount,3);
-  assert.equal(rows.getCell('K2').value,'');
-  assert.equal(rows.getCell('L2').value,'Enviado');
-  assert.equal(rows.getCell('E2').value,'Aeromontain');
-  assert.equal(rows.getCell('N2').value,'Operador');
-  assert.equal(rows.getCell('G2').value,3);
-  assert.equal(rows.getCell('H2').value,2);
-  assert.equal(rows.getCell('O2').value,'Observación original');
+test('each year quantity opens an internal sheet with exactly one row per cargo',async()=>{
+  const historical=REPORT_YEARS.slice(0,-1).map((year,i)=>({...base,
+    kardex:`SA-${String(i+2).padStart(5,'0')}`,anioOrigen:year,cargos:[String(100+i)],
+    fechaOrigen:`${year}-02-05`,datosOrigen:{cantidad_registros:1},cantidadFacturas:1}));
+  const sent={...base,kardex:'SA-00020',imConfirmado:true,imFechaEnvio:'2026-10-20'};
+  const other={...base,kardex:'SA-00021',anioOrigen:2020,cargos:['50'],fechaOrigen:'2020-02-05'};
+  const wb=buildExistenciasReport([...historical,base,sent,other],now);
+  const saved=new ExcelJS.Workbook();await saved.xlsx.load(await wb.xlsx.writeBuffer());
+  assert.deepEqual(saved.worksheets.map(s=>s.name),['Resumen','Cargos',
+    ...REPORT_YEARS.map(year=>`Detalle de Cargo ${year}`),'Requerimientos']);
+  const summary=saved.getWorksheet('Resumen');
+  assert.equal(summary.getCell('B7').value.result,'7 (56 folios)');
+  assert.deepEqual(REPORT_YEARS.map((_,i)=>summary.getCell(`B${19+i}`).value),REPORT_YEARS);
+  for(const [i,year] of REPORT_YEARS.entries()){
+    const link=summary.getCell(`C${19+i}`).value;
+    assert.equal(link.text,'1');
+    assert.equal(link.hyperlink,`#'Detalle de Cargo ${year}'!A1`);
+    const detail=saved.getWorksheet(`Detalle de Cargo ${year}`);
+    assert.equal(detail.rowCount,2);
+    assert.equal(detail.getCell('I2').value,year===2026?'653':String(100+i));
+    assert.deepEqual(detail.getRow(1).values.slice(1),saved.getWorksheet('Cargos').getRow(1).values.slice(1));
+  }
+  assert.match(summary.getCell('B27').value,/1 cargos de otros años/);
+  assert.equal(summary.getCell('B28').value,null);
+  const rows=saved.getWorksheet('Cargos');
+  assert.equal(rows.rowCount,8);
+  assert.equal(saved.getWorksheet('Detalle de Cargo 2026').getCell('L2').value,'Enviado');
+  assert.equal(saved.getWorksheet('Detalle de Cargo 2026').getCell('E2').value,'Aeromontain');
   assert.equal(rows.getColumn(16).hidden,true);
-  assert.equal(reloaded.getWorksheet('Requerimientos').rowCount,0);
+  assert.equal(saved.getWorksheet('Requerimientos').rowCount,0);
 });
 
-test('annual detail combines historical and current 2026 rows in original column order',async()=>{
-  const zipped=gzipSync(JSON.stringify([
-    [2,'2026-10-27','653','C','F003','','',4,'','','','']
-  ])).toString('base64');
-  const newer={...base,kardex:'SA-99999',datosOrigen:{registros:[
-    {...base.datosOrigen.registros[0]},
-    {Fecha:'2026-10-27',Cargo:'653',Grupo:'C',Codigo:'F003',Total_Paginas:4}
-  ]}};
-  const compressed={...newer,kardex:'SA-99998',datosOrigen:{
-    columnas:['_fila_excel',...DETAIL_COLUMNS],registros_gzip_base64:zipped
-  }};
-  const wb=await buildYearDetailReport([base,newer,compressed],2026);
-  const sheet=wb.getWorksheet('Detalle de Cargo 2026');
-  assert.deepEqual(sheet.getRow(1).values.slice(1),DETAIL_COLUMNS);
-  assert.equal(sheet.rowCount,4);
-  assert.deepEqual([2,3,4].map(r=>sheet.getCell(`D${r}`).value),['F001','F002','F003']);
-  await assert.rejects(()=>buildYearDetailReport([],2027),/fuera del período/);
+test('new 2026 cargo appears on the next download and duplicate invoice rows do not inflate the year',()=>{
+  const initial=buildExistenciasReport([base],now);
+  assert.equal(initial.getWorksheet('Resumen').getCell('C24').value.text,'1');
+  const newCargo={...base,kardex:'SA-00022',cargos:['654'],fechaOrigen:'2026-10-27',
+    datosOrigen:{cantidad_registros:4}};
+  const withNew=buildExistenciasReport([base,{...base,kardex:'SA-00030'},newCargo],now);
+  assert.equal(withNew.getWorksheet('Resumen').getCell('C24').value.text,'2');
+  assert.deepEqual([2,3].map(row=>withNew.getWorksheet('Detalle de Cargo 2026').getCell(`I${row}`).value),['654','653']);
+  assert.equal(withNew.getWorksheet('Detalle de Cargo 2026').rowCount,3);
+});
+
+test('historical cargos with distinct Kardex remain distinct even with the same normalized number',()=>{
+  const a={...base,kardex:'SA-02866',anioOrigen:2024,cargos:['0028']};
+  const b={...base,kardex:'SA-03122',anioOrigen:2024,cargos:['28']};
+  const wb=buildExistenciasReport([a,b],now);
+  assert.equal(wb.getWorksheet('Resumen').getCell('C22').value.text,'2');
+  assert.deepEqual([2,3].map(row=>wb.getWorksheet('Detalle de Cargo 2024').getCell(`A${row}`).value).sort(),
+    ['SA-02866','SA-03122']);
 });

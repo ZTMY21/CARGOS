@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { computeReqEstado as reqEstado, computeDocEstado as docEstado, fmtDate, escapeHtml, limaDate } from './rules.js';
 import { KardexRepository, reqFromDb, docFromDb } from './repository.js';
-import { buildCargoWorkbook, buildExistenciasReport, buildYearDetailReport, parseWorkbook } from './excel-api.js';
+import { buildCargoWorkbook, buildExistenciasReport, parseWorkbook } from './excel-api.js';
 import { highlightMatch, normalizeSearch, filterDocuments, filterRequirements, invoiceSearchPresentation, assignedBoxCode } from './search.js';
 import './connection.css';
 import { createIdleSession } from './idle-session.js';
@@ -33,7 +33,6 @@ let adminRequestsTimer = null, adminRequestsEpoch = 0;
 let adminEmailLinkReviewed = false;
 let dataReady = false, realtimeChannel = null, refreshTimer = null, refreshPromise = null;
 let refreshRequested = false;
-let pendingYearDownload = new URLSearchParams(window.location.search).get('detalleCargo');
 let authGeneration = 0, currentUserId = null;
 let pendingReqId = null, pendingDocId = null;
 let queryResults = null, queryError = '', searchEpoch = 0, searchController = null;
@@ -341,10 +340,6 @@ async function refreshData() {
       if (channelReady) setStatus('Conectado en línea — Sincronizado', 'online');
       else setStatus('Datos actualizados — Conectando en tiempo real');
       setAvailability();
-      if(pendingYearDownload && isAdmin && appReady) {
-        const year=pendingYearDownload;pendingYearDownload=null;
-        void exportYearDetail(year);
-      }
     } while (refreshRequested && currentUserId);
   })();
   try { return await refreshPromise; }
@@ -885,7 +880,9 @@ function renderDocs(){
   const porPeriodoHtml = aniosOrdenados.length
     ? aniosOrdenados.map(a=>`<div class="periodo-fila ${a==='2026'?'year-current':''}">
          <span class="year-label">${escapeHtml(a)}</span>
-         <span class="year-value">${fmtNum(cargosPorAnio.get(a))} <span class="year-unit">cargos</span></span>
+         ${/^202[1-6]$/.test(a)
+           ? `<button type="button" class="year-value cargo-year-button" data-cargo-year="${a}" aria-label="Ver ${fmtNum(cargosPorAnio.get(a))} cargos de ${a}">${fmtNum(cargosPorAnio.get(a))} <span class="year-unit">cargos</span></button>`
+           : `<span class="year-value">${fmtNum(cargosPorAnio.get(a))} <span class="year-unit">cargos</span></span>`}
        </div>`).join('')
     : '<div class="year-empty">Sin cargos registrados</div>';
 
@@ -947,6 +944,20 @@ function renderDocs(){
       <div class="year-grid" id="imYearSummaryGrid" aria-live="polite">${enviadosPorAnioHtml}</div>
     </section>
   `;
+  document.getElementById('yearSummaryGrid').addEventListener('click',event=>{
+    const button=event.target.closest('button[data-cargo-year]');
+    if(!button || !appReady || !isAdmin)return;
+    document.getElementById('buscar').value='';
+    for(const id of ['filtroEstado','filtroUbicacion','filtroFactura'])document.getElementById(id).value='';
+    document.getElementById('filtroTipo').value='solo-cargos';
+    const yearSelect=document.getElementById('filtroAnio');
+    const originYear=`origen:${button.dataset.cargoYear}`;
+    yearSelect.value=[...yearSelect.options].some(option=>option.value===originYear)
+      ? originYear : button.dataset.cargoYear;
+    selectWorkspaceTab('existencias',true);
+    searchNow();
+    document.getElementById('grp-existencias').scrollIntoView({behavior:'smooth',block:'start'});
+  });
   renderMonthlyCargoStats();
   if (activeExpiryGroup) renderCargoExpiry();
 
@@ -1494,25 +1505,16 @@ function downloadExcel(wb,name) {
     setTimeout(()=>URL.revokeObjectURL(url),1000);
   });
 }
-async function exportYearDetail(year) {
-  try {
-    if(!isAdmin || !appReady || !/^(2023|2024|2025|2026)$/.test(String(year)))
-      throw new Error('Inicia sesión administrativa y selecciona un año entre 2023 y 2026.');
-    const source=await repository.reportDocs(docs,year);
-    const wb=await buildYearDetailReport(source,year);
-    await downloadExcel(wb,`Detalle_de_Cargo_${year}_${limaDate()}.xlsx`);
-  } catch(error) { alert(`No se pudo exportar el detalle: ${readableError(error)}`); }
-}
 document.getElementById('btnExportar').addEventListener('click',async event=>{
   if(!isAdmin || !appReady)return;
-  const button=event.currentTarget;button.disabled=true;
+  const button=event.currentTarget,label=button.textContent;
+  button.disabled=true;button.textContent='Preparando reporte…';
   try {
     const source=await repository.reportDocs(docs);
-    const appUrl=window.location.origin+window.location.pathname;
-    const wb=buildExistenciasReport(source,new Date(),appUrl);
+    const wb=buildExistenciasReport(source,new Date());
     await downloadExcel(wb,`Kardex_Santa_Anita_${limaDate()}.xlsx`);
   } catch(error) { alert(`No se pudo exportar el reporte: ${readableError(error)}`); }
-  finally { button.disabled=false; }
+  finally { button.textContent=label;button.disabled=false; }
 });
 document.getElementById('btnImportar').addEventListener('click', ()=>document.getElementById('fileImportar').click());
 document.getElementById('fileImportar').addEventListener('change', async ev => {
@@ -1698,10 +1700,6 @@ async function handleSession(session) {
     document.getElementById('sessionProfile').hidden = !user.email;
     document.getElementById('btnSignOut').hidden = false;
     await subscribeRealtime(); setAvailability();
-    if(pendingYearDownload && isAdmin) {
-      const year=pendingYearDownload;pendingYearDownload=null;
-      void exportYearDetail(year);
-    }
   } catch (error) {
     appReady = false; setAvailability();
     showAuthPage(true);

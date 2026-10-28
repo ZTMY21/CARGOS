@@ -73,7 +73,7 @@ Ese JSON contiene información real del archivo y no debe agregarse a Git.
 
 ## Excel
 
-El botón administrativo **Reporte de Existencias** descarga `Kardex_Santa_Anita_YYYY-MM-DD.xlsx` con fecha de Lima. La hoja `Resumen` muestra el total y los estados de los cargos, alertas pendientes y años 2023–2026. Cada cantidad anual enlaza al aplicativo para descargar, tras autenticación, un libro independiente `Detalle_de_Cargo_AAAA_YYYY-MM-DD.xlsx` con las columnas originales del histórico. Se combinan los registros de origen y los nuevos de 2026, evitando filas idénticas duplicadas. La hoja `Cargos` conserva un registro por cargo, con ubicación, estado, antigüedad y cantidades actuales; `Requerimientos` queda vacía temporalmente. Los enlaces anuales necesitan conexión y acceso administrativo.
+El botón administrativo **Reporte de Existencias** descarga `Kardex_Santa_Anita_YYYY-MM-DD.xlsx` con fecha de Lima. La hoja `Resumen` muestra el total y los estados de los cargos, alertas pendientes y años 2021–2026. Cada cantidad anual enlaza a una hoja **Detalle de Cargo AAAA** dentro del mismo Excel, con una fila por cargo y las columnas de la hoja `Cargos`, sin desplegar facturas individuales. El total general también puede incluir años fuera de ese rango y se indica por separado. Cada descarga consulta de nuevo la base compartida: los cargos nuevos sincronizados en 2026 aparecen en su cantidad y detalle sin intervención manual. `Requerimientos` queda vacía temporalmente.
 
 La exportación histórica de cuatro hojas (`buildWorkbook`) permanece en el código para compatibilidad con el formato de importación existente.
 

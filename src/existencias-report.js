@@ -1,11 +1,9 @@
 import ExcelJS from 'exceljs';
 import {computeDocEstado, fmtDate, limaDate, monthsBetween} from './rules.js';
-import {cargoYear, sourceRecords} from './cargo-details.js';
+import {cargoYear} from './cargo-details.js';
 import {cargoExpiryGroups} from './cargo-expiry.js';
 
-export const REPORT_YEARS = [2023, 2024, 2025, 2026];
-export const DETAIL_COLUMNS = ['Fecha','Cargo','Grupo','Codigo','Archivo_Principal','PDF',
-  'Total_Paginas','Tipo','Fuente','Observaciones','ESTADO_REGULARIZADO'];
+export const REPORT_YEARS = [2021, 2022, 2023, 2024, 2025, 2026];
 const CARGO_COLUMNS = ['Número de Kardex','Fecha de registro','Tipo de documento','Período contable',
   'Ubicación','Cantidad de folios','Cantidad de registros','Cantidad de códigos','Número de cargo',
   'Fecha de envío','Centro de guía','Estado','Antigüedad en meses','Usuario de registro','Observaciones'];
@@ -14,11 +12,15 @@ const code = value => String(value??'').trim().replace(/\.0+$/,'').replace(/^0+(
 const identity = (year, cargo) => `${year}:${code(cargo)}`;
 function cargoGroups(docs) {
   const groups=new Map();
-  for(const doc of docs) for(const cargo of doc.cargos||[]) {
+  for(const doc of docs) for(const [index,cargo] of (doc.cargos||[]).entries()) {
     if(!code(cargo))continue;
-    const key=identity(cargoYear(doc),cargo);
-    if(!groups.has(key)) groups.set(key,[]);
-    groups.get(key).push(doc);
+    const year=cargoYear(doc);
+    // El aplicativo cuenta cada registro histórico. Solo 2026 fusiona el mismo
+    // cargo cuando la sincronización agrega más códigos de factura a ese cargo.
+    const key=year==='2026'?identity(year,cargo)
+      :`${identity(year,cargo)}|${doc.id||doc.kardex}|${index}`;
+    if(!groups.has(key)) groups.set(key,{cargo,entries:[]});
+    groups.get(key).entries.push(doc);
   }
   return groups;
 }
@@ -47,12 +49,12 @@ function age(doc,now) {
 const display = (n,folios) => `${n} (${folios.toLocaleString('en-US')} folios)`;
 const sum = rows => rows.reduce((n,d)=>n+(Number(d.folios)||0),0);
 
-export function buildExistenciasReport(docs,now=new Date(),appUrl='') {
+export function buildExistenciasReport(docs,now=new Date()) {
   const wb=new ExcelJS.Workbook();
   const groups=cargoGroups(docs), chosen=[];
-  for(const [key,entries] of groups) {
+  for(const [key,{cargo,entries}] of groups) {
     const doc=entries.find(d=>reportStatus(d,now)==='Enviado')||entries[0];
-    chosen.push({key,doc,entries,cargo:(doc.cargos||[]).find(c=>identity(cargoYear(doc),c)===key)});
+    chosen.push({key,doc,cargo});
   }
   chosen.sort((a,b)=>b.key.localeCompare(a.key,'es',{numeric:true}));
   const sheet=wb.addWorksheet('Resumen');sheet.views=[{showGridLines:false}];
@@ -97,13 +99,13 @@ export function buildExistenciasReport(docs,now=new Date(),appUrl='') {
   for(const [i,year] of REPORT_YEARS.entries()) {
     const row=i+19,number=chosen.filter(item=>item.key.startsWith(`${year}:`)).length;
     sheet.getCell(`B${row}`).value=year;
-    const cell=sheet.getCell(`C${row}`);cell.value=number;
-    if(appUrl) {
-      cell.value={text:String(number),hyperlink:`${appUrl}?detalleCargo=${year}`};
-      cell.font={color:{argb:'FF0563C1'},underline:true,bold:true};
-    }
+    const cell=sheet.getCell(`C${row}`);
+    cell.value={text:String(number),hyperlink:`#'Detalle de Cargo ${year}'!A1`,tooltip:`Ver los ${number} cargos de ${year}`};
+    cell.font={color:{argb:'FF0563C1'},underline:true,bold:true};
   }
-  sheet.getCell('B23').value='Pulsa una cantidad para descargar el detalle de ese año desde el aplicativo.';
+  sheet.getCell('B26').value='Pulsa una cantidad para ver la lista de cargos de ese año en este archivo.';
+  const outside=chosen.length-chosen.filter(item=>REPORT_YEARS.some(year=>item.key.startsWith(`${year}:`))).length;
+  if(outside)sheet.getCell('B27').value=`El total general también incluye ${outside} cargos de otros años.`;
   for(const row of [6,12,18])sheet.getRow(row).eachCell(cell=>{
     cell.font={bold:true,color:{argb:'FFFFFFFF'}};
     cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFC00000'}};
@@ -112,49 +114,32 @@ export function buildExistenciasReport(docs,now=new Date(),appUrl='') {
   const cargos=wb.addWorksheet('Cargos');
   [18,18,21,18,17,19,21,19,18,18,16,21,20,21,40,20].forEach((w,i)=>cargos.getColumn(i+1).width=w);
   header(cargos,CARGO_COLUMNS);
-  for(const item of chosen) {
-    const {doc,entries,cargo}=item,status=reportStatus(doc,now);
+  const valuesFor=item=>{
+    const {doc,cargo}=item,status=reportStatus(doc,now);
     const origin=doc.datosOrigen||{};
     const registerCount=Number(origin.cantidad_registros)||Number(doc.cantidadFacturas)||0;
     const codeCount=Number(doc.cantidadFacturas)||Object.keys(origin.grupos_por_codigo||{}).length||0;
     const sentDate=doc.imLiveFechaEnvio||doc.imFechaEnvio||doc.fEnvio||'';
-    const row=cargos.addRow([doc.kardex,fmtDate(doc.fechaOrigen||doc.fechaRegistro),doc.tipoDoc||'',
+    return [doc.kardex,fmtDate(doc.fechaOrigen||doc.fechaRegistro),doc.tipoDoc||'',
       fmtDate(doc.periodo),reportLocation(doc,now),Number(doc.folios)||0,registerCount,codeCount,
-      cargo,fmtDate(status==='Enviado'?sentDate:''),'',status,age(doc,now),status==='Enviado'?doc.usuario||'':'',doc.obs||'']);
+      cargo,fmtDate(status==='Enviado'?sentDate:''),'',status,age(doc,now),status==='Enviado'?doc.usuario||'':'',doc.obs||''];
+  };
+  for(const item of chosen) {
+    const row=cargos.addRow(valuesFor(item));
+    const {doc}=item;
     const operational=computeDocEstado(doc,now).estado;
     row.getCell(16).value=operational==='Enviado a Iron Mountain'||operational==='En Proceso de Acondicionamiento'
       ? operational : 'Pendiente de Envío';
-    cargos.getColumn(16).hidden=true;
+  }
+  cargos.getColumn(16).hidden=true;
+  for(const year of REPORT_YEARS) {
+    const detail=wb.addWorksheet(`Detalle de Cargo ${year}`);
+    [18,18,21,18,17,19,21,19,18,18,16,21,20,21,40].forEach((w,i)=>detail.getColumn(i+1).width=w);
+    header(detail,CARGO_COLUMNS);
+    for(const item of chosen)if(item.key.startsWith(`${year}:`))detail.addRow(valuesFor(item));
+    detail.autoFilter={from:'A1',to:`O${Math.max(2,detail.rowCount)}`};
   }
   wb.addWorksheet('Requerimientos');
   wb.calcProperties.fullCalcOnLoad=true;
-  return wb;
-}
-
-export async function buildYearDetailReport(docs,year) {
-  if(!REPORT_YEARS.includes(Number(year)))throw new Error('Año de cargo fuera del período del reporte.');
-  const wb=new ExcelJS.Workbook(),sheet=wb.addWorksheet(`Detalle de Cargo ${year}`);
-  DETAIL_COLUMNS.forEach((_,i)=>sheet.getColumn(i+1).width=i===3?28:20);
-  header(sheet,DETAIL_COLUMNS);
-  const seen=new Set();
-  for(const doc of docs) {
-    if(cargoYear(doc)!==String(year))continue;
-    const rows=await sourceRecords(doc.datosOrigen||{});
-    for(const source of rows) {
-      const row=DETAIL_COLUMNS.map(name=>source[name]??'');
-      if(!row[0]&&doc.fechaOrigen)row[0]=doc.fechaOrigen;
-      if(!row[1])row[1]=(doc.cargos||[])[0]||'';
-      const key=[code(row[1]),...row.map(v=>String(v??''))].join('\u001f');
-      if(seen.has(key))continue;
-      seen.add(key);sheet.addRow(row);
-    }
-    // Older imported cargos without source rows retain their available codes.
-    if(!rows.length)for(const raw of String(doc.facturas||'').split(/[,;\n]/).filter(Boolean)) {
-      const row=[doc.fechaOrigen||'',(doc.cargos||[])[0]||'','',raw.trim(),'','','','','','',''];
-      const key=[code(row[1]),...row].join('\u001f');
-      if(!seen.has(key)){seen.add(key);sheet.addRow(row);}
-    }
-  }
-  sheet.autoFilter={from:'A1',to:`K${Math.max(2,sheet.rowCount)}`};
   return wb;
 }

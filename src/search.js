@@ -97,7 +97,8 @@ export function filterDocuments(documents, requirements, filters, now=new Date()
     const periodYear=d.periodo?.slice(0,4);
     const year=filters.year||'';
     const matchesYear=!year || (year==='sin-periodo' && !d.periodo)
-      || (year.startsWith('origen:') && String(d.anioOrigen)===year.slice(7))
+      || (year.startsWith('origen:') && (String(d.anioOrigen)===year.slice(7)
+        || (cargoOnly && String(d.anioOrigen||periodYear||d.fechaOrigen?.slice(0,4))===year.slice(7))))
       || (!year.includes(':') && periodYear===year);
     const matchesInvoice=cargoOnly || boxOnly || !filters.invoiceExact || !cargoQuery
       || (d.facturas||'').split(/[,;\n]/).some(number=>normalizeSearch(number)===cargoQuery);
