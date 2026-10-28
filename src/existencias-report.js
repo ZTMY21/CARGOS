@@ -171,7 +171,7 @@ export function buildExistenciasReport(docs,now=new Date(),reqs=[]){
   for(const [i,year] of years.entries()){
     const row=19+i,group=items.filter(x=>String(cargoYear(x.doc))===year);
     const yearCell=sheet.getCell('B'+row);
-    yearCell.value=/^\\d{4}$/.test(year)?Number(year):year;
+    yearCell.value=/^\d{4}$/.test(year)?Number(year):year;
     style(yearCell);
     yearCell.font={name:'Arial',size:12,bold:true,color:{argb:DARK}};
     const count=sheet.getCell('C'+row);
