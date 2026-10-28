@@ -1,5 +1,5 @@
 // Gráfico SVG sin dependencias. Se utiliza únicamente en la ventana «Ver detalle».
-export function renderCargoLineChart(surface,legend,categories,lines,{showLabels=false,width=960,height=360,fontSize=12,highlightIndex=null,compactLayout=false}={}){
+export function renderCargoLineChart(surface,legend,categories,lines,{showLabels=false,width=960,height=360,fontSize=12,highlightIndex=null,compactLayout=false,onPointSelect=null}={}){
   surface.replaceChildren();
   legend.replaceChildren();
   const W=Math.max(640,width),H=Math.max(340,height);
@@ -78,7 +78,11 @@ export function renderCargoLineChart(surface,legend,categories,lines,{showLabels
     for(const p of valid){
       if(!p)continue;
       const [cx,cy,value,i]=p;
-      const group=add(svg,'g',{tabindex:0,'aria-label':`${line.label}, ${categories[i]}: ${fmt(value)} cargos`});
+      const selectable=typeof onPointSelect==='function' && lines.length===1;
+      const group=add(svg,'g',{tabindex:0,
+        ...(selectable?{'role':'button','data-selectable-month':String(i+1)}:{}),
+        'aria-label':`${line.label}, ${categories[i]}: ${fmt(value)} cargos`+
+          (selectable?' · seleccionar este mes':'')});
       const pointSelected=highlighted && i===highlightIndex && lines.length===1;
       add(group,'circle',{cx,cy,r:pointSelected?20:12,fill:'transparent'});
       if(pointSelected)add(group,'circle',{cx,cy,r:13,fill:'#ffe4e9',stroke:'#eaa5b0','stroke-width':1.6});
@@ -98,7 +102,15 @@ export function renderCargoLineChart(surface,legend,categories,lines,{showLabels
       group.addEventListener('mouseleave',hideTip);
       group.addEventListener('focus',showTip);
       group.addEventListener('blur',hideTip);
-      group.addEventListener('click',showTip);
+      group.addEventListener('click',()=>{
+        showTip();
+        if(selectable)onPointSelect(i+1);
+      });
+      if(selectable)group.addEventListener('keydown',event=>{
+        if(event.key==='Enter'||event.key===' '){
+          event.preventDefault();onPointSelect(i+1);
+        }
+      });
     }
     const legendItem=document.createElement('span');legendItem.className='monthly-created-legend-item';
     const swatch=document.createElement('span');swatch.className='monthly-created-swatch';
