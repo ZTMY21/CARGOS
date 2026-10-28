@@ -2522,6 +2522,19 @@
 #appShell.has-sidebar .history-shipping-sent strong{color:#21825b}
 #appShell.has-sidebar .history-shipping-pending strong{color:#c28522}
 #appShell.has-sidebar .history-shipping-separator{color:#a0b0bd;font-weight:800;font-size:19px}
+#appShell.has-sidebar .history-shipping-progress{
+ width:100%;height:9px;margin-top:3px;
+ background:#f6e5c6;border-radius:999px;
+ overflow:hidden;flex:none;
+ box-shadow:inset 0 0 0 1px rgba(171,115,29,.055);
+}
+#appShell.has-sidebar .history-shipping-bar{
+ height:100%;width:0;background:#248660;border-radius:999px;
+ transition:width .22s ease;
+}
+@media(prefers-reduced-motion:reduce){
+ #appShell.has-sidebar .history-shipping-bar{transition:none}
+}
 #appShell.has-sidebar .history-detail{
  border:1px solid #dfe7ee;border-radius:12px;overflow:hidden;
  background:#fff;box-shadow:0 4px 14px rgba(23,44,62,.045);
@@ -3166,6 +3179,9 @@
               <span class="history-shipping-separator" aria-hidden="true">·</span>
               <span class="history-shipping-pending"><strong id="historyPendingCount">—</strong> pendientes</span>
             </div>
+            <div id="historyShippingProgress" class="history-shipping-progress" role="img" aria-label="Proporción de cargos enviados y pendientes">
+              <div id="historyShippingBar" class="history-shipping-bar"></div>
+            </div>
           </div>
         </div>
         <div class="history-detail">
@@ -3207,7 +3223,7 @@
               <button type="button" id="historyNextPage">Siguiente</button>
             </div>
           </div>
-          <p class="history-footnote">Los totales corresponden a cargos únicos por año. El estado de envío se obtiene de los registros sincronizados. No se asignan grupos ni fechas sin respaldo documental.</p>
+          <p class="history-footnote">Los totales cuentan registros Kardex/cargo sin descartar códigos repetidos entre Kardex distintos. «Pendientes» incluye cajas solicitadas o preparadas que todavía no registran envío confirmado. No se inventan ubicaciones ni fechas.</p>
         </div>
       </section>
       <div id="resumenTablas"></div>
