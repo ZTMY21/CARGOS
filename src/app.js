@@ -1732,7 +1732,7 @@ function renderMonthlyExpiryChart(yearRows,selectedRows) {
   renderCargoLineChart(chart,legend,labels,[{
     label:'Cargos vencidos · '+year,color:'#c52540',values,width:3.4
   }],{
-    width:Math.max(760,Math.min(1160,Math.round(chart.getBoundingClientRect().width||930))),
+    width:Math.max(760,Math.round(chart.getBoundingClientRect().width||930)),
     height:326,fontSize:11,compactLayout:true,showLabels:'positive',
     highlightIndex:expiryChartMonth==='all'?null:monthKeys.indexOf(expiryChartMonth),
     onPointSelect:index=>{
