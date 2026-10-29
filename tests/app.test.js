@@ -18,10 +18,81 @@ import {renderImBarChart} from '../src/im-bar-chart.js';
 import {renderCargoLineChart} from '../src/cargo-line-chart.js';
 
 const flush=()=>new Promise(resolve=>setTimeout(resolve,20));
+
+test('performance: initial subscription and repeated auth events share one snapshot; hidden tables do not query history',async()=>{
+  const a=await app();
+  try {
+    await new Promise(resolve=>setTimeout(resolve,270));
+    assert.equal(a.state.snapshots,1);
+    assert.equal(a.state.previousCalls.length,0);
+    for(const event of ['SIGNED_IN','SIGNED_IN','TOKEN_REFRESHED'])a.state.authCallback(event,a.state.session);
+    await new Promise(resolve=>setTimeout(resolve,270));
+    assert.equal(a.state.snapshots,1);
+    assert.equal(a.state.accessCalls,1);
+    a.node('workspaceTabExistencias').click();await flush();
+    assert.equal(a.state.previousCalls.length,1);
+    assert.equal(a.node('appShell').hidden,false);
+  } finally {a.close();}
+});
+
+test('performance: unchanged refreshes preserve history; another changed document invalidates relations',async()=>{
+  const a=await app({isAdmin:false});
+  try {
+    await flush();
+    assert.equal(a.state.previousCalls.length,1);
+    a.state.events.find(x=>x.filter.table==='kardex_eventos').callback();
+    await new Promise(resolve=>setTimeout(resolve,280));
+    assert.equal(a.state.snapshots,2);
+    assert.equal(a.state.previousCalls.length,1);
+    a.state.docs.push({...structuredClone(docRow),id:randomUUID(),kardex:'SA-00002',updated_at:'2026-10-29T15:00:00Z'});
+    a.state.events.find(x=>x.filter.table==='kardex_eventos').callback();
+    await new Promise(resolve=>setTimeout(resolve,280));
+    assert.equal(a.state.previousCalls.length,2);
+  } finally {a.close();}
+});
+
+test('performance: failed history has a retry cooldown and never turns into an empty successful result',async()=>{
+  const a=await app({isAdmin:false,failPrevious:true});
+  try {
+    await flush();
+    assert.equal(a.state.previousCalls.length,1);
+    assert.match(a.node('tbody').textContent,/No disponible/);
+    a.node('btnBuscar').click();await flush();
+    assert.equal(a.state.previousCalls.length,1);
+    assert.match(a.node('tbody').textContent,/No disponible/);
+    a.state.now+=31000;
+    a.node('btnBuscar').click();await flush();
+    assert.equal(a.state.previousCalls.length,2);
+  } finally {a.close();}
+});
+
+test('performance: search and complete cargo export still work after an identical refresh',async()=>{
+  const a=await app({isAdmin:false,enableSearch:true});
+  try {
+    a.node('buscar').value='F-001';a.node('btnBuscar').click();await flush();
+    assert.match(a.node('tbody').textContent,/F-001/);
+    a.state.events.find(x=>x.filter.table==='kardex_eventos').callback();
+    await new Promise(resolve=>setTimeout(resolve,280));
+    a.node('tbody').querySelector('[data-export-cargo]').click();await flush();
+    assert.equal(a.state.fetchedId,docRow.id);
+    assert.equal(a.state.guestExport.facturas,'F-001, F-002, F-003, F-004');
+    assert.equal(a.node('appShell').hidden,false);
+  } finally {a.close();}
+});
+
+test('performance: SIGNED_IN during initial access does not start a second login load',async()=>{
+  const a=await app({repeatSignInDuringAccess:true});
+  try {
+    await flush();
+    assert.equal(a.state.accessCalls,1);
+    assert.equal(a.state.snapshots,1);
+    assert.equal(a.node('appShell').hidden,false);
+  } finally {a.close();}
+});
 const reqRow={id:randomUUID(),numero:'REQ-00001',tipo:'Cajas nuevas para acondicionar',fecha_solicitud:'2026-10-01',cantidad_cajas:2,numeros_cargo:'',fecha_recepcion:'2026-10-02',fecha_devolucion:null,usuario:'Juan',updated_at:'2026-10-13T00:00:00.123456Z'};
 const docRow={id:randomUUID(),kardex:'SA-00001',fecha_registro:'2026-10-13',tipo_doc:'Facturas-Guia',periodo:'2026-01-01',ubicacion:'Santa Anita',folios:30,cargos:['C001'],caja_asignada:reqRow.id,f_envio:null,sustento:'',sustento_imagen:'',usuario:'Juan',facturas:'F-001',obs:'',updated_at:'2026-10-13T00:00:00.123456Z'};
 
-async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recovery=false,adminLink='',loginError=null,enableSearch=false,username='',previousMapping={},now=Date.now()}={}) {
+async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recovery=false,adminLink='',loginError=null,enableSearch=false,username='',previousMapping={},failPrevious=false,repeatSignInDuringAccess=false,now=Date.now()}={}) {
   const html=await readFile(new URL('../index.html',import.meta.url),'utf8');
   const source=(await readFile(new URL('../src/app.js',import.meta.url),'utf8')).replace(/^import .*;\n/gm,'');
   const dom=new JSDOM(html,{url:'https://kardex.example.test'+adminLink+(recovery?'#type=recovery':''),runScripts:'outside-only'});
@@ -52,12 +123,18 @@ async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recov
   };
   class FakeRepository {
     async fetchDoc(id){state.fetchedId=id;return docFromDb({...state.docs.find(d=>d.id===id),facturas:'F-001, F-002, F-003, F-004'});}
-    async access(){state.loadingDuringAccess={loading:!dom.window.document.getElementById('sessionLoading').hidden,login:!dom.window.document.getElementById('authOverlay').hidden};return {allowed,is_admin:isAdmin};}
+    async access(){
+      state.accessCalls=(state.accessCalls||0)+1;
+      state.loadingDuringAccess={loading:!dom.window.document.getElementById('sessionLoading').hidden,login:!dom.window.document.getElementById('authOverlay').hidden};
+      if(repeatSignInDuringAccess && state.accessCalls===1){state.authCallback('SIGNED_IN',state.session);await new Promise(resolve=>setTimeout(resolve,30));}
+      return {allowed,is_admin:isAdmin};
+    }
     async preparedImDetails(){state.preparedImCalls=(state.preparedImCalls||0)+1;return structuredClone(state.preparedImRows||[]);}
     async requestedIMDetails(){state.requestedImCalls=(state.requestedImCalls||0)+1;return structuredClone(state.requestedImRows||[]);}
     async shippedIMBoxesMonthly(){state.shippedImCalls=(state.shippedImCalls||0)+1;return structuredClone(state.shippedIMRows||[]);}
     async previousCargos(ids){
       state.previousCalls.push([...ids]);
+      if(failPrevious)throw new Error('statement timeout');
       return Object.fromEntries(ids.map(id=>[id,structuredClone(previousMapping[id]||[])]));
     }
     async requestAdminAccess(){state.adminApplications=(state.adminApplications||0)+1;return {estado:'pendiente'};}
@@ -82,6 +159,7 @@ async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recov
     return {rows:selected.map(row=>({...state.docs.find(d=>d.id===row.id)})),total:found.length,folios:found.reduce((n,d)=>n+(Number(d.folios)||0),0)};
   };
   const context=dom.getInternalVMContext();
+  Object.assign(context,{Map,Set,AbortController});
   const scheduleInterval=dom.window.setInterval.bind(dom.window);
   state.intervals=[];
   context.setInterval=(callback,delay)=>{state.intervals.push({callback,delay});return scheduleInterval(callback,delay);};
@@ -89,6 +167,12 @@ async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recov
   Object.assign(context,{cargoExpiryGroups,formatCargoDuration,limaDate,requestedIMBoxes,countRequestedCargos,summarizePreparedIm,summarizeShippedBoxes,summarizeCreatedCargos,renderImBarChart,renderCargoLineChart});
   Object.assign(context,{createIdleSession:options=>createIdleSession({...options,now:()=>state.now}),createClient:()=>client,KardexRepository:FakeRepository,reqFromDb,docFromDb,reqEstado,docEstado,fmtDate,escapeHtml,invoiceSearchPresentation,buildWorkbook:async(...args)=>{state.exportCalls.push(args);return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},buildCargoWorkbook:async(cargo)=>{state.guestExport=cargo;return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},parseWorkbook,highlightMatch,normalizeSearch,filterDocuments,filterRequirements,assignedBoxCode,cargoYear,invoiceLocation,locationLabel,groupsForCodes,
     __SUPABASE_URL__:'https://example.supabase.co',__SUPABASE_ANON_KEY__:'sb_publishable_test',confirm:()=>true,alert:()=>{}});
+  // UI modules must run in the same DOM realm as app.js.
+  for(const [file,name] of [['cargo-line-chart','renderCargoLineChart'],['im-bar-chart','renderImBarChart'],['created-dashboard','createCreatedDashboard']]) {
+    const module=(await readFile(new URL(`../src/${file}.js`,import.meta.url),'utf8'))
+      .replace(/^import .*;\n/gm,'').replace(/export /g,'');
+    context[name]=vm.runInContext(`(()=>{${module}\nreturn ${name};})()`,context);
+  }
   await vm.runInContext(`(async()=>{${source}})()`,context);
   const node=id=>dom.window.document.getElementById(id);
   return {dom,state,node,close(){dom.window.close();}};
@@ -298,6 +382,7 @@ test('Cargo anterior sustituye antigüedad y muestra coincidencias exactas en ro
       {cargo:'933',anio:2026,coincidencias:2}
     ]}});
     try{
+      if(isAdmin)a.node('workspaceTabExistencias').click();
       await flush();
       assert.match(a.dom.window.document.querySelector('#docsTable thead').textContent,/Cargo anterior/);
       assert.doesNotMatch(a.dom.window.document.querySelector('#docsTable thead').textContent,/Antigüedad/);
@@ -312,11 +397,13 @@ test('Cargo anterior sustituye antigüedad y muestra coincidencias exactas en ro
 test('Cargo anterior muestra raya cuando no hay coincidencias, escapando datos no confiables',async()=>{
   const clean=await app({previousMapping:{[docRow.id]:[]}});
   try {
+    clean.node('workspaceTabExistencias').click();
     await flush();
     assert.equal(clean.dom.window.document.querySelector('[data-previous-cargo-id]').textContent,'—');
   } finally {clean.close();}
   const risky=await app({previousMapping:{[docRow.id]:[{cargo:'<img src=x onerror=alert(1)>',anio:2025,coincidencias:1}]}});
   try {
+    risky.node('workspaceTabExistencias').click();
     await flush();
     const cell=risky.dom.window.document.querySelector('[data-previous-cargo-id]');
     assert.ok(cell.textContent.includes('<img src=x'));
@@ -331,6 +418,7 @@ test('al buscar una factura concreta solo aparece el cargo anterior de esa factu
     {cargo:'0210',anio:2025,coincidencias:1,codigos:['f002']}
   ]}});
   try{
+    a.node('workspaceTabExistencias').click();
     await flush();
     const input=a.node('buscar');
     input.value='F-001';
