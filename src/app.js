@@ -223,11 +223,11 @@ const WORKSPACE_SECTIONS={
 };
 const SUMMARY_VIEWS = new Set(['resumen','control','control-detalle','iron','iron-cajas','historicos']);
 const SECTION_COPY={
-  control:['DASHBOARD DE VENCIMIENTOS','Dashboard de Vencimientos','Indicadores de vencimientos documentales.'],
+  control:['SEGUIMIENTO DOCUMENTAL · CD SANTA ANITA','Dashboard de Vencimientos','Estado de cargos pendientes y evolución mensual de vencimientos.'],
   'control-detalle':['CONTROL DOCUMENTAL','Detalle de Cargos Pendientes','Consulta, búsqueda y seguimiento de cargos.'],
   iron:['DASHBOARD DE ENVÍOS','Dashboard de Envíos','Evolución de cajas enviadas a Iron Mountain por mes y año.'],
   'iron-cajas':['IRON MOUNTAIN','Gestión y seguimiento de cajas','Cajas preparadas, solicitadas e histórico de Iron Mountain.'],
-  historicos:['HISTÓRICO DOCUMENTAL','Histórico documental','Consulta anual de cargos registrados entre 2020 y 2026.']
+  historicos:['CONSULTA DOCUMENTAL · CD SANTA ANITA','Histórico documental','Consulta anual de cargos registrados entre 2020 y 2026.']
 };
 function setAdminRequestBadge(count) {
   const valid=Number.isSafeInteger(count) && count>=0;
