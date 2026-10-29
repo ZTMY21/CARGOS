@@ -1752,7 +1752,7 @@ function renderMonthlyExpiryChart(yearRows,selectedRows) {
     label:'Cargos vencidos · '+year,color:'#c52540',values,width:3.4
   }],{
     width:chartWidth,
-    height:chartHeight,fontSize:chartFontSize,compactLayout:true,showLabels:'positive',
+    height:chartHeight,fontSize:chartFontSize,compactLayout:true,showLabels:'positive',showTooltips:false,
     highlightIndex:expiryChartMonth==='all'?null:monthKeys.indexOf(expiryChartMonth),
     onPointSelect:index=>{
       expiryChartMonth=monthKeys[index-1];
