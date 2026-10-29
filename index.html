@@ -2048,8 +2048,10 @@
 }
 
 /* PREVIEW · Control de vencimientos independiente del Dashboard General. */
-#documentExpiryWorkspace[hidden]{display:none!important}
-#appShell.has-sidebar[data-module="control"] #resumenTablas{display:none!important}
+#documentExpiryWorkspace[hidden],
+#documentExpiryDetails[hidden]{display:none!important}
+#appShell.has-sidebar[data-module="control"] #resumenTablas,
+#appShell.has-sidebar[data-module="control-detalle"] #resumenTablas{display:none!important}
 #appShell.has-sidebar .document-expiry-workspace{margin:0 0 5px}
 #appShell.has-sidebar .doc-expiry-kpis{
  display:grid;grid-template-columns:repeat(4,minmax(0,1fr));
@@ -2853,6 +2855,22 @@
  font-size:11px;color:#5c768b;text-align:center;
  font-weight:650;margin:5px 0 10px;
 }
+/* El módulo de consulta conserva sus propios filtros sin cargar el Dashboard. */
+#appShell.has-sidebar .doc-expiry-detail-period{
+ display:flex;flex-wrap:wrap;align-items:center;gap:12px 16px;
+}
+#appShell.has-sidebar .doc-expiry-detail-period label{
+ display:flex;flex-direction:column;gap:5px;
+ font-size:11px;font-weight:800;color:#3c5971;
+}
+#appShell.has-sidebar .doc-expiry-detail-period select{
+ min-width:154px;min-height:37px;padding:7px 10px;
+ border:1px solid #d6e1ea;border-radius:8px;
+ font-size:12px;font-weight:700;background:#fff;color:#28485f;
+}
+#appShell.has-sidebar .document-expiry-details-workspace{
+ margin-bottom:6px;
+}
 #appShell.has-sidebar .expiry-month-chart-method{
  background:#fafcfe;border-top:1px solid #e9edf2;
  font-size:10.5px;line-height:1.5;color:#75889b;
@@ -2963,6 +2981,7 @@
           <summary><svg class="sidebar-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span>Control Documental</span><span class="sidebar-chevron" aria-hidden="true">⌄</span></summary>
           <div class="sidebar-submenu">
             <button type="button" data-sidebar-view="control">Dashboard de Vencimientos</button>
+            <button type="button" data-sidebar-view="control-detalle">Detalle de Cargos Pendientes</button>
             <button type="button" data-sidebar-view="historicos">Histórico documental</button>
           </div>
         </details>
@@ -3316,7 +3335,6 @@
             <div>
               <span class="doc-expiry-overline">EVOLUCIÓN DOCUMENTAL · CD SANTA ANITA</span>
               <h3 id="expiryMonthChartTitle">Cargos vencidos por mes</h3>
-              <p>Consulta los cargos que ya vencieron de enero a diciembre. No se cuentan vencimientos futuros.</p>
             </div>
             <div class="expiry-month-chart-selectors">
               <label for="expiryMonthChartYear">Año de vencimiento
@@ -3332,10 +3350,10 @@
           <div class="expiry-month-chart-content">
             <div id="expiryMonthChartSurface" class="expiry-month-chart-surface" aria-live="polite"></div>
             <div id="expiryMonthChartLegend" class="expiry-month-chart-legend"></div>
-            <p id="expiryMonthChartSummary" class="expiry-month-chart-summary" aria-live="polite">Calculando vencimientos mensuales…</p>
           </div>
-          <p class="expiry-month-chart-method">Selecciona el <strong>año de vencimiento</strong> (2025 o 2026). La gráfica muestra enero–diciembre y cuenta únicamente los cargos que ya superaron sus seis meses y siguen pendientes de Iron Mountain. Un cargo creado en 2025 puede vencer en 2026. Los meses futuros muestran cero. Al seleccionar un mes, las tarjetas y el listado muestran exclusivamente sus vencidos; en «Todos los meses», las tarjetas resumen el estado anual. Las fechas sin validar no se colocan arbitrariamente en la gráfica.</p>
         </section>
+      </section>
+      <section id="documentExpiryDetails" class="document-expiry-details-workspace" aria-label="Detalle de cargos pendientes" hidden>
         <div class="doc-expiry-panel">
           <div class="doc-expiry-panel-top">
             <div>
@@ -3346,6 +3364,16 @@
             <span id="docExpiryAsOf" class="doc-expiry-asof">Actualizando...</span>
           </div>
           <div class="doc-expiry-toolbar">
+            <div class="doc-expiry-detail-period" role="group" aria-label="Período de consulta de cargos">
+              <label for="docExpiryDetailYear">Año de vencimiento
+                <select id="docExpiryDetailYear" aria-label="Año de vencimiento del detalle">
+                  <option value="2026">2026</option><option value="2025">2025</option>
+                </select>
+              </label>
+              <label for="docExpiryDetailMonth">Mes consultado
+                <select id="docExpiryDetailMonth" aria-label="Mes consultado del detalle"><option value="all">Todos los meses</option></select>
+              </label>
+            </div>
             <div class="doc-expiry-view-buttons" role="group" aria-label="Filtrar estado de vencimiento">
               <button type="button" data-expiry-view="all" aria-pressed="true">Todos</button>
               <button type="button" data-expiry-view="valid" aria-pressed="false">Vigentes</button>
