@@ -204,6 +204,17 @@
   #appShell .kd-module-header { padding: 18px 20px; margin-bottom: 18px; }
 }
 @media (max-width: 600px) {
+  #appShell .executive-header-tools { flex-wrap: wrap; }
+  #appShell .executive-header-tools .executive-connection {
+    flex: 1 1 100%;
+    max-width: 100%;
+    justify-content: flex-start;
+  }
+  #appShell .executive-connection #connectionStatus {
+    max-width: none;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
   #appShell .kd-module-header { min-height: 0; padding: 17px 18px; border-radius: 10px; }
   #appShell .kd-module-header > .kd-module-header__title { font-size: 24px; }
   #appShell .kd-module-header > .kd-module-header__subtitle { font-size: 12px; }
