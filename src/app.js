@@ -380,6 +380,21 @@ document.addEventListener('keydown',event=>{
 });
 // La nueva barra lateral dirige a los mismos módulos y acciones existentes.
 const sidebarNode=document.getElementById('kardexSidebar');
+const sidebarScrollRegion=sidebarNode.querySelector('.sidebar-scroll-region');
+const sidebarScrollNav=sidebarNode.querySelector('.sidebar-navigation');
+// El indicador inferior solo aparece cuando realmente quedan opciones por bajar.
+// La lista sigue permitiendo rueda del mouse, touch, teclas y scroll programático.
+function updateSidebarScrollHint(){
+  const remaining=sidebarScrollNav.scrollHeight-sidebarScrollNav.clientHeight-sidebarScrollNav.scrollTop;
+  sidebarScrollRegion.classList.toggle('has-more-below',remaining>3);
+}
+sidebarScrollNav.addEventListener('scroll',updateSidebarScrollHint,{passive:true});
+if(typeof ResizeObserver!=='undefined'){
+  const sidebarHintObserver=new ResizeObserver(updateSidebarScrollHint);
+  sidebarHintObserver.observe(sidebarScrollRegion);
+  sidebarHintObserver.observe(sidebarScrollNav);
+}
+requestAnimationFrame(updateSidebarScrollHint);
 // La navegación administrativa se mantiene siempre completa; no existe modo contraído.
 // Se conservan los títulos de accesibilidad y las acciones originales de cada módulo.
 for(const section of sidebarNode.querySelectorAll('.sidebar-static-category')){
