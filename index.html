@@ -2936,6 +2936,28 @@
 }
 #kardexSidebar .sidebar-bottom{background:#fff;border-top:1px solid #dbe5ef}
 #kardexSidebar button:focus-visible{outline:2px solid #bf2b47;outline-offset:2px}
+/* Preview: ocultar la barra del scroll conservando el desplazamiento natural.
+   Un degradado aparece únicamente mientras haya opciones debajo. */
+#kardexSidebar .sidebar-scroll-region{
+ position:relative;display:flex;flex:1;min-height:0;overflow:hidden;
+}
+#kardexSidebar .sidebar-scroll-region .sidebar-navigation{
+ flex:1;min-width:0;min-height:0;overflow-y:auto;overflow-x:hidden;
+ scrollbar-width:none!important;-ms-overflow-style:none;
+}
+#kardexSidebar .sidebar-scroll-region .sidebar-navigation::-webkit-scrollbar{
+ display:none!important;width:0!important;height:0!important;
+}
+#kardexSidebar .sidebar-scroll-region::after{
+ content:"";position:absolute;left:0;right:0;bottom:0;height:29px;
+ pointer-events:none;opacity:0;
+ background:linear-gradient(180deg,rgba(245,248,252,0),#f5f8fc 94%);
+ transition:opacity .16s ease;
+}
+#kardexSidebar .sidebar-scroll-region.has-more-below::after{opacity:1}
+@media(prefers-reduced-motion:reduce){
+ #kardexSidebar .sidebar-scroll-region::after{transition:none}
+}
 </style>
 </head>
 <body>
@@ -3023,6 +3045,7 @@
         <div class="sidebar-brand-copy"><strong>Panel administrativo</strong><span>CD Santa Anita</span></div>
         <button id="sidebarCloseMobile" class="sidebar-close" type="button" aria-label="Cerrar menú">×</button>
       </div>
+      <div class="sidebar-scroll-region">
       <nav class="sidebar-navigation" aria-label="Módulos del Kardex">
         <div class="sidebar-eyebrow">DASHBOARDS</div>
         <button type="button" class="sidebar-link" data-sidebar-view="resumen">
@@ -3081,6 +3104,7 @@
           </div>
         </div>
       </nav>
+      </div>
       <div class="sidebar-bottom"><span class="sidebar-preview-dot" aria-hidden="true"></span><div><strong>Vista previa · Menú lateral</strong><small>Sin cambios en producción</small></div></div>
     </aside>
     <main id="sidebarMain" class="sidebar-main" aria-label="Contenido de Kardex Digital">
