@@ -37,13 +37,19 @@ let adminEmailLinkReviewed = false;
 let dataReady = false, realtimeChannel = null, refreshTimer = null, refreshPromise = null;
 let refreshRequested = false;
 let authGeneration = 0, currentUserId = null;
+let sessionLoadPromise = null, sessionLoadUser = null;
 let pendingReqId = null, pendingDocId = null;
 let queryResults = null, queryError = '', searchEpoch = 0, searchController = null;
 
-const previousCargoCache=new Map(),previousCargoPending=new Map();
-let previousCargoEpoch=0;
+const previousCargoCache=new Map(),previousCargoPending=new Map(),previousCargoFailures=new Map();
+let previousCargoEpoch=0,previousCargoController=null,previousCatalogVersion='';
 function clearPreviousCargoCache(){
-  previousCargoCache.clear();previousCargoPending.clear();previousCargoEpoch++;
+  previousCargoController?.abort();previousCargoController=null;
+  previousCargoCache.clear();previousCargoPending.clear();previousCargoFailures.clear();previousCargoEpoch++;
+}
+function pausePreviousCargos(){
+  previousCargoController?.abort();previousCargoController=null;
+  previousCargoPending.clear();previousCargoEpoch++;
 }
 function previousCargoSignature(doc){
   return [doc.id,doc.updatedAt||'',doc.fechaOrigen||'',(doc.cargos||[]).join('|')].join('~');
@@ -71,29 +77,36 @@ function previousCargoMarkup(items,invoiceCodes=[]){
     +list+(data.length>3?'<span class="previous-cargo-more" title="'+escapeHtml(title)+'">+'+(data.length-3)+' más</span>':'')+'</span>';
 }
 function fetchPreviousCargos(rows){
-  if(!repository?.previousCargos||!currentUserId||!rows.length)return;
+  if(!repository?.previousCargos||!currentUserId||!appReady||!rows.length
+    || isAdmin && activeWorkspaceTab!=='existencias')return;
   const pending=rows.filter(d=>previousCargoCache.get(d.id)?.signature!==previousCargoSignature(d)
-    && !previousCargoPending.has(d.id)).slice(0,100);
+    && !previousCargoPending.has(d.id) && (previousCargoFailures.get(d.id)||0)<=Date.now()).slice(0,100);
   if(!pending.length)return;
+  const controller=previousCargoController ||= new AbortController();
   const epoch=previousCargoEpoch,generation=authGeneration;
   const ids=pending.map(d=>d.id),signatures=new Map(pending.map(d=>[d.id,previousCargoSignature(d)]));
   ids.forEach(id=>previousCargoPending.set(id,epoch));
-  void Promise.resolve().then(()=>repository.previousCargos(ids)).then(data=>{
+  const acceptBatch=data=>{
     if(epoch!==previousCargoEpoch||generation!==authGeneration||!currentUserId)return;
     const result=data&&typeof data==='object'&&!Array.isArray(data)?data:{};
-    for(const d of pending)previousCargoCache.set(d.id,{
-      signature:signatures.get(d.id),items:Array.isArray(result[d.id])?result[d.id]:[]
-    });
+    for(const d of pending)if(Array.isArray(result[d.id])) {
+      previousCargoFailures.delete(d.id);
+      previousCargoCache.set(d.id,{signature:signatures.get(d.id),items:result[d.id]});
+    }
     document.querySelectorAll('[data-previous-cargo-id]').forEach(cell=>{
       const id=cell.dataset.previousCargoId;
       if(signatures.has(id)&&previousCargoCache.get(id)?.signature===signatures.get(id))
         cell.innerHTML=previousCargoMarkup(previousCargoCache.get(id).items,
           (cell.dataset.matchedInvoiceCodes||'').split(',').filter(Boolean));
     });
-  }).catch(()=>{
+  };
+  void Promise.resolve().then(()=>repository.previousCargos(ids,{signal:controller.signal,onBatch:acceptBatch}))
+  .then(acceptBatch).catch(()=>{
     if(epoch!==previousCargoEpoch||generation!==authGeneration)return;
+    for(const id of ids)if(previousCargoCache.get(id)?.signature!==signatures.get(id))
+      previousCargoFailures.set(id,Date.now()+30000);
     document.querySelectorAll('[data-previous-cargo-id]').forEach(cell=>{
-      if(ids.includes(cell.dataset.previousCargoId))
+      if(previousCargoFailures.has(cell.dataset.previousCargoId))
         cell.innerHTML='<span class="previous-cargo-error">No disponible</span>';
     });
   }).finally(()=>ids.forEach(id=>{
@@ -319,8 +332,10 @@ function updateWorkspaceVisibility() {
 function selectWorkspaceTab(tab,focus=false) {
   if(!appReady || !isAdmin || !Object.hasOwn(WORKSPACE_SECTIONS,tab))return;
   activeWorkspaceTab=tab;
+  if(tab!=='existencias')pausePreviousCargos();
   activeSidebarAction='';
   updateWorkspaceVisibility();
+  if(tab==='existencias')renderDocs();
   if(focus)(document.querySelector(`#workspaceTabs [data-workspace="${tab}"]`)
     || (tab==='solicitudes'?document.getElementById('btnTopAdminRequests'):null))?.focus();
   if(tab==='solicitudes')void refreshAdminRequests();
@@ -494,9 +509,12 @@ function readableError(error) {
   if (error?.code === '23505') return 'El identificador ya existe. Actualiza los datos y vuelve a intentarlo.';
   return error?.message || 'No se pudo conectar. Revisa tu conexión y vuelve a intentarlo.';
 }
-async function refreshData() {
+async function refreshData({invalidate=false}={}) {
+  if (refreshPromise) {
+    if(invalidate)refreshRequested=true;
+    return refreshPromise;
+  }
   refreshRequested = true;
-  if (refreshPromise) return refreshPromise;
   refreshPromise = (async () => {
     do {
       refreshRequested = false;
@@ -508,9 +526,14 @@ async function refreshData() {
       }
       await loadReqs(snapshot);
       await loadDocs(snapshot);
-      clearPreviousCargoCache();
+      // Any changed document can alter another cargo's historical relations.
+      // Identical refreshes keep the successful cache and in-flight requests.
+      const version=JSON.stringify(docs.map(d=>[d.id,d.updatedAt]).sort((a,b)=>a[0].localeCompare(b[0])));
+      if(version!==previousCatalogVersion) {
+        clearPreviousCargoCache();previousCatalogVersion=version;
+      }
       populateYearOptions();
-      renderReqs(); renderDocs();
+      renderReqs(); if(appReady)renderDocs();
       if(isAdmin) {
         void refreshGoogleSync();
         if (document.getElementById('preparedImSheet').open) void reloadPreparedImDetail();
@@ -534,7 +557,7 @@ async function refreshData() {
 function scheduleRefresh() {
   clearTimeout(refreshTimer);
   refreshTimer = setTimeout(async () => {
-    try { await refreshData(); }
+    try { await refreshData({invalidate:true}); }
     catch (error) { dataReady = false; setStatus(`Sincronización pendiente: ${readableError(error)}`, 'error'); }
   }, 200);
 }
@@ -1274,6 +1297,7 @@ function renderDocs(){
       const cachedPrevious=previousCargoCache.get(d.id);
       const previousCargoHtml=cachedPrevious?.signature===previousCargoSignature(d)
         ? previousCargoMarkup(cachedPrevious.items,matchedInvoiceCodes)
+        : previousCargoFailures.has(d.id) ? '<span class="previous-cargo-error">No disponible</span>'
         : repository?.previousCargos ? '<span class="previous-cargo-pending">Consultando…</span>'
         : '<span class="previous-cargo-none">—</span>';
       // Do not calculate group locations unless the document-code column is visible.
@@ -2136,7 +2160,7 @@ async function subscribeRealtime() {
     .on('postgres_changes', {event:'*',schema:'public',table:'kardex_eventos'}, scheduleRefresh)
     .subscribe(status => {
       channelReady = status === 'SUBSCRIBED';
-      if (channelReady) scheduleRefresh();
+      if (channelReady && dataReady) scheduleRefresh();
       else if (['CHANNEL_ERROR','TIMED_OUT','CLOSED'].includes(status)) {
         setStatus('Conexión en tiempo real interrumpida — Reconectando', 'error');
       }
@@ -2181,7 +2205,19 @@ function showRecoveryForm(recovering) {
     ? 'Elige una nueva contraseña de al menos 8 caracteres para volver al Kardex.'
     : 'Ingresa a Kardex Digital con tu correo electrónico y contraseña.';
 }
-async function handleSession(session) {
+async function handleSession(session,{force=false}={}) {
+  const id=session?.user?.id;
+  if(id && !passwordRecovery) {
+    if(sessionLoadUser===id && sessionLoadPromise)return sessionLoadPromise;
+    if(!force && appReady && currentUserId===id)return;
+  }
+  const pending=loadSession(session);
+  sessionLoadUser=id;sessionLoadPromise=pending;
+  try {return await pending;}
+  finally {if(sessionLoadPromise===pending){sessionLoadPromise=null;sessionLoadUser=null;}}
+}
+async function loadSession(session) {
+  pausePreviousCargos();
   const generation = ++authGeneration;
   const user = session?.user;
   showRecoveryForm(passwordRecovery && !!user);
@@ -2250,9 +2286,13 @@ async function handleSession(session) {
         adminRequestStatus='error';
       }
     }
+    // Subscribe before reading, so reconnect reconciliation does not duplicate
+    // the initial snapshot once the subscription is already established.
+    await subscribeRealtime();
     await refreshData();
     if (generation !== authGeneration) return;
     appReady = true;
+    renderDocs();
     if(isAdmin) {
       void reloadPreparedImSummary();
       void reloadRequestedIM();
@@ -2273,8 +2313,9 @@ async function handleSession(session) {
     document.getElementById('sessionUser').textContent = (typeof user.user_metadata?.kardex_username === 'string' && user.user_metadata.kardex_username.trim()) || user.email || '';
     document.getElementById('sessionProfile').hidden = !user.email;
     document.getElementById('btnSignOut').hidden = false;
-    await subscribeRealtime(); setAvailability();
+    setAvailability();
   } catch (error) {
+    if(generation!==authGeneration)return;
     appReady = false; setAvailability();
     showAuthPage(true);
     message('authMessage',readableError(error),true);
@@ -2336,7 +2377,7 @@ document.getElementById('resetPasswordForm').addEventListener('submit',async ev=
     document.getElementById('resetPasswordForm').reset();
     showRecoveryForm(false);message('authMessage','Contraseña actualizada. Cargando tu aplicativo…');
     const {data,error:sessionError}=await supabase.auth.getSession();if(sessionError)throw sessionError;
-    await handleSession(data.session);
+    await handleSession(data.session,{force:true});
   }catch(error){message('authMessage',readableError(error),true);}
   finally{button.disabled=false;}
 });
@@ -2353,7 +2394,7 @@ document.getElementById('btnReconnect').addEventListener('click',async ()=>{
   try {
     const {data,error} = await supabase.auth.getSession();
     if (error) throw error;
-    await handleSession(data.session);
+    await handleSession(data.session,{force:true});
   } catch(error) { setStatus(readableError(error),'error'); }
 });
 document.getElementById('btnRefreshNewCargos').addEventListener('click',async event=>{
@@ -2404,7 +2445,7 @@ if (!supabase) {
   supabase.auth.onAuthStateChange((event,session)=>{
     if (event === 'INITIAL_SESSION') return;
     if (event === 'PASSWORD_RECOVERY' && !passwordRecoveryCompleted) passwordRecovery = true;
-    if (event === 'TOKEN_REFRESHED' && currentUserId === session?.user?.id) { if(idleSession.check())scheduleRefresh(); return; }
+    if (event === 'TOKEN_REFRESHED' && currentUserId === session?.user?.id) { idleSession.check(); return; }
     setTimeout(()=>handleSession(session),0);
   });
   try {
