@@ -2882,6 +2882,41 @@
  #appShell.has-sidebar .expiry-month-chart-content{padding:7px 4px}
  #appShell.has-sidebar .expiry-month-chart-header h3{font-size:17px}
 }
+/* PREVIEW: menú estático y compacto; funciona también con zoom del 75 %.
+   Solo la lista central hace scroll, no la marca ni el pie. */
+#kardexSidebar.kardex-sidebar{
+ top:12px;height:calc(100dvh - 24px);max-height:calc(100dvh - 24px);overflow:hidden;
+}
+#kardexSidebar .sidebar-brand{flex-shrink:0;padding:11px 12px}
+#kardexSidebar .sidebar-bottom{flex-shrink:0;padding:9px 12px}
+#kardexSidebar .sidebar-navigation{
+ flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;
+ padding:7px 9px 10px;gap:1px;scrollbar-width:thin;
+}
+#kardexSidebar .sidebar-eyebrow{font-size:10px;padding:9px 10px 4px;line-height:1.2}
+#kardexSidebar .sidebar-link,
+#kardexSidebar .sidebar-static-title{
+ min-height:36px;padding:7px 10px;font-size:11.5px;line-height:1.26;gap:9px;
+}
+#kardexSidebar .sidebar-submenu{
+ margin:0 0 2px 22px;gap:0;padding:1px 0 2px 9px;
+}
+#kardexSidebar .sidebar-submenu button{
+ min-height:29px;padding:6px 9px;font-size:11px;line-height:1.25;
+}
+#kardexSidebar .sidebar-static-category:has(.sidebar-submenu [aria-current="page"])>.sidebar-static-title{
+ color:#b02940;background:#fff6f7;
+}
+#appShell.sidebar-collapsed #kardexSidebar .sidebar-static-title>span:not(.sidebar-icon),
+#appShell.sidebar-collapsed #kardexSidebar .sidebar-submenu{display:none!important}
+#appShell.sidebar-collapsed #kardexSidebar .sidebar-static-title{
+ justify-content:center;min-height:46px;padding:10px 8px;
+}
+@media(max-width:1040px){
+ #kardexSidebar.kardex-sidebar{
+  position:fixed;top:0;left:0;height:100dvh;max-height:100dvh;overflow:hidden;
+ }
+}
 </style>
 </head>
 <body>
@@ -2982,13 +3017,15 @@
           <svg class="sidebar-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span>Dashboard de Vencimientos</span>
         </button>
         <div class="sidebar-eyebrow">OPERACIONES</div>
-        <details class="sidebar-category" data-sidebar-group="control">
-          <summary><svg class="sidebar-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span>Control Documental</span><span class="sidebar-chevron" aria-hidden="true">⌄</span></summary>
+        <div class="sidebar-static-category" role="group" aria-label="Control Documental">
+          <div class="sidebar-static-title">
+            <svg class="sidebar-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span>Control Documental</span>
+          </div>
           <div class="sidebar-submenu">
             <button type="button" data-sidebar-view="control-detalle">Detalle de Cargos Pendientes</button>
             <button type="button" data-sidebar-view="historicos">Histórico documental</button>
           </div>
-        </details>
+        </div>
         <div class="sidebar-static-category" role="group" aria-label="Iron Mountain">
           <div class="sidebar-static-title">
             <svg class="sidebar-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="7" width="13" height="10" rx="1"/><path d="M15 10h4l3 4v3h-7M5 17a2 2 0 1 0 4 0M17 17a2 2 0 1 0 4 0"/></svg><span>Iron Mountain</span>
@@ -3008,24 +3045,26 @@
         <button type="button" class="sidebar-link" data-sidebar-view="sync">
           <svg class="sidebar-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 0 0-14.7-4M4 3v4h4M4 13a8 8 0 0 0 14.7 4M20 21v-4h-4"/></svg><span>Actividad y sincronización</span>
         </button>
-        <details class="sidebar-category" data-sidebar-group="reportes">
-          <summary><svg class="sidebar-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m-4-4 4 4 4-4M4 17v4h16v-4"/></svg><span>Reportes y descargas</span><span class="sidebar-chevron" aria-hidden="true">⌄</span></summary>
+        <div class="sidebar-static-category" role="group" aria-label="Reportes y descargas">
+          <div class="sidebar-static-title">
+            <svg class="sidebar-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m-4-4 4 4 4-4M4 17v4h16v-4"/></svg><span>Reportes y descargas</span>
+          </div>
           <div class="sidebar-submenu">
             <button type="button" data-sidebar-view="reportes">Opciones de descarga</button>
             <button type="button" data-sidebar-action="export-cargo">Exportar cargo individual</button>
-            <span class="sidebar-planned">Descarga por año <small>Próxima etapa</small></span>
-            <span class="sidebar-planned">Data cruda <small>Próxima etapa</small></span>
           </div>
-        </details>
-        <details class="sidebar-category" data-sidebar-group="accesos">
-          <summary><svg class="sidebar-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M5 21a7 7 0 0 1 14 0M19 9.5l2 2-2 2"/></svg><span>Usuarios y accesos</span><span class="sidebar-chevron" aria-hidden="true">⌄</span></summary>
+        </div>
+        <div class="sidebar-static-category" role="group" aria-label="Usuarios y accesos">
+          <div class="sidebar-static-title">
+            <svg class="sidebar-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M5 21a7 7 0 0 1 14 0M19 9.5l2 2-2 2"/></svg><span>Usuarios y accesos</span>
+          </div>
           <div class="sidebar-submenu">
             <button id="btnTopAdminRequests" type="button" class="secondary connection-action admin-requests-top-button" data-status="unknown" aria-controls="grp-solicitudes" aria-label="Consultar solicitudes de cuentas administrativas" hidden>
       <span class="admin-requests-top-label">Solicitudes administrativas</span>
       <span id="topAdminRequestsCount" class="admin-requests-top-count" aria-hidden="true">—</span>
     </button>
           </div>
-        </details>
+        </div>
       </nav>
       <div class="sidebar-bottom"><span class="sidebar-preview-dot" aria-hidden="true"></span><div><strong>Vista previa · Menú lateral</strong><small>Sin cambios en producción</small></div></div>
     </aside>
