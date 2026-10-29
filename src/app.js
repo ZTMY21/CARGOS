@@ -380,25 +380,11 @@ document.addEventListener('keydown',event=>{
 });
 // La nueva barra lateral dirige a los mismos módulos y acciones existentes.
 const sidebarNode=document.getElementById('kardexSidebar');
-const sidebarCollapseButton=document.getElementById('sidebarCollapseButton');
-function setSidebarCollapsed(collapsed){
-  document.getElementById('appShell').classList.toggle('sidebar-collapsed',collapsed);
-  sidebarCollapseButton.setAttribute('aria-expanded',String(!collapsed));
-  const label=collapsed?'Expandir menú lateral':'Contraer menú lateral';
-  sidebarCollapseButton.setAttribute('aria-label',label);
-  sidebarCollapseButton.title=label;
-}
-sidebarCollapseButton.addEventListener('click',()=>{
-  setSidebarCollapsed(!document.getElementById('appShell').classList.contains('sidebar-collapsed'));
-});
-// Desplegar el menú antes de abrir una subcategoría en modo compacto.
-for(const summary of sidebarNode.querySelectorAll('.sidebar-category>summary')){
-  summary.title=summary.textContent.trim().replace(/\s+/g,' ');
-  summary.addEventListener('click',()=>{
-    if(document.getElementById('appShell').classList.contains('sidebar-collapsed')){
-      setSidebarCollapsed(false);
-    }
-  });
+// La navegación administrativa se mantiene siempre completa; no existe modo contraído.
+// Se conservan los títulos de accesibilidad y las acciones originales de cada módulo.
+for(const section of sidebarNode.querySelectorAll('.sidebar-static-category')){
+  const title=section.querySelector('.sidebar-static-title');
+  if(title)title.title=title.textContent.trim().replace(/\s+/g,' ');
 }
 for(const link of sidebarNode.querySelectorAll('.sidebar-link')){
   link.title=link.textContent.trim().replace(/\s+/g,' ');
