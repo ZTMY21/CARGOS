@@ -18,9 +18,12 @@ export default defineConfig(({ mode }) => {
     throw new Error('Faltan SUPABASE_URL y SUPABASE_ANON_KEY.');
   }
   return {
+    // Development preview host only; production output and Vercel settings are unchanged.
+    server: mode === 'development' ? { allowedHosts: ['terminal.local'] } : undefined,
     define: {
       __SUPABASE_URL__: JSON.stringify(url),
-      __SUPABASE_ANON_KEY__: JSON.stringify(key)
+      __SUPABASE_ANON_KEY__: JSON.stringify(key),
+      __KARDEX_PREVIEW__: JSON.stringify(env.VERCEL_ENV !== 'production')
     },
     build: { sourcemap: false }
   };

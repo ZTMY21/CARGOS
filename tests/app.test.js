@@ -26,6 +26,7 @@ async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recov
   const source=(await readFile(new URL('../src/app.js',import.meta.url),'utf8')).replace(/^import .*;\n/gm,'');
   const dom=new JSDOM(html,{url:'https://kardex.example.test'+adminLink+(recovery?'#type=recovery':''),runScripts:'outside-only'});
   dom.window.HTMLElement.prototype.scrollIntoView=()=>{};
+  dom.window.scrollTo=()=>{};
   dom.window.HTMLDialogElement.prototype.showModal=function(){this.open=true;};
   dom.window.HTMLDialogElement.prototype.close=function(){if(this.open){this.open=false;this.dispatchEvent(new dom.window.Event('close'));}};
   const state={reqs:[structuredClone(reqRow)],docs:[structuredClone(docRow)],updates:[],snapshots:0,events:[],status:null,authCallback:null};
@@ -54,6 +55,7 @@ async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recov
     async reportDocs(rows,year=null){state.reportRequestedYear=year;return rows.filter(d=>year===null||cargoYear(d)===String(year));}
     async fetchDoc(id){state.fetchedId=id;return docFromDb({...state.docs.find(d=>d.id===id),facturas:'F-001, F-002, F-003, F-004'});}
     async access(){state.loadingDuringAccess={loading:!dom.window.document.getElementById('sessionLoading').hidden,login:!dom.window.document.getElementById('authOverlay').hidden};return {allowed,is_admin:isAdmin};}
+    async cargoSafetyStatus(){return {resguardos:0,cargos_archivados:0,bajas_por_revisar:0};}
     async preparedImDetails(){state.preparedImCalls=(state.preparedImCalls||0)+1;return structuredClone(state.preparedImRows||[]);}
     async requestedIMDetails(){state.requestedImCalls=(state.requestedImCalls||0)+1;return structuredClone(state.requestedImRows||[]);}
     async shippedIMBoxesMonthly(){state.shippedImCalls=(state.shippedImCalls||0)+1;return structuredClone(state.shippedIMRows||[]);}
@@ -83,13 +85,19 @@ async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recov
     return {rows:selected.map(row=>({...state.docs.find(d=>d.id===row.id)})),total:found.length,folios:found.reduce((n,d)=>n+(Number(d.folios)||0),0)};
   };
   const context=dom.getInternalVMContext();
+  Object.assign(context,{Map,Set,AbortController,requestAnimationFrame:callback=>callback()});
   const scheduleInterval=dom.window.setInterval.bind(dom.window);
   state.intervals=[];
   context.setInterval=(callback,delay)=>{state.intervals.push({callback,delay});return scheduleInterval(callback,delay);};
   context.Date=class extends Date {constructor(...args){super(...(args.length?args:[state.now]));}static now(){return state.now;}};
   Object.assign(context,{cargoExpiryGroups,formatCargoDuration,limaDate,requestedIMBoxes,countRequestedCargos,summarizePreparedIm,summarizeShippedBoxes,summarizeCreatedCargos,renderImBarChart,renderCargoLineChart});
   Object.assign(context,{createIdleSession:options=>createIdleSession({...options,now:()=>state.now}),createClient:()=>client,KardexRepository:FakeRepository,reqFromDb,docFromDb,reqEstado,docEstado,fmtDate,escapeHtml,invoiceSearchPresentation,buildWorkbook:async(...args)=>{state.exportCalls.push(args);return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},buildCargoWorkbook:async(cargo)=>{state.guestExport=cargo;return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},buildExistenciasReport:async(...args)=>{state.reportArgs=args;return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},serializeExistenciasReport:async()=>{state.serializedReport=true;return new Uint8Array([1]);},parseWorkbook,highlightMatch,normalizeSearch,filterDocuments,filterRequirements,assignedBoxCode,cargoYear,invoiceLocation,locationLabel,groupsForCodes,
-    __SUPABASE_URL__:'https://example.supabase.co',__SUPABASE_ANON_KEY__:'sb_publishable_test',confirm:()=>true,alert:()=>{}});
+    __SUPABASE_URL__:'https://example.supabase.co',__SUPABASE_ANON_KEY__:'sb_publishable_test',__KARDEX_PREVIEW__:false,confirm:()=>true,alert:()=>{}});
+  for(const [file,name] of [['cargo-line-chart','renderCargoLineChart'],['im-bar-chart','renderImBarChart'],['created-dashboard','createCreatedDashboard']]) {
+    const module=(await readFile(new URL(`../src/${file}.js`,import.meta.url),'utf8'))
+      .replace(/^import .*;\n/gm,'').replace(/export /g,'');
+    context[name]=vm.runInContext(`(()=>{${module}\nreturn ${name};})()`,context);
+  }
   await vm.runInContext(`(async()=>{${source}})()`,context);
   const node=id=>dom.window.document.getElementById(id);
   return {dom,state,node,close(){dom.window.close();}};
