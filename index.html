@@ -2973,14 +2973,20 @@
         <button id="sidebarCloseMobile" class="sidebar-close" type="button" aria-label="Cerrar menú">×</button>
       </div>
       <nav class="sidebar-navigation" aria-label="Módulos del Kardex">
-        <div class="sidebar-eyebrow">PRINCIPAL</div>
+        <div class="sidebar-eyebrow">DASHBOARDS</div>
         <button type="button" class="sidebar-link" data-sidebar-view="resumen">
-          <svg class="sidebar-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.3"/><rect x="14" y="3" width="7" height="7" rx="1.3"/><rect x="3" y="14" width="7" height="7" rx="1.3"/><rect x="14" y="14" width="7" height="7" rx="1.3"/></svg><span>Dashboard General</span>
+          <svg class="sidebar-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.3"/><rect x="14" y="3" width="7" height="7" rx="1.3"/><rect x="3" y="14" width="7" height="7" rx="1.3"/><rect x="14" y="14" width="7" height="7" rx="1.3"/></svg><span>Dashboard de Cargos Realizados</span>
         </button>
+        <button type="button" class="sidebar-link" data-sidebar-view="control">
+          <svg class="sidebar-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span>Dashboard de Vencimientos</span>
+        </button>
+        <button type="button" class="sidebar-link" data-sidebar-view="iron">
+          <svg class="sidebar-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="7" width="13" height="10" rx="1"/><path d="M15 10h4l3 4v3h-7M5 17a2 2 0 1 0 4 0M17 17a2 2 0 1 0 4 0"/></svg><span>Dashboard de Envíos</span>
+        </button>
+        <div class="sidebar-eyebrow">OPERACIONES</div>
         <details class="sidebar-category" data-sidebar-group="control">
           <summary><svg class="sidebar-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span>Control Documental</span><span class="sidebar-chevron" aria-hidden="true">⌄</span></summary>
           <div class="sidebar-submenu">
-            <button type="button" data-sidebar-view="control">Dashboard de Vencimientos</button>
             <button type="button" data-sidebar-view="control-detalle">Detalle de Cargos Pendientes</button>
             <button type="button" data-sidebar-view="historicos">Histórico documental</button>
           </div>
@@ -2988,7 +2994,6 @@
         <details class="sidebar-category" data-sidebar-group="im">
           <summary><svg class="sidebar-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="7" width="13" height="10" rx="1"/><path d="M15 10h4l3 4v3h-7M5 17a2 2 0 1 0 4 0M17 17a2 2 0 1 0 4 0"/></svg><span>Iron Mountain</span><span class="sidebar-chevron" aria-hidden="true">⌄</span></summary>
           <div class="sidebar-submenu">
-            <button type="button" data-sidebar-view="iron">Dashboard de Envíos</button>
             <button type="button" data-sidebar-view="iron-cajas">Gestión y seguimiento de cajas</button>
           </div>
         </details>
@@ -3207,9 +3212,9 @@
         <p id="sidebarSectionSubtitle">Seguimiento documental y registros históricos</p>
         <span class="doc-expiry-heading-symbol" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="17" rx="2"/><path d="M8 2v4M16 2v4M4 9h16"/><path d="m8 14 2.3 2.3L16 11"/></svg></span>
       </div>
-      <section id="createdDashboard" class="created-dashboard" aria-label="Dashboard General de cargos realizados">
+      <section id="createdDashboard" class="created-dashboard" aria-label="Dashboard de Cargos Realizados">
         <div class="created-dashboard-heading">
-          <span>DASHBOARD GENERAL · EVOLUCIÓN DOCUMENTAL</span>
+          <span>DASHBOARD DE CARGOS REALIZADOS · CD SANTA ANITA</span>
           <h2>Cargos realizados</h2>
           <p>Consulta el avance mensual e histórico de los cargos registrados en CD Santa Anita.</p>
         </div>
