@@ -1729,11 +1729,15 @@ function renderMonthlyExpiryChart(yearRows,selectedRows) {
   const labels=monthKeys.map((_,i)=>names[i]+' '+year.slice(2));
   const chart=document.getElementById('expiryMonthChartSurface');
   const legend=document.getElementById('expiryMonthChartLegend');
+  // Ajustar el SVG al espacio real del panel, incluso con Chrome al 75%.
+  const chartWidth=Math.max(760,Math.round(chart.getBoundingClientRect().width||930));
+  const chartHeight=Math.max(380,Math.min(465,Math.round(chartWidth*0.29)));
+  const chartFontSize=Math.max(13,Math.min(16,Math.round(chartWidth/105)));
   renderCargoLineChart(chart,legend,labels,[{
     label:'Cargos vencidos · '+year,color:'#c52540',values,width:3.4
   }],{
-    width:Math.max(760,Math.round(chart.getBoundingClientRect().width||930)),
-    height:326,fontSize:11,compactLayout:true,showLabels:'positive',
+    width:chartWidth,
+    height:chartHeight,fontSize:chartFontSize,compactLayout:true,showLabels:'positive',
     highlightIndex:expiryChartMonth==='all'?null:monthKeys.indexOf(expiryChartMonth),
     onPointSelect:index=>{
       expiryChartMonth=monthKeys[index-1];
@@ -1750,6 +1754,25 @@ function renderMonthlyExpiryChart(yearRows,selectedRows) {
       fmtNum(selectedRows.length)+' cargos realmente vencidos y pendientes de Iron Mountain'+
       (future?' · Este mes aún no ha transcurrido.':'')+
       ' · El listado y las tarjetas corresponden a este mes.';
+}
+// Volver a calcular el tamaño al cambiar el ancho de pantalla o el zoom
+// del navegador. No realiza consultas a Supabase ni altera los filtros.
+const expiryChartSurface=document.getElementById('expiryMonthChartSurface');
+if(typeof ResizeObserver!=='undefined'){
+  let lastWidth=0, resizeScheduled=false;
+  const expiryChartObserver=new ResizeObserver(entries=>{
+    const width=Math.round(entries[0]?.contentRect?.width||0);
+    if(width<1||Math.abs(width-lastWidth)<2)return;
+    lastWidth=width;
+    if(!appReady||document.getElementById('documentExpiryWorkspace').hidden||resizeScheduled)return;
+    resizeScheduled=true;
+    requestAnimationFrame(()=>{
+      resizeScheduled=false;
+      if(appReady&&!document.getElementById('documentExpiryWorkspace').hidden)
+        renderDocumentExpiryWorkspace();
+    });
+  });
+  expiryChartObserver.observe(expiryChartSurface);
 }
 document.getElementById('expiryMonthChartYear').addEventListener('change',event=>{
   expiryChartYear=event.target.value;
