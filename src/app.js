@@ -211,6 +211,7 @@ function setStatus(value, state = '') {
 const WORKSPACE_SECTIONS={
   resumen:'grp-resumen',
   control:'grp-resumen',
+  'control-detalle':'grp-resumen',
   iron:'grp-resumen',
   'iron-cajas':'grp-resumen',
   historicos:'grp-resumen',
@@ -220,9 +221,10 @@ const WORKSPACE_SECTIONS={
   sync:'googleSyncPanel',
   reportes:'sidebarReportsPanel'
 };
-const SUMMARY_VIEWS = new Set(['resumen','control','iron','iron-cajas','historicos']);
+const SUMMARY_VIEWS = new Set(['resumen','control','control-detalle','iron','iron-cajas','historicos']);
 const SECTION_COPY={
-  control:['CONTROL DOCUMENTAL','Dashboard de Vencimientos','Prioridades y plazos documentales de 2025 y 2026.'],
+  control:['CONTROL DOCUMENTAL','Dashboard de Vencimientos','Indicadores de vencimientos documentales.'],
+  'control-detalle':['CONTROL DOCUMENTAL','Detalle de Cargos Pendientes','Consulta, búsqueda y seguimiento de cargos.'],
   iron:['IRON MOUNTAIN','Dashboard de Envíos','Evolución de cajas enviadas a Iron Mountain por mes y año.'],
   'iron-cajas':['IRON MOUNTAIN','Gestión y seguimiento de cajas','Cajas preparadas, solicitadas e histórico de Iron Mountain.'],
   historicos:['HISTÓRICO DOCUMENTAL','Histórico documental','Consulta anual de cargos registrados entre 2020 y 2026.']
@@ -261,6 +263,8 @@ function updateWorkspaceVisibility() {
   document.getElementById('appShell').dataset.module=activeWorkspaceTab;
   document.getElementById('documentExpiryWorkspace').hidden=
     !adminReady || activeWorkspaceTab!=='control';
+  document.getElementById('documentExpiryDetails').hidden=
+    !adminReady || activeWorkspaceTab!=='control-detalle';
   document.getElementById('documentHistoryWorkspace').hidden=
     !adminReady || activeWorkspaceTab!=='historicos';
   document.getElementById('imShippingDashboard').hidden=
@@ -270,6 +274,7 @@ function updateWorkspaceVisibility() {
   // Miga de navegación informativa; sin modificar la sección seleccionada.
   const breadcrumbs={
     resumen:'Dashboard General',control:'Dashboard de Vencimientos',
+    'control-detalle':'Detalle de Cargos Pendientes',
     historicos:'Histórico documental',iron:'Dashboard de Envíos',
     'iron-cajas':'Gestión y seguimiento de cajas',
     requerimientos:'Requerimientos',existencias:'Existencias',
@@ -301,7 +306,7 @@ function updateWorkspaceVisibility() {
   document.getElementById('googleSyncContent').hidden=!showSync;
   document.getElementById('googleSyncPanel').classList.toggle('workspace-tabs-only',adminReady && !showSync);
   for(const [name,id] of Object.entries(WORKSPACE_SECTIONS)) {
-    if(['control','iron','iron-cajas','historicos'].includes(name))continue;
+    if(['control','control-detalle','iron','iron-cajas','historicos'].includes(name))continue;
     const section=document.getElementById(id);
     const active=adminReady && (name==='resumen'
       ? SUMMARY_VIEWS.has(activeWorkspaceTab) : activeWorkspaceTab===name);
@@ -1717,6 +1722,16 @@ function renderMonthlyExpiryChart(yearRows,selectedRows) {
   }
   monthSelect.value=expiryChartMonth;
   document.getElementById('expiryMonthChartYear').value=year;
+  // Filtros del submenú: comparten el mismo año y mes del Dashboard.
+  const detailMonth=document.getElementById('docExpiryDetailMonth');
+  if(detailMonth.dataset.year!==year){
+    detailMonth.replaceChildren();
+    detailMonth.add(new Option('Todos los meses','all'));
+    monthKeys.forEach((key,i)=>detailMonth.add(new Option(names[i]+' '+year,key)));
+    detailMonth.dataset.year=year;
+  }
+  detailMonth.value=expiryChartMonth;
+  document.getElementById('docExpiryDetailYear').value=year;
   // Solo vencidos: nunca proyectar cargos que se vencerán en meses futuros.
   const monthCounts=new Map();
   for(const row of yearRows){
@@ -1743,17 +1758,11 @@ function renderMonthlyExpiryChart(yearRows,selectedRows) {
       expiryChartMonth=monthKeys[index-1];
       expiryWorkspaceView='all';expiryWorkspacePage=0;
       renderDocumentExpiryWorkspace();
+      // La gráfica sigue siendo interactiva: abrir el listado en su submenú.
+      selectWorkspaceTab('control-detalle');
     }
   });
-  const total=values.reduce((sum,n)=>sum+n,0);
-  const future=expiryChartMonth!=='all'&&expiryChartMonth>expiryGroups.today.slice(0,7);
-  document.getElementById('expiryMonthChartSummary').textContent=expiryChartMonth==='all'
-    ?'Enero–diciembre '+year+' · '+fmtNum(total)+
-      ' cargos vencidos que siguen pendientes de Iron Mountain · Las tarjetas muestran el estado anual.'
-    :names[Number(expiryChartMonth.slice(5,7))-1]+' '+year+' · '+
-      fmtNum(selectedRows.length)+' cargos realmente vencidos y pendientes de Iron Mountain'+
-      (future?' · Este mes aún no ha transcurrido.':'')+
-      ' · El listado y las tarjetas corresponden a este mes.';
+
 }
 // Volver a calcular el tamaño al cambiar el ancho de pantalla o el zoom
 // del navegador. No realiza consultas a Supabase ni altera los filtros.
@@ -1781,6 +1790,16 @@ document.getElementById('expiryMonthChartYear').addEventListener('change',event=
   renderDocumentExpiryWorkspace();
 });
 document.getElementById('expiryMonthChartMonth').addEventListener('change',event=>{
+  expiryChartMonth=event.target.value;
+  expiryWorkspaceView='all';expiryWorkspacePage=0;
+  renderDocumentExpiryWorkspace();
+});
+document.getElementById('docExpiryDetailYear').addEventListener('change',event=>{
+  expiryChartYear=event.target.value;
+  expiryChartMonth='all';expiryWorkspaceView='all';expiryWorkspacePage=0;
+  renderDocumentExpiryWorkspace();
+});
+document.getElementById('docExpiryDetailMonth').addEventListener('change',event=>{
   expiryChartMonth=event.target.value;
   expiryWorkspaceView='all';expiryWorkspacePage=0;
   renderDocumentExpiryWorkspace();
@@ -1817,7 +1836,7 @@ function renderDocumentExpiryWorkspace() {
   }
   document.getElementById('docExpiryAsOf').textContent=
     'Actualizado al '+fmtDate(expiryGroups.today);
-  for(const button of root.querySelectorAll('[data-expiry-view]')){
+  for(const button of document.querySelectorAll('#documentExpiryWorkspace [data-expiry-view], #documentExpiryDetails [data-expiry-view]')){
     button.setAttribute('aria-pressed',String(button.dataset.expiryView===expiryWorkspaceView));
   }
   const filtered=scoped.filter(row=>
@@ -1863,25 +1882,29 @@ function renderDocumentExpiryWorkspace() {
   document.getElementById('docExpiryNext').disabled=expiryWorkspacePage>=totalPages-1;
 }
 const expiryWorkspaceElement=document.getElementById('documentExpiryWorkspace');
-expiryWorkspaceElement.addEventListener('click',event=>{
-  const selector=event.target.closest('button[data-expiry-view]');
-  if(selector){
-    expiryWorkspaceView=selector.dataset.expiryView;
-    expiryWorkspacePage=0;
-    renderDocumentExpiryWorkspace();
-    return;
-  }
-  const openButton=event.target.closest('button[data-doc-expiry-cargo]');
-  if(openButton){
-    // Reutilizar la búsqueda original (sin mostrar datos de ubicación del cargo).
-    const cargo=openButton.dataset.docExpiryCargo;
-    selectWorkspaceTab('existencias');
-    document.getElementById('btnLimpiarFiltros').click();
-    document.getElementById('buscar').value=cargo;
-    searchNow();
-    document.getElementById('grp-existencias').scrollIntoView({block:'start'});
-  }
-});
+const expiryDetailsElement=document.getElementById('documentExpiryDetails');
+for(const section of [expiryWorkspaceElement,expiryDetailsElement]){
+  section.addEventListener('click',event=>{
+    const selector=event.target.closest('button[data-expiry-view]');
+    if(selector){
+      expiryWorkspaceView=selector.dataset.expiryView;
+      expiryWorkspacePage=0;
+      renderDocumentExpiryWorkspace();
+      // Las tarjetas de la vista ejecutiva llevan a los datos, no los insertan en el Dashboard.
+      if(section===expiryWorkspaceElement)selectWorkspaceTab('control-detalle');
+      return;
+    }
+    const openButton=event.target.closest('button[data-doc-expiry-cargo]');
+    if(openButton){
+      const cargo=openButton.dataset.docExpiryCargo;
+      selectWorkspaceTab('existencias');
+      document.getElementById('btnLimpiarFiltros').click();
+      document.getElementById('buscar').value=cargo;
+      searchNow();
+      document.getElementById('grp-existencias').scrollIntoView({block:'start'});
+    }
+  });
+}
 document.getElementById('docExpirySearch').addEventListener('input',()=>{
   expiryWorkspacePage=0;renderDocumentExpiryWorkspace();
 });
