@@ -1,5 +1,5 @@
 // Gráfico SVG sin dependencias. Se utiliza únicamente en la ventana «Ver detalle».
-export function renderCargoLineChart(surface,legend,categories,lines,{showLabels=false,width=960,height=360,fontSize=12,highlightIndex=null,compactLayout=false,onPointSelect=null}={}){
+export function renderCargoLineChart(surface,legend,categories,lines,{showLabels=false,width=960,height=360,fontSize=12,highlightIndex=null,compactLayout=false,onPointSelect=null,showTooltips=true}={}){
   surface.replaceChildren();
   legend.replaceChildren();
   const W=Math.max(640,width),H=Math.max(340,height);
@@ -88,7 +88,7 @@ export function renderCargoLineChart(surface,legend,categories,lines,{showLabels
       if(pointSelected)add(group,'circle',{cx,cy,r:13,fill:'#ffe4e9',stroke:'#eaa5b0','stroke-width':1.6});
       add(group,'circle',{cx,cy,r:pointSelected?7.5:showLabels?5.3:4,
         fill:pointSelected?line.color:'#fff',stroke:pointSelected?'#fff':line.color,'stroke-width':pointSelected?2.8:3});
-      add(group,'title',{},`${line.label} · ${categories[i]}: ${fmt(value)} cargos`);
+      if(showTooltips)add(group,'title',{},`${line.label} · ${categories[i]}: ${fmt(value)} cargos`);
       if(showLabels && (showLabels!=='positive' || value>0))add(group,'text',{
         x:cx,y:Math.max(T-8,cy-16),'text-anchor':'middle','font-size':fontSize,'font-weight':800,fill:line.color
       },fmt(value));
@@ -98,12 +98,14 @@ export function renderCargoLineChart(surface,legend,categories,lines,{showLabels
         tip.style.top=`${(cy+2)/H*100}%`;
         tip.hidden=false;
       };
-      group.addEventListener('mouseenter',showTip);
-      group.addEventListener('mouseleave',hideTip);
-      group.addEventListener('focus',showTip);
-      group.addEventListener('blur',hideTip);
+      if(showTooltips){
+        group.addEventListener('mouseenter',showTip);
+        group.addEventListener('mouseleave',hideTip);
+        group.addEventListener('focus',showTip);
+        group.addEventListener('blur',hideTip);
+      }
       group.addEventListener('click',()=>{
-        showTip();
+        if(showTooltips)showTip();
         if(selectable)onPointSelect(i+1);
       });
       if(selectable)group.addEventListener('keydown',event=>{
@@ -118,5 +120,6 @@ export function renderCargoLineChart(surface,legend,categories,lines,{showLabels
     legendItem.append(swatch,document.createTextNode(line.label));
     legend.append(legendItem);
   }
-  surface.append(svg,tip);
+  surface.append(svg);
+  if(showTooltips)surface.append(tip);
 }
