@@ -1711,12 +1711,12 @@ function renderMonthlyExpiryChart(originRows,selectedRows) {
   const dueMonths=originRows.map(row=>row.doc.expiry?.dueDate?.slice(0,7))
     .filter(month=>/^\d{4}-(0[1-9]|1[0-2])$/.test(month)).sort();
   // Base móvil: nunca ocultar un cargo por cambiar de año calendario.
-  // El mínimo son 12 meses, desde el primer vencimiento real del año de origen.
+  // Mostrar exclusivamente el intervalo entre el primer y último vencimiento real.
   const first=dueMonths[0]||year+'-07';
   const last=dueMonths.at(-1)||first;
   const [startYear,startMonth]=first.split('-').map(Number);
   const [endYear,endMonth]=last.split('-').map(Number);
-  const length=Math.max(12,(endYear-startYear)*12+endMonth-startMonth+1);
+  const length=Math.max(1,(endYear-startYear)*12+endMonth-startMonth+1);
   const monthKeys=Array.from({length},(_,i)=>new Date(
     Date.UTC(startYear,startMonth-1+i,1)).toISOString().slice(0,7));
   const values=monthKeys.map(key=>dueMonths.filter(due=>due===key).length);
