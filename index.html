@@ -785,30 +785,6 @@
 #kardexSidebar .sidebar-category:has(.sidebar-submenu [aria-current="page"])>summary{color:#ab2636;background:#fff6f7}
 #kardexSidebar .sidebar-bottom{padding:16px}
 #kardexSidebar .sidebar-bottom strong{font-size:11px}
-#sidebarCollapseButton.sidebar-collapse-button{
-  flex:none;display:grid;place-items:center;width:30px;height:30px;padding:0;
-  color:#61778a;background:#f4f7fa;border:1px solid #e3ebf1;border-radius:8px;cursor:pointer;
-  transition:background .15s,color .15s;
-}
-#sidebarCollapseButton.sidebar-collapse-button:hover{background:#fff0f2;color:#b02537}
-#sidebarCollapseButton.sidebar-collapse-button>span{font-size:25px;font-weight:550;line-height:1}
-#sidebarCollapseButton.sidebar-collapse-button:focus-visible{outline:2px solid #bd293b;outline-offset:2px}
-#appShell.has-sidebar.sidebar-collapsed #sidebarLayout{grid-template-columns:78px minmax(0,1fr)}
-#appShell.sidebar-collapsed #kardexSidebar .sidebar-brand{padding:13px 8px;flex-direction:column;gap:9px}
-#appShell.sidebar-collapsed #kardexSidebar .sidebar-brand-copy,
-#appShell.sidebar-collapsed #kardexSidebar .sidebar-eyebrow,
-#appShell.sidebar-collapsed #kardexSidebar .sidebar-link>span:not(.sidebar-icon),
-#appShell.sidebar-collapsed #kardexSidebar .sidebar-category>summary>span:not(.sidebar-icon),
-#appShell.sidebar-collapsed #kardexSidebar .sidebar-submenu,
-#appShell.sidebar-collapsed #kardexSidebar .sidebar-bottom>div{display:none!important}
-#appShell.sidebar-collapsed #kardexSidebar .sidebar-navigation{padding:12px 9px;gap:8px}
-#appShell.sidebar-collapsed #kardexSidebar .sidebar-link,
-#appShell.sidebar-collapsed #kardexSidebar .sidebar-category>summary{
-  display:flex;justify-content:center;align-items:center;padding:10px 8px;min-height:48px;
-}
-#appShell.sidebar-collapsed #kardexSidebar .sidebar-icon{width:23px;height:23px}
-#appShell.sidebar-collapsed #kardexSidebar .sidebar-bottom{justify-content:center;padding:13px}
-#appShell.sidebar-collapsed #sidebarCollapseButton>span{transform:rotate(180deg)}
 /* Gráfica: más altura y texto mayor; no limitar el SVG a 340px. */
 #createdDashboardChart{position:relative;display:block;width:100%;min-height:390px;overflow-x:auto;overflow-y:hidden;scrollbar-width:thin}
 #createdDashboardChart svg{display:block;width:100%;min-width:700px;height:auto;max-height:none!important}
@@ -824,9 +800,7 @@
 .created-stat small{font-size:11.5px}
 .created-stat>span{font-size:11px}
 @media(max-width:1040px) {
-  #appShell.has-sidebar #sidebarLayout,
-  #appShell.has-sidebar.sidebar-collapsed #sidebarLayout{grid-template-columns:minmax(0,1fr);gap:0}
-  #sidebarCollapseButton{display:none!important}
+  #appShell.has-sidebar #sidebarLayout{grid-template-columns:minmax(0,1fr);gap:0}
   #kardexSidebar .sidebar-brand{padding:17px 15px}
   #createdDashboardChart{min-height:320px}
   .created-dashboard-plot{min-height:385px}
@@ -837,7 +811,6 @@
   .created-dashboard-plot-heading{display:block}
   .created-dashboard-plot-heading>span{display:block;margin-top:5px}
 }
-@media(prefers-reduced-motion:reduce){#sidebarCollapseButton{transition:none}}
 
 /* Vista previa: semántica visual de variaciones en el flujo de cargos. */
 .created-dashboard-stats .created-stat[data-trend="up"] strong{color:#218652}
@@ -2907,16 +2880,62 @@
 #kardexSidebar .sidebar-static-category:has(.sidebar-submenu [aria-current="page"])>.sidebar-static-title{
  color:#b02940;background:#fff6f7;
 }
-#appShell.sidebar-collapsed #kardexSidebar .sidebar-static-title>span:not(.sidebar-icon),
-#appShell.sidebar-collapsed #kardexSidebar .sidebar-submenu{display:none!important}
-#appShell.sidebar-collapsed #kardexSidebar .sidebar-static-title{
- justify-content:center;min-height:46px;padding:10px 8px;
-}
 @media(max-width:1040px){
  #kardexSidebar.kardex-sidebar{
   position:fixed;top:0;left:0;height:100dvh;max-height:100dvh;overflow:hidden;
  }
 }
+/* Vista previa: contraste y jerarquía sin navegación contraíble. */
+#kardexSidebar.kardex-sidebar{background:#f4f7fb;border-color:#ccd8e5;box-shadow:0 8px 26px rgba(25,51,78,.11)}
+#kardexSidebar .sidebar-brand{background:#fff;border-bottom:1px solid #dce6f0}
+#kardexSidebar .sidebar-brand strong{color:#172e45;font-size:14px;font-weight:850}
+#kardexSidebar .sidebar-brand span:not(.sidebar-brand-icon){color:#506b83;font-weight:600}
+#kardexSidebar .sidebar-navigation{
+ background:#f5f8fc;padding:10px 10px 12px;gap:3px;
+ scrollbar-width:thin;scrollbar-color:#a6b7c9 transparent;
+}
+#kardexSidebar .sidebar-navigation::-webkit-scrollbar{width:5px}
+#kardexSidebar .sidebar-navigation::-webkit-scrollbar-track{background:transparent}
+#kardexSidebar .sidebar-navigation::-webkit-scrollbar-thumb{background:#a6b7c9;border-radius:10px}
+#kardexSidebar .sidebar-eyebrow{
+ padding:13px 9px 6px;margin-top:6px;border-top:1px solid #dbe5ef;
+ color:#8d2940;font-size:10.5px;font-weight:900;letter-spacing:.095em;
+}
+#kardexSidebar .sidebar-eyebrow:first-child{margin-top:0;padding-top:5px;border-top:0}
+#kardexSidebar .sidebar-link{
+ min-height:39px;border:1px solid #e1eaf2;border-left:3px solid transparent;
+ border-radius:9px;background:#fff;color:#203a53;font-size:12.2px;
+ font-weight:780;padding:8px 10px;line-height:1.3;
+}
+#kardexSidebar .sidebar-link:hover{color:#9d1b36;background:#fff8f9;border-color:#eccdd3}
+#kardexSidebar .sidebar-link[aria-current="page"]{
+ background:#fce8ed;border-color:#edbbc6;border-left-color:#bf2441;
+ color:#9b1531;font-weight:900;box-shadow:none;
+}
+#kardexSidebar .sidebar-icon{color:#5b7691;stroke-width:2}
+#kardexSidebar .sidebar-link[aria-current="page"] .sidebar-icon{color:#bd2842}
+#kardexSidebar .sidebar-static-title{
+ border:1px solid #d8e3ee;border-radius:9px;background:#eaf1f8;
+ color:#193d5b;font-size:12.2px;font-weight:850;
+ min-height:39px;padding:8px 10px;line-height:1.3;
+}
+#kardexSidebar .sidebar-static-title .sidebar-icon{color:#436680}
+#kardexSidebar .sidebar-static-category:has(.sidebar-submenu [aria-current="page"])>.sidebar-static-title{
+ background:#e8f0fa;color:#173b58;border-color:#c8d9e9;
+}
+#kardexSidebar .sidebar-submenu{
+ margin:3px 0 6px 19px;padding:3px 0 3px 10px;border-left:2px solid #a9bfd2;
+}
+#kardexSidebar .sidebar-submenu button{
+ min-height:31px;border-radius:7px;background:transparent;
+ padding:7px 10px;color:#365875;font-size:11.6px;font-weight:690;line-height:1.35;
+}
+#kardexSidebar .sidebar-submenu button:hover{background:#e5eef8;color:#183e5e}
+#kardexSidebar .sidebar-submenu button[aria-current="page"]{
+ background:#fce8ed;color:#9d1934;font-weight:850;box-shadow:inset 3px 0 0 #c72b45;
+}
+#kardexSidebar .sidebar-bottom{background:#fff;border-top:1px solid #dbe5ef}
+#kardexSidebar button:focus-visible{outline:2px solid #bf2b47;outline-offset:2px}
 </style>
 </head>
 <body>
@@ -3002,10 +3021,6 @@
       <div class="sidebar-brand">
         <div class="sidebar-brand-icon" aria-hidden="true">▦</div>
         <div class="sidebar-brand-copy"><strong>Panel administrativo</strong><span>CD Santa Anita</span></div>
-        <button id="sidebarCollapseButton" class="sidebar-collapse-button" type="button"
-          aria-controls="kardexSidebar" aria-expanded="true" aria-label="Contraer menú lateral" title="Contraer menú lateral">
-          <span aria-hidden="true">‹</span>
-        </button>
         <button id="sidebarCloseMobile" class="sidebar-close" type="button" aria-label="Cerrar menú">×</button>
       </div>
       <nav class="sidebar-navigation" aria-label="Módulos del Kardex">
