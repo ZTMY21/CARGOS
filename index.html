@@ -659,6 +659,7 @@
   .sidebar-link[aria-current="page"] .sidebar-icon{color:#b52838}
   .sidebar-category[open]>summary{color:#293f54}
   .sidebar-category[open]>summary .sidebar-icon{color:#b52838}
+  .sidebar-static-title{display:flex;align-items:center;gap:10px;min-height:42px;padding:10px 11px;border-radius:9px;color:#465e73;font-size:12px;font-weight:750}
   .sidebar-submenu{display:flex;flex-direction:column;gap:3px;margin:0 0 3px 22px;border-left:1px solid #e1e9ef;padding:4px 0 5px 12px}
   .sidebar-submenu button{font-family:inherit;background:transparent;border:0;border-radius:8px;cursor:pointer;text-align:left;
     font-size:11px;font-weight:650;color:#587084;padding:9px 9px;line-height:1.35;min-height:34px}
@@ -2988,13 +2989,15 @@
             <button type="button" data-sidebar-view="historicos">Histórico documental</button>
           </div>
         </details>
-        <details class="sidebar-category" data-sidebar-group="im">
-          <summary><svg class="sidebar-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="7" width="13" height="10" rx="1"/><path d="M15 10h4l3 4v3h-7M5 17a2 2 0 1 0 4 0M17 17a2 2 0 1 0 4 0"/></svg><span>Iron Mountain</span><span class="sidebar-chevron" aria-hidden="true">⌄</span></summary>
+        <div class="sidebar-static-category" role="group" aria-label="Iron Mountain">
+          <div class="sidebar-static-title">
+            <svg class="sidebar-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="7" width="13" height="10" rx="1"/><path d="M15 10h4l3 4v3h-7M5 17a2 2 0 1 0 4 0M17 17a2 2 0 1 0 4 0"/></svg><span>Iron Mountain</span>
+          </div>
           <div class="sidebar-submenu">
             <button type="button" data-sidebar-view="iron">Dashboard de Envíos</button>
             <button type="button" data-sidebar-view="iron-cajas">Gestión y seguimiento de cajas</button>
           </div>
-        </details>
+        </div>
         <button type="button" class="sidebar-link" data-sidebar-view="requerimientos">
           <svg class="sidebar-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3h6v1M9 10h6M9 14h6"/></svg><span>Requerimientos</span>
         </button>
