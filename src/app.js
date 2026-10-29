@@ -223,9 +223,9 @@ const WORKSPACE_SECTIONS={
 };
 const SUMMARY_VIEWS = new Set(['resumen','control','control-detalle','iron','iron-cajas','historicos']);
 const SECTION_COPY={
-  control:['CONTROL DOCUMENTAL','Dashboard de Vencimientos','Indicadores de vencimientos documentales.'],
+  control:['DASHBOARD DE VENCIMIENTOS','Dashboard de Vencimientos','Indicadores de vencimientos documentales.'],
   'control-detalle':['CONTROL DOCUMENTAL','Detalle de Cargos Pendientes','Consulta, búsqueda y seguimiento de cargos.'],
-  iron:['IRON MOUNTAIN','Dashboard de Envíos','Evolución de cajas enviadas a Iron Mountain por mes y año.'],
+  iron:['DASHBOARD DE ENVÍOS','Dashboard de Envíos','Evolución de cajas enviadas a Iron Mountain por mes y año.'],
   'iron-cajas':['IRON MOUNTAIN','Gestión y seguimiento de cajas','Cajas preparadas, solicitadas e histórico de Iron Mountain.'],
   historicos:['HISTÓRICO DOCUMENTAL','Histórico documental','Consulta anual de cargos registrados entre 2020 y 2026.']
 };
@@ -273,7 +273,7 @@ function updateWorkspaceVisibility() {
     !adminReady || activeWorkspaceTab!=='iron-cajas';
   // Miga de navegación informativa; sin modificar la sección seleccionada.
   const breadcrumbs={
-    resumen:'Dashboard General',control:'Dashboard de Vencimientos',
+    resumen:'Dashboard de Cargos Realizados',control:'Dashboard de Vencimientos',
     'control-detalle':'Detalle de Cargos Pendientes',
     historicos:'Histórico documental',iron:'Dashboard de Envíos',
     'iron-cajas':'Gestión y seguimiento de cajas',
@@ -284,7 +284,7 @@ function updateWorkspaceVisibility() {
   document.getElementById('executiveBreadcrumbRoot').textContent=
     adminReady?'Panel administrativo':'Consulta documental';
   document.getElementById('executiveBreadcrumbCurrent').textContent=
-    adminReady?(breadcrumbs[activeWorkspaceTab]||'Dashboard General'):'Existencias';
+    adminReady?(breadcrumbs[activeWorkspaceTab]||'Dashboard de Cargos Realizados'):'Existencias';
   document.getElementById('executiveRole').textContent=
     adminReady?'Vista del administrador':'Vista de consulta';
   const heading=document.getElementById('sidebarSectionHeading');
