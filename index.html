@@ -2958,6 +2958,199 @@
 @media(prefers-reduced-motion:reduce){
  #kardexSidebar .sidebar-scroll-region::after{transition:none}
 }
+
+/* PREVIEW · Lenguaje visual coherente para dashboards y módulos administrativos.
+   Únicamente estética: todas las IDs, filtros y cálculos permanecen intactos. */
+#appShell.has-sidebar{
+ --dashboard-line:#dfe7ef;
+ --dashboard-accent:#c82441;
+ --dashboard-heading:#17354e;
+ --dashboard-muted:#617b91;
+ --dashboard-soft:#f7f9fc;
+ --dashboard-card-shadow:0 3px 12px rgba(24,46,67,.045);
+}
+/* Todos los módulos tienen el mismo encabezado de página. */
+#appShell.has-sidebar .created-dashboard-heading,
+#appShell.has-sidebar[data-module="control"] #sidebarSectionHeading,
+#appShell.has-sidebar[data-module="historicos"] #sidebarSectionHeading,
+#appShell.has-sidebar .im-dash-heading,
+#appShell.has-sidebar .sidebar-standalone-header{
+ position:relative;isolation:isolate;
+ margin:0 0 18px;
+ padding:19px 22px;
+ border:1px solid var(--dashboard-line);
+ border-left:4px solid var(--dashboard-accent);
+ border-radius:14px;
+ background:linear-gradient(109deg,#fff7f8 0%,#fff 48%,#fff 100%);
+ box-shadow:var(--dashboard-card-shadow);
+}
+#appShell.has-sidebar .created-dashboard-heading>span,
+#appShell.has-sidebar .sidebar-section-heading>span,
+#appShell.has-sidebar .im-dash-eyebrow,
+#appShell.has-sidebar .sidebar-standalone-header>span{
+ display:block;
+ color:#b8273f;
+ font-size:10px;
+ font-weight:850;
+ letter-spacing:.09em;
+ line-height:1.5;
+}
+#appShell.has-sidebar .created-dashboard-heading h2,
+#appShell.has-sidebar .im-dash-heading h3,
+#appShell.has-sidebar .sidebar-section-heading h2,
+#appShell.has-sidebar .sidebar-standalone-header h2,
+#appShell.has-sidebar[data-module="control"] #sidebarSectionTitle{
+ font-size:clamp(23px,1.9vw,27px);
+ font-weight:850;
+ letter-spacing:-.025em;
+ line-height:1.23;
+ margin:6px 0 5px;
+ color:var(--dashboard-heading);
+}
+#appShell.has-sidebar .created-dashboard-heading p,
+#appShell.has-sidebar .im-dash-heading p,
+#appShell.has-sidebar .sidebar-section-heading p,
+#appShell.has-sidebar .sidebar-standalone-header p,
+#appShell.has-sidebar[data-module="control"] #sidebarSectionSubtitle{
+ margin:0;
+ color:var(--dashboard-muted);
+ font-size:12px;
+ line-height:1.55;
+}
+#appShell.has-sidebar[data-module="control"] #sidebarSectionHeading{
+ padding-right:22px;
+}
+#appShell.has-sidebar[data-module="control"] .doc-expiry-heading-symbol{
+ display:none!important;
+}
+/* El detalle ya tiene un título propio: evitar que aparezca dos veces. */
+#appShell.has-sidebar[data-module="control-detalle"] #sidebarSectionHeading{
+ display:none!important;
+}
+/* Tarjetas KPI: alturas, bordes, radios y separación consistentes. */
+#appShell.has-sidebar .created-dashboard-stats,
+#appShell.has-sidebar .doc-expiry-kpis,
+#appShell.has-sidebar .im-dash-kpis{
+ gap:14px;
+ margin-bottom:19px;
+}
+#appShell.has-sidebar .created-dashboard-stats .created-stat,
+#appShell.has-sidebar .doc-expiry-kpi,
+#appShell.has-sidebar .im-dash-kpi,
+#appShell.has-sidebar .im-box-card{
+ min-height:136px;
+ padding:17px 18px;
+ border-radius:14px;
+ box-shadow:var(--dashboard-card-shadow);
+}
+#appShell.has-sidebar .created-dashboard-stats .created-stat small,
+#appShell.has-sidebar .doc-expiry-kpi-label,
+#appShell.has-sidebar .im-dash-kpi>span,
+#appShell.has-sidebar .im-box-card>span{
+ color:#334f68;
+ font-size:12px;
+ font-weight:800;
+ line-height:1.35;
+}
+#appShell.has-sidebar .doc-expiry-kpi small,
+#appShell.has-sidebar .im-box-card small{
+ color:var(--dashboard-muted);
+ font-size:11px;
+ line-height:1.45;
+}
+/* Una sola tipología de panel, conservando íntegra cada gráfica. */
+#appShell.has-sidebar .created-dashboard-plot,
+#appShell.has-sidebar .expiry-month-chart,
+#appShell.has-sidebar .im-dash-chart-panel,
+#appShell.has-sidebar .history-detail,
+#appShell.has-sidebar .doc-expiry-panel{
+ border:1px solid var(--dashboard-line);
+ border-radius:14px;
+ background:#fff;
+ box-shadow:var(--dashboard-card-shadow);
+}
+#appShell.has-sidebar .created-dashboard-plot h3,
+#appShell.has-sidebar .expiry-month-chart-header h3,
+#appShell.has-sidebar .im-dash-chart-top h3,
+#appShell.has-sidebar .history-detail-heading h3,
+#appShell.has-sidebar .doc-expiry-panel-top h3{
+ font-size:19px;
+ font-weight:850;
+ line-height:1.3;
+ letter-spacing:-.016em;
+ color:var(--dashboard-heading);
+}
+#appShell.has-sidebar .created-plot-eyebrow,
+#appShell.has-sidebar .doc-expiry-overline,
+#appShell.has-sidebar .im-dash-chart-top>div:first-child>span,
+#appShell.has-sidebar .history-detail-heading>div>span{
+ color:#ba2941;
+ font-size:10px;
+ font-weight:850;
+ letter-spacing:.085em;
+}
+#appShell.has-sidebar .expiry-month-chart-header,
+#appShell.has-sidebar .im-dash-chart-top,
+#appShell.has-sidebar .history-detail-heading,
+#appShell.has-sidebar .doc-expiry-panel-top{
+ background:linear-gradient(110deg,#fff9fa,#fff 74%);
+ border-bottom:1px solid #e7edf3;
+ padding:18px 20px;
+}
+#appShell.has-sidebar .created-dashboard-stable-toolbar,
+#appShell.has-sidebar .history-overview{
+ background:var(--dashboard-soft);
+ border:1px solid var(--dashboard-line);
+ border-radius:12px;
+}
+#appShell.has-sidebar .created-dashboard-stable-toolbar select,
+#appShell.has-sidebar .expiry-month-chart-selectors select,
+#appShell.has-sidebar .doc-expiry-detail-period select,
+#appShell.has-sidebar .im-dash-chart-controls select,
+#appShell.has-sidebar .history-overview-selector select,
+#appShell.has-sidebar .history-toolbar select{
+ min-height:39px;
+ border:1px solid #cddbe8;
+ background:#fff;
+ color:#253f57;
+ border-radius:8px;
+ font-size:12px;
+ font-weight:750;
+}
+#appShell.has-sidebar :is(
+ .created-dashboard-stable-toolbar select,
+ .expiry-month-chart-selectors select,
+ .doc-expiry-detail-period select,
+ .im-dash-chart-controls select,
+ .history-overview-selector select,
+ .history-toolbar select,
+ .created-mode-button,
+ .im-dash-tabs button
+):focus-visible{
+ outline:2px solid #ba2d44;
+ outline-offset:2px;
+}
+@media(max-width:700px){
+ #appShell.has-sidebar .created-dashboard-heading,
+ #appShell.has-sidebar[data-module="control"] #sidebarSectionHeading,
+ #appShell.has-sidebar[data-module="historicos"] #sidebarSectionHeading,
+ #appShell.has-sidebar .im-dash-heading,
+ #appShell.has-sidebar .sidebar-standalone-header{
+  padding:16px 17px;
+  margin-bottom:14px;
+ }
+ #appShell.has-sidebar .created-dashboard-heading h2,
+ #appShell.has-sidebar .im-dash-heading h3,
+ #appShell.has-sidebar .sidebar-section-heading h2,
+ #appShell.has-sidebar[data-module="control"] #sidebarSectionTitle{
+  font-size:22px;
+ }
+ #appShell.has-sidebar .expiry-month-chart-header,
+ #appShell.has-sidebar .im-dash-chart-top,
+ #appShell.has-sidebar .doc-expiry-panel-top{
+  padding:15px 16px;
+ }
+}
 </style>
 </head>
 <body>
@@ -3417,7 +3610,7 @@
         <section class="expiry-month-chart" aria-labelledby="expiryMonthChartTitle">
           <div class="expiry-month-chart-header">
             <div>
-              <span class="doc-expiry-overline">EVOLUCIÓN DOCUMENTAL · CD SANTA ANITA</span>
+              <span class="doc-expiry-overline">EVOLUCIÓN MENSUAL · CD SANTA ANITA</span>
               <h3 id="expiryMonthChartTitle">Cargos vencidos por mes</h3>
             </div>
             <div class="expiry-month-chart-selectors">
@@ -3573,9 +3766,9 @@
       </section>
       <section id="imShippingDashboard" class="im-executive-dashboard" aria-label="Dashboard de envíos a Iron Mountain" hidden>
         <div class="im-dash-heading">
-          <span class="im-dash-eyebrow">OPERACIÓN IRON MOUNTAIN · CD SANTA ANITA</span>
-          <h3>Evolución de cajas enviadas</h3>
-          <p>Seguimiento por fecha efectiva de envío. La unidad principal es la caja física, no la cantidad de cargos.</p>
+          <span class="im-dash-eyebrow">ENVÍOS A IRON MOUNTAIN · CD SANTA ANITA</span>
+          <h3>Dashboard de Envíos</h3>
+          <p>Seguimiento mensual y anual de cajas físicas enviadas.</p>
         </div>
         <div class="im-dash-kpis">
           <div class="im-dash-kpi"><span>Cajas enviadas este mes</span><strong id="imDashThisMonth">—</strong></div>
@@ -3600,8 +3793,8 @@
       <section id="imBoxesWorkspace" class="im-boxes-workspace" aria-label="Gestión y seguimiento de cajas Iron Mountain" hidden>
         <div class="im-dash-heading">
           <span class="im-dash-eyebrow">GESTIÓN OPERATIVA · CD SANTA ANITA</span>
-          <h3>Seguimiento de cajas</h3>
-          <p>Consulta la preparación, las solicitudes y el historial de cajas de Iron Mountain.</p>
+          <h3>Gestión y seguimiento de cajas</h3>
+          <p>Preparación, solicitudes e historial de cajas de Iron Mountain.</p>
         </div>
         <div class="im-boxes-cards">
           <article class="im-box-card">
