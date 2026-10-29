@@ -1,5 +1,11 @@
--- Validación de marcas de filas en CARGOS NUEVOS, sin borrados ni cambio de permisos.
--- Solo devuelve YA REGISTRADO si el documento contiene cargo, código y grupo.
+-- Corrección de recepción en instalaciones donde el módulo de Google en vivo existe.
+-- En entornos de pruebas/históricos sin kardex_live_ingresos, no intenta instalar
+-- una función cuyos tipos y dependencias pertenecen al módulo de sincronización.
+DO $guard_live$
+BEGIN
+ IF pg_catalog.to_regclass('public.kardex_live_ingresos') IS NOT NULL
+    AND pg_catalog.to_regprocedure('public.kardex_live_ingest(text,text,jsonb)') IS NOT NULL THEN
+  EXECUTE $live_sql$
 CREATE OR REPLACE FUNCTION public.kardex_live_ingest(p_sheet_id text, p_secret text, p_rows jsonb)
  RETURNS jsonb
  LANGUAGE plpgsql
@@ -147,4 +153,7 @@ BEGIN
   END LOOP;
   RETURN jsonb_build_object('nuevos',inserted,'actualizados',updated,'duplicados',duplicate,'pendientes',rejected,'resultados',results);
 END;$function$
-
+$live_sql$;
+ END IF;
+END;
+$guard_live$;
