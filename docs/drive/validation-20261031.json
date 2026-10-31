@@ -1,0 +1,43 @@
+{
+  "date": "2026-10-31",
+  "newArchiveTests": {
+    "passed": 21,
+    "failed": 0
+  },
+  "fullSuite": {
+    "total": 160,
+    "passed": 142,
+    "failed": 18,
+    "newFailingNames": []
+  },
+  "failingNames": [
+    "CSS and logo preserve the baseline and original groups",
+    "Caja asignada acepta T, TD, solo numero y mantiene coincidencia exacta si existe",
+    "Caja preparada para envío cuenta cajas únicas y cambia a enviado cuando F tenga fecha",
+    "Google sync adds only new invoices, preserves admin fields, is idempotent and respects pause",
+    "admin e invitado ven el corazón en encabezado sin textos repetidos, botones limpios y sin documentos nuevos",
+    "admin sync cards always use the latest Supabase readings and account header shows email only",
+    "cuenta principal aprueba o rechaza desde Solicitudes y el contador vuelve a cero",
+    "el indicador de solicitudes se actualiza al volver a la pestaña y no pinta verde sin conexión",
+    "enlace de Gmail permite decidir sobre solicitud solo tras sesión del administrador principal",
+    "gráficos IM muestran el histórico de cajas por mes y año al abrir detalle",
+    "indexed search, transactional batch upsert, backups, stable IDs and audit survive repeated imports",
+    "indicador IM solicitado conserva diseño y despliega cargos del Sheet con cruce",
+    "invitados mantienen Existencias sin pestañas ni acceso a formularios administrativos",
+    "la navegación admite teclado y conserva pestaña elegida después de refrescar datos",
+    "las cuatro pestañas administrativas conservan Resumen, Requerimientos, Existencias y Solicitudes",
+    "panel distingue altas recibidas de bajas no confirmadas y da instrucciones",
+    "sincronización solo aparece en Resumen mientras la barra permanece visible",
+    "sync status is inline and the Excel button opens the original file for admins"
+  ],
+  "productionDataWrites": 0,
+  "realFilesTransferred": 0,
+  "realFilesVerified": 0,
+  "isolatedDemoFilesVerified": 2,
+  "completeProductionBackupCreated": false,
+  "productionRestorationVerified": false,
+  "backendProviderConnectionVerified": false,
+  "authorizationVerified": false,
+  "buildPassed": true,
+  "baselineManifestSha256": "c7f7724467c98c06250bb0101a82457071042e2467a2359a3e01110c2455c32c"
+}

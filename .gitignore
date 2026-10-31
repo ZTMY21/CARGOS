@@ -13,3 +13,8 @@ private-import/
 *.xlsm
 *.xlsx
 *.xls
+private-archive/
+*.enc
+*.enc.partial
+!.env.archive.example
+/node_modules

@@ -1,0 +1,45 @@
+{
+  "asOf": "2026-10-31T13:08:46.694362+00:00",
+  "realFilesCopied": 2,
+  "sha256Verified": 2,
+  "copiedBytes": 58562337,
+  "restoredTableRows": 3485,
+  "postgresBeforeBytes": 460846771,
+  "postgresAfterBytes": 460846771,
+  "storageBeforeBytes": 32082853,
+  "storageAfterBytes": 32082853,
+  "postgresFreedBytes": 0,
+  "quotaFreedPercent": 0,
+  "applicationReferencesRecorded": 0,
+  "pendingApplicationReferences": 2,
+  "completeDatabaseBackupVerified": false,
+  "completeMigration": false,
+  "productionCommit": "e8e29b0521b88be1236e7919e7d881355f3bb353",
+  "counts": {
+    "documents": 3411,
+    "invoiceTokens": 2782529,
+    "historyRows": 13314,
+    "backupRows": 3485,
+    "resguardos": 282
+  },
+  "originalsRetained": true,
+  "sourceWrites": false,
+  "transferChannel": "authorized-connected-drive",
+  "backendOAuthPending": true,
+  "tests": {
+    "archivePassed": 23,
+    "archiveFailed": 0,
+    "realExcelZipIntegrity": true,
+    "realTableRestore": true
+  },
+  "coldBackup": {
+    "sourceRows": 3485,
+    "missingInCurrentDocuments": 115,
+    "rowsetSha256": "e4a3626d48690f40068cbc20a781ea4aba10fb7b8264ebba9828a6baf4bfb9f5",
+    "sourceJsonBytes": 157465209,
+    "encryptedBytes": 26479484,
+    "ciphertextSha256": "4e258ad59aaec84315243d4c5f3923d321253adfdcb1c4d16d8e414da4500c9f",
+    "schemaDependenciesFound": 0
+  },
+  "copyProvenance": "Excel original aportado por el usuario, coincidente con el SHA-256 registrado en importaciones; tabla fría extraída por SELECT. El objeto actual de Storage no se descargó de nuevo."
+}
