@@ -202,15 +202,52 @@ export class KardexRepository {
     if(!session?.user?.id) throw new Error('Inicia sesión antes de importar.');
     const bytes=await file.arrayBuffer();
     const sha=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)),n=>n.toString(16).padStart(2,'0')).join('');
-    const fileName=file.name.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9._-]/g,'_');
-    const path=`${session.user.id}/${crypto.randomUUID()}/${fileName}`;
-    progress('Guardando una copia privada del Excel original…');
-    checked(await this.client.storage.from('respaldos-excel').upload(path,file,{
-      contentType:/\.xlsm$/i.test(file.name)?'application/vnd.ms-excel.sheet.macroEnabled.12':'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      upsert:false
-    }));
-    const importId=checked(await this.client.rpc('kardex_begin_import',{
-      archivo_nombre:file.name,archivo_path:path,archivo_sha256:sha,archivo_formato:imported.format||'kardex'
+    // Google Drive is the authoritative copy for new Excel imports. Metadata and
+    // individual Kardex rows remain in Postgres for transactional search/reporting.
+    // Do not open an import transaction until the Drive backend has read back the
+    // binary and verified its SHA-256. Never fall back to Supabase Storage.
+    if(bytes.byteLength<1||bytes.byteLength>100*1024**2)throw new Error('El Excel debe medir entre 1 byte y 100 MiB.');
+    const mime=/\.xlsm$/i.test(file.name)?'application/vnd.ms-excel.sheet.macroenabled.12'
+      :'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+    const authorization='Bearer '+session.access_token;
+    const archive=async(action,{id,offset,json,binary}={})=>{
+      const query=new URLSearchParams({action});
+      if(id)query.set('id',id);
+      if(offset!==undefined)query.set('offset',String(offset));
+      const response=await fetch('/api/drive-archive?'+query,{
+        method:'POST',headers:{Authorization:authorization,'Content-Type':binary?'application/octet-stream':'application/json'},
+        body:binary||JSON.stringify(json||{})
+      });
+      const result=await response.json().catch(()=>({}));
+      if(!response.ok)throw new Error(result.error||'Falló la operación de Google Drive.');
+      return result;
+    };
+    progress('Guardando el Excel original en Google Drive…');
+    const sourceKey='excel-import:'+session.user.id+':'+sha;
+    const payload={documentId:null,sourceKey,sourceVersion:'sha256:'+sha,
+      name:file.name,sha256:sha,size:bytes.byteLength,mime,category:'originals',
+      modifiedAt:new Date(file.lastModified).toISOString()};
+    let job=await archive('start',{json:payload});
+    while(job.status!=='verified'&&job.offset<bytes.byteLength){
+      const offset=job.offset;
+      progress('Google Drive: '+Math.round(offset/bytes.byteLength*100)+' % transferido…');
+      try{
+        job=await archive('chunk',{id:job.id,offset,
+          binary:new Uint8Array(bytes.slice(offset,Math.min(offset+1024**2,bytes.byteLength)))});
+      }catch(error){
+        if(error.message!=='OFFSET_CONFLICT')throw error;
+        job=await archive('reconcile',{id:job.id});
+      }
+    }
+    if(job.status!=='verified'){
+      progress('Verificando descarga e integridad SHA-256 desde Drive…');
+      job=await archive('finish',{id:job.id});
+    }
+    if(job.status!=='verified'||job.backendVerified!==true||job.sha256!==sha||!job.driveFileId)
+      throw new Error('Google Drive no confirmó la recuperación del original. No se importaron registros.');
+    const importId=checked(await this.client.rpc('kardex_begin_drive_import',{
+      archivo_nombre:file.name,archivo_file_id:job.driveFileId,
+      archivo_sha256:sha,archivo_formato:imported.format||'kardex'
     }));
     const reqNumbers=new Map(imported.reqs.map(r=>[r.id,r.numero]));
     const records=[...imported.reqs.map(r=>({kind:'req',data:reqToDb(r,true)})),
