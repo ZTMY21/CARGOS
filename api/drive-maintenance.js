@@ -47,12 +47,12 @@ export default async function handler(req,res){
     return out(res,400,{error:'INVALID_RANGE'});
   let after=start-1,rows=[];
   while(true){
-    const page=await gateway(env,{operation:'history-page',start,end,after,limit:100});
+    const page=await gateway(env,{operation:'history-page',start,end,after,limit:10});
     if(!Array.isArray(page))throw new Error('INVALID_HISTORY_PAGE');
     if(!page.length)break;
     for(const row of page){if(!Number.isSafeInteger(row.id)||row.id<=after||row.id>end)throw new Error('HISTORY_SEQUENCE_INVALID');after=row.id;rows.push(row);}
     if(rows.length>500)throw new Error('HISTORY_LIMIT_EXCEEDED');
-    if(page.length<100)break;
+    if(page.length<10)break;
   }
   if(rows.length===0)return out(res,200,{empty:true,start,end});
   const ndjson=rows.map(row=>JSON.stringify(row)).join('\n')+'\n';
