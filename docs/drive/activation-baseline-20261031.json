@@ -63,5 +63,100 @@
   "fullDatabaseRestoreVerified": false,
   "backendOAuthConnected": false,
   "backendClientSecretPresent": false,
-  "criticalLiveChecksComplete": false
+  "criticalLiveChecksComplete": false,
+  "previewDeployment": {
+    "id": "dpl_3dpU34NQHWJPzMn2VEUQgNkpvTbs",
+    "commit": "004ad2b867f9bf43936fe9eacbb4b060b5579a2b",
+    "url": "https://kardex-digital-santa-anita-m6kg7s7xg-ztmy1.vercel.app/drive-archive.html",
+    "state": "READY"
+  },
+  "previewApiChecks": {
+    "driveConnectHttpStatus": 200,
+    "archiveStatusHttpStatus": 200,
+    "gatewayReady": true,
+    "oauthConnected": false,
+    "clientSecretConfigured": false,
+    "redirectConfigured": true,
+    "archiveEnabled": false
+  },
+  "sourceState": {
+    "cargosOriginalActive": true,
+    "imOriginalActive": true,
+    "cargosCopyActive": false,
+    "imCopyActive": false,
+    "enrolledNewSources": 0,
+    "newTriggersInstalled": 0,
+    "newScriptsExecuted": 0
+  },
+  "browserCheck": {
+    "archiveRendered": true,
+    "missingClientSecretMessageRendered": true,
+    "mainLoginRendered": true,
+    "actualAdminGuestLoginVerified": false
+  },
+  "readOnlyLiveRpcChecks": {
+    "context": "SQL with transaction-local admin JWT claims; not a browser sign-in test",
+    "snapshotExecutionMs": 1419.959,
+    "previousCargosSampleDocuments": 3,
+    "previousCargosExecutionMs": 380.138,
+    "invoiceSampleCompactRows": 1,
+    "invoiceSampleHyphenatedRows": 1,
+    "invoiceSampleSameDocumentIds": true
+  },
+  "timeoutLogCheck": {
+    "from": "2026-10-31T17:00:00Z",
+    "to": "2026-10-31T18:46:00Z",
+    "eventsContaining57014OrStatementTimeout": 0,
+    "scope": "aggregate project logs; does not prove load performance"
+  },
+  "appsScriptEditorStatus": {
+    "cargosCodeSaveReportedByBrowser": true,
+    "cargosManifestVerified": false,
+    "imCodeSaveVerified": false,
+    "imManifestVerified": false,
+    "attemptedMethods": [
+      "direct-input",
+      "bounded-chunks",
+      "clipboard-from-immutable-repository"
+    ],
+    "automationIssue": "Editor did not reliably accept and save full source. Neither copied source was executed or activated."
+  },
+  "oauthRedirectRegistration": {
+    "requiredUri": "https://kardex-digital-santa-anita-git-preview-drive-archi-adff9e-ztmy1.vercel.app/api/drive-connect",
+    "registeredInGoogleVerified": false,
+    "changeApplied": false,
+    "autoReviewRejected": true,
+    "reason": "Action-time confirmation required for security-sensitive OAuth client configuration."
+  },
+  "edgeVersions": [
+    {
+      "name": "cargos-nuevos-onedit",
+      "version": 5
+    },
+    {
+      "name": "im-envios-live",
+      "version": 2
+    },
+    {
+      "name": "kardex-drive-metadata",
+      "version": 1
+    },
+    {
+      "name": "kardex-source-enroll",
+      "version": 1
+    }
+  ],
+  "accessChecks": {
+    "anonCanSelectSummaryView": false,
+    "anonCanExecuteArchiveRuntime": false,
+    "authenticatedCanEnrollSourceDirectly": false
+  },
+  "closingMeasurement": {
+    "measured_at": "2026-10-31 18:56:36.472682+00",
+    "postgres_bytes": 413357747,
+    "documents": 3411,
+    "history_rows": 13314,
+    "archive_jobs": 2,
+    "storage_bytes": "32082853"
+  }
 }

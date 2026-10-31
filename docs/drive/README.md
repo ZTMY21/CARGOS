@@ -62,6 +62,8 @@ Redirect requerido:
 
 `https://kardex-digital-santa-anita-git-preview-drive-archi-adff9e-ztmy1.vercel.app/api/drive-connect`
 
+El intento de registrar esta URL de retorno en Google Cloud fue rechazado por la revisión automática: requiere confirmación específica en el momento de cambiar una configuración OAuth sensible. No se guardó ese cambio; `redirectConfigured=true` en la API confirma solo la variable de Vercel, no su registro en Google.
+
 Antes de producción se debe resolver el modo de prueba del consentimiento: Google limita a siete días los refresh tokens con alcance Drive en aplicaciones externas Testing. El alcance `drive.file` no permite leer automáticamente las copias históricas creadas por otro cliente OAuth: requiere selección explícita mediante Picker o cambios de propiedad de aplicación. Para la integración existente se conserva `drive` y se limita el acceso del backend a las carpetas autorizadas. No se ha aceptado consentimiento ni cambiado el modo de publicación sin la intervención específica del propietario.
 
 ## Consistencia de archivos
@@ -78,6 +80,8 @@ La descarga requiere `status=verified` **y** `backendVerified=true`. El checksum
 | Iron Mountain | `1aWqIoj5UXAeyKhNN1paoYnTa4jdfN8LhDEcdH_lQ4mk` | `1VWmKFmE8UcXV6ukG8k-wqKqCzuJbPGYOf9RFowojhSw` |
 
 Las Edge Functions aceptan ambas identidades autorizadas; el secreto de cada hoja se valida antes de mapear la identidad nueva a la identidad canónica histórica. Esto conserva claves de origen, relaciones y correlativos. El alta de una fuente nueva siempre es **inactiva** y no puede reemplazar credenciales de una fuente activa.
+
+La automatización del editor no permitió confirmar el guardado completo de Iron Mountain ni de ambos manifiestos; el pegado de CARGOS fue reportado como guardado, pero no se considera una fuente preparada hasta el enrolamiento y la ejecución comprobada. El código completo queda en el PR. No se instalaron activadores ni se ejecutaron las copias.
 
 Los scripts V10 conservan el parser y la lógica documental existente. Generan sus secretos dentro de ScriptProperties y envían únicamente su hash al enrolamiento, autenticado por Google como propietario. IM utiliza la Edge Function en vez de una clave de servicio. Los manifiestos Apps Script declaran scopes explícitos; todavía requieren el consentimiento del propietario y comprobación de ejecución.
 
@@ -104,7 +108,11 @@ RLS activa y tablas privadas sin permisos directos para anon/authenticated/servi
 
 La compilación funciona. Las pruebas nuevas cubren SQL/ACL, OAuth ligado a cookie y un solo uso, cifrado, contrato de receptores, identidades canónicas, adopción, corrupción, idempotencia, roles y descargas. La suite completa de integración se compara con el commit e8e29b0: los 19 fallos heredados permanecen y no se presentan como suite verde.
 
-Quedan pendientes pruebas reales desde Vercel con OAuth, inicio de sesión de admin/invitado, búsqueda y Cargo anterior, descargas, exportaciones y ejecución/activadores de las fuentes. Una comparación de código o un test local no reemplaza estas pruebas.
+La Preview `004ad2b` está READY y fue abierta en Chrome. El módulo documental y el formulario principal de acceso renderizan. `/api/drive-connect` y `/api/drive-archive?action=status` responden HTTP 200; `gatewayReady=true`, `connected=false`, `clientSecretConfigured=false`. Esto comprueba Vercel → gateway → metadatos privados, no acceso a Drive.
+
+Las lecturas reales de RPC en contexto SQL de administrador finalizaron sin modificar registros: `kardex_snapshot`, 1.419,959 ms; `kardex_previous_cargos`, 380,138 ms en una muestra de tres documentos. Una factura real devolvió el mismo documento y total (1) con y sin guion. Son muestras, no una certificación completa de búsquedas. En los registros agregados consultados durante la intervención no se encontraron eventos con `57014` o `statement timeout`; tampoco equivalen a una prueba de carga.
+
+Quedan pendientes pruebas reales desde Vercel con OAuth, inicio de sesión de admin/invitado, búsqueda y Cargo anterior desde la interfaz, descargas, exportaciones y ejecución/activadores de las fuentes. Las comprobaciones SQL no reemplazan esas pruebas.
 
 El linter de Supabase informa avisos previos de vista SECURITY DEFINER, funciones administrativas ejecutables y protección contra contraseñas filtradas desactivada. Las tablas privadas sin políticas tienen denegación directa intencionada. No se cambian permisos ajenos a esta migración para silenciar avisos. Referencia: https://supabase.com/docs/guides/database/database-linter?lint=0010_security_definer_view
 
