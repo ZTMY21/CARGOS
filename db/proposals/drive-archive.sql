@@ -3,8 +3,10 @@
 create table public.kardex_drive_jobs (
  id uuid primary key,
  document_id uuid references public.documentos(id),
+ import_id uuid references public.importaciones(id),
  idempotency_key text not null unique check (idempotency_key ~ '^[a-f0-9]{64}$'),
- data jsonb not null check (document_id is not null or data->>'category' in ('backups','manifests')) check (data->>'status' in ('pending','uploading','uploaded','verified','attention')),
+ data jsonb not null check (document_id is not null or data->>'category' in ('backups','manifests') or (import_id is not null and data->>'category'='originals')) check (data->>'status' in ('pending','uploading','uploaded','verified','attention')),
+ check (import_id is not distinct from nullif(data->>'importId','')::uuid),
  lease_owner uuid,
  lease_expires_at timestamptz,
  created_at timestamptz not null default now(),

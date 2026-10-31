@@ -58,7 +58,8 @@ export class DriveClient {
   async verify(job){
     await this.checkRoot();
     const m=await this.metadata(job.driveFileId);
-    if(m.trashed||Number(m.size)!==job.size||m.appProperties?.kardexKey!==job.key||!m.headRevisionId)throw new ArchiveError('DRIVE_METADATA_MISMATCH',409);
+    const identityMatches=job.adopted?m.name===job.name&&m.mimeType?.toLowerCase()===job.mime.toLowerCase():m.appProperties?.kardexKey===job.key;
+    if(m.trashed||Number(m.size)!==job.size||!identityMatches||!m.headRevisionId)throw new ArchiveError('DRIVE_METADATA_MISMATCH',409);
     const parent=await this.folder(job.category);if(!m.parents?.includes(parent))throw new ArchiveError('DRIVE_PARENT_MISMATCH',409);
     const r=await this.media(job.driveFileId,m.headRevisionId),hash=createHash('sha256');let size=0;
     for await(const chunk of r.body){size+=chunk.length;hash.update(chunk);}

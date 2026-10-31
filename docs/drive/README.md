@@ -1,123 +1,124 @@
-# Archivo documental en Google Drive — preparación segura
+# Archivo real de Kardex en Google Drive
 
-Fecha de auditoría: 31 de octubre de 2026. **No se ha ejecutado una migración real.**
+Actualización del 31/10/2026, sobre el PR #53 y su commit inicial `b31ea919`. La migración **no está finalizada**: existen copias reales verificadas, pero el backend del aplicativo y el ahorro de cuota siguen pendientes.
 
-## Estado comprobado
+## Resultado real
 
-- Producción efectiva y main: `e8e29b0521b88be1236e7919e7d881355f3bb353`, deployment `dpl_12SShFkjaUdp9KoXbkATiWhyWwWu`, READY.
-- Preview de partida: `89ace69cf31bf02be4c201282d70490159eac815`.
-- Rama técnica aislada: `preview/drive-archive-20261031`, derivada de la rama solicitada. PR hacia `preview/ui-integrada-produccion-20261029`; main no se modifica.
-- Supabase: ACTIVE_HEALTHY, PostgreSQL 17.11.0.003. Solo SELECT/EXPLAIN en la base real.
-- Carpeta destino: `1GfQ2dyRghO_hg4Vb0NRaf-Um5hRKdJs0`, vacía al revisar, propiedad del Gmail personal indicado. El permiso de propietario en Drive **no acredita autorización institucional**.
-- No se encontró una autorización institucional en la búsqueda dirigida de documentos de Kardex. No se transfirió documentación empresarial.
-- Vercel solo tiene `SUPABASE_URL` y `SUPABASE_ANON_KEY`. No hay credenciales de Drive ni clave de servicio del backend configuradas. No se solicitaron secretos por chat.
+| Concepto | Resultado |
+| --- | ---: |
+| Archivos de datos/respaldo copiados | 2 |
+| Descargas reales con SHA-256 coincidente | 2 |
+| Bytes de esos dos archivos | 58.562.337 (55,85 MiB) |
+| Manifiesto adicional verificado | 1, de 7.656 bytes |
+| Total con manifiesto | 58.569.993 bytes |
+| Filas de la tabla fría restauradas | 3.485 |
+| PostgreSQL antes / después | 460.846.771 / 460.846.771 bytes |
+| Storage antes / después | 32.082.853 / 32.082.853 bytes |
+| Espacio liberado / porcentaje de cuota liberado | 0 bytes / 0 % |
+| Referencias registradas en Supabase | 0; 2 pendientes |
 
-## Espacio y alcance real del ahorro
+Evidencia agregada, fecha del corte y conteos: [real-migration-20261031.json](real-migration-20261031.json). Los archivos y el manifiesto están en la carpeta privada Cardex Digital indicada por el solicitante; no se ampliaron permisos.
 
-| Componente | Bytes observados | MiB aproximados | Decisión |
-| --- | ---: | ---: | --- |
-| PostgreSQL completo | 460.846.771 | 439,50 | Sin modificaciones |
-| public.documentos, **incluye índices** | 306.241.536 | 292,05 | Conservar |
-| Índice exacto, **incluido en la fila anterior** | 179.929.088 | 171,59 | Conservar |
-| private.kardex_historial | 81.993.728 | 78,20 | Evaluar retención y archivo externo |
-| private.kardex_documentos_backup_20261014 | 47.726.592 | 45,52 | Candidato frío; requiere respaldo restaurado y autorización |
-| private.kardex_documentos_resguardos | 5.357.568 | 5,11 | Conservar protección contra pérdida |
-| Objeto Excel en Storage | 32.082.853 | 30,60 | Copia pendiente de autorización |
+La declaración del solicitante se registró en [este comentario del PR](https://github.com/ZTMY21/CARGOS/pull/53#issuecomment-6543447924). Se acepta como información aportada por él; no se afirma haber verificado un documento institucional.
 
-La base contiene 3.411 documentos, 2.782.529 códigos declarados y 3.411 relaciones de cargos. Hay 13.314 filas de historial, 3.485 filas en el respaldo de 20261014 y 282 resguardos. La suma física observada de datos_origen es 27.071.014 bytes; sustento_imagen suma **0 bytes**. Por tanto, no hay una colección grande de escaneos embebidos que por sí sola explique el consumo actual.
+### Excel original
 
-No sumar 171,59 MiB de índice a 292,05 MiB de documentos: el índice ya está incluido. Storage y PostgreSQL son conceptos separados; copiar el Excel de Storage a Drive no reduce PostgreSQL. No se calculó un porcentaje de cuota sin verificar el denominador del plan.
+- Nombre conservado: Lista de Cargos 2021-2026(2).xlsm.
+- Tamaño: 32.082.853 bytes.
+- SHA-256: `b8faad0ca271740afb5d32bd8f1a97d05c6741b5785a1e80ef75692e0202ee85`.
+- Procedencia de la copia: original aportado anteriormente por el usuario. Coincide con el checksum registrado en `public.importaciones`.
+- Se descargó la copia de Drive y se recalculó SHA-256; también pasó la integridad ZIP del libro con macros, sin ejecutar macros.
+- No se descargó de nuevo el objeto actual de Supabase Storage. La coincidencia comprobada es contra el original y el checksum de importación registrado.
+- Su importación y fechas de origen constan en el manifiesto. El objeto de Storage sigue disponible.
 
-**Ahorro por esta ejecución: 0 bytes. Archivos reales trasladados/verificados: 0/0.** Crear copias no libera espacio. El retiro futuro de versiones frías podría evitar crecimiento y permitir reutilizar páginas; recuperar cuota física exige medir cada operación aprobada. DELETE/VACUUM normal no garantiza devolver archivos al sistema operativo. No se ejecutó limpieza, TRUNCATE, DROP, REINDEX, CLUSTER ni VACUUM FULL.
+### Respaldo del 14/10
 
-## Dependencias que impiden retirar datos a ciegas
+- Tabla: `private.kardex_documentos_backup_20261014`, 3.485 filas y 27 columnas.
+- Tiene **115 identificadores ausentes de documentos actuales**. No es una copia prescindible.
+- Se extrajo por SELECT paginado y se conservaron todas las columnas, arrays, JSON, fechas y valores nulos.
+- JSON canónico de las filas: 157.465.209 bytes, antes de saltos de línea y cabecera.
+- Archivo gzip cifrado con AES-256-GCM: 26.479.484 bytes.
+- SHA-256 del cifrado: `4e258ad59aaec84315243d4c5f3923d321253adfdcb1c4d16d8e414da4500c9f`.
+- Huella de filas original, exportada y restaurada: `e4a3626d48690f40068cbc20a781ea4aba10fb7b8264ebba9828a6baf4bfb9f5`.
+- Restauración real en PostgreSQL/PGlite aislado con tipos originales; coincidieron las 3.485 filas y su huella completa.
+- La copia cifrada se descargó de Drive y coincidió byte a byte con el archivo restaurado.
+- No se encontraron dependencias en vistas ni menciones en funciones public/private mediante el catálogo consultado. Esto no demuestra ausencia de consumidores externos.
+- **Es un respaldo recuperable de esa tabla, no un dump completo del proyecto.**
 
-El inventario completo de tablas, tamaños, índices, claves foráneas, triggers, funciones y huellas está en `baseline-20261031.json`.
+La huella usa SHA256 de UTF-8 de las hojas `id:SHA256(to_jsonb(fila)::text)`, ordenadas por ID y separadas por LF sin LF final. Se comprobó de nuevo en Supabase al cerrar la extracción; coincide con la auditoría inicial. No fue una transacción única de toda la base.
 
-- `src/repository.js`: fetchDoc/fetchImage, importFile, search y reportOriginalRows consumen originales, grupos y archivos de Storage.
-- `src/cargo-details.js`, `src/cargo-export.js`, `src/existencias-report.js` y `src/existencias-stream.js`: descompresión de datos originales, ubicación de códigos, exportación individual y hojas anuales. No se cambian.
-- `kardex_search`, `kardex_previous_cargos`, `kardex_snapshot` y `kardex_documentos_resumen`: búsqueda/relaciones/lectura operativa. El índice exacto registra 325.294 recorridos en las estadísticas consultadas. EXPLAIN ANALYZE confirmó Bitmap Index Scan en una consulta de coincidencia (9,265 ms totales, una fila). Es una muestra, no una garantía para todas las cargas ni una prueba de sustitución del índice.
-- Triggers de documentos: auditoría, normalización, notificación, exclusión de escrituras, caché de exportación y resguardo antes de pérdida. Siguen intactos.
-- V9 de Apps Script: ingestión, conciliación, resguardo de filas y archivo diario; conserva sus procesos y destinos actuales. No se editaron Sheets ni el script.
-- `kardex_live_guardar_detalle`, `kardex_live_archive` y `kardex_detalle_original_exportar`: necesitan las filas originales antes de archivar y al reconstruir Excel. No se sustituyen por un enlace sin recuperación.
-- `public.importaciones.storage_path` y `kardex_begin_import`: siguen esperando el respaldo en Storage. Una migración posterior debe adaptar ese contrato antes de retirar el objeto.
+## Configuración real preparada
 
-Mover datos_origen o el historial requiere primero una ruta de lectura y restauración probada para cada consumidor. Esta entrega agrega una capa para **nuevos archivos**, sin vaciar campos antiguos ni cambiar los contratos existentes.
+Se reutilizaron las cinco carpetas existentes, sin crearlas otra vez:
 
-## Implementación preparada
+| Categoría | Carpeta | ID |
+| --- | --- | --- |
+| scans | 01_Escaneados | 1QEqhDWaT716gBW3t6H9MXNytgGbdcj0O |
+| originals | 02_Excel_originales | 1jfxbds5Y5u7pijiaZOoKkhFyHy_S6gfc |
+| backups | 03_Respaldos | 1aKVNVo7W98NwdobqoMfgphc61I7iU0MZ |
+| history | 04_Historico | 1XZ156Kp65OEZod7q_VByuMzB4rZGCJGo |
+| manifests | 05_Manifiestos | 1zCOURrF0n3NDtZCa1aqoAJEBH5okDT4t |
 
-- `api/drive-archive.js`: backend de carga, consulta, conciliación, manifiesto y descarga autenticada.
-- `server/archive/`: cliente OAuth de Drive, repositorio, validaciones y máquina de estados.
-- `db/proposals/drive-archive.sql`: tabla de referencias y leases. **Propuesta, no aplicada en Supabase real.** Se ejecutó solo en PostgreSQL/PGlite aislado durante pruebas.
-- `drive-archive.html`: módulo adicional enlazado desde Reportes, con demostración ficticia y transferencia real deshabilitada.
-- `scripts/archive/`: backup cifrado, restauración local y preparación de carpetas.
+En Vercel se configuraron raíz, propietario, IDs y referencia de la declaración, únicamente para `preview/drive-archive-20261031`. También se generaron claves independientes de backup y sesiones y se guardaron como secretos sensibles de esa rama. No se guardaron valores de secretos en Git, en el manifiesto ni en el navegador. La clave del backup debe conservarse para recuperarlo.
 
-No se usan las credenciales de ChatGPT para autenticar Vercel. El backend necesita su propia autorización OAuth y secretos gestionados. Ninguna credencial de servicio, refresh token ni URL de carga de Drive se entrega al navegador. Las capacidades de carga se cifran en PostgreSQL con AES-256-GCM. Los archivos reales se leen desde Drive por el backend y se entregan como adjuntos privados, sin enlaces públicos.
+`KARDEX_DRIVE_ENABLED=false`. No se modificaron variables de producción.
 
-### Flujo de archivo
+La conexión de Drive utilizada para las copias **no autentica el backend de Vercel**. Se intentó abrir la configuración de Vercel; el inicio seguro con Google no se completó. No se intentaron métodos alternativos ni se pidieron contraseñas por chat.
 
-1. Resolver un Kardex existente mediante RLS; validar nombre, MIME, tamaño, origen, versión y SHA-256.
-2. Registrar metadatos sin cuerpo del archivo. La clave idempotente incluye cargo, origen, versión, categoría y checksum; no colapsa relaciones legítimas entre cargos.
-3. Reservar un ID de Drive y conservarlo antes de cargar. Adquirir un lease de PostgreSQL para evitar escritores simultáneos.
-4. Subir bloques de hasta 1 MiB con protocolo resumible. Los bloques intermedios respetan múltiplos de 256 KiB; el límite de la interfaz es 100 MiB por archivo. No se incrementa el timeout de SQL.
-5. Consultar la posición real de Drive ante reintentos. Una sesión expirada se reinicia manteniendo la referencia lógica.
-6. Recuperar una revisión concreta, calcular SHA-256 en el backend y comparar tamaño, carpeta y relación. Solo entonces marcar `verified`.
-7. Una referencia incompleta o corrupta no permite descargar. Si desaparece una copia verificada, se marca `attention` para conciliación. No existe una ruta de borrado de origen.
+## Correcciones de la integración
 
-Los respaldos globales pueden registrarse sin inventar un cargo: `documentId: null` solo se admite para respaldos/manifiestos y exige un operador incluido en `KARDEX_DRIVE_BACKUP_OPERATOR_IDS`, además de permisos administrativos. Los invitados no pueden acceder a esos respaldos. Los documentos asociados a cargos siguen la autorización del Kardex existente. Los manifiestos se exportan por streaming NDJSON y recorren todas las páginas de referencias.
+- `adopt` registra una copia existente después de verificar carpeta, nombre, MIME, tamaño, revisión y SHA-256 mediante el backend. No carga ni modifica ese archivo.
+- Reintentar el mismo manifiesto conserva la referencia idempotente. Un ID de Drive distinto no puede reemplazar una referencia existente.
+- Los Excel globales se relacionan con una importación existente mediante `import_id`, sin inventar un cargo. El SHA-256 debe coincidir con el de esa importación.
+- Los respaldos/importaciones globales exigen administrador y el permiso separado de operador. Los invitados solo pueden consultar documentos a los que tengan acceso.
+- El MIME de Excel se normaliza a minúsculas: Google devuelve `macroenabled.12`, que el código anterior podía rechazar.
+- Se corrigió el bloqueo de interfaz que impedía consultar archivos de cargos a invitados autorizados.
+- La Preview muestra el corte de copias reales y el espacio realmente liberado. La prueba ficticia queda como comprobación técnica adicional, sin contarse en la migración.
+- `table-snapshot.mjs` empaqueta exportaciones verificadas sin sobrescribir un snapshot existente. Restaura únicamente en PostgreSQL embebido temporal; no acepta una conexión remota.
 
-### Organización prevista de Drive
+La propuesta SQL agrega solo la tabla nueva de referencias, sus restricciones, RLS y funciones de lease. **No se ha aplicado al proyecto real.** No se cambiaron las tablas operativas, sus registros, índices o configuraciones.
 
-- 01_Escaneados
-- 02_Excel_originales
-- 03_Respaldos
-- 04_Historico
-- 05_Manifiestos
+## Lo que falta para activar el aplicativo
 
-La herramienta conectada permite leer esta carpeta, pero su acción de creación no admite carpetas. Se preparó `provision-folders.mjs` para crear/verificar los cinco destinos secuencialmente con las credenciales propias del backend, después de la autorización. Sus IDs se configuran explícitamente: la aplicación no crea carpetas duplicadas bajo concurrencia ni cambia permisos.
+1. Completar el acceso seguro a la configuración de Vercel/Google. Registrar/autorizar el cliente OAuth del backend y guardar sus secretos en Vercel; la conexión de ChatGPT no los reemplaza. Si se elige Vercel Connect, hay que crear y autorizar el conector y adaptar el proveedor de tokens; este PR mantiene el flujo OAuth de refresh ya implementado.
+2. Proporcionar mediante un gestor seguro una conexión PostgreSQL de respaldo y la credencial backend de Supabase. El conector disponible no ofrece contraseña de PostgreSQL ni clave de servicio. No extraerlas con SQL ni enviarlas por chat.
+3. Ejecutar el dump completo cifrado con `backup.mjs`, respaldar roles/configuración y Storage por separado según corresponda, restaurar en un destino local vacío con `restore.mjs` y comparar conteos, relaciones y exportaciones. El respaldo de una tabla no satisface este paso.
+4. Revisar y autorizar expresamente `db/proposals/drive-archive.sql` para la base operativa. No se aplica esa migración mientras falte el respaldo completo y su revisión.
+5. Configurar el operador real y aprobar el modo exclusivo de copias mediante `KARDEX_DRIVE_REAL_COPY_PROJECT_ID` y `KARDEX_DRIVE_REAL_COPY_APPROVAL_REF`. El código exige además entorno Preview y esta rama exacta. Producción tiene un bloqueo independiente.
+6. Activar en Preview, cargar el manifiesto privado en “Conciliar copias existentes” y ejecutar la lectura/verificación real desde el backend. Las dos referencias pendientes se incorporan sin duplicar archivos.
+7. Probar con cuentas reales admin/invitado las búsquedas, descargas, Cargo anterior, Excel de Existencias/cargos, cajas y Sheets en un entorno seguro. No se han declarado aprobadas esas pruebas reales en esta ejecución.
 
-## Activación pendiente — sin secretos por chat
+No hace falta crear otra carpeta ni volver a transferir estos dos archivos. Si una carga queda con resultado incierto, localizar la copia existente y verificarla antes de cualquier reintento.
 
-1. Aportar referencia de la autorización institucional: responsable, cuenta/destino autorizados, tipos de documentos, retención y acceso. Hasta entonces no transferir documentación empresarial al Drive personal. Valorar una unidad compartida o cuenta institucional si esa es la política aprobada.
-2. Configurar un cliente OAuth propio de la organización y los secretos de backend en Vercel. Usar alcance mínimo que permita acceder al destino aprobado; la carpeta creada por otro cliente OAuth puede requerir autorización específica. No ampliar scopes sin aprobarlo. Consultar la guía oficial de OAuth.
-3. Proveer un proyecto Supabase **aislado** para pruebas, aplicar allí la propuesta SQL y configurar `KARDEX_DRIVE_SANDBOX_PROJECT_ID`. La Preview rechaza escrituras a `uhjwhamzjxhjqlrhgxho` aunque alguien active el interruptor.
-4. Completar `.env.archive.example` mediante el gestor de secretos. No subir un .env con valores. Mantener `KARDEX_DRIVE_ENABLED=false` hasta comprobar permisos, carpetas y credenciales. Nunca habilitar producción por esta tarea.
-5. Preparar los cinco destinos con `node scripts/archive/provision-folders.mjs` en un entorno seguro y registrar sus IDs. No se cambian ACL ni se crean enlaces públicos.
-6. Copiar primero un archivo autorizado, comprobar descarga y SHA-256, registrar su manifiesto, simular fallo y conciliación. Repetir con el Excel de 32.082.853 bytes y validar restauración antes de cualquier retirada.
-7. Para producción hacen falta revisión, autorización expresa, actualización de la comparación contra main vigente y el flag independiente de publicación aprobada. Esta entrega no autoriza producción.
+## Espacio y retirada futura
 
-## Respaldo y restauración
+Los 439,50 MiB de PostgreSQL incluyen los índices. El índice exacto de facturas de 171,59 MiB ya está incluido en los 292,05 MiB de documentos. Storage es independiente.
 
-Se preparó un backup completo mediante pg_dump custom, cifrado en streaming con AES-256-GCM, SHA-256 de contenido y cifrado, permisos 0600 y manifiesto. No escribe un dump en claro y no sube datos a Drive automáticamente.
+La tabla del 14/10 ocupa 47.726.592 bytes en PostgreSQL (45,52 MiB). Su copia externa ya es recuperable; una retirada futura requiere el dump completo, revisión de consumidores externos y autorización expresa. No se entrega ni ejecuta DROP, TRUNCATE o limpieza de registros.
 
-No se generó un dump completo de producción: faltan herramientas pg_dump/pg_restore y una conexión PostgreSQL de backup gestionada. Las claves públicas de Supabase no sustituyen esa conexión. Las huellas de auditoría son comprobaciones, **no respaldos**.
+El historial sigue con sus 13.314 filas. Su archivado debe hacerse por cortes de versiones con manifiestos, reanudación y lectura de recuperación, conservando trazabilidad y sin afectar los triggers activos. No se ha retirado ninguna versión.
 
-Con herramientas oficiales y conexión gestionada disponibles, el operador ejecuta `node scripts/archive/backup.mjs /ruta-segura/private-archive`. PGHOST/PGSERVICE y KARDEX_BACKUP_KEY se proporcionan por el gestor de secretos; nunca como argumentos que incluyan contraseñas.
+El índice exacto se conserva: es una parte importante de las búsquedas y Cargo anterior. No se ha demostrado una sustitución equivalente y no se reconstruyó. Los datos originales siguen alimentando ubicación, búsqueda y Excel; no se vacían sin adaptar y verificar sus lectores.
 
-`restore.mjs` acepta únicamente PGHOST local explícito y una base vacía llamada kardex_restore_*. No usa --clean, DROP ni TRUNCATE. El entorno de restauración debe tener preparados los roles de Supabase. La prueba debe completar restauración y comparar conteos, hashes, relaciones, originales y duplicados. El manifiesto no declara restauración verificada automáticamente.
+Copiar archivos no disminuye `pg_database_size`. Tampoco se confunde espacio que una futura limpieza deje reutilizable con cuota efectivamente recuperada. El ahorro medido de esta ejecución es cero; la migración no se declara completada.
 
-El checksum registrado en la importación del Excel de Storage es `b8faad0ca271740afb5d32bd8f1a97d05c6741b5785a1e80ef75692e0202ee85`. Es un valor registrado; no se presenta como una nueva verificación byte a byte del objeto actual.
+## Validación y reversión
 
-## Pruebas y límites
+- Dos archivos reales descargados de Drive, checksums coincidentes y acceso privado.
+- Manifiesto adicional descargado, SHA-256 `4f4f1fff15358c1bde62e9adc92fd30ac448ad476928340c5468765821a9f245`, dos entradas completas.
+- 3.485 filas reales restauradas con tipos originales y huella completa idéntica.
+- 23 pruebas focalizadas aprobadas; incluyen adopción sin escrituras a Drive, rechazo de corrupción, permisos, idempotencia y aislamiento.
+- Build correcto; permanece el aviso de tamaño de ExcelJS.
+- La suite completa anterior conserva 18 fallos conocidos; las pruebas focalizadas no significan que toda la suite esté verde.
+- Conteos sin cambios: 3.411 documentos, 2.782.529 códigos, 13.314 filas de historial, 3.485 filas de la tabla fría y 282 resguardos.
+- No se modificaron búsqueda, cálculos, dashboards, exportadores operativos, dependencias, Apps Script ni Sheets. La incidencia previa de Cargo anterior sigue pendiente de validación/corrección; no se atribuye al almacenamiento.
 
-Se probaron recuperación, cifrado, corrupción, reintentos, pérdida de confirmación, sesiones expiradas, límites de bloques, duplicados, separación de relaciones, permisos, paginación y el flujo HTTP → repositorio SQL → adaptador Drive → descarga. También se respaldó/restauró una base PostgreSQL/PGlite con registros ficticios repetidos y clave foránea.
+Para revertir esta intervención, mantener el módulo desactivado y retirar únicamente los cambios de esta rama. Los originales continúan operativos, por lo que no hace falta restaurarlos. No eliminar las copias externas ni las claves de recuperación durante la reversión. Cualquier recuperación de datos debe conciliar IDs/versiones y evitar sobrescribir registros recientes.
 
-La prueba binaria de 32.082.853 bytes verifica transporte en 31 bloques y almacenamiento de metadatos pequeño; no es una copia del Excel real. El demo público utiliza dos archivos ficticios y ningún proveedor externo. Sus resultados no demuestran conectividad real de Google Drive.
-
-Las pruebas originales de búsquedas, exportaciones, vencimientos, cajas y Sheets se mantienen. La suite de partida conserva 18 fallos conocidos; no se corrigen alterando reglas de negocio en esta migración. La validación final del PR detalla resultados de la ejecución actual. La disponibilidad real de Cargo anterior y su error 57014 sigue separada del almacenamiento.
-
-Pendientes: OAuth real y su revocación/rotación, restauración completa del dump real, permisos con cuentas reales admin/invitado/operador, descarga del archivo autorizado, prueba de Sheets en staging y prueba de cuota después de una retirada aprobada. No se ejecutan altas/bajas reales para comprobar una interfaz.
-
-## Reversión
-
-Mientras siga desactivado, basta con descartar esta rama: producción, datos y procesos originales siguen siendo la fuente operativa.
-
-Después de un piloto autorizado, desactivar nuevas transferencias y conservar los manifiestos. El origen sigue disponible; volver a la lectura original no necesita restaurar datos eliminados. No borrar las copias de Drive ni modificar permisos como parte automática de la reversión. Si hubo una retirada futura aprobada, restaurar desde el dump/archivo validado, conciliando por identificador y versión; no sobrescribir registros recientes indiscriminadamente.
-
-## Fuentes técnicas consultadas
+## Referencias técnicas
 
 - https://developers.google.com/workspace/drive/api/guides/manage-uploads
 - https://developers.google.com/workspace/drive/api/reference/rest/v3/files
 - https://developers.google.com/identity/protocols/oauth2/web-server
-- https://supabase.com/changelog.md (revisadas las notas de TLS y PostgreSQL 17.11; no se cambió configuración)
-- https://vercel.com/docs/functions/limitations
+- https://supabase.com/docs/guides/platform/backups
+- https://vercel.com/docs/connect

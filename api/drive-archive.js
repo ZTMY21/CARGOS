@@ -1,10 +1,11 @@
 import {Readable} from 'node:stream';
 import {pipeline} from 'node:stream/promises';
-import {ArchiveError,configuration,safeJob} from '../server/archive/security.js';
+import {ArchiveError,configuration,safeJob,validateInput} from '../server/archive/security.js';
 import {DriveClient} from '../server/archive/drive-client.js';
 import {ArchiveRepository,authorize} from '../server/archive/repository.js';
 import {ArchiveService} from '../server/archive/service.js';
 import {executeDemo,demoBytes} from '../server/archive/demo.js';
+import audit from '../docs/drive/real-migration-20261031.json' with {type:'json'};
 export const config={maxDuration:60};
 async function body(req,binary=false){
   const limit=binary?1024**2:16*1024;
@@ -23,23 +24,23 @@ export function createHandler({env=process.env,fetcher=fetch}={}){
     try{
       const action=req.query?.action||'status',id=req.query?.id;
       if(typeof action!=='string'||(id!==undefined&&(typeof id!=='string'||!/^[-a-f0-9]{36}$/i.test(id))))throw new ArchiveError('INVALID_REQUEST');
-      if(req.method==='GET'&&action==='status')return json(200,{...configuration(env),realMigrationEnabled:configuration(env).enabled});
+      if(req.method==='GET'&&action==='status')return json(200,{...configuration(env),realMigrationEnabled:configuration(env).enabled,auditSnapshot:Object.fromEntries(['asOf','realFilesCopied','sha256Verified','copiedBytes','restoredTableRows','postgresFreedBytes','completeMigration'].map(k=>[k,audit[k]]))});
       if(req.method==='POST'&&action==='demo')return json(200,await executeDemo());
       if(req.method==='GET'&&action==='demo-file'){res.setHeader('Content-Type','application/json');res.setHeader('Content-Disposition','attachment; filename="solo-datos-ficticios.json"');return res.end(demoBytes);}
       const read=req.method==='GET'&&['list','manifest','download','resolve'].includes(action);
-      if(!read&&!(req.method==='POST'&&['start','chunk','finish','reconcile'].includes(action)))throw new ArchiveError('METHOD_NOT_ALLOWED',405);
+      if(!read&&!(req.method==='POST'&&['start','adopt','chunk','finish','reconcile'].includes(action)))throw new ArchiveError('METHOD_NOT_ALLOWED',405);
       if(req.headers.origin&&new URL(req.headers.origin).host!==req.headers.host)throw new ArchiveError('ORIGIN_NOT_ALLOWED',403);
       const cfg=configuration(env);if(!cfg.enabled)throw new ArchiveError(cfg.reasons[0],503);
       const actor=await authorize(req,env,{admin:!read||action==='manifest',fetcher});
       store||=new ArchiveRepository(env,{fetcher});drive||=new DriveClient(env,{fetcher});service||=new ArchiveService(store,drive,env.KARDEX_DRIVE_SESSION_KEY);
       if(action==='resolve')return json(200,await actor.resolve(req.query.kardex));
-      if(action==='start'){const input=await body(req);if(['backups','manifests'].includes(input.category))actor.backup();if(input.documentId!==null)await actor.document(input.documentId);return json(200,await service.start(input));}
+      if(action==='start'||action==='adopt'){const raw=await body(req),input=validateInput(raw);if(input.documentId===null||['backups','manifests'].includes(input.category))actor.backup();if(input.documentId!==null)await actor.document(input.documentId);if(input.importId){const source=await actor.importSource(input.importId);if(input.category==='originals'&&source.sha256!==input.sha256)throw new ArchiveError('IMPORT_CHECKSUM_MISMATCH',409);}return json(200,action==='adopt'?await service.adopt(input,raw.driveFileId):await service.start(input));}
       if(action==='list'||action==='manifest'){
         const doc=req.query.documentId??null;if(doc===null)actor.backup();else{if(typeof doc!=='string'||!/^[-a-f0-9]{36}$/i.test(doc))throw new ArchiveError('INVALID_DOCUMENT');await actor.document(doc);}
         if(action==='manifest'){res.setHeader('Content-Type','application/x-ndjson');res.setHeader('Content-Disposition','attachment; filename="kardex-drive-manifest.ndjson"');res.write(JSON.stringify({version:1,generatedAt:new Date().toISOString()})+'\n');for await(const page of store.pages(doc))for(const job of page)res.write(JSON.stringify(safeJob(job))+'\n');return res.end();}
         return json(200,{version:1,generatedAt:new Date().toISOString(),files:(await store.list(doc)).map(safeJob)});
       }
-      if(!id)throw new ArchiveError('INVALID_JOB');const job=await store.get(id);if(['backups','manifests'].includes(job.category))actor.backup();if(job.documentId!==null)await actor.document(job.documentId);
+      if(!id)throw new ArchiveError('INVALID_JOB');const job=await store.get(id);if(job.documentId===null||['backups','manifests'].includes(job.category))actor.backup();if(job.documentId!==null)await actor.document(job.documentId);if(job.importId)await actor.importSource(job.importId);
       if(action==='chunk')return json(200,await service.chunk(id,Number(req.query.offset),await body(req,true)));
       if(action==='finish')return json(200,await service.finish(id));
       if(action==='reconcile')return json(200,await service.reconcile(id));

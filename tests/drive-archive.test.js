@@ -39,8 +39,12 @@ test('archive: strict chunk boundaries and offsets protect the stream',async()=>
 test('archive: caller cannot inject verified state, remote IDs or session credentials',()=>{
  const v=validateInput({...demoInput,status:'verified',driveFileId:'other',sessionCipher:'secret'});for(const k of ['status','driveFileId','sessionCipher'])assert.equal(v[k],undefined);assert.throws(()=>validateInput({...demoInput,name:'../outside.pdf'}));assert.throws(()=>validateInput({...demoInput,size:101*1024**2}));
 });
-test('archive: approval, backend credentials and an isolated Preview database are mandatory',()=>{
- const env={SUPABASE_URL:'https://uhjwhamzjxhjqlrhgxho.supabase.co',KARDEX_DRIVE_ENABLED:'true',KARDEX_DRIVE_AUTHORIZATION_REF:'test-reference'};assert.equal(configuration(env).enabled,false);assert.ok(configuration(env).reasons.includes('ISOLATED_DATABASE_REQUIRED'));assert.ok(configuration({}).reasons.includes('INSTITUTIONAL_AUTHORIZATION_PENDING'));
+test('archive: live metadata requires explicit branch-scoped copy approval',()=>{
+ const env={SUPABASE_URL:'https://uhjwhamzjxhjqlrhgxho.supabase.co',KARDEX_DRIVE_ENABLED:'true',KARDEX_DRIVE_AUTHORIZATION_REF:'test-reference'};assert.equal(configuration(env).enabled,false);assert.ok(configuration(env).reasons.includes('REAL_COPY_METADATA_APPROVAL_REQUIRED'));assert.ok(configuration({}).reasons.includes('INSTITUTIONAL_AUTHORIZATION_PENDING'));
+ const approved={...env,VERCEL_ENV:'preview',VERCEL_GIT_COMMIT_REF:'preview/drive-archive-20261031',KARDEX_DRIVE_REAL_COPY_PROJECT_ID:'uhjwhamzjxhjqlrhgxho',KARDEX_DRIVE_REAL_COPY_APPROVAL_REF:'reviewed-schema'};
+ assert.ok(!configuration(approved).reasons.includes('REAL_COPY_METADATA_APPROVAL_REQUIRED'));assert.equal(configuration(approved).enabled,false);
+ assert.ok(configuration({...approved,VERCEL_GIT_COMMIT_REF:'another-team-branch'}).reasons.includes('REAL_COPY_METADATA_APPROVAL_REQUIRED'));
+ assert.ok(configuration({...approved,VERCEL_ENV:'production'}).reasons.includes('PRODUCTION_RELEASE_NOT_APPROVED'));
 });
 test('archive: upload capability URLs are encrypted and tampering is rejected',()=>{
  const key=randomBytes(32).toString('base64'),url='https://www.googleapis.com/upload/drive/v3/files?upload_id=private';const encrypted=seal(url,key);assert.ok(!encrypted.includes('private'));assert.equal(unseal(encrypted,key),url);assert.throws(()=>unseal(encrypted,randomBytes(32).toString('base64')));
@@ -60,7 +64,7 @@ test('archive: encrypted full-backup stream restores byte for byte and rejects t
 test('archive: isolated SQL enforces roles, FK, unique reference and exclusive leases',async()=>{
  const db=new PGlite();try{
   await db.exec('create role anon; create role authenticated; create role service_role bypassrls; create table public.documentos(id uuid primary key);');
-  const id=randomUUID(),owner=randomUUID();await db.query('insert into public.documentos values ($1)',[demoInput.documentId]);await db.exec(await readFile(new URL('../db/proposals/drive-archive.sql',import.meta.url),'utf8'));
+  const id=randomUUID(),owner=randomUUID();await db.query('insert into public.documentos values ($1)',[demoInput.documentId]);await db.exec('create table public.importaciones(id uuid primary key);');await db.exec(await readFile(new URL('../db/proposals/drive-archive.sql',import.meta.url),'utf8'));
   await db.exec('set role authenticated');await assert.rejects(db.query('select * from public.kardex_drive_jobs'));await assert.rejects(db.query('select public.kardex_drive_claim($1,$2)',[id,owner]));await db.exec('reset role;set role service_role');
   await db.query('insert into public.kardex_drive_jobs(id,document_id,idempotency_key,data) values ($1,$2,$3,$4)',[id,demoInput.documentId,'a'.repeat(64),JSON.stringify({status:'pending'})]);
   const first=await db.query('select public.kardex_drive_claim($1,$2) as job',[id,owner]);assert.equal(first.rows[0].job.id,id);
@@ -85,7 +89,7 @@ test('archive: isolated database backup and restore preserve schema, duplicate r
 
 test('archive: HTTP upload → SQL reference → Drive readback → authenticated download',async()=>{
  const db=new PGlite();try{
-  await db.exec('create role anon;create role authenticated;create role service_role bypassrls;create table public.documentos(id uuid primary key,kardex text);');await db.exec(await readFile(new URL('../db/proposals/drive-archive.sql',import.meta.url),'utf8'));await db.query('insert into public.documentos values($1,$2)',[demoInput.documentId,'SA-00001']);
+  await db.exec('create role anon;create role authenticated;create role service_role bypassrls;create table public.documentos(id uuid primary key,kardex text);');await db.exec('create table public.importaciones(id uuid primary key);');await db.exec(await readFile(new URL('../db/proposals/drive-archive.sql',import.meta.url),'utf8'));await db.query('insert into public.documentos values($1,$2)',[demoInput.documentId,'SA-00001']);
   const env={SUPABASE_URL:'https://archive-sandbox.supabase.co',SUPABASE_ANON_KEY:'test-public',SUPABASE_SERVICE_ROLE_KEY:'server-only',KARDEX_DRIVE_ENABLED:'true',KARDEX_DRIVE_AUTHORIZATION_REF:'fixture-approval',KARDEX_DRIVE_SANDBOX_PROJECT_ID:'archive-sandbox',GOOGLE_DRIVE_CLIENT_ID:'fixture',GOOGLE_DRIVE_CLIENT_SECRET:'server-only',GOOGLE_DRIVE_REFRESH_TOKEN:'server-only',GOOGLE_DRIVE_ROOT_FOLDER_ID:'fixture-root',GOOGLE_DRIVE_OWNER_EMAIL:'fixture@example.test',GOOGLE_DRIVE_FOLDER_IDS_JSON:JSON.stringify({scans:'fixture-scans',originals:'fixture-originals',backups:'fixture-backups',history:'fixture-history',manifests:'fixture-manifests'}),KARDEX_DRIVE_SESSION_KEY:randomBytes(32).toString('base64')};
   let remote=null,bytes=Buffer.alloc(0),driveCalls=0;
   const fetcher=async(url,o={})=>{

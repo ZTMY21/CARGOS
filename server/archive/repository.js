@@ -10,7 +10,7 @@ export class ArchiveRepository {
   unpack(row){return row?{...row.data,id:row.id,key:row.idempotency_key}:null;}
   async create(input){
     const id=randomUUID();
-    await this.request('kardex_drive_jobs?on_conflict=idempotency_key',{method:'POST',headers:{Prefer:'resolution=ignore-duplicates,return=minimal'},body:JSON.stringify({id,idempotency_key:input.key,document_id:input.documentId,data:{...input,status:'pending',offset:0}})});
+    await this.request('kardex_drive_jobs?on_conflict=idempotency_key',{method:'POST',headers:{Prefer:'resolution=ignore-duplicates,return=minimal'},body:JSON.stringify({id,idempotency_key:input.key,document_id:input.documentId,import_id:input.importId??null,data:{...input,status:'pending',offset:0}})});
     const rows=await this.request('kardex_drive_jobs?select=*&idempotency_key=eq.'+input.key);return this.unpack(rows[0]);
   }
   async get(id){const rows=await this.request('kardex_drive_jobs?select=*&id=eq.'+encodeURIComponent(id));if(!rows[0])throw new ArchiveError('ARCHIVE_NOT_FOUND',404);return this.unpack(rows[0]);}
@@ -18,7 +18,7 @@ export class ArchiveRepository {
   async list(documentId){const rows=[];for await(const page of this.pages(documentId))rows.push(...page);return rows;}
   async claim(id,owner){const r=await this.request('rpc/kardex_drive_claim',{method:'POST',body:JSON.stringify({p_id:id,p_owner:owner})});if(!r)throw new ArchiveError('TRANSFER_BUSY',409);return this.unpack(r);}
   async save(job,owner,release=true){
-    const fields=['status','offset','driveFileId','sessionCipher','revisionId','verifiedAt','errorCode'];
+    const fields=['status','offset','driveFileId','sessionCipher','revisionId','verifiedAt','errorCode','adopted'];
     const patch=Object.fromEntries(fields.filter(k=>job[k]!==undefined).map(k=>[k,job[k]]));
     const r=await this.request('rpc/kardex_drive_save',{method:'POST',body:JSON.stringify({p_id:job.id,p_owner:owner,p_patch:patch,p_release:release})});if(!r)throw new ArchiveError('TRANSFER_LEASE_EXPIRED',409);return this.unpack(r);
   }
@@ -37,6 +37,10 @@ export async function authorize(req,env,{admin=false,fetcher=fetch}={}){
     if(!/^SA-\d{1,10}$/.test(kardex||''))throw new ArchiveError('INVALID_KARDEX');
     const r=await fetcher(env.SUPABASE_URL+'/rest/v1/documentos?select=id,kardex&kardex=eq.'+encodeURIComponent(kardex),{headers,signal:AbortSignal.timeout(10000),redirect:'error'});
     if(!r.ok)throw new ArchiveError('DOCUMENT_NOT_ACCESSIBLE',404);const rows=await r.json();if(rows.length!==1)throw new ArchiveError('DOCUMENT_NOT_ACCESSIBLE',404);return rows[0];
+  },async importSource(id){
+    if(!/^[a-f0-9-]{36}$/i.test(id||''))throw new ArchiveError('INVALID_IMPORT');
+    const r=await fetcher(env.SUPABASE_URL+'/rest/v1/importaciones?select=id,sha256&id=eq.'+encodeURIComponent(id),{headers,signal:AbortSignal.timeout(10000),redirect:'error'});
+    if(!r.ok)throw new ArchiveError('IMPORT_NOT_ACCESSIBLE',404);const rows=await r.json();if(rows.length!==1)throw new ArchiveError('IMPORT_NOT_ACCESSIBLE',404);return rows[0];
   },async document(id){
     const r=await fetcher(env.SUPABASE_URL+'/rest/v1/documentos?select=id&id=eq.'+encodeURIComponent(id),{headers,signal:AbortSignal.timeout(10000),redirect:'error'});
     if(!r.ok||!(await r.json()).length)throw new ArchiveError('DOCUMENT_NOT_ACCESSIBLE',404);

@@ -16,6 +16,7 @@ export class ArchiveService {
   async start(input){
     const job=await this.store.create(validateInput(input));
     if(job.status==='verified')return safeJob(job);
+    if(job.adopted)return this.finish(job.id);
     return this.locked(job.id,async(job,owner)=>{
       if(!job.driveFileId){job.driveFileId=await this.drive.allocate();await this.store.save(job,owner,false);}
       if(!job.sessionCipher){
@@ -24,6 +25,19 @@ export class ArchiveService {
         else{job.sessionCipher=seal(await this.drive.initiate(job),this.key);job.status='uploading';}
       }
       job.errorCode=null;return this.store.save(job,owner);
+    });
+  }
+  async adopt(input,fileId){
+    if(typeof fileId!=='string'||!/^[-\w]{10,200}$/.test(fileId))throw new ArchiveError('INVALID_DRIVE_FILE');
+    const job=await this.store.create(validateInput(input));
+    // An existing logical reference can never be replaced by another file.
+    if(job.driveFileId&&job.driveFileId!==fileId)throw new ArchiveError('DRIVE_REFERENCE_CONFLICT',409);
+    return this.locked(job.id,async(job,owner)=>{
+      job.driveFileId=fileId;job.adopted=true;job.status='uploaded';job.offset=job.size;job.sessionCipher=null;
+      await this.store.save(job,owner,false);
+      const proof=await this.drive.verify(job);
+      Object.assign(job,proof,{status:'verified',verifiedAt:new Date().toISOString(),errorCode:null});
+      return this.store.save(job,owner);
     });
   }
   async chunk(id,offset,bytes){
