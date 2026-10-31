@@ -41,6 +41,15 @@ export default async function handler(req,res){
     const result=await uploadVerified(drive,'manifests','kardex-drive-write-canary-'+Date.now()+'.json',bytes);
     return out(res,200,{verified:true,kind:'backend-canary',driveFileId:result.id,sha256:result.sha256,bytes:result.bytes});
   }
+  if(input.action==='manifest'){
+    const manifest=await gateway(env,{operation:'history-manifest'});
+    if(!manifest||manifest.fileCount<1||!Array.isArray(manifest.files)||
+      manifest.files.length!==manifest.fileCount)throw new Error('MANIFEST_EMPTY');
+    const source=Buffer.from(JSON.stringify({...manifest,exportedAt:new Date().toISOString()}));
+    const result=await uploadVerified(drive,'manifests','kardex-history-verified-manifest-'+Date.now()+'.json',source);
+    return out(res,200,{verified:true,fileCount:manifest.fileCount,rowCount:manifest.rows,
+      driveFileId:result.id,sha256:result.sha256,bytes:result.bytes});
+  }
   if(input.action!=='archive')return out(res,400,{error:'INVALID_ACTION'});
   const {start,end}=input;
   if(!Number.isSafeInteger(start)||!Number.isSafeInteger(end)||start<1||end<start||end-start>499)
