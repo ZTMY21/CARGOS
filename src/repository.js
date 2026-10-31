@@ -85,8 +85,9 @@ export class KardexRepository {
       headers:{Authorization:'Bearer '+session.access_token}
     });
     if(!response.ok)throw new Error('No se pudo recuperar el sustento desde Google Drive.');
-    const blob=await response.blob();
-    if(blob.size>10*1024**2)throw new Error('Imagen demasiado grande para mostrar.');
+    const payload=await response.arrayBuffer();
+    if(payload.byteLength>10*1024**2)throw new Error('Imagen demasiado grande para mostrar.');
+    const blob=new Blob([payload],{type:'image/jpeg'});
     return new Promise((resolve,reject)=>{
       const reader=new FileReader();reader.onload=()=>resolve(safeImage(reader.result));reader.onerror=()=>reject(new Error('No se pudo abrir la imagen.'));reader.readAsDataURL(blob);
     });
