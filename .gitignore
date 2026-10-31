@@ -13,3 +13,10 @@ private-import/
 *.xlsm
 *.xlsx
 *.xls
+
+# Private archive staging and credentials
+private-archive/
+*.enc
+*.enc.partial
+!.env.archive.example
+/node_modules

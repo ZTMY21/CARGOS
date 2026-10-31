@@ -1,0 +1,63 @@
+{
+  "asOf": "2026-10-31",
+  "realFilesCopied": 2,
+  "sha256Verified": 2,
+  "copiedBytes": 58562337,
+  "restoredTableRows": 3485,
+  "postgresBeforeBytes": 460846771,
+  "postgresAfterBytes": 413169331,
+  "storageBeforeBytes": 32082853,
+  "storageAfterBytes": 32082853,
+  "postgresFreedBytes": 47677440,
+  "quotaFreedPercent": null,
+  "applicationReferencesRecorded": 2,
+  "pendingApplicationReferences": 2,
+  "completeDatabaseBackupVerified": false,
+  "completeMigration": false,
+  "productionCommit": "e8e29b0521b88be1236e7919e7d881355f3bb353",
+  "counts": {
+    "documents": 3411,
+    "invoiceTokens": 2782529,
+    "historyRows": 13314,
+    "backupRows": 0,
+    "resguardos": 282
+  },
+  "originalsRetained": true,
+  "sourceWrites": false,
+  "transferChannel": "authorized-connected-drive",
+  "backendOAuthPending": true,
+  "tests": {
+    "archivePassed": 23,
+    "archiveFailed": 0,
+    "realExcelZipIntegrity": true,
+    "realTableRestore": true
+  },
+  "coldBackup": {
+    "sourceRows": 3485,
+    "missingInCurrentDocuments": 115,
+    "rowsetSha256": "e4a3626d48690f40068cbc20a781ea4aba10fb7b8264ebba9828a6baf4bfb9f5",
+    "sourceJsonBytes": 157465209,
+    "encryptedBytes": 26479484,
+    "ciphertextSha256": "4e258ad59aaec84315243d4c5f3923d321253adfdcb1c4d16d8e414da4500c9f",
+    "schemaDependenciesFound": 0,
+    "tableExistsInPostgres": false,
+    "archivedDriveFileId": "1AcbLQ6gIfvhjWzNFKFxeeCNpFNiQOaHk"
+  },
+  "copyProvenance": "Excel original aportado por el usuario, coincidente con el SHA-256 registrado en importaciones; tabla fría extraída por SELECT. El objeto actual de Storage no se descargó de nuevo.",
+  "destinationGoogleDriveEmail": "jaguliquidacion@gmail.com",
+  "destinationRootFolderId": "15CIlN6SUjC4x5GAkwWKcA_vQap0_cN7W",
+  "newDestinationManifest": "docs/drive/manifiesto-destino-jagu-20261031.json",
+  "coldTableArchivedExternally": true,
+  "notes": "El respaldo frío fue retirado de PostgreSQL tras validar la restauración original y generar copia redundante. La tabla de referencias RLS fue agregada sin afectar documentos. Nuevo Drive copiado y descargado; aplicación sigue sin OAuth.",
+  "referenceStatus": "uploaded - connector checksum verified externally; backend OAuth verification pending",
+  "referenceRecordIds": [
+    "8eefb906-2c5a-4b01-834d-e1d3b09d4507",
+    "25adeec1-08fb-448b-9565-75b2f39dffb2"
+  ],
+  "referenceNames": [
+    "Lista de Cargos 2021-2026(2).xlsm",
+    "kardex_documentos_backup_20261014-20261031.jsonl.gz.enc"
+  ],
+  "warning": "Corte anterior. Para el estado actual consultar activation-baseline-20261031.json y README.md. Backend OAuth pendiente; no anunciar descargas funcionales.",
+  "historicalSnapshot": true
+}

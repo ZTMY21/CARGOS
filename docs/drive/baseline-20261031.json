@@ -1,0 +1,627 @@
+{
+  "version": 1,
+  "date": "2026-10-31",
+  "productionCommit": "e8e29b0521b88be1236e7919e7d881355f3bb353",
+  "previewBaseCommit": "89ace69cf31bf02be4c201282d70490159eac815",
+  "documents": 3411,
+  "measured_at": "2026-10-31T11:50:33.926678+00:00",
+  "backup_count": 3485,
+  "history_count": 13314,
+  "storage_bytes": 32082853,
+  "database_bytes": 460846771,
+  "invoice_tokens": 2782529,
+  "cargo_relations": 3411,
+  "resguardo_count": 282,
+  "image_text_bytes": 0,
+  "last_document_update": "2026-10-30T20:39:54.274225+00:00",
+  "source_column_physical_bytes": 27071014,
+  "tables": [
+    {
+      "schema": "public",
+      "relation": "documentos",
+      "total_bytes": 306241536
+    },
+    {
+      "schema": "private",
+      "relation": "kardex_historial",
+      "total_bytes": 81993728
+    },
+    {
+      "schema": "private",
+      "relation": "kardex_documentos_backup_20261014",
+      "total_bytes": 47726592
+    },
+    {
+      "schema": "private",
+      "relation": "kardex_documentos_resguardos",
+      "total_bytes": 5357568
+    },
+    {
+      "schema": "private",
+      "relation": "kardex_correction_backup_20261015",
+      "total_bytes": 3334144
+    },
+    {
+      "schema": "public",
+      "relation": "kardex_live_ingresos",
+      "total_bytes": 671744
+    },
+    {
+      "schema": "public",
+      "relation": "importacion_lotes",
+      "total_bytes": 589824
+    },
+    {
+      "schema": "private",
+      "relation": "kardex_existencias_export_cache",
+      "total_bytes": 368640
+    },
+    {
+      "schema": "public",
+      "relation": "im_envios_cargos",
+      "total_bytes": 286720
+    },
+    {
+      "schema": "public",
+      "relation": "kardex_google_sync",
+      "total_bytes": 221184
+    },
+    {
+      "schema": "public",
+      "relation": "im_envios_cargos_live",
+      "total_bytes": 155648
+    },
+    {
+      "schema": "private",
+      "relation": "kardex_contadores",
+      "total_bytes": 122880
+    },
+    {
+      "schema": "public",
+      "relation": "kardex_eventos",
+      "total_bytes": 65536
+    },
+    {
+      "schema": "public",
+      "relation": "kardex_admin_solicitudes",
+      "total_bytes": 49152
+    },
+    {
+      "schema": "private",
+      "relation": "kardex_cargo_archivos",
+      "total_bytes": 32768
+    },
+    {
+      "schema": "private",
+      "relation": "kardex_notificador_admin",
+      "total_bytes": 32768
+    },
+    {
+      "schema": "private",
+      "relation": "kardex_conciliaciones_pendientes",
+      "total_bytes": 32768
+    },
+    {
+      "schema": "private",
+      "relation": "kardex_miembros",
+      "total_bytes": 32768
+    },
+    {
+      "schema": "private",
+      "relation": "kardex_live_sheet_config",
+      "total_bytes": 32768
+    },
+    {
+      "schema": "private",
+      "relation": "im_envios_live_config",
+      "total_bytes": 32768
+    },
+    {
+      "schema": "private",
+      "relation": "im_envios_live_control",
+      "total_bytes": 32768
+    },
+    {
+      "schema": "public",
+      "relation": "importaciones",
+      "total_bytes": 32768
+    },
+    {
+      "schema": "public",
+      "relation": "im_envios_revision",
+      "total_bytes": 32768
+    },
+    {
+      "schema": "public",
+      "relation": "requerimientos",
+      "total_bytes": 24576
+    },
+    {
+      "schema": "private",
+      "relation": "kardex_cargo_detalle_original",
+      "total_bytes": 24576
+    }
+  ],
+  "indices": [
+    {
+      "schemaname": "public",
+      "relname": "documentos",
+      "indexrelname": "documentos_facturas_codigos_exactos_idx",
+      "idx_scan": 325294,
+      "idx_tup_read": 334950,
+      "idx_tup_fetch": 0,
+      "bytes": 179929088,
+      "definition": "CREATE INDEX documentos_facturas_codigos_exactos_idx ON public.documentos USING gin (string_to_array(busqueda_facturas, ','::text))"
+    },
+    {
+      "schemaname": "public",
+      "relname": "documentos",
+      "indexrelname": "documentos_busqueda_facturas_idx",
+      "idx_scan": 6153,
+      "idx_tup_read": 2264483,
+      "idx_tup_fetch": 0,
+      "bytes": 16990208,
+      "definition": "CREATE INDEX documentos_busqueda_facturas_idx ON public.documentos USING gin (busqueda_facturas gin_trgm_ops)"
+    },
+    {
+      "schemaname": "public",
+      "relname": "documentos",
+      "indexrelname": "documentos_busqueda_meta_idx",
+      "idx_scan": 24,
+      "idx_tup_read": 107,
+      "idx_tup_fetch": 0,
+      "bytes": 5382144,
+      "definition": "CREATE INDEX documentos_busqueda_meta_idx ON public.documentos USING gin (busqueda_meta gin_trgm_ops)"
+    },
+    {
+      "schemaname": "public",
+      "relname": "documentos",
+      "indexrelname": "documentos_clave_origen_key",
+      "idx_scan": 3071237,
+      "idx_tup_read": 20358352,
+      "idx_tup_fetch": 3045699,
+      "bytes": 1056768,
+      "definition": "CREATE UNIQUE INDEX documentos_clave_origen_key ON public.documentos USING btree (clave_origen)"
+    },
+    {
+      "schemaname": "private",
+      "relname": "kardex_historial",
+      "indexrelname": "kardex_historial_pkey",
+      "idx_scan": 1,
+      "idx_tup_read": 13370,
+      "idx_tup_fetch": 2692,
+      "bytes": 319488,
+      "definition": "CREATE UNIQUE INDEX kardex_historial_pkey ON private.kardex_historial USING btree (id)"
+    },
+    {
+      "schemaname": "public",
+      "relname": "documentos",
+      "indexrelname": "documentos_pkey",
+      "idx_scan": 3643712,
+      "idx_tup_read": 90194269,
+      "idx_tup_fetch": 68818058,
+      "bytes": 303104,
+      "definition": "CREATE UNIQUE INDEX documentos_pkey ON public.documentos USING btree (id)"
+    },
+    {
+      "schemaname": "public",
+      "relname": "documentos",
+      "indexrelname": "documentos_kardex_key",
+      "idx_scan": 10211,
+      "idx_tup_read": 40917,
+      "idx_tup_fetch": 19992,
+      "bytes": 294912,
+      "definition": "CREATE UNIQUE INDEX documentos_kardex_key ON public.documentos USING btree (kardex)"
+    },
+    {
+      "schemaname": "public",
+      "relname": "kardex_live_ingresos",
+      "indexrelname": "kardex_live_ingresos_pkey",
+      "idx_scan": 108750,
+      "idx_tup_read": 4628126,
+      "idx_tup_fetch": 3522822,
+      "bytes": 286720,
+      "definition": "CREATE UNIQUE INDEX kardex_live_ingresos_pkey ON public.kardex_live_ingresos USING btree (sheet_id, row_number)"
+    },
+    {
+      "schemaname": "private",
+      "relname": "kardex_existencias_export_cache",
+      "indexrelname": "kardex_existencias_export_cache_pkey",
+      "idx_scan": 4900,
+      "idx_tup_read": 1489,
+      "idx_tup_fetch": 1477,
+      "bytes": 155648,
+      "definition": "CREATE UNIQUE INDEX kardex_existencias_export_cache_pkey ON private.kardex_existencias_export_cache USING btree (documento_id)"
+    },
+    {
+      "schemaname": "private",
+      "relname": "kardex_correction_backup_20261015",
+      "indexrelname": "kardex_correction_backup_20261015_pkey",
+      "idx_scan": 1533,
+      "idx_tup_read": 0,
+      "idx_tup_fetch": 0,
+      "bytes": 90112,
+      "definition": "CREATE UNIQUE INDEX kardex_correction_backup_20261015_pkey ON private.kardex_correction_backup_20261015 USING btree (id)"
+    },
+    {
+      "schemaname": "public",
+      "relname": "documentos",
+      "indexrelname": "documentos_anio_origen_idx",
+      "idx_scan": 3815,
+      "idx_tup_read": 3356995,
+      "idx_tup_fetch": 2347910,
+      "bytes": 90112,
+      "definition": "CREATE INDEX documentos_anio_origen_idx ON public.documentos USING btree (anio_origen)"
+    },
+    {
+      "schemaname": "public",
+      "relname": "documentos",
+      "indexrelname": "documentos_periodo_idx",
+      "idx_scan": 7,
+      "idx_tup_read": 24573,
+      "idx_tup_fetch": 975,
+      "bytes": 81920,
+      "definition": "CREATE INDEX documentos_periodo_idx ON public.documentos USING btree (periodo)"
+    }
+  ],
+  "foreignKeys": [
+    {
+      "relation": "documentos",
+      "conname": "documentos_caja_asignada_fkey",
+      "definition": "FOREIGN KEY (caja_asignada) REFERENCES requerimientos(id) ON DELETE SET NULL"
+    },
+    {
+      "relation": "documentos",
+      "conname": "documentos_importacion_fk",
+      "definition": "FOREIGN KEY (importacion_id) REFERENCES importaciones(id)"
+    },
+    {
+      "relation": "private.kardex_existencias_export_cache",
+      "conname": "kardex_existencias_export_cache_documento_id_fkey",
+      "definition": "FOREIGN KEY (documento_id) REFERENCES documentos(id) ON DELETE CASCADE"
+    },
+    {
+      "relation": "kardex_live_ingresos",
+      "conname": "kardex_live_ingresos_documento_id_fkey",
+      "definition": "FOREIGN KEY (documento_id) REFERENCES documentos(id)"
+    }
+  ],
+  "triggers": [
+    {
+      "relation": "documentos",
+      "tgname": "doc_audit",
+      "function": "private.kardex_audit()"
+    },
+    {
+      "relation": "documentos",
+      "tgname": "doc_existencias_export_cache_sync",
+      "function": "private.kardex_existencias_export_cache_sync()"
+    },
+    {
+      "relation": "documentos",
+      "tgname": "doc_notify",
+      "function": "private.kardex_notify_change()"
+    },
+    {
+      "relation": "documentos",
+      "tgname": "doc_prepare",
+      "function": "private.kardex_prepare_row()"
+    },
+    {
+      "relation": "documentos",
+      "tgname": "doc_statement_lock",
+      "function": "private.kardex_write_lock()"
+    },
+    {
+      "relation": "documentos",
+      "tgname": "documentos_resguardo_antes_de_perdida",
+      "function": "private.kardex_resguardar_antes_de_perdida()"
+    },
+    {
+      "relation": "im_envios_cargos",
+      "tgname": "im_cargos_notify",
+      "function": "private.kardex_notify_im_shipments()"
+    },
+    {
+      "relation": "im_envios_cargos_live",
+      "tgname": "im_live_notify",
+      "function": "private.kardex_notify_im_shipments()"
+    },
+    {
+      "relation": "kardex_live_ingresos",
+      "tgname": "kardex_live_ingresos_refresh_totals",
+      "function": "private.kardex_refresh_live_totals()"
+    },
+    {
+      "relation": "kardex_live_ingresos",
+      "tgname": "kardex_live_status_trigger",
+      "function": "private.kardex_live_received()"
+    },
+    {
+      "relation": "private.kardex_cargo_archivos",
+      "tgname": "verificar_detalle_original_antes_archivo",
+      "function": "private.kardex_verificar_detalle_antes_archivo()"
+    },
+    {
+      "relation": "requerimientos",
+      "tgname": "req_audit",
+      "function": "private.kardex_audit()"
+    },
+    {
+      "relation": "requerimientos",
+      "tgname": "req_notify",
+      "function": "private.kardex_notify_change()"
+    },
+    {
+      "relation": "requerimientos",
+      "tgname": "req_prepare",
+      "function": "private.kardex_prepare_row()"
+    },
+    {
+      "relation": "requerimientos",
+      "tgname": "req_statement_lock",
+      "function": "private.kardex_write_lock()"
+    }
+  ],
+  "functions": [
+    {
+      "schema": "private",
+      "name": "kardex_advance_counters",
+      "args": ""
+    },
+    {
+      "schema": "private",
+      "name": "kardex_audit",
+      "args": ""
+    },
+    {
+      "schema": "private",
+      "name": "kardex_existencias_export_cache_sync",
+      "args": ""
+    },
+    {
+      "schema": "private",
+      "name": "kardex_has_access",
+      "args": "admin_only boolean"
+    },
+    {
+      "schema": "private",
+      "name": "kardex_invoice_normalize",
+      "args": "value text"
+    },
+    {
+      "schema": "private",
+      "name": "kardex_is_original_owner",
+      "args": ""
+    },
+    {
+      "schema": "private",
+      "name": "kardex_live_received",
+      "args": ""
+    },
+    {
+      "schema": "private",
+      "name": "kardex_normalize",
+      "args": "value text"
+    },
+    {
+      "schema": "private",
+      "name": "kardex_notification_authorized",
+      "args": "p_token text"
+    },
+    {
+      "schema": "private",
+      "name": "kardex_notify_change",
+      "args": ""
+    },
+    {
+      "schema": "private",
+      "name": "kardex_notify_im_shipments",
+      "args": ""
+    },
+    {
+      "schema": "private",
+      "name": "kardex_prepare_row",
+      "args": ""
+    },
+    {
+      "schema": "private",
+      "name": "kardex_recount_sheet",
+      "args": "p_sheet_id text"
+    },
+    {
+      "schema": "private",
+      "name": "kardex_refresh_live_totals",
+      "args": ""
+    },
+    {
+      "schema": "private",
+      "name": "kardex_resguardar_antes_de_perdida",
+      "args": ""
+    },
+    {
+      "schema": "private",
+      "name": "kardex_set_counters",
+      "args": "req_number bigint, doc_number bigint"
+    },
+    {
+      "schema": "private",
+      "name": "kardex_set_live_context",
+      "args": "p_sheet_id text, p_secret text"
+    },
+    {
+      "schema": "private",
+      "name": "kardex_text_array",
+      "args": "value text[]"
+    },
+    {
+      "schema": "private",
+      "name": "kardex_verificar_detalle_antes_archivo",
+      "args": ""
+    },
+    {
+      "schema": "private",
+      "name": "kardex_write_lock",
+      "args": ""
+    },
+    {
+      "schema": "public",
+      "name": "kardex_access",
+      "args": ""
+    },
+    {
+      "schema": "public",
+      "name": "kardex_admin_apply",
+      "args": ""
+    },
+    {
+      "schema": "public",
+      "name": "kardex_admin_email_ack",
+      "args": "p_token text, p_ids uuid[]"
+    },
+    {
+      "schema": "public",
+      "name": "kardex_admin_email_queue",
+      "args": "p_token text"
+    },
+    {
+      "schema": "public",
+      "name": "kardex_admin_pending",
+      "args": ""
+    },
+    {
+      "schema": "public",
+      "name": "kardex_admin_review",
+      "args": "p_id uuid, p_approve boolean"
+    },
+    {
+      "schema": "public",
+      "name": "kardex_begin_import",
+      "args": "archivo_nombre text, archivo_path text, archivo_sha256 text, archivo_formato text"
+    },
+    {
+      "schema": "public",
+      "name": "kardex_commit_import",
+      "args": "import_id uuid, expected_batches integer"
+    },
+    {
+      "schema": "public",
+      "name": "kardex_detalle_original_exportar",
+      "args": "p_anio integer, p_cargo text"
+    },
+    {
+      "schema": "public",
+      "name": "kardex_existencias_export_meta",
+      "args": ""
+    },
+    {
+      "schema": "public",
+      "name": "kardex_google_append",
+      "args": "groups_data jsonb"
+    },
+    {
+      "schema": "public",
+      "name": "kardex_im_boxes_sent_monthly",
+      "args": ""
+    },
+    {
+      "schema": "public",
+      "name": "kardex_import",
+      "args": "requerimientos_data jsonb, documentos_data jsonb"
+    },
+    {
+      "schema": "public",
+      "name": "kardex_live_archive",
+      "args": "p_sheet_id text, p_secret text, p_anio integer, p_cargo text, p_codes jsonb, p_backup_id text, p_rows integer"
+    },
+    {
+      "schema": "public",
+      "name": "kardex_live_guardar_detalle",
+      "args": "p_sheet_id text, p_secret text, p_anio integer, p_cargo text, p_filas jsonb"
+    },
+    {
+      "schema": "public",
+      "name": "kardex_live_ingest",
+      "args": "p_sheet_id text, p_secret text, p_rows jsonb"
+    },
+    {
+      "schema": "public",
+      "name": "kardex_live_reconcile",
+      "args": "p_sheet_id text, p_secret text, p_rows jsonb"
+    },
+    {
+      "schema": "public",
+      "name": "kardex_prepared_im_detail",
+      "args": ""
+    },
+    {
+      "schema": "public",
+      "name": "kardex_previous_cargos",
+      "args": "p_documento_ids uuid[]"
+    },
+    {
+      "schema": "public",
+      "name": "kardex_requested_im_detail",
+      "args": ""
+    },
+    {
+      "schema": "public",
+      "name": "kardex_reset",
+      "args": ""
+    },
+    {
+      "schema": "public",
+      "name": "kardex_resguardo_estado",
+      "args": ""
+    },
+    {
+      "schema": "public",
+      "name": "kardex_search",
+      "args": "query_text text, estado_filter text, tipo_filter text, ubicacion_filter text, year_filter text, invoice_exact boolean, page_offset integer, page_limit integer"
+    },
+    {
+      "schema": "public",
+      "name": "kardex_snapshot",
+      "args": ""
+    },
+    {
+      "schema": "public",
+      "name": "kardex_stage_import",
+      "args": "import_id uuid, batch_number integer, req_data jsonb, doc_data jsonb"
+    }
+  ],
+  "fingerprints": [
+    {
+      "relation": "public.documentos",
+      "rows": 3411,
+      "ordered_rows_sha256": "45a1d4ad1db69a754560d29273b67794e78f025f93d4a46776b849f0e6affd7d"
+    },
+    {
+      "relation": "private.kardex_historial",
+      "rows": 13314,
+      "ordered_rows_sha256": "dcab3f0e76ed73d05aab4787c099cd9dd12fb3c20a77536333fdc77b2734a6f2"
+    },
+    {
+      "relation": "private.kardex_documentos_backup_20261014",
+      "rows": 3485,
+      "ordered_rows_sha256": "e4a3626d48690f40068cbc20a781ea4aba10fb7b8264ebba9828a6baf4bfb9f5"
+    },
+    {
+      "relation": "private.kardex_documentos_resguardos",
+      "rows": 282,
+      "ordered_rows_sha256": "05b07c44e2fe6f468f958a656706d8502c387589f0e283b65dbbf16329bbe706"
+    }
+  ],
+  "fingerprintAlgorithm": "SHA256(UTF8(string_agg(id || ':' || SHA256(UTF8(to_jsonb(row)::text)), LF order by id))). Point-in-time fingerprints per query; not one shared transaction and not a backup.",
+  "drive": {
+    "folderId": "1GfQ2dyRghO_hg4Vb0NRaf-Um5hRKdJs0",
+    "institutionalAuthorizationVerified": false,
+    "filesInitially": 0,
+    "realFilesCopied": 0,
+    "realFilesVerified": 0
+  },
+  "completeProductionBackupCreated": false,
+  "productionDatabaseModified": false,
+  "destructiveOperations": 0,
+  "expectedSpaceFreedByThisRun": 0
+}

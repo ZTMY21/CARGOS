@@ -1,0 +1,185 @@
+{
+  "observedAt": "2026-10-31T17:38:21.160Z",
+  "productionCommit": "e8e29b0521b88be1236e7919e7d881355f3bb353",
+  "prInitialHead": "247f4389cce62e4327d037ca3d4a832572682314",
+  "postgresBytesBefore": 413210291,
+  "storageBytesBefore": 32082853,
+  "documentCount": 3411,
+  "historyCount": 13314,
+  "archiveJobCount": 2,
+  "documentRowsetSha256": "45a1d4ad1db69a754560d29273b67794e78f025f93d4a46776b849f0e6affd7d",
+  "historyRowsetSha256": "655f173d65252d317c5f57e5a80b4f9ada212387eae01089b3a2772a23b59091",
+  "sheetComparisons": [
+    {
+      "source": "cargos_old",
+      "target": "cargos_new",
+      "sourceRows": 1426,
+      "targetRows": 1426,
+      "equal": true,
+      "changedRowCount": 0,
+      "changedRows": []
+    },
+    {
+      "source": "im_old",
+      "target": "im_new",
+      "sourceRows": 50,
+      "targetRows": 50,
+      "equal": true,
+      "changedRowCount": 0,
+      "changedRows": []
+    }
+  ],
+  "previousSavingsNotCountedAsNew": true,
+  "sourceCutoverPerformed": false,
+  "postgresBytesAfterMetadataPreparation": 413357747,
+  "storageBytesAfter": 32082853,
+  "newFilesTransferred": 0,
+  "newBackendVerifiedFiles": 0,
+  "newBytesTransferred": 0,
+  "newPostgresFreedBytes": 0,
+  "quotaFreedPercent": 0,
+  "documentRowsetAfterSha256": "45a1d4ad1db69a754560d29273b67794e78f025f93d4a46776b849f0e6affd7d",
+  "historyRowsetAfterSha256": "655f173d65252d317c5f57e5a80b4f9ada212387eae01089b3a2772a23b59091",
+  "rowsetMethod": "SHA256(UTF8(string_agg(id::text || colon || SHA256(to_jsonb(row)::text), LF order by id::text))), no trailing LF",
+  "imRealPayloadSha256": "4b546a7548d7ca1275177c78de2fbeec2cb78bb9bde8d479c6413a5e24c2fab9",
+  "imPayloadMatchesPreviousSource": true,
+  "imRows": 49,
+  "imCargoCount": 106,
+  "imLastRecordedSync": "2026-10-22T01:56:39.322911Z",
+  "targetedTests": {
+    "pass": 30,
+    "fail": 0
+  },
+  "regressionTests": {
+    "total": 166,
+    "pass": 147,
+    "fail": 19,
+    "baselineTotal": 136,
+    "baselinePass": 117,
+    "baselineFail": 19,
+    "newFailingTestNames": []
+  },
+  "buildPassed": true,
+  "fullDatabaseRestoreVerified": false,
+  "backendOAuthConnected": false,
+  "backendClientSecretPresent": false,
+  "criticalLiveChecksComplete": false,
+  "previewDeployment": {
+    "id": "dpl_3dpU34NQHWJPzMn2VEUQgNkpvTbs",
+    "commit": "004ad2b867f9bf43936fe9eacbb4b060b5579a2b",
+    "url": "https://kardex-digital-santa-anita-m6kg7s7xg-ztmy1.vercel.app/drive-archive.html",
+    "state": "READY"
+  },
+  "previewApiChecks": {
+    "driveConnectHttpStatus": 200,
+    "archiveStatusHttpStatus": 200,
+    "gatewayReady": true,
+    "oauthConnected": false,
+    "clientSecretConfigured": false,
+    "redirectConfigured": true,
+    "archiveEnabled": false
+  },
+  "sourceState": {
+    "cargosOriginalActive": true,
+    "imOriginalActive": true,
+    "cargosCopyActive": false,
+    "imCopyActive": false,
+    "enrolledNewSources": 0,
+    "newTriggersInstalled": 0,
+    "newScriptsExecuted": 0
+  },
+  "browserCheck": {
+    "archiveRendered": true,
+    "missingClientSecretMessageRendered": true,
+    "mainLoginRendered": true,
+    "actualAdminGuestLoginVerified": false
+  },
+  "readOnlyLiveRpcChecks": {
+    "context": "SQL with transaction-local admin JWT claims; not a browser sign-in test",
+    "snapshotExecutionMs": 1419.959,
+    "previousCargosSampleDocuments": 3,
+    "previousCargosExecutionMs": 380.138,
+    "invoiceSampleCompactRows": 1,
+    "invoiceSampleHyphenatedRows": 1,
+    "invoiceSampleSameDocumentIds": true
+  },
+  "timeoutLogCheck": {
+    "from": "2026-10-31T17:00:00Z",
+    "to": "2026-10-31T18:46:00Z",
+    "eventsContaining57014OrStatementTimeout": 0,
+    "scope": "aggregate project logs; does not prove load performance"
+  },
+  "appsScriptEditorStatus": {
+    "cargosCodeSaveReportedByBrowser": true,
+    "cargosManifestVerified": false,
+    "imCodeSaveVerified": false,
+    "imManifestVerified": false,
+    "attemptedMethods": [
+      "direct-input",
+      "bounded-chunks",
+      "clipboard-from-immutable-repository"
+    ],
+    "automationIssue": "Editor did not reliably accept and save full source. Neither copied source was executed or activated."
+  },
+  "oauthRedirectRegistration": {
+    "requiredUri": "https://kardex-digital-santa-anita-git-preview-drive-archi-adff9e-ztmy1.vercel.app/api/drive-connect",
+    "registeredInGoogleVerified": true,
+    "changeApplied": true,
+    "autoReviewRejected": false,
+    "reason": "The requester explicitly approved this URI. Save succeeded; a separate read-only run subsequently returned both persisted URIs.",
+    "previousAttemptAutoReviewRejected": true,
+    "explicitUserConfirmationReceived": true,
+    "clientId": "537251247027-6qp2bp5pq65tuk8mhn4c2farq490bjtv.apps.googleusercontent.com",
+    "verifiedAt": "2026-10-31T19:15:33.566Z",
+    "savedRedirectUris": [
+      "https://developers.google.com/oauthplayground",
+      "https://kardex-digital-santa-anita-git-preview-drive-archi-adff9e-ztmy1.vercel.app/api/drive-connect"
+    ],
+    "saveRunId": "c3e57ad2-2992-4453-b4f4-fc18d7da55e8",
+    "readbackRunId": "dd5d46ef-8137-440c-b688-e15442194515",
+    "subsequentReadConfirmed": true,
+    "explicitReopenReported": false,
+    "screenshotAvailable": false,
+    "resolvedFormIssue": "An empty required URI row disabled Save; populating it enabled Save and returned to the clients list."
+  },
+  "edgeVersions": [
+    {
+      "name": "cargos-nuevos-onedit",
+      "version": 5
+    },
+    {
+      "name": "im-envios-live",
+      "version": 2
+    },
+    {
+      "name": "kardex-drive-metadata",
+      "version": 1
+    },
+    {
+      "name": "kardex-source-enroll",
+      "version": 1
+    }
+  ],
+  "accessChecks": {
+    "anonCanSelectSummaryView": false,
+    "anonCanExecuteArchiveRuntime": false,
+    "authenticatedCanEnrollSourceDirectly": false
+  },
+  "closingMeasurement": {
+    "measured_at": "2026-10-31 18:56:36.472682+00",
+    "postgres_bytes": 413357747,
+    "documents": 3411,
+    "history_rows": 13314,
+    "archive_jobs": 2,
+    "storage_bytes": "32082853"
+  },
+  "oauthFollowup": {
+    "clientSecretEntryPresentInVercel": false,
+    "previewConnectHttpStatus": 200,
+    "gatewayReady": true,
+    "connected": false,
+    "codeChanged": false,
+    "databaseChanged": false,
+    "productionPublished": false
+  }
+}

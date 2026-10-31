@@ -3,5 +3,13 @@
   "framework": "vite",
   "installCommand": "npm ci",
   "buildCommand": "npm run build",
-  "outputDirectory": "dist"
+  "outputDirectory": "dist",
+  "functions": {
+    "api/drive-connect.js": {
+      "maxDuration": 60
+    },
+    "api/drive-archive.js": {
+      "maxDuration": 60
+    }
+  }
 }

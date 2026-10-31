@@ -22,6 +22,6 @@ export default defineConfig(({ mode }) => {
       __SUPABASE_URL__: JSON.stringify(url),
       __SUPABASE_ANON_KEY__: JSON.stringify(key)
     },
-    build: { sourcemap: false }
+    build: { sourcemap: false, rolldownOptions: { input: { app: 'index.html' } } }
   };
 });

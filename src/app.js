@@ -1335,7 +1335,7 @@ async function cargarDocParaEditar(id){
   populateCajaAsignadaOptions(d.cajaAsignada);
   document.getElementById('f_fEnvio').value = d.fEnvio || '';
   document.getElementById('f_sustento').value = d.sustento || '';
-  currentSustentoImagen = d.sustentoImagen || '';
+  currentSustentoImagen = d.sustentoImagen || d.driveImageJob || '';
   renderPreviewSustento();
   document.getElementById('f_usuario').value = d.usuario || '';
   document.getElementById('f_facturas').value = d.facturas || '';
@@ -1371,7 +1371,7 @@ function renderPreviewSustento(){
   const box = document.getElementById('previewSustento');
   if(currentSustentoImagen){
     box.innerHTML = `<div style="display:flex;align-items:center;gap:8px">
-      <img src="${currentSustentoImagen}" style="height:48px;border-radius:6px;border:1px solid var(--border)">
+      ${currentSustentoImagen.startsWith('drive-job:')?'<span>Imagen privada guardada en Google Drive</span>':`<img src="${currentSustentoImagen}" style="height:48px;border-radius:6px;border:1px solid var(--border)">`}
       <button type="button" class="danger" id="btnQuitarImagen">Quitar</button>
     </div>`;
     document.getElementById('btnQuitarImagen').addEventListener('click', ()=>{
@@ -1533,7 +1533,7 @@ document.getElementById('fileImportar').addEventListener('change', async ev => {
   try {
     document.getElementById('importProgress').textContent='Leyendo el archivo Excel…';
     const imported = await parseWorkbook(await file.arrayBuffer());
-    if (!confirm(`Se agregarán o actualizarán ${imported.reqs.length} requerimientos y ${imported.docs.length} documentos. Los registros que no figuran en el archivo se conservarán. Se guardará una copia privada del Excel original. ¿Importar?`)) return;
+    if (!confirm(`Se agregarán o actualizarán ${imported.reqs.length} requerimientos y ${imported.docs.length} documentos. Los registros que no figuran en el archivo se conservarán. El Excel original se guardará y verificará en Google Drive; Supabase conservará los registros de consulta. ¿Importar?`)) return;
     await runMutation(button, async () => {
       const result = await repository.importFile(file,imported,value=>document.getElementById('importProgress').textContent=value);
       if (result.requerimientos !== imported.reqs.length || result.documentos !== imported.docs.length) {
@@ -1541,7 +1541,7 @@ document.getElementById('fileImportar').addEventListener('change', async ev => {
       }
       pendingReqId = pendingDocId = null;
       cancelarEdicionReq(); cancelarEdicionDoc();
-      alert(`Importación completa y verificada: ${result.requerimientos} requerimientos y ${result.documentos} documentos guardados en línea.`);
+      alert(`Importación completa: Excel original verificado en Google Drive y ${result.requerimientos} requerimientos y ${result.documentos} documentos registrados en Supabase.`);
     });
   } catch (error) { alert(`No se pudo importar. ${readableError(error)}`); }
   finally { input.value = ''; document.getElementById('importProgress').textContent=''; setAvailability(); }
