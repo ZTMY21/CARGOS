@@ -62,7 +62,7 @@ Redirect requerido:
 
 `https://kardex-digital-santa-anita-git-preview-drive-archi-adff9e-ztmy1.vercel.app/api/drive-connect`
 
-El intento de registrar esta URL de retorno en Google Cloud fue rechazado por la revisión automática: requiere confirmación específica en el momento de cambiar una configuración OAuth sensible. No se guardó ese cambio; `redirectConfigured=true` en la API confirma solo la variable de Vercel, no su registro en Google.
+El solicitante confirmó específicamente este cambio OAuth el 31/10/2026. La URL de retorno se guardó en el cliente existente y una comprobación posterior en modo lectura mostró ambas URLs persistidas, incluida OAuth Playground. Se resolvió un campo URI obligatorio vacío que mantenía Guardar deshabilitado. No se crearon credenciales ni se cambiaron alcances o permisos. El bloqueo anterior de aprobación quedó resuelto. Falta guardar `GOOGLE_DRIVE_CLIENT_SECRET` en Vercel; la API sigue respondiendo HTTP 200 con `gatewayReady=true` y `connected=false`.
 
 Antes de producción se debe resolver el modo de prueba del consentimiento: Google limita a siete días los refresh tokens con alcance Drive en aplicaciones externas Testing. El alcance `drive.file` no permite leer automáticamente las copias históricas creadas por otro cliente OAuth: requiere selección explícita mediante Picker o cambios de propiedad de aplicación. Para la integración existente se conserva `drive` y se limita el acceso del backend a las carpetas autorizadas. No se ha aceptado consentimiento ni cambiado el modo de publicación sin la intervención específica del propietario.
 

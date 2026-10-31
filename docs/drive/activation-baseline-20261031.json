@@ -123,10 +123,24 @@
   },
   "oauthRedirectRegistration": {
     "requiredUri": "https://kardex-digital-santa-anita-git-preview-drive-archi-adff9e-ztmy1.vercel.app/api/drive-connect",
-    "registeredInGoogleVerified": false,
-    "changeApplied": false,
-    "autoReviewRejected": true,
-    "reason": "Action-time confirmation required for security-sensitive OAuth client configuration."
+    "registeredInGoogleVerified": true,
+    "changeApplied": true,
+    "autoReviewRejected": false,
+    "reason": "The requester explicitly approved this URI. Save succeeded; a separate read-only run subsequently returned both persisted URIs.",
+    "previousAttemptAutoReviewRejected": true,
+    "explicitUserConfirmationReceived": true,
+    "clientId": "537251247027-6qp2bp5pq65tuk8mhn4c2farq490bjtv.apps.googleusercontent.com",
+    "verifiedAt": "2026-10-31T19:15:33.566Z",
+    "savedRedirectUris": [
+      "https://developers.google.com/oauthplayground",
+      "https://kardex-digital-santa-anita-git-preview-drive-archi-adff9e-ztmy1.vercel.app/api/drive-connect"
+    ],
+    "saveRunId": "c3e57ad2-2992-4453-b4f4-fc18d7da55e8",
+    "readbackRunId": "dd5d46ef-8137-440c-b688-e15442194515",
+    "subsequentReadConfirmed": true,
+    "explicitReopenReported": false,
+    "screenshotAvailable": false,
+    "resolvedFormIssue": "An empty required URI row disabled Save; populating it enabled Save and returned to the clients list."
   },
   "edgeVersions": [
     {
@@ -158,5 +172,14 @@
     "history_rows": 13314,
     "archive_jobs": 2,
     "storage_bytes": "32082853"
+  },
+  "oauthFollowup": {
+    "clientSecretEntryPresentInVercel": false,
+    "previewConnectHttpStatus": 200,
+    "gatewayReady": true,
+    "connected": false,
+    "codeChanged": false,
+    "databaseChanged": false,
+    "productionPublished": false
   }
 }
