@@ -25,6 +25,6 @@ export default defineConfig(({ mode }) => {
       __SUPABASE_ANON_KEY__: JSON.stringify(key),
       __KARDEX_PREVIEW__: JSON.stringify(env.VERCEL_ENV !== 'production')
     },
-    build: { sourcemap: false }
+    build: { sourcemap: false, rolldownOptions: { input: { app: 'index.html', archive: 'drive-archive.html' } } }
   };
 });
