@@ -49,7 +49,7 @@ export function createConnectHandler({env=process.env,fetcher=fetch}={}){return 
   await drive.checkRoot();for(const category of ['scans','originals','backups','history','manifests'])await drive.folder(category);
   // Credentials are encrypted before persistence; no token is returned to a browser.
   await runtime(env,'set-oauth',{cipher:seal(JSON.stringify({refreshToken:tokens.refresh_token,clientId:env.GOOGLE_DRIVE_CLIENT_ID,ownerEmail:account.user.emailAddress,connectedAt:new Date().toISOString()}),env.KARDEX_DRIVE_SESSION_KEY)},null,fetcher);
-  res.statusCode=303;res.setHeader('Location','/drive-archive.html?drive_connected=1');return res.end();
+  res.statusCode=303;res.setHeader('Location','/?drive_connected=1');return res.end();
  }catch(error){clearCookie();return output(res,error instanceof ArchiveError?error.status:503,{error:error instanceof ArchiveError?error.code:'OAUTH_CONNECTION_FAILED'});}
 };}
 export default createConnectHandler();
