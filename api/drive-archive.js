@@ -27,13 +27,16 @@ export function createHandler({env=process.env,fetcher=fetch}={}){
       if(req.method==='GET'&&action==='status')return json(200,{...configuration(env),realMigrationEnabled:configuration(env).enabled,auditSnapshot:Object.fromEntries(['asOf','realFilesCopied','sha256Verified','copiedBytes','restoredTableRows','postgresFreedBytes','completeMigration'].map(k=>[k,audit[k]]))});
       // Preview-only, non-mutating provider probe. Never returns token, IDs, file names or account data.
       if(req.method==='GET'&&action==='health'){
-        if(env.VERCEL_ENV!=='preview')throw new ArchiveError('METHOD_NOT_ALLOWED',404);
+        if(env.VERCEL_ENV!=='preview'&&env.VERCEL_ENV!=='production')throw new ArchiveError('METHOD_NOT_ALLOWED',404);
         const cfg=configuration(env);
         if(!cfg.enabled)return json(503,{driveReady:false,code:cfg.reasons[0]||'ARCHIVE_DISABLED'});
         const healthDrive=new DriveClient(env,{fetcher});
         await healthDrive.checkRoot();
         await healthDrive.folder('originals');
         await healthDrive.folder('scans');
+        await healthDrive.folder('backups');
+        await healthDrive.folder('history');
+        await healthDrive.folder('manifests');
         return json(200,{driveReady:true,rootVerified:true,foldersVerified:true});
       }
       if(req.method==='POST'&&action==='demo')return json(200,await executeDemo());
