@@ -1,0 +1,86 @@
+{
+  "format": "kardex-drive-migration-manifest-v1",
+  "generatedAt": "2026-10-31T14:01:42.951Z",
+  "authorization": {
+    "providedBy": "requester",
+    "independentlyVerified": false,
+    "reference": "https://github.com/ZTMY21/CARGOS/pull/53#issuecomment-6543447924"
+  },
+  "destination": {
+    "email": "jaguliquidacion@gmail.com",
+    "rootFolderId": "15CIlN6SUjC4x5GAkwWKcA_vQap0_cN7W",
+    "folders": {
+      "scans": "1oEgycvzLZTnsyOlHH4MvxwHZBD03H5EY",
+      "originals": "1RiDq8y60McRRAqICAi6a-J_A5Gca0K4j",
+      "backups": "1gLpExm1HXXxD6bVXK19gzdiBWaWmfT39",
+      "history": "17lpnVEtrkLKcZw9epMrhmB0g8lKy5c9k",
+      "manifests": "1ftLwJeD74iZdUNnkiWbxS2MWP8W-qinI"
+    }
+  },
+  "originalDrive": {
+    "email": "juanalexis717@gmail.com",
+    "manifestFileId": "1OlkxHdNBduuE9Xaz0guW56rcGNNZP-_Y"
+  },
+  "entries": [
+    {
+      "driveFileId": "1E4wmCkdei32i6NEcLh4ztQaK8_fOz5u3",
+      "parentFolderId": "1RiDq8y60McRRAqICAi6a-J_A5Gca0K4j",
+      "input": {
+        "documentId": null,
+        "importId": "4d4c0f31-1a42-46b1-8ee7-8cb8c3df024d",
+        "sourceKey": "storage:respaldos-excel/d29b310c-e5be-498b-8bf9-0a78cfcc134c",
+        "sourceVersion": "2026-10-14T04:51:47.085Z",
+        "name": "Lista de Cargos 2021-2026(2).xlsm",
+        "mime": "application/vnd.ms-excel.sheet.macroenabled.12",
+        "category": "originals",
+        "size": 32082853,
+        "sha256": "b8faad0ca271740afb5d32bd8f1a97d05c6741b5785a1e80ef75692e0202ee85",
+        "modifiedAt": "2026-10-14T04:51:47.085Z"
+      },
+      "priorDriveFileId": "1dzwc2RikFSHaxLUoxFFrPhVJWfYHjDta",
+      "verification": {
+        "readBackFromNewDrive": true,
+        "sha256Matches": true,
+        "shared": false
+      }
+    },
+    {
+      "driveFileId": "1AcbLQ6gIfvhjWzNFKFxeeCNpFNiQOaHk",
+      "parentFolderId": "1gLpExm1HXXxD6bVXK19gzdiBWaWmfT39",
+      "input": {
+        "documentId": null,
+        "sourceKey": "postgres:private.kardex_documentos_backup_20261014",
+        "sourceVersion": "e4a3626d48690f40068cbc20a781ea4aba10fb7b8264ebba9828a6baf4bfb9f5",
+        "name": "kardex_documentos_backup_20261014-20261031.jsonl.gz.enc",
+        "mime": "application/octet-stream",
+        "category": "backups",
+        "size": 26479484,
+        "sha256": "4e258ad59aaec84315243d4c5f3923d321253adfdcb1c4d16d8e414da4500c9f",
+        "modifiedAt": "2026-10-31T13:01:21.563Z"
+      },
+      "priorDriveFileId": "1JZ7s3cgwMxgXhc0w1ikCge4Im9qlLyMW",
+      "verification": {
+        "readBackFromNewDrive": true,
+        "sha256Matches": true,
+        "previousIsolatedRestoreRows": 3485,
+        "shared": false
+      }
+    }
+  ],
+  "redundantBackupCopy": {
+    "driveFileId": "1FLxk9umULe9w7VCXM6m7bsZrKHRWKP1b",
+    "parentFolderId": "17lpnVEtrkLKcZw9epMrhmB0g8lKy5c9k",
+    "size": 26479484,
+    "sha256": "4e258ad59aaec84315243d4c5f3923d321253adfdcb1c4d16d8e414da4500c9f",
+    "purpose": "recovery_copy_only_do_not_adopt_as_second_logical_reference"
+  },
+  "originalManifestCopiedToNewDrive": "1GOMnKovBjW-_eqN-Hi_d_ONxFMmYOOw2",
+  "verifiedLogicalFiles": 2,
+  "totalLogicalBytes": 58562337,
+  "postgresFreedBytes": 47726592,
+  "completeDatabaseBackupVerified": false,
+  "applicationReferencesRecorded": 0,
+  "backendOAuthConnected": false,
+  "completeMigration": false,
+  "notes": "Manifiesto nuevo para destino jaguliquidacion. El manifiesto histórico copiado conserva IDs de la cuenta anterior; no utilizarlo para adopción en destino nuevo. No modificar referencias existentes en producción hasta verificar OAuth y operador."
+}
