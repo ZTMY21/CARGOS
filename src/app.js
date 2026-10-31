@@ -1335,7 +1335,7 @@ async function cargarDocParaEditar(id){
   populateCajaAsignadaOptions(d.cajaAsignada);
   document.getElementById('f_fEnvio').value = d.fEnvio || '';
   document.getElementById('f_sustento').value = d.sustento || '';
-  currentSustentoImagen = d.sustentoImagen || '';
+  currentSustentoImagen = d.sustentoImagen || d.driveImageJob || '';
   renderPreviewSustento();
   document.getElementById('f_usuario').value = d.usuario || '';
   document.getElementById('f_facturas').value = d.facturas || '';
@@ -1371,7 +1371,7 @@ function renderPreviewSustento(){
   const box = document.getElementById('previewSustento');
   if(currentSustentoImagen){
     box.innerHTML = `<div style="display:flex;align-items:center;gap:8px">
-      <img src="${currentSustentoImagen}" style="height:48px;border-radius:6px;border:1px solid var(--border)">
+      ${currentSustentoImagen.startsWith('drive-job:')?'<span>Imagen privada guardada en Google Drive</span>':`<img src="${currentSustentoImagen}" style="height:48px;border-radius:6px;border:1px solid var(--border)">`}
       <button type="button" class="danger" id="btnQuitarImagen">Quitar</button>
     </div>`;
     document.getElementById('btnQuitarImagen').addEventListener('click', ()=>{
