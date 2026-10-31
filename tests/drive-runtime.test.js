@@ -41,7 +41,7 @@ test('OAuth state is cookie-bound, one-use and never returns provider credential
  const start=await call({action:'start'}),state=new URL(start.headers.Location).searchParams.get('state');assert.equal(start.statusCode,303);assert.ok(start.headers['Set-Cookie'].includes('HttpOnly'));
  const denied=await call({state,code:'private-code'});assert.equal(denied.statusCode,400);assert.equal(exchanges,0);
  const next=await call({action:'start'}),id=new URL(next.headers.Location).searchParams.get('state'),cookie=next.headers['Set-Cookie'].split(';')[0];
- const connected=await call({state:id,code:'private-code'},cookie);assert.equal(connected.statusCode,303);assert.equal(exchanges,1);assert.equal(JSON.parse(unseal(encrypted,key)).refreshToken,'private-refresh');
+ const connected=await call({state:id,code:'private-code'},cookie);assert.equal(connected.statusCode,303);assert.equal(connected.headers.Location,'/?drive_connected=1');assert.equal(exchanges,1);assert.equal(JSON.parse(unseal(encrypted,key)).refreshToken,'private-refresh');
  assert.ok(!JSON.stringify(connected).includes('private-refresh'));assert.ok(!JSON.stringify(connected).includes('private-access'));assert.ok(!JSON.stringify(connected).includes('private-client-secret'));
  assert.equal((await call({state:id,code:'private-code'},cookie)).statusCode,400);
 });
