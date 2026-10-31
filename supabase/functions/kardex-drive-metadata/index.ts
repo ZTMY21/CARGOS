@@ -16,6 +16,28 @@ export async function handle(req:Request,env:{get(name:string):string|undefined}
   const rpc=async(name:string,payload:unknown)=>fetcher(base+'/rest/v1/rpc/'+name,{method:'POST',headers,body:JSON.stringify(payload),signal:AbortSignal.timeout(15000),redirect:'error'});
   const auth=await rpc('kardex_drive_runtime_access',{p_key_sha256:digest,p_action:'authorize'});
   if(!auth.ok)return json({error:'UNAUTHORIZED'},401);await auth.body?.cancel();
+  if(body.operation==='history-page'){
+    const {start,end,after,limit}=body;
+    if(!Number.isSafeInteger(start)||!Number.isSafeInteger(end)||!Number.isSafeInteger(after)||
+      !Number.isSafeInteger(limit)||start<1||end<start||end-start>500||limit<1||limit>100)
+      return json({error:'INVALID_HISTORY_RANGE'},400);
+    const r=await rpc('kardex_history_archive_page',{p_start:start,p_end:end,p_after:after,p_limit:limit});
+    if(!r.ok)return json({error:'HISTORY_READ_FAILED'},503);
+    return json(await r.json());
+  }
+  if(body.operation==='history-record'){
+    const {start,end,count,sha256,fileId,revisionId,bytes}=body;
+    if(!Number.isSafeInteger(start)||!Number.isSafeInteger(end)||end-start>500||end<start||
+      !Number.isSafeInteger(count)||count<1||!Number.isSafeInteger(bytes)||bytes<1||
+      typeof sha256!=='string'||!/^[0-9a-f]{64}$/.test(sha256)||typeof fileId!=='string'||
+      typeof revisionId!=='string')return json({error:'INVALID_ARCHIVE_RECORD'},400);
+    const r=await rpc('kardex_history_archive_record',{
+      p_start:start,p_end:end,p_count:count,p_sha256:sha256,
+      p_drive_file_id:fileId,p_revision_id:revisionId,p_compressed_bytes:bytes
+    });
+    if(!r.ok)return json({error:'HISTORY_RECORD_FAILED'},503);
+    return json(await r.json());
+  }
   if(body.operation==='runtime'){
    if(!['get-oauth','set-oauth','create-session','consume-session'].includes(body.action))return json({error:'INVALID_OPERATION'},400);
    const r=await rpc('kardex_drive_runtime_access',{p_key_sha256:digest,p_action:body.action,p_id:body.id??null,p_payload:body.payload??null});
