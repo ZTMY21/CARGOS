@@ -1,3 +1,13 @@
+# Actualización 31/10/2026 — importación Excel directa a Google Drive (Preview)
+
+**Estado actual verificado:** Google OAuth conectado (`connected=true`), API de archivo habilitada en Preview (`enabled=true`, `mode=connected-copy-only`), última compilación Vercel READY, sin publicación en producción. La rama implementa la ruta Drive-first de `Importar desde Excel`, pero **todavía no se ha probado una carga real autenticada desde el Kardex**. No existe aprobación para eliminar copias ni se ha cambiado el origen activo de los Google Sheets.
+
+En `src/repository.js`, la importación archiva primero el Excel en Drive con carga por bloques e idempotencia, exige relectura SHA-256 confirmada por el backend (`backendVerified=true`) y solo entonces llama `kardex_begin_drive_import`. Este RPC fue creado de forma aditiva y aplicado a Supabase; verifica identidad del administrador, archivo original y SHA-256, y conserva `drive://<id>` en `importaciones.storage_path`. La función original `kardex_begin_import` no se cambió y producción conserva su flujo previo. No se permite un fallback silencioso a Storage.
+
+Pendiente antes de publicar: prueba real de carga/descarga con sesión administrativa, conciliación de los dos archivos migrados (`backendVerified=false` hasta comprobarlos desde la API), configurar credenciales y callback de **producción** exclusivamente para publicación, validar reportes/búsquedas, cambiar y verificar triggers de las fuentes nuevas. La bandera `sourceMutationsEnabled=false` y el proyecto de producción se mantienen sin cambios. El código no convierte Drive en una base SQL: PostgreSQL sigue almacenando metadatos y registros para búsquedas/Power BI.
+
+---
+
 # Archivo documental — estado verificable del PR #53
 
 La migración no está finalizada. Esta actualización continúa el trabajo existente y prepara la conexión real de Vercel, conserva las referencias y evita recopiarlas. La cuenta definitiva es **jaguliquidacion@gmail.com**. La autorización del solicitante para esa cuenta se acepta como declaración aportada por él; no se afirma haber verificado un documento institucional adicional.
