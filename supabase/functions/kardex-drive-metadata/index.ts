@@ -16,6 +16,11 @@ export async function handle(req:Request,env:{get(name:string):string|undefined}
   const rpc=async(name:string,payload:unknown)=>fetcher(base+'/rest/v1/rpc/'+name,{method:'POST',headers,body:JSON.stringify(payload),signal:AbortSignal.timeout(15000),redirect:'error'});
   const auth=await rpc('kardex_drive_runtime_access',{p_key_sha256:digest,p_action:'authorize'});
   if(!auth.ok)return json({error:'UNAUTHORIZED'},401);await auth.body?.cancel();
+  if(body.operation==='history-manifest'){
+    const r=await rpc('kardex_history_archive_manifest',{});
+    if(!r.ok)return json({error:'MANIFEST_READ_FAILED'},503);
+    return json(await r.json());
+  }
   if(body.operation==='history-page'){
     const {start,end,after,limit}=body;
     if(!Number.isSafeInteger(start)||!Number.isSafeInteger(end)||!Number.isSafeInteger(after)||
