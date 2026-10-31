@@ -35,14 +35,21 @@ export function createHandler({env=process.env,fetcher=fetch}={}){
       store||=new ArchiveRepository(env,{fetcher});drive||=new DriveClient(env,{fetcher});service||=new ArchiveService(store,drive,env.KARDEX_DRIVE_SESSION_KEY);
       if(action==='resolve')return json(200,await actor.resolve(req.query.kardex));
       if(action==='start'||action==='adopt'){const raw=await body(req),input=validateInput(raw);const isDirectExcelOriginal=input.documentId===null&&input.importId===undefined&&input.category==='originals'&&/^excel-import:[0-9a-f-]{36}:[a-f0-9]{64}$/i.test(input.sourceKey);
-        if((input.documentId===null&&!isDirectExcelOriginal)||['backups','manifests'].includes(input.category))actor.backup();if(input.documentId!==null && !(input.category==='scans' && input.sourceKey==='sustento:'+input.documentId))await actor.document(input.documentId);if(input.importId){const source=await actor.importSource(input.importId);if(input.category==='originals'&&source.sha256!==input.sha256)throw new ArchiveError('IMPORT_CHECKSUM_MISMATCH',409);}return json(200,action==='adopt'?await service.adopt(input,raw.driveFileId):await service.start(input));}
+        const isStagedEvidence=input.documentId===null&&input.importId===undefined&&input.category==='scans'&&/^sustento:[0-9a-f-]{36}$/i.test(input.sourceKey);
+        if((input.documentId===null&&!isDirectExcelOriginal&&!isStagedEvidence)||['backups','manifests'].includes(input.category))actor.backup();
+        if(input.documentId!==null)await actor.document(input.documentId);if(input.importId){const source=await actor.importSource(input.importId);if(input.category==='originals'&&source.sha256!==input.sha256)throw new ArchiveError('IMPORT_CHECKSUM_MISMATCH',409);}return json(200,action==='adopt'?await service.adopt(input,raw.driveFileId):await service.start(input));}
       if(action==='list'||action==='manifest'){
         const doc=req.query.documentId??null;if(doc===null)actor.backup();else{if(typeof doc!=='string'||!/^[-a-f0-9]{36}$/i.test(doc))throw new ArchiveError('INVALID_DOCUMENT');await actor.document(doc);}
         if(action==='manifest'){res.setHeader('Content-Type','application/x-ndjson');res.setHeader('Content-Disposition','attachment; filename="kardex-drive-manifest.ndjson"');res.write(JSON.stringify({version:1,generatedAt:new Date().toISOString()})+'\n');for await(const page of store.pages(doc))for(const job of page)res.write(JSON.stringify(safeJob(job))+'\n');return res.end();}
         return json(200,{version:1,generatedAt:new Date().toISOString(),files:(await store.list(doc)).map(safeJob)});
       }
       if(!id)throw new ArchiveError('INVALID_JOB');const job=await store.get(id);const isDirectExcelJob=job.documentId===null&&job.importId==null&&job.category==='originals'&&/^excel-import:[0-9a-f-]{36}:[a-f0-9]{64}$/i.test(job.sourceKey||'');
-      if((job.documentId===null&&!isDirectExcelJob)||['backups','manifests'].includes(job.category))actor.backup();if(job.documentId!==null && !( !read && job.category==='scans' && job.sourceKey==='sustento:'+job.documentId))await actor.document(job.documentId);if(job.importId)await actor.importSource(job.importId);
+      const isStagedEvidenceJob=job.documentId===null&&job.importId==null&&job.category==='scans'&&/^sustento:[0-9a-f-]{36}$/i.test(job.sourceKey||'');
+      if((job.documentId===null&&!isDirectExcelJob&&!isStagedEvidenceJob)||['backups','manifests'].includes(job.category))actor.backup();
+      if(isStagedEvidenceJob){
+        if(read)await actor.document(job.sourceKey.slice('sustento:'.length));
+      }else if(job.documentId!==null)await actor.document(job.documentId);
+      if(job.importId)await actor.importSource(job.importId);
       if(action==='chunk')return json(200,await service.chunk(id,Number(req.query.offset),await body(req,true)));
       if(action==='finish')return json(200,await service.finish(id));
       if(action==='reconcile')return json(200,await service.reconcile(id));
