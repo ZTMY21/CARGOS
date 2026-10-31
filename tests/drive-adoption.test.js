@@ -16,7 +16,7 @@ test('adopting an existing copy reads a revision and never uploads or replaces i
  const drive=new DriveClient({GOOGLE_DRIVE_ROOT_FOLDER_ID:'approved-root',GOOGLE_DRIVE_OWNER_EMAIL:'owner@example.test',GOOGLE_DRIVE_FOLDER_IDS_JSON:JSON.stringify({history:'approved-history'})},{fetcher:async(url,opts={})=>{
   requests.push([url,opts.method||'GET']);
   if(url.includes('oauth2.googleapis.com'))return Response.json({access_token:'test-only',expires_in:3600});
-  if(url.includes('/revisions/revision-1')){mediaReads++;return new Response(corrupt?Buffer.from('corrupt'):bytes);}
+  if(url.includes('/revisions/revision-1')){if(opts.method==='PATCH')return Response.json({id:'revision-1',keepForever:true});mediaReads++;return new Response(corrupt?Buffer.from('corrupt'):bytes);}
   if(url.includes('/approved-root'))return Response.json({mimeType:'application/vnd.google-apps.folder',owners:[{emailAddress:'owner@example.test'}],capabilities:{canAddChildren:true},permissions:[{type:'user'}]});
   if(url.includes('/approved-history'))return Response.json({mimeType:'application/vnd.google-apps.folder',parents:['approved-root']});
   return Response.json({id:'existing-drive-file',name:input.name,mimeType:input.mime,size:String(bytes.length),parents:['approved-history'],headRevisionId:'revision-1'});
@@ -26,6 +26,6 @@ test('adopting an existing copy reads a revision and never uploads or replaces i
  const again=await service.adopt(input,'existing-drive-file');assert.equal(first.id,again.id);assert.equal(store.rows.size,1);
  await assert.rejects(service.adopt(input,'different-drive-file'),{code:'DRIVE_REFERENCE_CONFLICT'});
  assert.equal((await store.get(first.id)).status,'verified');assert.equal(mediaReads,2);
- assert.ok(requests.filter(([u])=>u.includes('www.googleapis.com')).every(([u,m])=>m==='GET'&&!u.includes('upload/')));
+ assert.ok(requests.filter(([u])=>u.includes('www.googleapis.com')).every(([u,m])=>!u.includes('upload/')&&(m==='GET'||(m==='PATCH'&&u.includes('/revisions/revision-1?fields=id,keepForever')))));
  corrupt=true;await assert.rejects(service.adopt({...input,sourceVersion:'2'},'existing-drive-file'),{code:'CHECKSUM_MISMATCH'});assert.notEqual([...store.rows.values()].at(-1).status,'verified');
 });

@@ -21,6 +21,12 @@ test('archive: full isolated flow preserves repeated rows and separate document 
 test('archive: same logical source is idempotent; a new version creates another reference',async()=>{
  const {service,drive}=setup();const a=await upload(service),b=await service.start(demoInput),c=await service.start({...demoInput,sourceVersion:'2'});assert.equal(a.id,b.id);assert.notEqual(a.id,c.id);assert.equal(drive.created,2);
 });
+test('archive: external verification cannot enable download without backend readback',async()=>{
+ const {service,store,drive}=setup(),job=await upload(service),legacy=store.rows.get(job.id);
+ legacy.backendVerified=false;await assert.rejects(service.download(job.id),{code:'FILE_NOT_VERIFIED'});
+ const verified=await service.start(demoInput);assert.equal(verified.backendVerified,true);assert.equal(verified.id,job.id);assert.equal(drive.created,1);
+ assert.equal((await service.download(job.id)).job.backendVerified,true);
+});
 test('archive: interrupted upload retains source and can resume without another object',async()=>{
  const {service,drive,store}=setup();const j=await service.start(demoInput);drive.failNextChunk=true;await assert.rejects(service.chunk(j.id,0,demoBytes),{code:'DRIVE_NETWORK_ERROR'});assert.notEqual((await store.get(j.id)).status,'verified');await service.chunk(j.id,0,demoBytes);assert.equal((await service.finish(j.id)).status,'verified');assert.equal(drive.created,1);assert.equal(sha256(demoBytes),demoInput.sha256);
 });
@@ -117,7 +123,7 @@ test('archive: HTTP upload → SQL reference → Drive readback → authenticate
      bytes=Buffer.concat([bytes,Buffer.from(o.body)]);return Response.json({id:'fixture-file'});
     }
     if(p.endsWith('/fixture-file'))return remote&&bytes.length?Response.json({...remote,size:String(bytes.length),headRevisionId:'fixture-revision'}):new Response('',{status:404});
-    if(p.endsWith('/revisions/fixture-revision'))return new Response(bytes);
+    if(p.endsWith('/revisions/fixture-revision'))return o.method==='PATCH'?Response.json({keepForever:true}):new Response(bytes);
    }
    throw Error('Unexpected fixture request');
   };

@@ -1,0 +1,67 @@
+{
+  "observedAt": "2026-10-31T17:38:21.160Z",
+  "productionCommit": "e8e29b0521b88be1236e7919e7d881355f3bb353",
+  "prInitialHead": "247f4389cce62e4327d037ca3d4a832572682314",
+  "postgresBytesBefore": 413210291,
+  "storageBytesBefore": 32082853,
+  "documentCount": 3411,
+  "historyCount": 13314,
+  "archiveJobCount": 2,
+  "documentRowsetSha256": "45a1d4ad1db69a754560d29273b67794e78f025f93d4a46776b849f0e6affd7d",
+  "historyRowsetSha256": "655f173d65252d317c5f57e5a80b4f9ada212387eae01089b3a2772a23b59091",
+  "sheetComparisons": [
+    {
+      "source": "cargos_old",
+      "target": "cargos_new",
+      "sourceRows": 1426,
+      "targetRows": 1426,
+      "equal": true,
+      "changedRowCount": 0,
+      "changedRows": []
+    },
+    {
+      "source": "im_old",
+      "target": "im_new",
+      "sourceRows": 50,
+      "targetRows": 50,
+      "equal": true,
+      "changedRowCount": 0,
+      "changedRows": []
+    }
+  ],
+  "previousSavingsNotCountedAsNew": true,
+  "sourceCutoverPerformed": false,
+  "postgresBytesAfterMetadataPreparation": 413357747,
+  "storageBytesAfter": 32082853,
+  "newFilesTransferred": 0,
+  "newBackendVerifiedFiles": 0,
+  "newBytesTransferred": 0,
+  "newPostgresFreedBytes": 0,
+  "quotaFreedPercent": 0,
+  "documentRowsetAfterSha256": "45a1d4ad1db69a754560d29273b67794e78f025f93d4a46776b849f0e6affd7d",
+  "historyRowsetAfterSha256": "655f173d65252d317c5f57e5a80b4f9ada212387eae01089b3a2772a23b59091",
+  "rowsetMethod": "SHA256(UTF8(string_agg(id::text || colon || SHA256(to_jsonb(row)::text), LF order by id::text))), no trailing LF",
+  "imRealPayloadSha256": "4b546a7548d7ca1275177c78de2fbeec2cb78bb9bde8d479c6413a5e24c2fab9",
+  "imPayloadMatchesPreviousSource": true,
+  "imRows": 49,
+  "imCargoCount": 106,
+  "imLastRecordedSync": "2026-10-22T01:56:39.322911Z",
+  "targetedTests": {
+    "pass": 30,
+    "fail": 0
+  },
+  "regressionTests": {
+    "total": 166,
+    "pass": 147,
+    "fail": 19,
+    "baselineTotal": 136,
+    "baselinePass": 117,
+    "baselineFail": 19,
+    "newFailingTestNames": []
+  },
+  "buildPassed": true,
+  "fullDatabaseRestoreVerified": false,
+  "backendOAuthConnected": false,
+  "backendClientSecretPresent": false,
+  "criticalLiveChecksComplete": false
+}

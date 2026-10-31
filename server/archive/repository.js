@@ -1,8 +1,10 @@
 import {randomUUID} from 'node:crypto';
 import {ArchiveError} from './security.js';
+import {gateway} from './runtime.js';
 export class ArchiveRepository {
   constructor(env,{fetcher=fetch}={}){this.env=env;this.fetch=fetcher;}
   async request(path,options={}){
+    if(this.env.KARDEX_DRIVE_METADATA_KEY)return gateway(this.env,{operation:'metadata',path,method:options.method||'GET',payload:options.body?JSON.parse(options.body):undefined},this.fetch);
     const r=await this.fetch(this.env.SUPABASE_URL+'/rest/v1/'+path,{...options,headers:{apikey:this.env.SUPABASE_SERVICE_ROLE_KEY,Authorization:'Bearer '+this.env.SUPABASE_SERVICE_ROLE_KEY,'Content-Type':'application/json',...options.headers},signal:AbortSignal.timeout(15000),redirect:'error'});
     if(!r.ok)throw new ArchiveError(r.status===404?'ARCHIVE_SCHEMA_PENDING':'ARCHIVE_DATABASE_ERROR',503);
     if(r.status===204)return null;return r.json();
@@ -18,7 +20,7 @@ export class ArchiveRepository {
   async list(documentId){const rows=[];for await(const page of this.pages(documentId))rows.push(...page);return rows;}
   async claim(id,owner){const r=await this.request('rpc/kardex_drive_claim',{method:'POST',body:JSON.stringify({p_id:id,p_owner:owner})});if(!r)throw new ArchiveError('TRANSFER_BUSY',409);return this.unpack(r);}
   async save(job,owner,release=true){
-    const fields=['status','offset','driveFileId','sessionCipher','revisionId','verifiedAt','errorCode','adopted'];
+    const fields=['status','offset','driveFileId','sessionCipher','revisionId','verifiedAt','errorCode','adopted','backendVerified'];
     const patch=Object.fromEntries(fields.filter(k=>job[k]!==undefined).map(k=>[k,job[k]]));
     const r=await this.request('rpc/kardex_drive_save',{method:'POST',body:JSON.stringify({p_id:job.id,p_owner:owner,p_patch:patch,p_release:release})});if(!r)throw new ArchiveError('TRANSFER_LEASE_EXPIRED',409);return this.unpack(r);
   }

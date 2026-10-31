@@ -31,7 +31,9 @@ export function configuration(env=process.env){
   const isolated=project!=='uhjwhamzjxhjqlrhgxho'&&project===env.KARDEX_DRIVE_SANDBOX_PROJECT_ID;
   const approvedCopy=env.VERCEL_ENV==='preview'&&env.VERCEL_GIT_COMMIT_REF==='preview/drive-archive-20261031'&&project===env.KARDEX_DRIVE_REAL_COPY_PROJECT_ID&&Boolean(env.KARDEX_DRIVE_REAL_COPY_APPROVAL_REF);
   if(env.VERCEL_ENV!=='production'&&!isolated&&!approvedCopy)reasons.push(project==='uhjwhamzjxhjqlrhgxho'?'REAL_COPY_METADATA_APPROVAL_REQUIRED':'ISOLATED_DATABASE_REQUIRED');
-  for(const name of ['SUPABASE_SERVICE_ROLE_KEY','GOOGLE_DRIVE_CLIENT_ID','GOOGLE_DRIVE_CLIENT_SECRET','GOOGLE_DRIVE_REFRESH_TOKEN','GOOGLE_DRIVE_ROOT_FOLDER_ID','GOOGLE_DRIVE_OWNER_EMAIL','KARDEX_DRIVE_SESSION_KEY','GOOGLE_DRIVE_FOLDER_IDS_JSON'])if(!env[name])reasons.push('BACKEND_CONFIGURATION_PENDING');
+  if(!env.SUPABASE_SERVICE_ROLE_KEY&&!env.KARDEX_DRIVE_METADATA_KEY)reasons.push('BACKEND_CONFIGURATION_PENDING');
+  if(!env.GOOGLE_DRIVE_REFRESH_TOKEN&&env.KARDEX_DRIVE_OAUTH_STORAGE!=='encrypted-runtime')reasons.push('BACKEND_CONFIGURATION_PENDING');
+  for(const name of ['GOOGLE_DRIVE_CLIENT_ID','GOOGLE_DRIVE_CLIENT_SECRET','GOOGLE_DRIVE_ROOT_FOLDER_ID','GOOGLE_DRIVE_OWNER_EMAIL','KARDEX_DRIVE_SESSION_KEY','GOOGLE_DRIVE_FOLDER_IDS_JSON'])if(!env[name])reasons.push('BACKEND_CONFIGURATION_PENDING');
   if(env.GOOGLE_DRIVE_FOLDER_IDS_JSON){try{const folders=JSON.parse(env.GOOGLE_DRIVE_FOLDER_IDS_JSON);if(Object.keys(categories).some(k=>!/^[-\w]{10,200}$/.test(folders[k]||''))||new Set(Object.values(folders)).size!==5)reasons.push('DRIVE_FOLDERS_NOT_CONFIGURED');}catch{reasons.push('DRIVE_FOLDERS_NOT_CONFIGURED');}}
   if(env.KARDEX_DRIVE_SESSION_KEY&&Buffer.from(env.KARDEX_DRIVE_SESSION_KEY,'base64').length!==32)reasons.push('INVALID_SESSION_KEY');
   return {enabled:reasons.length===0,reasons:[...new Set(reasons)],mode:reasons.length?'pending-activation':approvedCopy?'connected-copy-only':'connected',sourceMutationsEnabled:false};
@@ -46,6 +48,6 @@ export function unseal(value,key){
   cipher.setAuthTag(data.subarray(12,28));return Buffer.concat([cipher.update(data.subarray(28)),cipher.final()]).toString('utf8');
 }
 export function safeJob(job){
-  const keys=['id','documentId','importId','sourceKey','sourceVersion','name','mime','size','sha256','category','modifiedAt','status','offset','driveFileId','revisionId','verifiedAt','errorCode','adopted'];
+  const keys=['id','documentId','importId','sourceKey','sourceVersion','name','mime','size','sha256','category','modifiedAt','status','offset','driveFileId','revisionId','verifiedAt','errorCode','adopted','backendVerified'];
   return Object.fromEntries(keys.filter(k=>job[k]!==undefined).map(k=>[k,job[k]]));
 }

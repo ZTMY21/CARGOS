@@ -1,11 +1,18 @@
 import {createHash} from 'node:crypto';
-import {ArchiveError,categories} from './security.js';
+import {ArchiveError,categories,unseal} from './security.js';
+import {runtime} from './runtime.js';
 const API='https://www.googleapis.com/drive/v3';
 export class DriveClient {
   constructor(env,{fetcher=fetch,sleep=ms=>new Promise(r=>setTimeout(r,ms))}={}){this.env=env;this.fetch=fetcher;this.sleep=sleep;}
   async token(){
     if(this.cached&&this.cached.until>Date.now())return this.cached.token;
-    const r=await this.fetch('https://oauth2.googleapis.com/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({client_id:this.env.GOOGLE_DRIVE_CLIENT_ID,client_secret:this.env.GOOGLE_DRIVE_CLIENT_SECRET,refresh_token:this.env.GOOGLE_DRIVE_REFRESH_TOKEN,grant_type:'refresh_token'}),signal:AbortSignal.timeout(20000),redirect:'error'});
+    let refresh=this.env.GOOGLE_DRIVE_REFRESH_TOKEN;
+    if(!refresh&&this.env.KARDEX_DRIVE_OAUTH_STORAGE==='encrypted-runtime'){
+      const saved=await runtime(this.env,'get-oauth',null,null,this.fetch);if(!saved?.cipher)throw new ArchiveError('DRIVE_OAUTH_CONSENT_PENDING',503);
+      const secret=JSON.parse(unseal(saved.cipher,this.env.KARDEX_DRIVE_SESSION_KEY));
+      if(secret.clientId!==this.env.GOOGLE_DRIVE_CLIENT_ID||secret.ownerEmail!==this.env.GOOGLE_DRIVE_OWNER_EMAIL)throw new ArchiveError('DRIVE_OAUTH_ACCOUNT_MISMATCH',503);refresh=secret.refreshToken;
+    }
+    const r=await this.fetch('https://oauth2.googleapis.com/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({client_id:this.env.GOOGLE_DRIVE_CLIENT_ID,client_secret:this.env.GOOGLE_DRIVE_CLIENT_SECRET,refresh_token:refresh,grant_type:'refresh_token'}),signal:AbortSignal.timeout(20000),redirect:'error'});
     if(!r.ok)throw new ArchiveError('DRIVE_AUTH_FAILED',503);
     const d=await r.json();if(!d.access_token)throw new ArchiveError('DRIVE_AUTH_FAILED',503);
     this.cached={token:d.access_token,until:Date.now()+Math.max(0,(Number(d.expires_in)||300)-60)*1000};return d.access_token;
@@ -30,8 +37,8 @@ export class DriveClient {
   async folder(category){
     let folders;try{folders=JSON.parse(this.env.GOOGLE_DRIVE_FOLDER_IDS_JSON||'{}');}catch{throw new ArchiveError('DRIVE_FOLDERS_NOT_CONFIGURED',503);}
     const id=folders[category];if(!/^[\w-]{10,200}$/.test(id||''))throw new ArchiveError('DRIVE_FOLDERS_NOT_CONFIGURED',503);
-    const m=await (await this.request(`${API}/files/${id}?fields=id,mimeType,parents,trashed&supportsAllDrives=true`)).json();
-    if(m.trashed||m.mimeType!=='application/vnd.google-apps.folder'||!m.parents?.includes(this.env.GOOGLE_DRIVE_ROOT_FOLDER_ID))throw new ArchiveError('DRIVE_FOLDER_MISMATCH',403);
+    const m=await (await this.request(`${API}/files/${id}?fields=id,mimeType,parents,trashed,capabilities(canAddChildren),permissions(type)&supportsAllDrives=true`)).json();
+    if(m.trashed||m.mimeType!=='application/vnd.google-apps.folder'||!m.parents?.includes(this.env.GOOGLE_DRIVE_ROOT_FOLDER_ID)||m.capabilities?.canAddChildren===false||m.permissions?.some(p=>p.type==='anyone'))throw new ArchiveError('DRIVE_FOLDER_MISMATCH',403);
     return id;
   }
   async allocate(){const d=await (await this.request(`${API}/files/generateIds?count=1&space=drive`)).json();return d.ids[0];}
@@ -55,12 +62,19 @@ export class DriveClient {
     if(!revision)throw new ArchiveError('UNVERIFIED_REVISION',409);
     return this.request(`${API}/files/${encodeURIComponent(id)}/revisions/${encodeURIComponent(revision)}?alt=media`);
   }
+  async retainRevision(id,revision){
+    const r=await this.request(`${API}/files/${encodeURIComponent(id)}/revisions/${encodeURIComponent(revision)}?fields=id,keepForever`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({keepForever:true})});
+    if((await r.json()).keepForever!==true)throw new ArchiveError('REVISION_RETENTION_FAILED',503);
+  }
   async verify(job){
     await this.checkRoot();
     const m=await this.metadata(job.driveFileId);
     const identityMatches=job.adopted?m.name===job.name&&m.mimeType?.toLowerCase()===job.mime.toLowerCase():m.appProperties?.kardexKey===job.key;
     if(m.trashed||Number(m.size)!==job.size||!identityMatches||!m.headRevisionId)throw new ArchiveError('DRIVE_METADATA_MISMATCH',409);
     const parent=await this.folder(job.category);if(!m.parents?.includes(parent))throw new ArchiveError('DRIVE_PARENT_MISMATCH',409);
+    // Drive requires retained binary revisions for revision-specific downloads.
+    // This changes retention metadata only, never the bytes or sharing ACL.
+    await this.retainRevision(job.driveFileId,m.headRevisionId);
     const r=await this.media(job.driveFileId,m.headRevisionId),hash=createHash('sha256');let size=0;
     for await(const chunk of r.body){size+=chunk.length;hash.update(chunk);}
     if(size!==job.size||hash.digest('hex')!==job.sha256)throw new ArchiveError('CHECKSUM_MISMATCH',409);

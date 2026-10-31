@@ -4,12 +4,10 @@ import { KardexRepository, reqFromDb, docFromDb } from './repository.js';
 import { buildCargoWorkbook, buildExistenciasReport, serializeExistenciasReport, parseWorkbook } from './excel-api.js';
 import { highlightMatch, normalizeSearch, filterDocuments, filterRequirements, invoiceSearchPresentation, assignedBoxCode } from './search.js';
 import './connection.css';
-import './admin-ui.css';
 import { createIdleSession } from './idle-session.js';
 import { cargoYear, locationLabel, groupsForCodes } from './cargo-details.js';
 import { summarizeCreatedCargos } from './monthly-created-summary.js';
 import { renderCargoLineChart } from './cargo-line-chart.js';
-import { createCreatedDashboard } from './created-dashboard.js';
 import { summarizeShippedBoxes } from './im-shipped-summary.js';
 import { renderImBarChart } from './im-bar-chart.js';
 import { cargoExpiryGroups, formatCargoDuration } from './cargo-expiry.js';
@@ -29,8 +27,6 @@ const idleSession = createIdleSession({window, onExpire: async()=>{
 }});
 let googleSyncEnabled=true;
 let activeWorkspaceTab='resumen';
-let activeSidebarAction='';
-const renderCreatedDashboard = createCreatedDashboard();
 let appReady = false, isAdmin = false, mutationBusy = false, channelReady = false;
 let adminRequestStatus = null;
 let adminRequestsTimer = null, adminRequestsEpoch = 0;
@@ -105,11 +101,6 @@ function fetchPreviousCargos(rows){
 let currentPage = 0;
 let expiryGroups = {today:'', overdue:[], upcoming:[], unknown:[]};
 let activeExpiryGroup = null, expiryPage = 0, expiryReturnButton = '';
-// Filtros independientes del nuevo módulo; no alteran las búsquedas generales.
-let expiryWorkspaceView='all', expiryWorkspacePage=0, expiryChartYear='2026', expiryChartMonth='all';
-const EXPIRY_WORKSPACE_PAGE_SIZE=15;
-let historySelectedYear='2026',historyPage=0;
-const HISTORY_PAGE_SIZE=15;
 let preparedImRows = [], preparedImFetchEpoch = 0;
 let preparedImSummary = null, preparedImSummaryEpoch = 0;
 let requestedIMRows = [], requestedIMData = [], requestedIMError = '', requestedIMFetchEpoch = 0;
@@ -117,8 +108,8 @@ let requestedIMLoaded = false;
 const requestedDemo = new URLSearchParams(window.location.search).get('demo-solicitudes') === '1'
   && /-ztmy1\.vercel\.app$/i.test(window.location.hostname)
   && !['kardex-digital-santa-anita-ztmy1.vercel.app','kardex-digital-santa-anita-git-main-ztmy1.vercel.app'].includes(window.location.hostname);
-// Rama de validación del menú: bloquear mutaciones aunque cambie el alias de Vercel.
-const isPreview = __KARDEX_PREVIEW__;
+const isPreview = /-ztmy1\.vercel\.app$/i.test(window.location.hostname)
+  && !['kardex-digital-santa-anita-ztmy1.vercel.app','kardex-digital-santa-anita-git-main-ztmy1.vercel.app'].includes(window.location.hostname);
 let appliedFilters = {query:'',state:'',type:'',location:'',year:'',invoiceExact:false};
 const browseOrder = new Map();
 function showRandomCargos(filters=appliedFilters) {
@@ -202,39 +193,15 @@ function message(id, value, error = false) {
   node.style.color = error ? 'var(--red)' : 'var(--green)';
 }
 function setStatus(value, state = '') {
-  const status=document.getElementById('connectionStatus');
-  status.textContent=value;
-  // Se conserva el mensaje completo de conexión aunque la cabecera sea compacta.
-  status.title=value;
+  document.getElementById('connectionStatus').textContent = value;
   document.getElementById('connectionDot').className = `connection-dot ${state}`;
 }
 // Navegación entre apartados sin desmontar formularios ni desconectar Supabase.
 const WORKSPACE_SECTIONS={
   resumen:'grp-resumen',
-  control:'grp-resumen',
-  'control-detalle':'grp-resumen',
-  iron:'grp-resumen',
-  'iron-cajas':'grp-resumen',
-  historicos:'grp-resumen',
   requerimientos:'grp-requerimientos',
   existencias:'grp-existencias',
-  solicitudes:'grp-solicitudes',
-  sync:'googleSyncPanel',
-  reportes:'sidebarReportsPanel'
-};
-const SUMMARY_VIEWS = new Set(['resumen','control','control-detalle','iron','iron-cajas','historicos']);
-const SECTION_COPY={
-  resumen:['DASHBOARDS','Cargos realizados','Movimiento mensual y comparación entre años.'],
-  control:['DASHBOARDS','Vencimientos','Estado de cargos pendientes y vencimientos por mes.'],
-  'control-detalle':['CONTROL DOCUMENTAL','Cargos pendientes','Consulta y seguimiento de cargos por enviar.'],
-  historicos:['CONTROL DOCUMENTAL','Histórico documental','Cargos y registros originales por año.'],
-  iron:['IRON MOUNTAIN','Envíos','Cajas enviadas por mes y año.'],
-  'iron-cajas':['IRON MOUNTAIN','Gestión y seguimiento de cajas','Preparación, solicitudes e histórico de envíos.'],
-  requerimientos:['GESTIÓN','Requerimientos','Solicitudes, recepción y devolución de cajas.'],
-  existencias:['CONSULTA DOCUMENTAL','Existencias','Busca cargos, facturas, guías o cajas.'],
-  sync:['SISTEMA','Actividad y sincronización','Estado de conexión, últimos movimientos y resguardo.'],
-  reportes:['DESCARGAS','Reportes y descargas','Reporte completo y exportación individual en Excel.'],
-  solicitudes:['ADMINISTRACIÓN','Usuarios y accesos','Solicitudes de cuentas administrativas.']
+  solicitudes:'grp-solicitudes'
 };
 function setAdminRequestBadge(count) {
   const valid=Number.isSafeInteger(count) && count>=0;
@@ -248,64 +215,9 @@ function setAdminRequestBadge(count) {
     ? `Solicitudes de Cuentas Adm.: ${total} ${total===1?'pendiente':'pendientes'}. Abrir solicitudes`
     : 'Solicitudes de Cuentas Adm. sin consultar. Abrir solicitudes');
 }
-function closeSidebarDrawer(){
-  document.getElementById('appShell').classList.remove('sidebar-open');
-  document.getElementById('sidebarScrim').hidden=true;
-  document.getElementById('sidebarMenuToggle').setAttribute('aria-expanded','false');
-}
-function updateSidebarSelection(){
-  const sidebar=document.getElementById('kardexSidebar');
-  if(!sidebar)return;
-  for(const button of sidebar.querySelectorAll('button[data-sidebar-view],button[data-sidebar-action]')){
-    const selected=button.dataset.sidebarAction
-      ? button.dataset.sidebarAction===activeSidebarAction
-      : !activeSidebarAction && button.dataset.sidebarView===activeWorkspaceTab;
-    if(selected)button.setAttribute('aria-current','page');
-    else button.removeAttribute('aria-current');
-  }
-}
 function updateWorkspaceVisibility() {
   const adminReady=appReady && isAdmin;
-  const showSync=adminReady && activeWorkspaceTab==='sync';
-  document.getElementById('appShell').dataset.module=activeWorkspaceTab;
-  document.getElementById('documentExpiryWorkspace').hidden=
-    !adminReady || activeWorkspaceTab!=='control';
-  document.getElementById('documentExpiryDetails').hidden=
-    !adminReady || activeWorkspaceTab!=='control-detalle';
-  document.getElementById('documentHistoryWorkspace').hidden=
-    !adminReady || activeWorkspaceTab!=='historicos';
-  document.getElementById('imShippingDashboard').hidden=
-    !adminReady || activeWorkspaceTab!=='iron';
-  document.getElementById('imBoxesWorkspace').hidden=
-    !adminReady || activeWorkspaceTab!=='iron-cajas';
-  // Miga de navegación informativa; sin modificar la sección seleccionada.
-  const breadcrumbs={
-    resumen:'Dashboard de Cargos Realizados',control:'Dashboard de Vencimientos',
-    'control-detalle':'Detalle de Cargos Pendientes',
-    historicos:'Histórico documental',iron:'Dashboard de Envíos',
-    'iron-cajas':'Gestión y seguimiento de cajas',
-    requerimientos:'Requerimientos',existencias:'Existencias',
-    sync:'Actividad y sincronización',reportes:'Reportes y descargas',
-    solicitudes:'Usuarios y accesos'
-  };
-  document.getElementById('executiveBreadcrumbRoot').textContent=
-    adminReady?'Panel administrativo':'Consulta documental';
-  document.getElementById('executiveBreadcrumbCurrent').textContent=
-    adminReady?(breadcrumbs[activeWorkspaceTab]||'Dashboard de Cargos Realizados'):'Existencias';
-  document.getElementById('executiveRole').textContent=
-    adminReady?'Vista del administrador':'Vista de consulta';
-  const heading=document.getElementById('sidebarSectionHeading');
-  const copy=SECTION_COPY[isAdmin?activeWorkspaceTab:'existencias'];
-  heading.hidden=!appReady || !copy;
-  if(copy){
-    document.getElementById('sidebarSectionEyebrow').textContent=copy[0];
-    document.getElementById('sidebarSectionTitle').textContent=copy[1];
-    document.getElementById('sidebarSectionSubtitle').textContent=copy[2];
-  }
-  document.getElementById('appShell').classList.toggle('has-sidebar',adminReady);
-  document.getElementById('kardexSidebar').hidden=!adminReady;
-  document.getElementById('sidebarMenuToggle').hidden=!adminReady;
-  if(!adminReady)closeSidebarDrawer();
+  const showSync=adminReady && activeWorkspaceTab==='resumen';
   const adminRequestsButton=document.getElementById('btnTopAdminRequests');
   adminRequestsButton.setAttribute('aria-pressed',String(adminReady && activeWorkspaceTab==='solicitudes'));
   // La barra de pestañas permanece visible en todas las vistas administrativas.
@@ -313,36 +225,30 @@ function updateWorkspaceVisibility() {
   document.getElementById('googleSyncContent').hidden=!showSync;
   document.getElementById('googleSyncPanel').classList.toggle('workspace-tabs-only',adminReady && !showSync);
   for(const [name,id] of Object.entries(WORKSPACE_SECTIONS)) {
-    if(['control','control-detalle','iron','iron-cajas','historicos'].includes(name))continue;
     const section=document.getElementById(id);
-    const active=adminReady && (name==='resumen'
-      ? SUMMARY_VIEWS.has(activeWorkspaceTab) : activeWorkspaceTab===name);
-    // Los invitados conservan su buscador, sin acceso a las vistas administrativas.
+    const active=adminReady && activeWorkspaceTab===name;
+    // Los invitados conservan su buscador; el resto de secciones es administrativo.
     section.hidden=adminReady ? !active : name!=='existencias';
-    if(active && section.tagName==='DETAILS')section.open=true;
+    if(active)section.open=true;
   }
   for(const button of document.querySelectorAll('#workspaceTabs [data-workspace]')) {
     const active=adminReady && button.dataset.workspace===activeWorkspaceTab;
     button.setAttribute('aria-selected',String(active));
     button.tabIndex=active?0:-1;
   }
-  updateSidebarSelection();
 }
 function selectWorkspaceTab(tab,focus=false) {
   if(!appReady || !isAdmin || !Object.hasOwn(WORKSPACE_SECTIONS,tab))return;
   activeWorkspaceTab=tab;
-  activeSidebarAction='';
   updateWorkspaceVisibility();
-  window.scrollTo({top:0,left:0,behavior:'instant'});
   if(focus)(document.querySelector(`#workspaceTabs [data-workspace="${tab}"]`)
     || (tab==='solicitudes'?document.getElementById('btnTopAdminRequests'):null))?.focus();
   if(tab==='solicitudes')void refreshAdminRequests();
-  if(tab==='iron' && !monthlyShippedSummary)void reloadShippedBoxesSummary();
-  if(tab==='iron-cajas')renderIMBoxWorkspace();
 }
 document.getElementById('btnTopAdminRequests').addEventListener('click',()=>{
   if(!appReady||!isAdmin)return;
   selectWorkspaceTab('solicitudes',true);
+  document.getElementById('grp-solicitudes').scrollIntoView({behavior:'smooth',block:'start'});
 });
 const workspaceNav=document.getElementById('workspaceTabs');
 workspaceNav.addEventListener('click',event=>{
@@ -363,116 +269,9 @@ workspaceNav.addEventListener('keydown',event=>{
   else if(event.key==='End')next=names[names.length-1];
   if(next){event.preventDefault();selectWorkspaceTab(next,true);}
 });
-// Menú de cuenta accesible: cerrar sesión conserva el manejador existente.
-const profileTrigger=document.getElementById('sessionProfile');
-const profileMenu=document.getElementById('executiveProfileMenu');
-function closeExecutiveProfileMenu(){
-  profileMenu.hidden=true;
-  profileTrigger.setAttribute('aria-expanded','false');
-}
-profileTrigger.addEventListener('click',()=>{
-  if(profileTrigger.hidden)return;
-  const willOpen=profileMenu.hidden;
-  profileMenu.hidden=!willOpen;
-  profileTrigger.setAttribute('aria-expanded',String(willOpen));
-  if(willOpen)profileMenu.querySelector('#btnSignOut:not([hidden])')?.focus();
-});
-document.addEventListener('pointerdown',event=>{
-  if(!event.target.closest('#executiveAccount'))closeExecutiveProfileMenu();
-});
-document.addEventListener('keydown',event=>{
-  if(event.key==='Escape'&&!profileMenu.hidden){
-    closeExecutiveProfileMenu();profileTrigger.focus();
-  }
-});
-// La nueva barra lateral dirige a los mismos módulos y acciones existentes.
-const sidebarNode=document.getElementById('kardexSidebar');
-const sidebarScrollRegion=sidebarNode.querySelector('.sidebar-scroll-region');
-const sidebarScrollNav=sidebarNode.querySelector('.sidebar-navigation');
-// El indicador inferior solo aparece cuando realmente quedan opciones por bajar.
-// La lista sigue permitiendo rueda del mouse, touch, teclas y scroll programático.
-function updateSidebarScrollHint(){
-  const remaining=sidebarScrollNav.scrollHeight-sidebarScrollNav.clientHeight-sidebarScrollNav.scrollTop;
-  sidebarScrollRegion.classList.toggle('has-more-below',remaining>3);
-}
-sidebarScrollNav.addEventListener('scroll',updateSidebarScrollHint,{passive:true});
-if(typeof ResizeObserver!=='undefined'){
-  const sidebarHintObserver=new ResizeObserver(updateSidebarScrollHint);
-  sidebarHintObserver.observe(sidebarScrollRegion);
-  sidebarHintObserver.observe(sidebarScrollNav);
-}
-requestAnimationFrame(updateSidebarScrollHint);
-// La navegación administrativa se mantiene siempre completa; no existe modo contraído.
-// Se conservan los títulos de accesibilidad y las acciones originales de cada módulo.
-for(const section of sidebarNode.querySelectorAll('.sidebar-static-category')){
-  const title=section.querySelector('.sidebar-static-title');
-  if(title)title.title=title.textContent.trim().replace(/\s+/g,' ');
-}
-for(const link of sidebarNode.querySelectorAll('.sidebar-link')){
-  link.title=link.textContent.trim().replace(/\s+/g,' ');
-}
-sidebarNode.addEventListener('click',event=>{
-  const button=event.target.closest('button[data-sidebar-view],button[data-sidebar-action]');
-  if(!button || !sidebarNode.contains(button) || !appReady || !isAdmin)return;
-  const view=button.dataset.sidebarView;
-  if(view){
-    selectWorkspaceTab(view);
-  }else{
-    const action=button.dataset.sidebarAction;
-    if(['expiry-upcoming','expiry-overdue'].includes(action)){
-      selectWorkspaceTab('control');
-      openCargoExpiry(action==='expiry-overdue'?'overdue':'upcoming');
-    }else if(action==='im-requested'){
-      selectWorkspaceTab('iron-cajas');
-      document.getElementById('btnRequestedIMDetail').click();
-    }else if(action==='im-prepared'){
-      selectWorkspaceTab('iron-cajas');
-      openPreparedIm();
-    }else if(action==='im-sent'){
-      selectWorkspaceTab('iron');
-      document.getElementById('btnMonthlyShippedDetail').click();
-    }else if(action==='im-historical'){
-      selectWorkspaceTab('iron-cajas');
-      document.getElementById('btnOpenIronMountainHistorical').click();
-    }else if(action==='export-cargo'){
-      selectWorkspaceTab('existencias');
-      document.getElementById('buscar').focus();
-    }else if(action==='admin-requests'){
-      selectWorkspaceTab('solicitudes');
-    }else return;
-    activeSidebarAction=action;
-    updateSidebarSelection();
-  }
-  closeSidebarDrawer();
-});
-document.getElementById('sidebarMenuToggle').addEventListener('click',()=>{
-  const shell=document.getElementById('appShell');
-  const open=!shell.classList.contains('sidebar-open');
-  shell.classList.toggle('sidebar-open',open);
-  document.getElementById('sidebarScrim').hidden=!open;
-  document.getElementById('sidebarMenuToggle').setAttribute('aria-expanded',String(open));
-  if(open)document.querySelector('#kardexSidebar [data-sidebar-view="resumen"]').focus();
-});
-document.getElementById('sidebarCloseMobile').addEventListener('click',()=>{
-  closeSidebarDrawer();document.getElementById('sidebarMenuToggle').focus();
-});
-document.getElementById('sidebarScrim').addEventListener('click',closeSidebarDrawer);
-document.getElementById('btnReportExistencias').addEventListener('click',()=>document.getElementById('btnExportar').click());
-document.getElementById('sidebarGoExistencias').addEventListener('click',()=>{
-  selectWorkspaceTab('existencias');
-  document.getElementById('buscar').focus();
-});
-// Comparación histórica integrada en la misma gráfica del Dashboard General.
-document.addEventListener('keydown',event=>{
-  if(event.key==='Escape' && document.getElementById('appShell').classList.contains('sidebar-open')){
-    closeSidebarDrawer();
-    document.getElementById('sidebarMenuToggle').focus();
-  }
-});
 function setAvailability() {
   if (!appReady || !isAdmin) { closeCargoExpiry(); closePreparedIm(); closeRequestedIM(); }
   document.getElementById('btnExportar').hidden=!isAdmin;
-  document.getElementById('btnReportExistencias').disabled=!appReady || !isAdmin || mutationBusy;
   document.getElementById('appShell').classList.toggle('read-only', !isAdmin);
   ['googleSyncPanel','btnImportar','btnReset'].forEach(id=>document.getElementById(id).hidden=!isAdmin);
   updateWorkspaceVisibility();
@@ -874,7 +673,6 @@ let monthlyShippedSummary=null;
 let monthlyShippedFetchEpoch=0;
 let monthlyShippedError='';
 let monthlyShippedSelectedYear=null;
-let imDashboardChartView='monthly',imDashboardYear=null;
 function renderMonthlyShippedDetail(){
   const sheet=document.getElementById('monthlyShippedSheet');
   if(!sheet.open)return;
@@ -960,95 +758,6 @@ document.getElementById('imShippedYearSelect').addEventListener('change',event=>
   renderMonthlyShippedDetail();
 });
 
-// Dashboard de Envíos: la fuente autoritativa es la agregación de
-// cajas físicas con fecha efectiva de envío; no se suman cargos.
-function renderIMShippingDashboard(){
-  const chart=document.getElementById('imDashChart');
-  const note=document.getElementById('imDashChartNote');
-  const yearSelect=document.getElementById('imDashYear');
-  for(const button of document.querySelectorAll('[data-im-chart-view]')){
-    button.setAttribute('aria-pressed',
-      String(button.dataset.imChartView===imDashboardChartView));
-  }
-  document.getElementById('imDashYearWrap').hidden=imDashboardChartView!=='monthly';
-  const stats=monthlyShippedSummary;
-  const yearCount=document.getElementById('imDashYearCount');
-  const currentCount=document.getElementById('imDashThisMonth');
-  const totalCount=document.getElementById('imDashAllCount');
-  if(!stats){
-    currentCount.textContent='—';
-    yearCount.textContent='—';
-    totalCount.textContent='—';
-    chart.replaceChildren();
-    note.textContent=monthlyShippedError
-      ||'Consultando envíos de cajas desde la base sincronizada…';
-    return;
-  }
-  const years=stats.annual.map(item=>item.year);
-  if(!years.includes(imDashboardYear))imDashboardYear=stats.currentYear;
-  const optionsKey=years.join(',');
-  if(yearSelect.dataset.years!==optionsKey){
-    yearSelect.replaceChildren();
-    for(const year of years.slice().reverse()){
-      yearSelect.add(new Option(String(year),String(year)));
-    }
-    yearSelect.dataset.years=optionsKey;
-  }
-  yearSelect.value=String(imDashboardYear);
-  const row=stats.annual.find(item=>item.year===imDashboardYear);
-  if(!row)return;
-  document.getElementById('imDashSelectedYearLabel').textContent=String(imDashboardYear);
-  currentCount.textContent=fmtNum(stats.currentCount);
-  yearCount.textContent=fmtNum(row.count);
-  totalCount.textContent=fmtNum(stats.total);
-  const months=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
-  const monthly=imDashboardChartView==='monthly';
-  document.getElementById('imDashChartTitle').textContent=
-    monthly?'Cajas enviadas por mes · '+imDashboardYear:
-      'Cajas enviadas por año';
-  if(monthly){
-    const length=imDashboardYear===stats.currentYear?stats.currentMonth:12;
-    renderImBarChart(chart,months.slice(0,length),row.months.slice(0,length),
-      {accent:'#c72c43',emptyLabel:'Sin envíos confirmados en '+imDashboardYear});
-    note.textContent='Total '+imDashboardYear+': '+fmtNum(row.count)+
-      ' cajas. Solo cuentan cajas con fecha efectiva de envío.';
-  } else {
-    renderImBarChart(chart,stats.annual.map(item=>String(item.year)),
-      stats.annual.map(item=>item.count),
-      {accent:'#c72c43',emptyLabel:'Sin envíos confirmados'});
-    note.textContent='Histórico de '+fmtNum(stats.total)+
-      ' cajas enviadas. Cada año corresponde a la fecha de salida de la caja.';
-  }
-}
-document.getElementById('imDashYear').addEventListener('change',event=>{
-  imDashboardYear=Number(event.target.value);
-  renderIMShippingDashboard();
-});
-document.getElementById('imShippingDashboard').addEventListener('click',event=>{
-  const button=event.target.closest('button[data-im-chart-view]');
-  if(!button)return;
-  imDashboardChartView=button.dataset.imChartView;
-  renderIMShippingDashboard();
-});
-function renderIMBoxWorkspace(){
-  const prepared=document.getElementById('imBoxesPrepared');
-  const requested=document.getElementById('imBoxesRequested');
-  prepared.textContent=preparedImSummary?fmtNum(preparedImSummary.cajas):'—';
-  // No presentar registros de demostración como si fueran cajas reales.
-  requested.textContent=requestedIMLoaded && !requestedIMError && !requestedDemo
-    ?fmtNum(requestedIMData.length):'—';
-}
-document.getElementById('imBoxesOpenPrepared').addEventListener('click',openPreparedIm);
-document.getElementById('imBoxesOpenRequested').addEventListener('click',()=>{
-  document.getElementById('btnRequestedIMDetail').click();
-});
-document.getElementById('imBoxesOpenStats').addEventListener('click',()=>{
-  document.getElementById('btnMonthlyShippedDetail').click();
-});
-document.getElementById('imBoxesOpenHistory').addEventListener('click',()=>{
-  document.getElementById('btnOpenIronMountainHistorical').click();
-});
-
 async function reloadShippedBoxesSummary(){
   if(!isAdmin||!appReady||!currentUserId)return;
   const epoch=++monthlyShippedFetchEpoch,generation=authGeneration;
@@ -1065,7 +774,6 @@ async function reloadShippedBoxesSummary(){
       '. Vuelve a abrir «Ver detalle» para reintentar.';
   }
   renderMonthlyCargoStats();
-  renderIMShippingDashboard();
 }
 function renderMonthlyCargoStats(){
   if(!isAdmin)return;
@@ -1097,7 +805,6 @@ function renderMonthlyCargoStats(){
   periodNode.textContent=
     new Intl.DateTimeFormat('es-PE',{timeZone:'America/Lima',month:'long',year:'numeric'}).format(new Date());
   monthlyCreatedSummary=summarizeCreatedCargos(docs,new Date());
-  renderCreatedDashboard(monthlyCreatedSummary);
   document.getElementById('monthlyCargosCreated').textContent=fmtNum(monthlyCreatedSummary.currentCount);
   document.getElementById('monthlyCreatedNote').textContent=`Durante el mes (${monthlyCreatedNames[monthlyCreatedSummary.currentMonth-1].toLowerCase()})`;
   renderMonthlyCreatedDetail();
@@ -1110,8 +817,6 @@ function renderMonthlyCargoStats(){
     requestedIMError?'No se pudo actualizar desde Google Sheets':
       requestedIMLoaded ? fmtNum(countRequestedCargos(requestedIMData))+' cargos'
         :'Consultando cajas y cargos pendientes…';
-  renderIMShippingDashboard();
-  renderIMBoxWorkspace();
 }
 function renderDocs(){
   const filters=appliedFilters;
@@ -1131,8 +836,6 @@ function renderDocs(){
   const cargosPendientes = cargosDe(grupoPendiente), foliosPendientes = foliosDe(grupoPendiente);
 
   expiryGroups = cargoExpiryGroups(docs, new Date());
-  renderDocumentExpiryWorkspace();
-  renderHistoricalWorkspace();
   const grupoPorVencer = expiryGroups.upcoming;
   const grupoVencidos = expiryGroups.overdue;
   const cargosPorVencer = cargosDe(grupoPorVencer), foliosPorVencer = foliosDe(grupoPorVencer);
@@ -1446,7 +1149,6 @@ async function reloadPreparedImSummary() {
   if(metric)metric.innerHTML=
     `${preparedImSummary?fmtNum(preparedImSummary.cajas):'—'}`+
     `<span class="folios-inline"> (${preparedImSummary?fmtNum(preparedImSummary.cargos):'—'} cargos)</span>`;
-  renderIMBoxWorkspace();
 }
 async function reloadPreparedImDetail() {
   const dialog=document.getElementById('preparedImSheet');
@@ -1583,373 +1285,6 @@ function renderCargoExpiry() {
   document.getElementById('btnExpiryPrevious').disabled = expiryPage === 0;
   document.getElementById('btnExpiryNext').disabled = expiryPage >= pages - 1;
 }
-// HISTÓRICO DOCUMENTAL · Consulta por año, sin inventar ubicaciones.
-// Los documentos pueden proceder del archivo histórico y de la hoja viva.
-// La unidad histórica es el registro Kardex/cargo. Dos Kardex distintos
-// pueden tener el mismo código de cargo (p. ej. 0028 y 28 en 2024):
-// se conservan ambos y no se borran registros de origen.
-// Para un mismo Kardex y cargo se privilegia el dato sincronizado.
-function historicalRows() {
-  const selected=new Map();
-  const reqNumbers=new Map(reqs.map(req=>[req.id,req.numero]));
-  for(const doc of docs){
-    const year=cargoYear(doc);
-    if(!/^(202[0-6])$/.test(year))continue;
-    const estado=computeDocEstado(doc).estado;
-    const live=!!doc.imLiveCodigoCaja;
-    const sent=estado==='Enviado a Iron Mountain';
-    const box=assignedBoxCode(doc,reqNumbers);
-    // La fuente viva tiene prioridad frente a duplicados históricos
-    // para no marcar como enviados cargos solicitados o preparados.
-    const rank=(live?10:0)+(sent?2:0)+(box?1:0);
-    for(const rawCargo of doc.cargos||[]){
-      const cargo=String(rawCargo??'').trim();
-      const canonical=cargo.replace(/\.0+$/,'').replace(/^0+(?=\d)/,'');
-      if(!canonical)continue;
-      const key=year+'|'+String(doc.id||doc.kardex||'')+'|'+canonical;
-      const record={year,cargo,canonical,doc,estado,sent,box,rank};
-      const previous=selected.get(key);
-      if(!previous || record.rank>previous.rank ||
-        (record.rank===previous.rank &&
-         String(record.doc.updatedAt||'')>String(previous.doc.updatedAt||''))){
-        selected.set(key,record);
-      }
-    }
-  }
-  return [...selected.values()].sort((a,b)=>
-    Number(b.year)-Number(a.year)
-    ||String(a.doc.kardex||'').localeCompare(String(b.doc.kardex||''),'es',{numeric:true})
-    ||a.cargo.localeCompare(b.cargo,'es',{numeric:true})
-  );
-}
-function renderHistoricalWorkspace() {
-  const root=document.getElementById('documentHistoryWorkspace');
-  if(!root)return;
-  const allRows=historicalRows();
-  // Una sola selección de año; conservar cifras y cálculo original.
-  const yearSelector=document.getElementById('historyYearSelect');
-  yearSelector.value=historySelectedYear;
-  const yearRows=allRows.filter(row=>row.year===historySelectedYear);
-  document.getElementById('historyAllCount').textContent=fmtNum(allRows.length);
-  document.getElementById('historySelectedYearLabel').textContent=historySelectedYear;
-  document.getElementById('historyYearCount').textContent=fmtNum(yearRows.length);
-  document.getElementById('historyDetailYear').textContent=historySelectedYear;
-  const sentCount=yearRows.filter(r=>r.sent).length;
-  const pendingCount=yearRows.length-sentCount;
-  document.getElementById('historySentCount').textContent=fmtNum(sentCount);
-  document.getElementById('historyPendingCount').textContent=fmtNum(pendingCount);
-  // El micrográfico usa exactamente los mismos totales que las tarjetas.
-  const percentage=yearRows.length ? (100*sentCount/yearRows.length) : 0;
-  document.getElementById('historyShippingBar').style.width=percentage.toFixed(2)+'%';
-  document.getElementById('historyShippingProgress').setAttribute('aria-label',
-    'Enviados a Iron Mountain: '+fmtNum(sentCount)+' de '+fmtNum(yearRows.length)
-    +' cargos ('+percentage.toFixed(1)+' %). Pendientes: '+fmtNum(pendingCount));
-  const query=normalizeSearch(document.getElementById('historyQuery').value.trim());
-  const status=document.getElementById('historyStatusFilter').value;
-  const rows=yearRows.filter(row=>
-    (!query || normalizeSearch(row.cargo).includes(query)
-      || normalizeSearch(row.doc.kardex||'').includes(query))
-    &&(status==='all'||(status==='sent')===row.sent)
-  );
-  const pages=Math.max(1,Math.ceil(rows.length/HISTORY_PAGE_SIZE));
-  historyPage=Math.min(historyPage,pages-1);
-  const first=historyPage*HISTORY_PAGE_SIZE;
-  const visible=rows.slice(first,first+HISTORY_PAGE_SIZE);
-  document.getElementById('historyTableBody').innerHTML=visible.length?visible.map(row=>{
-    const {doc,cargo,box,sent}=row;
-    const originalDate=/^\d{4}-\d{2}-\d{2}$/.test(doc.fechaOrigen||'')?fmtDate(doc.fechaOrigen):'—';
-    const docType=String(doc.tipoDoc||'No registrado');
-    return '<tr><td class="history-cargo-id">'+escapeHtml(cargo)+'</td>'
-      +'<td>'+escapeHtml(String(doc.kardex||'—'))+'</td>'
-      +'<td>'+escapeHtml(originalDate)+'</td>'
-      +'<td>'+escapeHtml(docType)+'</td>'
-      +'<td>'+escapeHtml(box||'No registrada')+'</td>'
-      +'<td><span class="history-status'+(sent?' sent':'')+'">'+
-        (sent?'Enviado IM':'Pendiente IM')+'</span></td>'
-      +'<td><button type="button" class="history-open" data-history-cargo="'+
-        escapeHtml(cargo)+'">Ver cargo</button></td></tr>';
-  }).join(''):'<tr><td colspan="7" class="history-empty">No se encontraron cargos para la consulta seleccionada.</td></tr>';
-  document.getElementById('historyListCount').textContent=rows.length
-    ? 'Mostrando '+fmtNum(first+1)+'–'+fmtNum(first+visible.length)+' de '+fmtNum(rows.length)+' cargos'
-    : '0 cargos encontrados';
-  document.getElementById('historyPageLabel').textContent='Página '+(historyPage+1)+' de '+pages;
-  document.getElementById('historyPreviousPage').disabled=historyPage===0;
-  document.getElementById('historyNextPage').disabled=historyPage>=pages-1;
-}
-const historyRoot=document.getElementById('documentHistoryWorkspace');
-historyRoot.addEventListener('click',event=>{
-  const cargoButton=event.target.closest('button[data-history-cargo]');
-  if(cargoButton){
-    const cargo=cargoButton.dataset.historyCargo;
-    selectWorkspaceTab('existencias');
-    document.getElementById('btnLimpiarFiltros').click();
-    document.getElementById('filtroTipo').value='solo-cargos';
-    document.getElementById('buscar').value=cargo;
-    searchNow();
-    document.getElementById('grp-existencias').scrollIntoView({block:'start'});
-  }
-});
-document.getElementById('historyYearSelect').addEventListener('change',event=>{
-  historySelectedYear=event.currentTarget.value;
-  historyPage=0;
-  document.getElementById('historyQuery').value='';
-  document.getElementById('historyStatusFilter').value='all';
-  renderHistoricalWorkspace();
-});
-document.getElementById('historyQuery').addEventListener('input',()=>{
-  historyPage=0;renderHistoricalWorkspace();
-});
-document.getElementById('historyStatusFilter').addEventListener('change',()=>{
-  historyPage=0;renderHistoricalWorkspace();
-});
-document.getElementById('historyClearFilters').addEventListener('click',()=>{
-  document.getElementById('historyQuery').value='';
-  document.getElementById('historyStatusFilter').value='all';
-  historyPage=0;renderHistoricalWorkspace();
-});
-document.getElementById('historyPreviousPage').addEventListener('click',()=>{
-  historyPage=Math.max(0,historyPage-1);renderHistoricalWorkspace();
-});
-document.getElementById('historyNextPage').addEventListener('click',()=>{
-  historyPage++;renderHistoricalWorkspace();
-});
-
-// Vista unificada de vencimientos. Usa la misma fuente del detalle heredado;
-// 30 días es un subconjunto de los cargos que aún NO han superado 6 meses.
-function documentExpiryRows() {
-  const rows=[];
-  const collect=(group,category)=>{
-    for(const doc of group){
-      for(const cargo of doc.cargos||[]){
-        if(!String(cargo??'').trim())continue;
-        const year=doc.expiry?.year || cargoYear(doc);
-        rows.push({doc,cargo:String(cargo),year,category});
-      }
-    }
-  };
-  collect(expiryGroups.overdue,'overdue');
-  collect(expiryGroups.upcoming.filter(d=>d.expiry.daysRemaining<=30),'soon');
-  collect(expiryGroups.upcoming.filter(d=>d.expiry.daysRemaining>30),'valid');
-  collect(expiryGroups.unknown,'unknown');
-  return rows;
-}
-// Gráfica de vencimientos YA OCURRIDOS por año calendario de fecha límite.
-// No confundir año de vencimiento con año de origen de cada cargo.
-function renderMonthlyExpiryChart(yearRows,selectedRows) {
-  const year=expiryChartYear;
-  const names=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
-  const monthKeys=names.map((_,i)=>year+'-'+String(i+1).padStart(2,'0'));
-  const monthSelect=document.getElementById('expiryMonthChartMonth');
-  if(monthSelect.dataset.year!==year){
-    monthSelect.replaceChildren();
-    monthSelect.add(new Option('Todos los meses','all'));
-    monthKeys.forEach((key,i)=>monthSelect.add(new Option(names[i]+' '+year,key)));
-    monthSelect.dataset.year=year;
-  }
-  monthSelect.value=expiryChartMonth;
-  document.getElementById('expiryMonthChartYear').value=year;
-  // Filtros del submenú: comparten el mismo año y mes del Dashboard.
-  const detailMonth=document.getElementById('docExpiryDetailMonth');
-  if(detailMonth.dataset.year!==year){
-    detailMonth.replaceChildren();
-    detailMonth.add(new Option('Todos los meses','all'));
-    monthKeys.forEach((key,i)=>detailMonth.add(new Option(names[i]+' '+year,key)));
-    detailMonth.dataset.year=year;
-  }
-  detailMonth.value=expiryChartMonth;
-  document.getElementById('docExpiryDetailYear').value=year;
-  // Solo vencidos: nunca proyectar cargos que se vencerán en meses futuros.
-  const monthCounts=new Map();
-  for(const row of yearRows){
-    if(row.category!=='overdue')continue;
-    const key=row.doc.expiry?.dueDate?.slice(0,7);
-    if(!key)continue;
-    monthCounts.set(key,(monthCounts.get(key)||0)+1);
-  }
-  const values=monthKeys.map(key=>monthCounts.get(key)||0);
-  const labels=monthKeys.map((_,i)=>names[i]+' '+year.slice(2));
-  const chart=document.getElementById('expiryMonthChartSurface');
-  const legend=document.getElementById('expiryMonthChartLegend');
-  // Ajustar el SVG al espacio real del panel, incluso con Chrome al 75%.
-  const chartWidth=Math.max(760,Math.round(chart.getBoundingClientRect().width||930));
-  const chartHeight=Math.max(380,Math.min(465,Math.round(chartWidth*0.29)));
-  const chartFontSize=Math.max(13,Math.min(16,Math.round(chartWidth/105)));
-  renderCargoLineChart(chart,legend,labels,[{
-    label:'Cargos vencidos · '+year,color:'#c52540',values,width:3.4
-  }],{
-    width:chartWidth,
-    height:chartHeight,fontSize:chartFontSize,compactLayout:true,showLabels:'positive',showTooltips:false,
-    highlightIndex:expiryChartMonth==='all'?null:monthKeys.indexOf(expiryChartMonth),
-    onPointSelect:index=>{
-      expiryChartMonth=monthKeys[index-1];
-      expiryWorkspaceView='all';expiryWorkspacePage=0;
-      renderDocumentExpiryWorkspace();
-      // La gráfica sigue siendo interactiva: abrir el listado en su submenú.
-      selectWorkspaceTab('control-detalle');
-    }
-  });
-
-}
-// Volver a calcular el tamaño al cambiar el ancho de pantalla o el zoom
-// del navegador. No realiza consultas a Supabase ni altera los filtros.
-const expiryChartSurface=document.getElementById('expiryMonthChartSurface');
-if(typeof ResizeObserver!=='undefined'){
-  let lastWidth=0, resizeScheduled=false;
-  const expiryChartObserver=new ResizeObserver(entries=>{
-    const width=Math.round(entries[0]?.contentRect?.width||0);
-    if(width<1||Math.abs(width-lastWidth)<2)return;
-    lastWidth=width;
-    if(!appReady||document.getElementById('documentExpiryWorkspace').hidden||resizeScheduled)return;
-    resizeScheduled=true;
-    requestAnimationFrame(()=>{
-      resizeScheduled=false;
-      if(appReady&&!document.getElementById('documentExpiryWorkspace').hidden)
-        renderDocumentExpiryWorkspace();
-    });
-  });
-  expiryChartObserver.observe(expiryChartSurface);
-}
-document.getElementById('expiryMonthChartYear').addEventListener('change',event=>{
-  expiryChartYear=event.target.value;
-  expiryChartMonth='all';
-  expiryWorkspaceView='all';expiryWorkspacePage=0;
-  renderDocumentExpiryWorkspace();
-});
-document.getElementById('expiryMonthChartMonth').addEventListener('change',event=>{
-  expiryChartMonth=event.target.value;
-  expiryWorkspaceView='all';expiryWorkspacePage=0;
-  renderDocumentExpiryWorkspace();
-});
-document.getElementById('docExpiryDetailYear').addEventListener('change',event=>{
-  expiryChartYear=event.target.value;
-  expiryChartMonth='all';expiryWorkspaceView='all';expiryWorkspacePage=0;
-  renderDocumentExpiryWorkspace();
-});
-document.getElementById('docExpiryDetailMonth').addEventListener('change',event=>{
-  expiryChartMonth=event.target.value;
-  expiryWorkspaceView='all';expiryWorkspacePage=0;
-  renderDocumentExpiryWorkspace();
-});
-
-function renderDocumentExpiryWorkspace() {
-  const root=document.getElementById('documentExpiryWorkspace');
-  if(!root)return;
-  const allRows=documentExpiryRows();
-  const query=document.getElementById('docExpirySearch').value.trim().toLowerCase();
-  // Año del vencimiento, independiente del año original del cargo.
-  // Los registros sin fecha solo aparecen en «Todos los meses» de su año de origen.
-  const yearRows=allRows.filter(row=>{
-    const dueYear=row.doc.expiry?.dueDate?.slice(0,4);
-    const belongs=row.category==='unknown'
-      ? row.year===expiryChartYear : dueYear===expiryChartYear;
-    if(!belongs)return false;
-    if(!query)return true;
-    return String(row.cargo).toLowerCase().includes(query) ||
-      String(row.doc.kardex||'').toLowerCase().includes(query);
-  });
-  // Al escoger un mes, consultar únicamente vencimientos YA ocurridos.
-  // «Todos los meses» preserva los cuatro indicadores anuales.
-  const scoped=expiryChartMonth==='all' ? yearRows : yearRows.filter(row=>
-    row.category==='overdue' &&
-    row.doc.expiry?.dueDate?.slice(0,7)===expiryChartMonth);
-  const counts={valid:0,soon:0,overdue:0,unknown:0};
-  scoped.forEach(row=>{counts[row.category]++});
-  renderMonthlyExpiryChart(yearRows,scoped);
-  for(const key of Object.keys(counts)){
-    const id={valid:'docExpiryValidCount',soon:'docExpirySoonCount',
-      overdue:'docExpiryOverdueCount',unknown:'docExpiryUnknownCount'}[key];
-    document.getElementById(id).textContent=fmtNum(counts[key]);
-  }
-  document.getElementById('docExpiryAsOf').textContent=
-    'Actualizado al '+fmtDate(expiryGroups.today);
-  for(const button of document.querySelectorAll('#documentExpiryWorkspace [data-expiry-view], #documentExpiryDetails [data-expiry-view]')){
-    button.setAttribute('aria-pressed',String(button.dataset.expiryView===expiryWorkspaceView));
-  }
-  const filtered=scoped.filter(row=>
-    expiryWorkspaceView==='all' || row.category===expiryWorkspaceView
-  );
-  const totalPages=Math.max(1,Math.ceil(filtered.length/EXPIRY_WORKSPACE_PAGE_SIZE));
-  expiryWorkspacePage=Math.max(0,Math.min(expiryWorkspacePage,totalPages-1));
-  const start=expiryWorkspacePage*EXPIRY_WORKSPACE_PAGE_SIZE;
-  const visible=filtered.slice(start,start+EXPIRY_WORKSPACE_PAGE_SIZE);
-  const html=visible.map(row=>{
-    const {doc,cargo,year,category}=row;
-    const exp=doc.expiry;
-    const base=exp?.baseDate?fmtDate(exp.baseDate):'—';
-    const due=exp?.dueDate?fmtDate(exp.dueDate):'—';
-    const durationText=!exp?'Sin fecha para calcular':
-      category==='overdue'?'Vencido '+formatCargoDuration(exp.time):
-      exp.daysRemaining===0?'Cumple 6 meses hoy':
-      'Faltan '+formatCargoDuration(exp.time);
-    const statusLabel={
-      valid:'Vigente',soon:'Por vencer',overdue:'Vencido',unknown:'Fecha por validar'
-    }[category];
-    return '<tr>'
-      +'<td class="doc-expiry-cargo-number">'+escapeHtml(cargo)+'</td>'
-      +'<td>'+escapeHtml(year)+'</td>'
-      +'<td>'+escapeHtml(String(doc.kardex||'—'))+'</td>'
-      +'<td>'+escapeHtml(base)+'</td>'
-      +'<td>'+escapeHtml(due)+'</td>'
-      +'<td>'+escapeHtml(durationText)+'</td>'
-      +'<td><span class="doc-expiry-status '+category+'">'+statusLabel+'</span></td>'
-      +'<td><button type="button" class="doc-expiry-open" data-doc-expiry-cargo="'
-      +escapeHtml(cargo)+'">Ver cargo</button></td>'
-      +'</tr>';
-  }).join('');
-  document.getElementById('docExpiryTableBody').innerHTML=
-    html||'<tr><td colspan="8" class="doc-expiry-empty">No hay cargos para los filtros seleccionados.</td></tr>';
-  document.getElementById('docExpiryTableCount').textContent=filtered.length
-    ? 'Mostrando '+fmtNum(start+1)+'–'+fmtNum(start+visible.length)
-      +' de '+fmtNum(filtered.length)+' cargos'
-    : '0 cargos encontrados';
-  document.getElementById('docExpiryPage').textContent=
-    'Página '+(expiryWorkspacePage+1)+' de '+totalPages;
-  document.getElementById('docExpiryPrevious').disabled=expiryWorkspacePage===0;
-  document.getElementById('docExpiryNext').disabled=expiryWorkspacePage>=totalPages-1;
-}
-const expiryWorkspaceElement=document.getElementById('documentExpiryWorkspace');
-const expiryDetailsElement=document.getElementById('documentExpiryDetails');
-for(const section of [expiryWorkspaceElement,expiryDetailsElement]){
-  section.addEventListener('click',event=>{
-    const selector=event.target.closest('button[data-expiry-view]');
-    if(selector){
-      expiryWorkspaceView=selector.dataset.expiryView;
-      expiryWorkspacePage=0;
-      renderDocumentExpiryWorkspace();
-      // Las tarjetas de la vista ejecutiva llevan a los datos, no los insertan en el Dashboard.
-      if(section===expiryWorkspaceElement)selectWorkspaceTab('control-detalle');
-      return;
-    }
-    const openButton=event.target.closest('button[data-doc-expiry-cargo]');
-    if(openButton){
-      const cargo=openButton.dataset.docExpiryCargo;
-      selectWorkspaceTab('existencias');
-      document.getElementById('btnLimpiarFiltros').click();
-      document.getElementById('buscar').value=cargo;
-      searchNow();
-      document.getElementById('grp-existencias').scrollIntoView({block:'start'});
-    }
-  });
-}
-document.getElementById('docExpirySearch').addEventListener('input',()=>{
-  expiryWorkspacePage=0;renderDocumentExpiryWorkspace();
-});
-document.getElementById('docExpiryReset').addEventListener('click',()=>{
-  expiryWorkspaceView='all';expiryWorkspacePage=0;
-  expiryChartYear='2026';
-  expiryChartMonth='all';
-  document.getElementById('docExpirySearch').value='';
-  renderDocumentExpiryWorkspace();
-});
-document.getElementById('docExpiryPrevious').addEventListener('click',()=>{
-  if(expiryWorkspacePage>0)expiryWorkspacePage--;
-  renderDocumentExpiryWorkspace();
-});
-document.getElementById('docExpiryNext').addEventListener('click',()=>{
-  expiryWorkspacePage++;
-  renderDocumentExpiryWorkspace();
-});
-
 function openCargoExpiry(group) {
   if (!appReady || !isAdmin || !['overdue','upcoming'].includes(group)) return;
   activeExpiryGroup = group;
@@ -2310,7 +1645,7 @@ async function handleSession(session) {
     passwordRecovery = false;
     showRecoveryForm(false);
     currentUserId = null; appReady = isAdmin = dataReady = channelReady = false;
-    activeWorkspaceTab='resumen';activeSidebarAction='';
+    activeWorkspaceTab='resumen';
     clearTimeout(refreshTimer);
     if (realtimeChannel) { await supabase.removeChannel(realtimeChannel); realtimeChannel = null; }
     queryResults=null;queryError='';searchController?.abort();currentPage=0;
@@ -2341,7 +1676,7 @@ async function handleSession(session) {
     adminRequestStatus=null;
     // Un correo confirmado con código de solicitud no crea un administrador:
     // primero registra la petición y espera una aprobación de la cuenta principal.
-    if (!isPreview && !isAdmin && user.user_metadata?.kardex_admin_request_code && repository.requestAdminAccess) {
+    if (!isAdmin && user.user_metadata?.kardex_admin_request_code && repository.requestAdminAccess) {
       try {
         const r=await repository.requestAdminAccess();
         adminRequestStatus=r?.estado || null;
@@ -2396,7 +1731,6 @@ document.getElementById('authForm').addEventListener('submit', async ev => {
   finally { button.disabled = false; }
 });
 document.getElementById('btnMagicLink').addEventListener('click', async ev => {
-  if(isPreview){message('authMessage','En esta Preview no se envían correos de acceso.',true);return;}
   const email = document.getElementById('authEmail').value.trim().toLowerCase();
   if (!supabase || !document.getElementById('authEmail').reportValidity()) return;
   const button = ev.currentTarget; button.disabled = true;
@@ -2408,7 +1742,6 @@ document.getElementById('btnMagicLink').addEventListener('click', async ev => {
   finally { button.disabled = false; }
 });
 document.getElementById('btnForgotPassword').addEventListener('click',async ev=>{
-  if(isPreview){message('authMessage','La recuperación de contraseñas está deshabilitada en esta Preview.',true);return;}
   const input=document.getElementById('authEmail');
   if(!supabase || !input.reportValidity()) return;
   const button=ev.currentTarget;button.disabled=true;
@@ -2421,8 +1754,7 @@ document.getElementById('btnForgotPassword').addEventListener('click',async ev=>
   finally{button.disabled=false;}
 });
 document.getElementById('resetPasswordForm').addEventListener('submit',async ev=>{
-  ev.preventDefault();if(isPreview){message('authMessage','No se cambian contraseñas desde la Preview.',true);return;}
-  if(!supabase || !passwordRecovery)return;
+  ev.preventDefault();if(!supabase || !passwordRecovery)return;
   const password=document.getElementById('newPassword').value;
   if(password.length<8){message('authMessage','Usa al menos 8 caracteres.',true);return;}
   if(password!==document.getElementById('confirmPassword').value){message('authMessage','Las contraseñas no coinciden.',true);return;}
@@ -2440,7 +1772,6 @@ document.getElementById('resetPasswordForm').addEventListener('submit',async ev=
   finally{button.disabled=false;}
 });
 async function signOut() {
-  closeExecutiveProfileMenu();
   const {error} = await supabase.auth.signOut({scope:'local'});
   if (error) message('authMessage',readableError(error),true);
   else message('authMessage','');
@@ -2459,9 +1790,7 @@ document.getElementById('btnRefreshNewCargos').addEventListener('click',async ev
   if(!appReady||!isAdmin||!currentUserId||!repository)return;
   const button=event.currentTarget;
   button.disabled=true;
-  button.title='Refrescando cargos…';
-  button.setAttribute('aria-label','Refrescando cargos…');
-  button.dataset.busy='true';
+  button.textContent='Refrescando…';
   const previous=cargoTotals2026().total;
   try {
     await refreshData();
@@ -2476,10 +1805,8 @@ document.getElementById('btnRefreshNewCargos').addEventListener('click',async ev
   } catch(error) {
     setStatus('No se pudo refrescar: '+readableError(error),'error');
   } finally {
+    button.textContent='↻ Refrescar cargos nuevos';
     button.disabled=false;
-    button.dataset.busy='false';
-    button.title='Refrescar cargos nuevos';
-    button.setAttribute('aria-label','Refrescar cargos nuevos');
   }
 });
 window.addEventListener('offline',()=>{channelReady=false;setStatus('Sin conexión — Los cambios requieren conexión en línea','error');});

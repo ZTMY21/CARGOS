@@ -58,5 +58,6 @@
     "Lista de Cargos 2021-2026(2).xlsm",
     "kardex_documentos_backup_20261014-20261031.jsonl.gz.enc"
   ],
-  "warning": "OAuth Google Drive y SUPABASE_SERVICE_ROLE_KEY aun ausentes en Vercel; no anunciar descargas funcionales. Produccion sin publicar cambios de Drive."
+  "warning": "Corte anterior. Para el estado actual consultar activation-baseline-20261031.json y README.md. Backend OAuth pendiente; no anunciar descargas funcionales.",
+  "historicalSnapshot": true
 }

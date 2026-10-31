@@ -21,12 +21,11 @@ const flush=()=>new Promise(resolve=>setTimeout(resolve,20));
 const reqRow={id:randomUUID(),numero:'REQ-00001',tipo:'Cajas nuevas para acondicionar',fecha_solicitud:'2026-10-01',cantidad_cajas:2,numeros_cargo:'',fecha_recepcion:'2026-10-02',fecha_devolucion:null,usuario:'Juan',updated_at:'2026-10-13T00:00:00.123456Z'};
 const docRow={id:randomUUID(),kardex:'SA-00001',fecha_registro:'2026-10-13',tipo_doc:'Facturas-Guia',periodo:'2026-01-01',ubicacion:'Santa Anita',folios:30,cargos:['C001'],caja_asignada:reqRow.id,f_envio:null,sustento:'',sustento_imagen:'',usuario:'Juan',facturas:'F-001',obs:'',updated_at:'2026-10-13T00:00:00.123456Z'};
 
-async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recovery=false,adminLink='',loginError=null,enableSearch=false,username='',previousMapping={},preview=false,now=Date.now()}={}) {
+async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recovery=false,adminLink='',loginError=null,enableSearch=false,username='',previousMapping={},now=Date.now()}={}) {
   const html=await readFile(new URL('../index.html',import.meta.url),'utf8');
   const source=(await readFile(new URL('../src/app.js',import.meta.url),'utf8')).replace(/^import .*;\n/gm,'');
   const dom=new JSDOM(html,{url:'https://kardex.example.test'+adminLink+(recovery?'#type=recovery':''),runScripts:'outside-only'});
   dom.window.HTMLElement.prototype.scrollIntoView=()=>{};
-  dom.window.scrollTo=()=>{};
   dom.window.HTMLDialogElement.prototype.showModal=function(){this.open=true;};
   dom.window.HTMLDialogElement.prototype.close=function(){if(this.open){this.open=false;this.dispatchEvent(new dom.window.Event('close'));}};
   const state={reqs:[structuredClone(reqRow)],docs:[structuredClone(docRow)],updates:[],snapshots:0,events:[],status:null,authCallback:null};
@@ -55,7 +54,6 @@ async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recov
     async reportDocs(rows,year=null){state.reportRequestedYear=year;return rows.filter(d=>year===null||cargoYear(d)===String(year));}
     async fetchDoc(id){state.fetchedId=id;return docFromDb({...state.docs.find(d=>d.id===id),facturas:'F-001, F-002, F-003, F-004'});}
     async access(){state.loadingDuringAccess={loading:!dom.window.document.getElementById('sessionLoading').hidden,login:!dom.window.document.getElementById('authOverlay').hidden};return {allowed,is_admin:isAdmin};}
-    async cargoSafetyStatus(){return {resguardos:0,cargos_archivados:0,bajas_por_revisar:0};}
     async preparedImDetails(){state.preparedImCalls=(state.preparedImCalls||0)+1;return structuredClone(state.preparedImRows||[]);}
     async requestedIMDetails(){state.requestedImCalls=(state.requestedImCalls||0)+1;return structuredClone(state.requestedImRows||[]);}
     async shippedIMBoxesMonthly(){state.shippedImCalls=(state.shippedImCalls||0)+1;return structuredClone(state.shippedIMRows||[]);}
@@ -85,19 +83,13 @@ async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recov
     return {rows:selected.map(row=>({...state.docs.find(d=>d.id===row.id)})),total:found.length,folios:found.reduce((n,d)=>n+(Number(d.folios)||0),0)};
   };
   const context=dom.getInternalVMContext();
-  Object.assign(context,{Map,Set,AbortController,requestAnimationFrame:callback=>callback()});
   const scheduleInterval=dom.window.setInterval.bind(dom.window);
   state.intervals=[];
   context.setInterval=(callback,delay)=>{state.intervals.push({callback,delay});return scheduleInterval(callback,delay);};
   context.Date=class extends Date {constructor(...args){super(...(args.length?args:[state.now]));}static now(){return state.now;}};
   Object.assign(context,{cargoExpiryGroups,formatCargoDuration,limaDate,requestedIMBoxes,countRequestedCargos,summarizePreparedIm,summarizeShippedBoxes,summarizeCreatedCargos,renderImBarChart,renderCargoLineChart});
   Object.assign(context,{createIdleSession:options=>createIdleSession({...options,now:()=>state.now}),createClient:()=>client,KardexRepository:FakeRepository,reqFromDb,docFromDb,reqEstado,docEstado,fmtDate,escapeHtml,invoiceSearchPresentation,buildWorkbook:async(...args)=>{state.exportCalls.push(args);return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},buildCargoWorkbook:async(cargo)=>{state.guestExport=cargo;return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},buildExistenciasReport:async(...args)=>{state.reportArgs=args;return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},serializeExistenciasReport:async()=>{state.serializedReport=true;return new Uint8Array([1]);},parseWorkbook,highlightMatch,normalizeSearch,filterDocuments,filterRequirements,assignedBoxCode,cargoYear,invoiceLocation,locationLabel,groupsForCodes,
-    __SUPABASE_URL__:'https://example.supabase.co',__SUPABASE_ANON_KEY__:'sb_publishable_test',__KARDEX_PREVIEW__:preview,confirm:()=>true,alert:()=>{}});
-  for(const [file,name] of [['cargo-line-chart','renderCargoLineChart'],['im-bar-chart','renderImBarChart'],['created-dashboard','createCreatedDashboard']]) {
-    const module=(await readFile(new URL(`../src/${file}.js`,import.meta.url),'utf8'))
-      .replace(/^import .*;\n/gm,'').replace(/export /g,'');
-    context[name]=vm.runInContext(`(()=>{${module}\nreturn ${name};})()`,context);
-  }
+    __SUPABASE_URL__:'https://example.supabase.co',__SUPABASE_ANON_KEY__:'sb_publishable_test',confirm:()=>true,alert:()=>{}});
   await vm.runInContext(`(async()=>{${source}})()`,context);
   const node=id=>dom.window.document.getElementById(id);
   return {dom,state,node,close(){dom.window.close();}};
@@ -716,7 +708,7 @@ test('expiry cards and in-app sheet share 2025/2026 counts and update after ship
     assert.doesNotMatch(a.node('cargoExpiryBody').textContent,/OLD|SENT|NO-DATE|NEXT/);
     assert.match(a.node('cargoExpiryUnknown').textContent,/NO-DATE \(2026\)/);
     a.node('btnCloseCargoExpiry').click();
-    assert.equal(a.node('cargoExpirySheet').open,false);
+    assert.equal(a.dom.window.document.activeElement.id,'btnCargosVencidos');
     a.node('btnCargosPorVencer').click();
     assert.equal(a.node('cargoExpiryTimeHeading').textContent,'Falta para vencer');
     assert.equal(a.node('cargoExpiryLegend').hidden,false);
@@ -731,7 +723,7 @@ test('expiry cards and in-app sheet share 2025/2026 counts and update after ship
     assert.match(number('.kpi-summary-expiring'),/^1\b/);
     a.node('btnCloseCargoExpiry').click();
     assert.equal(a.node('cargoExpirySheet').open,false);
-    assert.equal(a.node('cargoExpirySheet').open,false);
+    assert.equal(a.dom.window.document.activeElement.id,'btnCargosPorVencer');
     a.node('btnCargosPorVencer').click();
     assert.equal(a.node('cargoExpiryTitle').textContent,'Cargos por Vencer');
     a.node('btnSignOut').click();await flush();
@@ -1019,7 +1011,7 @@ test('botón de refrescar cargos nuevos es exclusivo del administrador y consult
   assert.ok(a.state.snapshots>initial);
   assert.match(a.node('connectionStatus').textContent,/Cargos verificados|Cargos 2026 actualizados/);
   assert.equal(button.disabled,false);
-  assert.equal(button.getAttribute('aria-label'),'Refrescar cargos nuevos');
+  assert.match(button.textContent,/Refrescar cargos nuevos/);
  } finally {a.close();}
  const guest=await app({isAdmin:false});
  try{assert.equal(guest.node('btnRefreshNewCargos').hidden,true);}
@@ -1643,59 +1635,5 @@ test('gráficos IM muestran el histórico de cajas por mes y año al abrir detal
   a.node('imShippedYearSelect').value='2024';
   a.node('imShippedYearSelect').dispatchEvent(new a.dom.window.Event('change'));
   assert.equal(a.node('imShippedTotalValue').textContent,'441');
- }finally{a.close();}
-});
-
-
-test('las once rutas laterales comparten una cabecera aislada y conservan búsquedas sin recargar el snapshot',async()=>{
-  const a=await app({isAdmin:true,enableSearch:true});
-  try {
-    await flush();
-    const d=a.dom.window.document;
-    await new Promise(resolve=>setTimeout(resolve,300));
-    const snapshots=a.state.snapshots;
-    a.node('buscar').value='F-001';
-    const routes=[['resumen','Cargos realizados'],['control','Vencimientos'],['control-detalle','Cargos pendientes'],['historicos','Histórico documental'],['iron','Envíos'],['iron-cajas','Gestión y seguimiento de cajas'],['requerimientos','Requerimientos'],['existencias','Existencias'],['sync','Actividad y sincronización'],['reportes','Reportes y descargas'],['solicitudes','Usuarios y accesos']];
-    for(const [view,title] of routes){
-      const trigger=view==='solicitudes'?a.node('btnTopAdminRequests'):d.querySelector('[data-sidebar-view="'+view+'"]');
-      assert.ok(trigger,view);trigger.click();await flush();
-      assert.equal(a.node('sidebarSectionHeading').hidden,false,view);
-      assert.equal(a.node('sidebarSectionTitle').textContent,title,view);
-      assert.equal(a.node('sidebarSectionHeading').parentElement.id,'sidebarMain');
-      assert.equal(a.node('sidebarSectionHeading').querySelector('svg'),null,'No calendar can grow inside the shared heading');
-      if(view!=='solicitudes')assert.equal(trigger.getAttribute('aria-current'),'page');
-      assert.equal(a.node('googleSyncContent').hidden,view!=='sync');
-      assert.equal(a.node('buscar').value,'F-001');
-    }
-    assert.equal(a.state.snapshots,snapshots,'Navigation does not repeat the initial database snapshot');
-    assert.equal(a.state.searchCalls.length,0,'Navigation never executes a document search');
-    assert.equal(d.querySelectorAll('#sidebarSectionHeading').length,1);
-    assert.equal(d.querySelector('.doc-expiry-heading-symbol'),null);
-  }finally{a.close();}
-});
-
-test('la descarga desde Reportes usa el reporte completo de producción y no la página de búsqueda',async()=>{
- const a=await app({isAdmin:true,enableSearch:true});
- try{
-  a.node('buscar').value='sin-coincidencias';a.node('btnBuscar').click();await flush();
-  a.dom.window.document.querySelector('[data-sidebar-view="reportes"]').click();
-  a.node('btnReportExistencias').click();await flush();
-  assert.equal(a.state.reportArgs[0].length,a.state.docs.length);
-  assert.equal(a.state.reportArgs[0][0].id,a.state.docs[0].id);
-  assert.match(a.state.downloadName,/Kardex_Santa_Anita_\d{4}-\d{2}-\d{2}\.xlsx$/);
- }finally{a.close();}
-});
-
-test('Preview impide guardar, importar y cambiar permisos, y conserva lectura y exportación',async()=>{
- const a=await app({isAdmin:true,preview:true,enableSearch:true});
- try{
-  for(const id of ['btnGuardar','btnGuardarReq','btnImportar','btnReset'])assert.equal(a.node(id).disabled,true,id);
-  assert.equal(a.node('btnBuscar').disabled,false);
-  assert.equal(a.node('btnExportar').disabled,false);
-  a.state.adminPendingRequests=[{id:'11111111-1111-4111-8111-111111111111',email:'revision@example.test'}];
-  a.node('btnTopAdminRequests').click();await flush();
-  a.node('adminRequestsPanel').querySelector('[data-admin-approve]').click();await flush();
-  assert.equal(a.state.adminDecisions,undefined);
-  assert.equal(a.state.updates.length,0);
  }finally{a.close();}
 });
