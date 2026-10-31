@@ -15,7 +15,7 @@ export function docFromDb(row) {
     id: row.id, kardex: row.kardex, fechaRegistro: row.fecha_registro, tipoDoc: row.tipo_doc,
     periodo: row.periodo, ubicacion: row.ubicacion, folios: row.folios ?? '', cargos: row.cargos || [],
     cajaAsignada: row.caja_asignada || '', fEnvio: row.f_envio || '', sustento: row.sustento || '',
-    sustentoImagen: safeImage(row.sustento_imagen), usuario: row.usuario,
+    sustentoImagen: safeImage(row.sustento_imagen), driveImageJob: /^drive-job:[0-9a-f-]{36}$/i.test(row.sustento_imagen||'') ? row.sustento_imagen : '', usuario: row.usuario,
     imConfirmado: !!row.im_confirmado, imCodigoCaja: row.im_codigo_caja || '',
     imFechaEnvio: row.im_fecha_envio || '', imResponsable: row.im_responsable || '',
     imPreparado: !!row.im_preparado, imCajaPreparada: row.im_caja_preparada || '',
@@ -76,7 +76,21 @@ export class KardexRepository {
   async pendingAdminRequests() { return checked(await this.client.rpc('kardex_admin_pending')); }
   async reviewAdminRequest(id,approved) { return checked(await this.client.rpc('kardex_admin_review',{p_id:id,p_approve:approved})); }
   async fetchDoc(id) { return docFromDb(checked(await this.client.from('documentos').select().eq('id',id).single())); }
-  async fetchImage(id) { return safeImage(checked(await this.client.from('documentos').select('sustento_imagen').eq('id',id).single()).sustento_imagen); }
+  async fetchImage(id) {
+    const value=checked(await this.client.from('documentos').select('sustento_imagen').eq('id',id).single()).sustento_imagen||'';
+    if(!/^drive-job:[0-9a-f-]{36}$/i.test(value))return safeImage(value);
+    const session=checked(await this.client.auth.getSession())?.session;
+    if(!session)throw new Error('Inicia sesión en Kardex para ver el sustento.');
+    const response=await fetch('/api/drive-archive?action=download&id='+encodeURIComponent(value.slice('drive-job:'.length)),{
+      headers:{Authorization:'Bearer '+session.access_token}
+    });
+    if(!response.ok)throw new Error('No se pudo recuperar el sustento desde Google Drive.');
+    const blob=await response.blob();
+    if(blob.size>10*1024**2)throw new Error('Imagen demasiado grande para mostrar.');
+    return new Promise((resolve,reject)=>{
+      const reader=new FileReader();reader.onload=()=>resolve(safeImage(reader.result));reader.onerror=()=>reject(new Error('No se pudo abrir la imagen.'));reader.readAsDataURL(blob);
+    });
+  }
   async reportDocs(snapshotDocs,year=null) {
     const selected=snapshotDocs.filter(d=>year===null || String(d.anioOrigen||d.periodo?.slice(0,4)||d.fechaOrigen?.slice(0,4))===String(year));
     const rows=checked(await this.client.rpc('kardex_existencias_export_meta'));
@@ -167,7 +181,47 @@ export class KardexRepository {
     return docs.sort((a,b)=>b.kardex.localeCompare(a.kardex));
   }
   async saveReq(row, existing) { return this.save('requerimientos', reqToDb(row), existing, reqFromDb); }
-  async saveDoc(row, existing) { return this.save('documentos', docToDb(row), existing, docFromDb); }
+  async saveDoc(row, existing) {
+    const value=row.sustentoImagen||'';
+    if(/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(value)){
+      const id=existing?.id||row.id;
+      if(!/^[0-9a-f-]{36}$/i.test(id||''))throw new Error('El documento necesita un identificador para guardar su imagen.');
+      const blob=await(await fetch(value)).blob();
+      const bytes=await blob.arrayBuffer();
+      const sha=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)),n=>n.toString(16).padStart(2,'0')).join('');
+      const session=checked(await this.client.auth.getSession())?.session;
+      if(!session)throw new Error('Inicia sesión para guardar el sustento.');
+      const upload=async(action,{job,offset,body}={})=>{
+        const query=new URLSearchParams({action});
+        if(job)query.set('id',job);
+        if(offset!==undefined)query.set('offset',String(offset));
+        const response=await fetch('/api/drive-archive?'+query,{
+          method:'POST',headers:{Authorization:'Bearer '+session.access_token,'Content-Type':body instanceof Uint8Array?'application/octet-stream':'application/json'},
+          body:body instanceof Uint8Array?body:JSON.stringify(body||{})
+        });
+        const result=await response.json().catch(()=>({}));
+        if(!response.ok)throw new Error(result.error||'No se pudo guardar el sustento en Drive.');
+        return result;
+      };
+      let job=await upload('start',{body:{documentId:id,category:'scans',sourceKey:'sustento:'+id,
+        sourceVersion:'sha256:'+sha,name:'sustento_'+id+'.jpg',sha256:sha,mime:'image/jpeg',size:bytes.byteLength}});
+      while(job.status!=='verified'&&job.offset<bytes.byteLength){
+        const offset=job.offset;
+        try{job=await upload('chunk',{job:job.id,offset,body:new Uint8Array(bytes.slice(offset,Math.min(offset+1024**2,bytes.byteLength)))});}
+        catch(error){
+          if(error.message!=='OFFSET_CONFLICT')throw error;
+          job=await upload('reconcile',{job:job.id});
+        }
+      }
+      if(job.status!=='verified')job=await upload('finish',{job:job.id});
+      if(job.status!=='verified'||job.backendVerified!==true||job.sha256!==sha)
+        throw new Error('La imagen no se verificó en Drive. No se guardó el registro.');
+      row={...row,sustentoImagen:'drive-job:'+job.id};
+    }else if(value&&!/^drive-job:[0-9a-f-]{36}$/i.test(value)){
+      throw new Error('Formato de sustento no permitido.');
+    }
+    return this.save('documentos',docToDb(row),existing,docFromDb);
+  }
   async save(table, data, existing, mapper) {
     let query;
     if (existing) {
