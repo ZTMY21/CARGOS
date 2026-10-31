@@ -204,7 +204,7 @@ export class KardexRepository {
         if(!response.ok)throw new Error(result.error||'No se pudo guardar el sustento en Drive.');
         return result;
       };
-      let job=await upload('start',{body:{documentId:id,category:'scans',sourceKey:'sustento:'+id,
+      let job=await upload('start',{body:{documentId:null,category:'scans',sourceKey:'sustento:'+id,
         sourceVersion:'sha256:'+sha,name:'sustento_'+id+'.jpg',sha256:sha,mime:'image/jpeg',size:bytes.byteLength}});
       while(job.status!=='verified'&&job.offset<bytes.byteLength){
         const offset=job.offset;
