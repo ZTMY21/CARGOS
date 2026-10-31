@@ -1,5 +1,5 @@
 {
-  "asOf": "2026-10-31T14:02:22.372Z",
+  "asOf": "2026-10-31",
   "realFilesCopied": 2,
   "sha256Verified": 2,
   "copiedBytes": 58562337,
@@ -10,7 +10,7 @@
   "storageAfterBytes": 32082853,
   "postgresFreedBytes": 47677440,
   "quotaFreedPercent": null,
-  "applicationReferencesRecorded": 0,
+  "applicationReferencesRecorded": 2,
   "pendingApplicationReferences": 2,
   "completeDatabaseBackupVerified": false,
   "completeMigration": false,
@@ -48,5 +48,15 @@
   "destinationRootFolderId": "15CIlN6SUjC4x5GAkwWKcA_vQap0_cN7W",
   "newDestinationManifest": "docs/drive/manifiesto-destino-jagu-20261031.json",
   "coldTableArchivedExternally": true,
-  "notes": "El respaldo frío fue retirado de PostgreSQL tras validar la restauración original y generar copia redundante. La tabla de referencias RLS fue agregada sin afectar documentos. Nuevo Drive copiado y descargado; aplicación sigue sin OAuth."
+  "notes": "El respaldo frío fue retirado de PostgreSQL tras validar la restauración original y generar copia redundante. La tabla de referencias RLS fue agregada sin afectar documentos. Nuevo Drive copiado y descargado; aplicación sigue sin OAuth.",
+  "referenceStatus": "uploaded - connector checksum verified externally; backend OAuth verification pending",
+  "referenceRecordIds": [
+    "8eefb906-2c5a-4b01-834d-e1d3b09d4507",
+    "25adeec1-08fb-448b-9565-75b2f39dffb2"
+  ],
+  "referenceNames": [
+    "Lista de Cargos 2021-2026(2).xlsm",
+    "kardex_documentos_backup_20261014-20261031.jsonl.gz.enc"
+  ],
+  "warning": "OAuth Google Drive y SUPABASE_SERVICE_ROLE_KEY aun ausentes en Vercel; no anunciar descargas funcionales. Produccion sin publicar cambios de Drive."
 }
