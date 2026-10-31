@@ -8,7 +8,8 @@ export function validateInput(value){
   const v=Object.fromEntries(['documentId','importId','sourceKey','sourceVersion','name','sha256','size','mime','category','modifiedAt'].filter(k=>value?.[k]!==undefined).map(k=>[k,value[k]]));
   const uuid=x=>/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(x||'');
   if(v.importId!==undefined&&!uuid(v.importId))throw new ArchiveError('INVALID_IMPORT');
-  const global=v.documentId===null&&(['backups','manifests'].includes(v.category)||(v.category==='originals'&&uuid(v.importId)));
+  const directExcelImport=v.documentId===null&&v.category==='originals'&&v.importId===undefined&&/^excel-import:[0-9a-f-]{36}:[a-f0-9]{64}$/i.test(v.sourceKey||'')&&v.mime!==undefined;
+  const global=v.documentId===null&&(['backups','manifests'].includes(v.category)||(v.category==='originals'&&uuid(v.importId))||directExcelImport);
   if(!global&&!uuid(v.documentId))throw new ArchiveError('INVALID_DOCUMENT');
   for(const k of ['sourceKey','sourceVersion'])if(typeof v[k]!=='string'||!v[k].trim()||v[k].length>200||/[\x00-\x1f]/.test(v[k]))throw new ArchiveError('INVALID_SOURCE');
   if(typeof v.name!=='string'||!v.name.trim()||v.name.length>180||/[\\/\x00-\x1f]/.test(v.name))throw new ArchiveError('INVALID_NAME');
@@ -17,6 +18,10 @@ export function validateInput(value){
   if(typeof v.mime==='string')v.mime=v.mime.toLowerCase();
   const allowed=['application/pdf','image/jpeg','image/png','application/json','application/zip','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','application/vnd.ms-excel.sheet.macroenabled.12','application/octet-stream'];
   if(!allowed.includes(v.mime))throw new ArchiveError('INVALID_MIME');
+  if(directExcelImport){
+    const excelMimes=['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','application/vnd.ms-excel.sheet.macroenabled.12'];
+    if(!excelMimes.includes(v.mime)||!/\.(xlsx|xlsm)$/i.test(v.name)||!v.sourceKey.endsWith(':'+v.sha256))throw new ArchiveError('INVALID_EXCEL_IMPORT');
+  }
   if(!Object.hasOwn(categories,v.category))throw new ArchiveError('INVALID_CATEGORY');
   if(v.modifiedAt!==undefined&&(!Number.isFinite(Date.parse(v.modifiedAt))||new Date(v.modifiedAt).toISOString()!==v.modifiedAt))throw new ArchiveError('INVALID_DATE');
   const identity=[v.documentId,v.sourceKey,v.sourceVersion,v.sha256,v.category];if(v.importId)identity.push(v.importId);v.key=sha256(JSON.stringify(identity));
