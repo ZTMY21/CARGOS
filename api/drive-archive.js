@@ -25,6 +25,17 @@ export function createHandler({env=process.env,fetcher=fetch}={}){
       const action=req.query?.action||'status',id=req.query?.id;
       if(typeof action!=='string'||(id!==undefined&&(typeof id!=='string'||!/^[-a-f0-9]{36}$/i.test(id))))throw new ArchiveError('INVALID_REQUEST');
       if(req.method==='GET'&&action==='status')return json(200,{...configuration(env),realMigrationEnabled:configuration(env).enabled,auditSnapshot:Object.fromEntries(['asOf','realFilesCopied','sha256Verified','copiedBytes','restoredTableRows','postgresFreedBytes','completeMigration'].map(k=>[k,audit[k]]))});
+      // Preview-only, non-mutating provider probe. Never returns token, IDs, file names or account data.
+      if(req.method==='GET'&&action==='health'){
+        if(env.VERCEL_ENV!=='preview')throw new ArchiveError('METHOD_NOT_ALLOWED',404);
+        const cfg=configuration(env);
+        if(!cfg.enabled)return json(503,{driveReady:false,code:cfg.reasons[0]||'ARCHIVE_DISABLED'});
+        const healthDrive=new DriveClient(env,{fetcher});
+        await healthDrive.checkRoot();
+        await healthDrive.folder('originals');
+        await healthDrive.folder('scans');
+        return json(200,{driveReady:true,rootVerified:true,foldersVerified:true});
+      }
       if(req.method==='POST'&&action==='demo')return json(200,await executeDemo());
       if(req.method==='GET'&&action==='demo-file'){res.setHeader('Content-Type','application/json');res.setHeader('Content-Disposition','attachment; filename="solo-datos-ficticios.json"');return res.end(demoBytes);}
       const read=req.method==='GET'&&['list','manifest','download','resolve'].includes(action);
