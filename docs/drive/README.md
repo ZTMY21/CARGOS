@@ -1,3 +1,19 @@
+# Cierre de archivado de auditoría — producción, 31/10/2026
+
+**Ejecutado y verificado.** El Kárdex productivo utiliza el backend de Drive con OAuth conectado. La prueba real de escritura del backend creó un archivo de 119 bytes en la carpeta de manifiestos y verificó su SHA-256 mediante relectura desde Drive. Esta prueba **no sustituye** una prueba de importación Excel iniciada por un administrador desde la interfaz.
+
+Se exportaron **13.314 eventos históricos** de `private.kardex_historial` a **83 archivos `.jsonl.gz`** privados en la carpeta `history` de Drive. Cada archivo fue descargado y validado mediante SHA-256/revisión por el backend y registrado en `private.kardex_history_drive_archives`. Los 83 archivos ocupan **33.075.009 bytes comprimidos**. Se verificaron también tres restauraciones independientes de muestras (el inicio, un bloque voluminoso y el final) con lecturas desde Drive y hashes idénticos.
+
+El manifiesto integral de **83 archivos / 13.314 filas** está a su vez en Drive: `1mXUJpIVpXOr59izQqUSWJLcgsm_S_53M`, SHA-256 `8c026ada1011a341db4795ea4e6caf23846251054b7fb72f0ab83d68e033837c`. Contiene los IDs, revisiones retenidas y los hashes necesarios para una restauración posterior.
+
+Solo después de comprobar la cobertura total sin saltos ni superposiciones, se vació transaccionalmente la tabla histórica sin reiniciar su secuencia. PostgreSQL pasó de **412.808.883 bytes** a **331.224.755 bytes** justo después del corte: **81.584.128 bytes liberados (~77,81 MiB)**. La instalación posterior de dos tareas y sus metadatos llevó la base a aproximadamente 331,36 MB decimales. Los **3.411 documentos** y todos los índices/búsquedas existentes permanecen en PostgreSQL.
+
+Se habilitaron dos tareas en `pg_cron`: archivo de bloques cerrados de 100 eventos a Drive cada hora (minuto 05) y eliminación exclusiva de eventos ya respaldados y verificados a las 02:35 UTC diariamente. Los eventos nuevos pasan temporalmente por PostgreSQL hasta completar cada bloque; **no se garantiza latencia cero** hacia Drive. Los originales de Excel y sustentos nuevos usan la ruta Drive-first del aplicativo, cuya prueba con una cuenta de administrador sigue pendiente.
+
+**Alcance:** completada la migración del historial de auditoría existente. No se han eliminado los 3.411 documentos, el índice exacto de facturas (necesario para búsquedas) ni el original de 32.082.853 bytes en Supabase Storage. La propiedad `completeMigration=false` del JSON de auditoría antiguo se refiere a la migración integral del Kárdex, no a la auditoría histórica recién transferida. La activación de las fuentes nuevas Google Sheets todavía es independiente y no se afirma realizada.
+
+---
+
 # Actualización 31/10/2026 — importación Excel directa a Google Drive (Preview)
 
 **Estado actual verificado:** Google OAuth conectado (`connected=true`), API de archivo habilitada en Preview (`enabled=true`, `mode=connected-copy-only`), última compilación Vercel READY, sin publicación en producción. La rama implementa la ruta Drive-first de `Importar desde Excel`, pero **todavía no se ha probado una carga real autenticada desde el Kardex**. No existe aprobación para eliminar copias ni se ha cambiado el origen activo de los Google Sheets.
