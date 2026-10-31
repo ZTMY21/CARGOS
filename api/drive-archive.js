@@ -45,7 +45,7 @@ export function createHandler({env=process.env,fetcher=fetch}={}){
       }
       if(!id)throw new ArchiveError('INVALID_JOB');const job=await store.get(id);const isDirectExcelJob=job.documentId===null&&job.importId==null&&job.category==='originals'&&/^excel-import:[0-9a-f-]{36}:[a-f0-9]{64}$/i.test(job.sourceKey||'');
       const isStagedEvidenceJob=job.documentId===null&&job.importId==null&&job.category==='scans'&&/^sustento:[0-9a-f-]{36}$/i.test(job.sourceKey||'');
-      if((job.documentId===null&&!isDirectExcelJob&&!isStagedEvidenceJob)||['backups','manifests'].includes(job.category))actor.backup();
+      if((job.documentId===null&&!isStagedEvidenceJob&&(!isDirectExcelJob||read))||['backups','manifests'].includes(job.category))actor.backup();
       if(isStagedEvidenceJob){
         if(read)await actor.document(job.sourceKey.slice('sustento:'.length));
       }else if(job.documentId!==null)await actor.document(job.documentId);
