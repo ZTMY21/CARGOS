@@ -123,6 +123,8 @@ export function attachBoxConditioning({supabase,repository,isAdmin,appReady,isPr
     else if(item.status==='LISTA')ready++;
   }
   summary.textContent=started+' en preparación · '+observed+' observadas · '+ready+' listas para recojo';
+  const stats=[['conditionKpiPreparing',started],['conditionKpiObserved',observed],['conditionKpiReady',ready]];
+  for(const [id,count] of stats){const target=el(id);if(target)target.textContent=String(count);}
  };
  const renderSelected=()=>{
   detail.replaceChildren();
