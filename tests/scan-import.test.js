@@ -61,3 +61,24 @@ test('servidor exige rol administrador, revisa la fuente, y valida antes de escr
  const bad=await t.invoke('POST',{action:'commit',rows:[['30/10/2026','932','1','AB113']]});
  assert.equal(bad.status,422);assert.equal(t.getWrites(),1);
 });
+
+test('sube 3.000 facturas en 8 lotes de 400 sin duplicarlas al repetir la carga',async()=>{
+ const t=setup(),total=3000,batch=400;
+ const rows=Array.from({length:total},(_,i)=>row('01-0FF01-'+String(i+1).padStart(7,'0'),String(941+Math.floor(i/500)),String(i%14+1)));
+ const preview=await t.invoke('POST',{action:'preview',rows});
+ assert.equal(preview.status,200);
+ assert.equal(preview.value.accepted,total);
+ let written=0;
+ for(let i=0;i<rows.length;i+=batch){
+  const r=await t.invoke('POST',{action:'commit',rows:rows.slice(i,i+batch)});
+  assert.equal(r.status,200);
+  assert.equal(r.value.googleVerified,true);
+  written+=r.value.saved;
+ }
+ assert.equal(written,total);assert.equal(t.getWrites(),Math.ceil(total/batch));
+ for(let i=0;i<rows.length;i+=batch){
+  const r=await t.invoke('POST',{action:'commit',rows:rows.slice(i,i+batch)});
+  assert.equal(r.status,200);assert.equal(r.value.saved,0);
+ }
+ assert.equal(t.getWrites(),Math.ceil(total/batch));
+});
