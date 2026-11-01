@@ -37,10 +37,11 @@ export function buildBoxControlValues(record,previous,stamp,responsible){
  if(!scanned.ok||record.code!==scanned.normalized)throw Error('BOX_INVALID');
  const statuses=['EN_PREPARACION','OBSERVADA','LISTA'];
  if(!statuses.includes(record.status))throw Error('BOX_STATE_INVALID');
+ const label={EN_PREPARACION:'En preparación',OBSERVADA:'Observada',LISTA:'Lista para recojo'};
  return [
    String(previous?.[0]||scanned.original),
    scanned.normalized,
-   record.status,
+   label[record.status],
    parseCargoCell(record.cargos||[]).join('-'),
    record.classification,
    record.started_at||'',
