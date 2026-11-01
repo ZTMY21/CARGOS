@@ -1,3 +1,4 @@
+import {attachBoxScanner} from './box-scanner-ui.js';
 import {attachScanImport} from './scan-import-ui.js';
 import { createClient } from '@supabase/supabase-js';
 import { computeReqEstado as reqEstado, computeDocEstado as docEstado, fmtDate, escapeHtml, limaDate } from './rules.js';
@@ -28,6 +29,7 @@ const idleSession = createIdleSession({window, onExpire: async()=>{
 }});
 let googleSyncEnabled=true;
 let activeWorkspaceTab='resumen';
+let boxScannerController=null;
 let appReady = false, isAdmin = false, mutationBusy = false, channelReady = false;
 let adminRequestStatus = null;
 let adminRequestsTimer = null, adminRequestsEpoch = 0;
@@ -203,6 +205,7 @@ const WORKSPACE_SECTIONS={
   requerimientos:'grp-requerimientos',
   existencias:'grp-existencias',
   escaneos:'grp-escaneos',
+  cajas:'grp-cajas',
   solicitudes:'grp-solicitudes'
 };
 function setAdminRequestBadge(count) {
@@ -243,6 +246,8 @@ function selectWorkspaceTab(tab,focus=false) {
   if(!appReady || !isAdmin || !Object.hasOwn(WORKSPACE_SECTIONS,tab))return;
   activeWorkspaceTab=tab;
   updateWorkspaceVisibility();
+  if(tab==='cajas')boxScannerController?.activate();
+  else boxScannerController?.deactivate();
   if(focus)(document.querySelector(`#workspaceTabs [data-workspace="${tab}"]`)
     || (tab==='solicitudes'?document.getElementById('btnTopAdminRequests'):null))?.focus();
   if(tab==='solicitudes')void refreshAdminRequests();
@@ -272,7 +277,7 @@ workspaceNav.addEventListener('keydown',event=>{
   if(next){event.preventDefault();selectWorkspaceTab(next,true);}
 });
 function setAvailability() {
-  if (!appReady || !isAdmin) { closeCargoExpiry(); closePreparedIm(); closeRequestedIM(); }
+  if (!appReady || !isAdmin) { closeCargoExpiry(); closePreparedIm(); closeRequestedIM(); boxScannerController?.reset(); }
   document.getElementById('btnExportar').hidden=!isAdmin;
   document.getElementById('appShell').classList.toggle('read-only', !isAdmin);
   ['googleSyncPanel','btnImportar','btnReset'].forEach(id=>document.getElementById(id).hidden=!isAdmin);
@@ -2100,3 +2105,6 @@ document.getElementById('btnToggleGoogleSync').addEventListener('click',async ev
 
 // Carga guiada desde Excel a la hoja original; el endpoint valida permisos y evita escrituras en Preview.
 attachScanImport({supabase,isAdmin:()=>isAdmin,appReady:()=>appReady,isPreview:()=>isPreview});
+
+// Fase 2: USB-HID en modo teclado, identificación opcional con consentimiento WebHID y consulta sin escrituras.
+boxScannerController=attachBoxScanner({repository,isAdmin:()=>isAdmin,appReady:()=>appReady});
