@@ -1,4 +1,5 @@
 import {attachBoxScanner} from './box-scanner-ui.js';
+import {attachBoxConditioning} from './box-conditioning-ui.js';
 import {attachScanImport} from './scan-import-ui.js';
 import { createClient } from '@supabase/supabase-js';
 import { computeReqEstado as reqEstado, computeDocEstado as docEstado, fmtDate, escapeHtml, limaDate } from './rules.js';
@@ -30,6 +31,7 @@ const idleSession = createIdleSession({window, onExpire: async()=>{
 let googleSyncEnabled=true;
 let activeWorkspaceTab='resumen';
 let boxScannerController=null;
+let boxConditioningController=null;
 let appReady = false, isAdmin = false, mutationBusy = false, channelReady = false;
 let adminRequestStatus = null;
 let adminRequestsTimer = null, adminRequestsEpoch = 0;
@@ -246,8 +248,8 @@ function selectWorkspaceTab(tab,focus=false) {
   if(!appReady || !isAdmin || !Object.hasOwn(WORKSPACE_SECTIONS,tab))return;
   activeWorkspaceTab=tab;
   updateWorkspaceVisibility();
-  if(tab==='cajas')boxScannerController?.activate();
-  else boxScannerController?.deactivate();
+  if(tab==='cajas'){boxScannerController?.activate();boxConditioningController?.activate();}
+  else {boxScannerController?.deactivate();boxConditioningController?.deactivate();}
   if(focus)(document.querySelector(`#workspaceTabs [data-workspace="${tab}"]`)
     || (tab==='solicitudes'?document.getElementById('btnTopAdminRequests'):null))?.focus();
   if(tab==='solicitudes')void refreshAdminRequests();
@@ -277,7 +279,7 @@ workspaceNav.addEventListener('keydown',event=>{
   if(next){event.preventDefault();selectWorkspaceTab(next,true);}
 });
 function setAvailability() {
-  if (!appReady || !isAdmin) { closeCargoExpiry(); closePreparedIm(); closeRequestedIM(); boxScannerController?.reset(); }
+  if (!appReady || !isAdmin) { closeCargoExpiry(); closePreparedIm(); closeRequestedIM(); boxScannerController?.reset();boxConditioningController?.reset(); }
   document.getElementById('btnExportar').hidden=!isAdmin;
   document.getElementById('appShell').classList.toggle('read-only', !isAdmin);
   ['googleSyncPanel','btnImportar','btnReset'].forEach(id=>document.getElementById(id).hidden=!isAdmin);
@@ -2107,4 +2109,10 @@ document.getElementById('btnToggleGoogleSync').addEventListener('click',async ev
 attachScanImport({supabase,isAdmin:()=>isAdmin,appReady:()=>appReady,isPreview:()=>isPreview});
 
 // Fase 2: USB-HID en modo teclado, identificación opcional con consentimiento WebHID y consulta sin escrituras.
-boxScannerController=attachBoxScanner({repository,isAdmin:()=>isAdmin,appReady:()=>appReady});
+boxConditioningController=attachBoxConditioning({
+  supabase,isAdmin:()=>isAdmin,appReady:()=>appReady,isPreview:()=>isPreview
+});
+boxScannerController=attachBoxScanner({
+  repository,isAdmin:()=>isAdmin,appReady:()=>appReady,
+  onScan:event=>boxConditioningController?.scan(event)
+});
