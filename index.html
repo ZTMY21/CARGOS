@@ -1010,6 +1010,7 @@
         <button id="boxScanClear" type="button" class="secondary">Limpiar</button>
       </div>
       <p id="boxScanFeedback" class="hint" aria-live="polite"></p>
+      <p id="boxSheetsStatus" class="hint" aria-live="polite">Destino: Google Sheets del Drive · CARGOS ENVIADOS</p>
       <p id="boxScannerSource" class="hint" hidden></p>
       <div id="boxScanResult" class="prepared-im-box" role="status" aria-live="polite"></div>
       <p class="hint">La consulta muestra los cargos y la clasificación registrados. Una caja no encontrada entre pendientes debe verificarse antes de tratarla como nueva.</p>
@@ -1041,6 +1042,8 @@
           <button id="conditionFinish" type="button" disabled>Marcar lista para recojo</button>
         </div>
         <p id="conditionMessage" class="hint" aria-live="polite"></p>
+        <p class="hint">Los registros de preparación se actualizan en el Google Sheets original. No se marca una caja como enviada por escanearla.</p>
+        <button id="conditionRetryDrive" class="secondary" type="button" disabled>Reintentar sincronización con Drive</button>
         <div class="filters">
           <strong id="conditionSummary">0 en preparación · 0 observadas · 0 listas para recojo</strong>
           <button id="conditionReload" class="secondary" type="button">Actualizar acondicionamientos</button>
