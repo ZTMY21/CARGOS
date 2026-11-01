@@ -1,3 +1,4 @@
+import {attachScanImport} from './scan-import-ui.js';
 import { createClient } from '@supabase/supabase-js';
 import { computeReqEstado as reqEstado, computeDocEstado as docEstado, fmtDate, escapeHtml, limaDate } from './rules.js';
 import { KardexRepository, reqFromDb, docFromDb } from './repository.js';
@@ -201,6 +202,7 @@ const WORKSPACE_SECTIONS={
   resumen:'grp-resumen',
   requerimientos:'grp-requerimientos',
   existencias:'grp-existencias',
+  escaneos:'grp-escaneos',
   solicitudes:'grp-solicitudes'
 };
 function setAdminRequestBadge(count) {
@@ -2094,3 +2096,6 @@ document.getElementById('btnToggleGoogleSync').addEventListener('click',async ev
     if(error)throw error;await refreshGoogleSync();
   }catch(error){document.getElementById('googleSyncStatus').textContent=readableError(error);ev.currentTarget.disabled=false;}
 });
+
+// Carga guiada desde Excel a la hoja original; el endpoint valida permisos y evita escrituras en Preview.
+attachScanImport({supabase,isAdmin:()=>isAdmin,appReady:()=>appReady,isPreview:()=>isPreview});
