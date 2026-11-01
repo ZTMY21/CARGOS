@@ -1,0 +1,23 @@
+name: Validar carga de facturas
+on:
+  pull_request:
+    paths:
+      - 'src/scan-rows.js'
+      - 'src/scan-import-ui.js'
+      - 'api/scan-ingest.js'
+      - 'src/app.js'
+      - 'index.html'
+      - 'tests/scan-import.test.js'
+      - '.github/workflows/scan-import.yml'
+  push:
+    branches: [feature/carga-facturas-app-20261101]
+jobs:
+  scan-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Probar seguridad y conciliación de la carga
+        run: node --test tests/scan-import.test.js
