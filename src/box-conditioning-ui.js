@@ -20,7 +20,7 @@ export function attachBoxConditioning({supabase,isAdmin,appReady,isPreview}){
   buttons.resolver.disabled=!mutable||!item||item.status!=='OBSERVADA';
   buttons.finalizar.disabled=!mutable||!item||item.status!=='EN_PREPARACION';
   // Once started, the source of truth is the server; no retroactive editing of cargo links.
-  classification.disabled=!mutable||!!item;
+  classification.disabled=!mutable||!!item||originKnown;
   cargos.disabled=!mutable||!!item||originKnown;
   issue.disabled=!mutable||!item||item.status==='LISTA';
  };
@@ -56,11 +56,11 @@ export function attachBoxConditioning({supabase,isAdmin,appReady,isPreview}){
   setButtons();renderSummary();
  };
  const load=async()=>{
-  if(!admin()||!active)return;
+  if(!admin()||!active||busy)return;
   try{
     const {data,error}=await supabase.rpc('kardex_box_conditioning_list');
     if(error)throw error;
-    if(!active)return;
+    if(!active||busy)return;
     const found=new Map();
     for(const record of Array.isArray(data)?data:[]){
       if(record&&typeof record.code==='string')found.set(record.code,record);
@@ -72,6 +72,7 @@ export function attachBoxConditioning({supabase,isAdmin,appReady,isPreview}){
  };
  const scan=({scan,found})=>{
   if(!active||!admin()||!scan?.ok)return;
+  if(busy){renderStatus('Termina el registro actual antes de acondicionar otra caja.');return;}
   selected=scan.normalized;
   code.value=scan.original;
   originKnown=Boolean(found?.found);
@@ -91,6 +92,7 @@ export function attachBoxConditioning({supabase,isAdmin,appReady,isPreview}){
  };
  const execute=async action=>{
   if(!admin()||isPreview()||busy||!selected)return;
+  const target=selected;
   const payload={p_action:action,p_box:code.value,p_cargos:[],
     p_classification:classification.value,p_observation:issue.value.trim()};
   if(action==='iniciar'){
@@ -105,7 +107,7 @@ export function attachBoxConditioning({supabase,isAdmin,appReady,isPreview}){
   try{
     const {data,error}=await supabase.rpc('kardex_box_conditioning_write',payload);
     if(error)throw error;
-    if(data?.code!==selected)throw Error('No se confirmó el código de caja.');
+    if(data?.code!==target)throw Error('No se confirmó el código de caja.');
     entries.set(data.code,data);
     if(action==='iniciar'){originKnown=true;classification.value=data.classification;cargos.value=(data.cargos||[]).join(', ');}
     if(action==='resolver')issue.value='';
