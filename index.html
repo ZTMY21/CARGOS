@@ -1013,6 +1013,39 @@
       <p id="boxScannerSource" class="hint" hidden></p>
       <div id="boxScanResult" class="prepared-im-box" role="status" aria-live="polite"></div>
       <p class="hint">La consulta muestra los cargos y la clasificación registrados. Una caja no encontrada entre pendientes debe verificarse antes de tratarla como nueva.</p>
+      <section id="boxConditionPanel" class="prepared-im-box" aria-label="Acondicionamiento de cajas">
+        <h3>Acondicionamiento</h3>
+        <p class="hint">Después de escanear, revisa los cargos y registra la preparación. Las cajas listas quedan pendientes de recojo; no se marcan como enviadas.</p>
+        <div class="filters">
+          <label for="conditionCode">Caja
+            <input id="conditionCode" type="text" placeholder="Escanea una caja arriba" readonly>
+          </label>
+          <label for="conditionClass">Clasificación
+            <select id="conditionClass">
+              <option value="Cajas Nuevas">Cajas nuevas</option>
+              <option value="POR SOLICITUD">Por solicitud</option>
+              <option value="Reparación">Reparación</option>
+            </select>
+          </label>
+          <label for="conditionCargos">Cargos asociados
+            <input id="conditionCargos" type="text" placeholder="933, 934" autocomplete="off">
+          </label>
+        </div>
+        <p id="conditionDetail" class="hint"></p>
+        <label for="conditionIssue">Incidencia u observación</label>
+        <textarea id="conditionIssue" rows="2" maxlength="300" placeholder="Describe un daño o pendiente, si corresponde"></textarea>
+        <div class="actions">
+          <button id="conditionStart" type="button" disabled>Iniciar preparación</button>
+          <button id="conditionObserve" class="secondary" type="button" disabled>Registrar incidencia</button>
+          <button id="conditionResolve" class="secondary" type="button" disabled>Resolver incidencia</button>
+          <button id="conditionFinish" type="button" disabled>Marcar lista para recojo</button>
+        </div>
+        <p id="conditionMessage" class="hint" aria-live="polite"></p>
+        <div class="filters">
+          <strong id="conditionSummary">0 en preparación · 0 observadas · 0 listas para recojo</strong>
+          <button id="conditionReload" class="secondary" type="button">Actualizar acondicionamientos</button>
+        </div>
+      </section>
       <div class="table-wrap">
         <h3>Últimas lecturas</h3>
         <ol id="boxScanHistory" class="prepared-im-list" aria-label="Historial de códigos de cajas leídos"></ol>
