@@ -5,13 +5,20 @@ import {attachPickupMail} from '../src/pickup-mail-ui.js';
 
 const ids=['pickupMailStatus','pickupMailCounts','pickupMailBatches','pickupMailPreview',
  'pickupMailPreviewMeta','pickupSender','pickupTo','pickupCc','pickupName','pickupPosition',
- 'pickupArea','pickupCompany','pickupContact','pickupSaveConfig','pickupPrepare','pickupReload'];
+ 'pickupArea','pickupCompany','pickupContact','pickupSaveConfig','pickupPrepare','pickupReload',
+ 'pickupSubject','pickupGreeting','pickupIntroduction','pickupRequest','pickupClosing',
+ 'pickupLogoFile','pickupLogoPreview','pickupLogoStatus','pickupLogoClear','pickupSample'];
 function createDom(){
- const markup='<html><body>'+ids.map(id=>id==='pickupMailPreview'
+ const markup='<html><body>'+ids.map(id=>id==='pickupLogoPreview'
+ ?'<img id="'+id+'">'
+ :id==='pickupLogoFile'?'<input id="'+id+'" type="file">'
+ :['pickupIntroduction','pickupRequest','pickupClosing'].includes(id)
+ ?'<textarea id="'+id+'"></textarea>'
+ :id==='pickupMailPreview'
  ?'<iframe id="'+id+'"></iframe>'
- :['pickupSaveConfig','pickupPrepare','pickupReload'].includes(id)
+ :['pickupSaveConfig','pickupPrepare','pickupReload','pickupLogoClear','pickupSample'].includes(id)
  ?'<button id="'+id+'"></button>'
- :['pickupMailStatus','pickupMailCounts','pickupMailBatches','pickupMailPreviewMeta'].includes(id)
+ :['pickupMailStatus','pickupMailCounts','pickupMailBatches','pickupMailPreviewMeta','pickupLogoStatus'].includes(id)
  ?'<div id="'+id+'"></div>'
  :'<input id="'+id+'">').join('')+'</body></html>';
  return new JSDOM(markup,{url:'https://app.example.com/'});
@@ -89,5 +96,22 @@ test('Preview muestra datos pero nunca prepara ni configura ni confirma',async()
   await t.click('pickupPrepare');await t.click('pickupSaveConfig');
   assert.equal(t.calls.filter(x=>x.name==='kardex_pickup_mail_prepare').length,0);
   assert.equal(t.calls.filter(x=>x.name==='kardex_pickup_mail_configure').length,0);
+ }finally{t.cleanup();}
+});
+
+
+test('vista simulada usa 30 cajas ficticias sin confirmar ni escribir registros',async()=>{
+ const t=await make();
+ try{
+  t.node('pickupName').value='Angelo';
+  t.node('pickupPosition').value='Operador Integral | BPDT - Liquidaciones';
+  await t.click('pickupSample');
+  assert.match(t.node('pickupMailPreviewMeta').textContent,/Simulación/);
+  assert.match(t.node('pickupMailPreview').srcdoc,/SIMULACIÓN INTERNA/);
+  assert.match(t.node('pickupMailPreview').srcdoc,/TD-DEMO-030/);
+  assert.match(t.node('pickupMailPreview').srcdoc,/Angelo/);
+  assert.equal(t.calls.filter(x=>x.name==='kardex_pickup_mail_prepare').length,0);
+  assert.equal(t.calls.filter(x=>x.name==='kardex_pickup_mail_mark').length,0);
+  assert.equal(t.requests.length,0);
  }finally{t.cleanup();}
 });
