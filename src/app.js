@@ -1,4 +1,5 @@
 import {attachBoxScanner} from './box-scanner-ui.js';
+import {attachBoxScanSheets} from './box-scan-sheet-ui.js';
 import {attachBoxConditioning} from './box-conditioning-ui.js';
 import {attachPickupMail} from './pickup-mail-ui.js';
 import {attachScanImport} from './scan-import-ui.js';
@@ -33,6 +34,7 @@ let googleSyncEnabled=true;
 let activeWorkspaceTab='resumen';
 let boxScannerController=null;
 let boxConditioningController=null;
+let boxScanSheetController=null;
 let pickupMailController=null;
 let appReady = false, isAdmin = false, mutationBusy = false, channelReady = false;
 let adminRequestStatus = null;
@@ -210,6 +212,7 @@ const WORKSPACE_SECTIONS={
   existencias:'grp-existencias',
   escaneos:'grp-escaneos',
   cajas:'grp-cajas',
+  acondicionamiento:'grp-acondicionamiento',
   correos:'grp-correos',
   solicitudes:'grp-solicitudes'
 };
@@ -251,8 +254,10 @@ function selectWorkspaceTab(tab,focus=false) {
   if(!appReady || !isAdmin || !Object.hasOwn(WORKSPACE_SECTIONS,tab))return;
   activeWorkspaceTab=tab;
   updateWorkspaceVisibility();
-  if(tab==='cajas'){boxScannerController?.activate();boxConditioningController?.activate();}
-  else {boxScannerController?.deactivate();boxConditioningController?.deactivate();}
+  if(tab==='cajas')boxScannerController?.activate();
+  else boxScannerController?.deactivate();
+  if(tab==='acondicionamiento')boxConditioningController?.activate();
+  else boxConditioningController?.deactivate();
   if(tab==='correos')pickupMailController?.activate();
   else pickupMailController?.deactivate();
   if(focus)(document.querySelector(`#workspaceTabs [data-workspace="${tab}"]`)
@@ -284,7 +289,7 @@ workspaceNav.addEventListener('keydown',event=>{
   if(next){event.preventDefault();selectWorkspaceTab(next,true);}
 });
 function setAvailability() {
-  if (!appReady || !isAdmin) { closeCargoExpiry(); closePreparedIm(); closeRequestedIM(); boxScannerController?.reset();boxConditioningController?.reset();pickupMailController?.reset(); }
+  if (!appReady || !isAdmin) { closeCargoExpiry(); closePreparedIm(); closeRequestedIM(); boxScannerController?.reset();boxConditioningController?.reset();boxScanSheetController?.reset();pickupMailController?.reset(); }
   document.getElementById('btnExportar').hidden=!isAdmin;
   document.getElementById('appShell').classList.toggle('read-only', !isAdmin);
   ['googleSyncPanel','btnImportar','btnReset'].forEach(id=>document.getElementById(id).hidden=!isAdmin);
@@ -2120,9 +2125,12 @@ pickupMailController=attachPickupMail({
 
 // Fase 2: USB-HID en modo teclado, identificación opcional con consentimiento WebHID y consulta sin escrituras.
 boxConditioningController=attachBoxConditioning({
+  supabase,repository,isAdmin:()=>isAdmin,appReady:()=>appReady,isPreview:()=>isPreview
+});
+boxScanSheetController=attachBoxScanSheets({
   supabase,isAdmin:()=>isAdmin,appReady:()=>appReady,isPreview:()=>isPreview
 });
 boxScannerController=attachBoxScanner({
   repository,isAdmin:()=>isAdmin,appReady:()=>appReady,
-  onScan:event=>boxConditioningController?.scan(event)
+  onScan:event=>boxScanSheetController?.scan(event)
 });
