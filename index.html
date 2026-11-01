@@ -631,6 +631,7 @@
   .previous-cargo-pending{color:#8893a2;font-size:12px;}
   .previous-cargo-error{color:#8a6671;font-size:11px;}
 </style>
+<link rel="stylesheet" href="/src/intervention-ui.css">
 </head>
 <body>
 <style>
@@ -963,22 +964,30 @@
     <summary><span class="stitle">Carga de facturas digitalizadas por cargo</span><span class="chev">▶</span></summary>
     <div class="group-body">
       <p class="hint">Sube el Excel generado por el programa de digitalización de facturas. El aplicativo identificará fecha, cargo, grupo y código, y comprobará los registros repetidos antes de guardarlos.</p>
-      <label for="scanFile"><strong>Seleccionar Excel de facturas escaneadas</strong></label>
+      <section class="intervention-card intervention-upload">
+        <h3 class="intervention-card-title">Seleccionar archivo de digitalización</h3>
+        <p class="intervention-section-caption">Carga el Excel original; antes de guardar podrás revisar fechas, cargos y registros repetidos.</p>
+        <label class="intervention-field-label" for="scanFile">Excel de facturas escaneadas</label>
       <input id="scanFile" type="file" accept=".xlsx,.xlsm,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel.sheet.macroenabled.12" aria-describedby="scanFileName">
       <p id="scanFileName" class="hint">Hasta 10.000 filas · 20 MB</p>
-      <details style="margin:12px 0">
-        <summary>Otra opción: pegar datos</summary>
+      </section>
+      <details class="intervention-option">
+        <summary>Otra opción: pegar datos desde Excel</summary>
+        <div class="intervention-option-content">
         <label for="scanPaste">Pegar desde Excel</label>
         <textarea id="scanPaste" rows="5" autocomplete="off" spellcheck="false" placeholder="Fecha	Cargo	Grupo	Codigo&#10;30/10/2026	941	1	01-0FF01-0217573"></textarea>
+        </div>
       </details>
-      <div class="actions">
+      <div class="actions intervention-actions">
         <button type="button" class="secondary" id="scanValidate">Validar y previsualizar</button>
         <button type="button" id="scanSave" disabled>Confirmar carga a Google Sheets</button>
       </div>
       <progress id="scanProgress" value="0" max="100" hidden style="width:100%;height:18px;margin:10px 0 2px"></progress>
       <p id="scanStage" class="hint" aria-live="polite"></p>
       <p id="scanStatus" class="hint" aria-live="polite"></p>
-      <div id="scanSummary" hidden>
+      <div id="scanSummary" class="intervention-results" hidden>
+        <h3 class="intervention-card-title">Resultados de validación</h3>
+        <p class="intervention-section-caption">Revisa los registros antes de confirmar la carga.</p>
         <div class="filters">
           <span>Total de filas: <strong id="scanTotal">0</strong></span>
           <span>Nuevas válidas: <strong id="scanValid">0</strong></span>
@@ -988,7 +997,7 @@
         </div>
         <div class="table-wrap" id="scanSample"></div>
       </div>
-      <p class="hint">Revisa los resultados antes de confirmar. Los registros nuevos se enviarán a Google Sheets y después se sincronizarán con el Kárdex.</p>
+      <p class="intervention-note">Los registros nuevos se enviarán a Google Sheets tras tu confirmación; después se sincronizarán con el Kárdex.</p>
       <p id="scanReceipt" class="hint" aria-live="polite"></p>
     </div>
   </details>
@@ -998,7 +1007,10 @@
     <summary><span class="stitle">Control de cajas</span><span class="chev">▶</span></summary>
     <div class="group-body">
       <p class="hint">Conecta el lector y escanea una caja: el código se consultará automáticamente, sin pulsar Enter. Si no tienes lector, escribe el código y pulsa Buscar manualmente.</p>
-      <div class="filters">
+      <div class="intervention-scan-layout">
+        <section class="intervention-card intervention-scan-tools">
+          <h3 class="intervention-card-title">Escaneo y consulta</h3>
+          <div class="filters intervention-device">
         <span><strong>Estado:</strong> <span id="boxScannerStatus" role="status">Sin lecturas</span></span>
         <span id="boxScannerModel" hidden></span>
       </div>
@@ -1016,12 +1028,17 @@
       <p id="boxScanFeedback" class="hint" aria-live="polite"></p>
       <p id="boxSheetsStatus" class="hint" aria-live="polite">Destino: Google Sheets del Drive · CARGOS ENVIADOS</p>
       <p id="boxScannerSource" class="hint" hidden></p>
-      <div id="boxScanResult" class="prepared-im-box" role="status" aria-live="polite"></div>
+        </section>
+        <section class="intervention-card intervention-scan-results">
+          <h3 class="intervention-card-title">Información de la caja</h3>
+          <div id="boxScanResult" class="prepared-im-box" role="status" aria-live="polite"></div>
       <p class="hint">La consulta muestra los cargos y la clasificación registrados. Una caja no encontrada entre pendientes debe verificarse antes de tratarla como nueva.</p>
 
-      <div class="table-wrap">
-        <h3>Últimas lecturas</h3>
+      <div class="table-wrap intervention-history">
+        <h3 class="intervention-card-title">Últimas lecturas</h3>
         <ol id="boxScanHistory" class="prepared-im-list" aria-label="Historial de códigos de cajas leídos"></ol>
+      </div>
+        </section>
       </div>
     </div>
   </details>
@@ -1031,7 +1048,23 @@
     <summary><span class="stitle">Acondicionamiento de cajas</span><span class="chev">▶</span></summary>
     <div class="group-body">
       <p class="hint">Escanea aquí las cajas que vas a preparar. Esta sección registra preparación, incidencias y cajas listas; Control de cajas queda destinado solo a consultas.</p>
-      <label for="conditionScanInput"><strong>Escanear caja para acondicionar</strong></label>
+      <div class="intervention-kpis" aria-label="Indicadores de acondicionamiento">
+        <div class="intervention-kpi" data-kind="preparacion">
+          <strong id="conditionKpiPreparing" class="intervention-kpi-number">0</strong>
+          <span class="intervention-kpi-label">En preparación</span>
+        </div>
+        <div class="intervention-kpi" data-kind="observada">
+          <strong id="conditionKpiObserved" class="intervention-kpi-number">0</strong>
+          <span class="intervention-kpi-label">Observadas</span>
+        </div>
+        <div class="intervention-kpi" data-kind="lista">
+          <strong id="conditionKpiReady" class="intervention-kpi-number">0</strong>
+          <span class="intervention-kpi-label">Listas para recojo</span>
+        </div>
+      </div>
+      <section class="intervention-card intervention-scan-tools">
+        <h3 class="intervention-card-title">Escaneo para preparar cajas</h3>
+        <label class="intervention-field-label" for="conditionScanInput">Código de caja</label>
       <div class="filters">
         <input type="text" id="conditionScanInput" autocomplete="off" autocapitalize="characters" spellcheck="false"
           placeholder="Código T, TD, P o números" maxlength="80" aria-describedby="conditionScanFeedback">
@@ -1039,6 +1072,7 @@
         <button type="button" class="secondary" id="conditionScanRefresh">Actualizar cargos</button>
       </div>
       <p id="conditionScanFeedback" class="hint" role="status" aria-live="polite">Sin lecturas de acondicionamiento</p>
+      </section>
       <section id="boxConditionPanel" class="prepared-im-box" aria-label="Acondicionamiento de cajas">
         <h3>Registro de preparación</h3>
         <p class="hint">Escanea una caja para consultar sus cargos y registrar su preparación. Las cajas listas quedan pendientes de recojo; no se marcan como enviadas.</p>
@@ -1060,7 +1094,7 @@
         <p id="conditionDetail" class="hint"></p>
         <label for="conditionIssue">Incidencia u observación</label>
         <textarea id="conditionIssue" rows="2" maxlength="300" placeholder="Describe un daño o pendiente, si corresponde"></textarea>
-        <div class="actions">
+        <div class="actions intervention-actions">
           <button id="conditionStart" type="button" disabled>Iniciar preparación</button>
           <button id="conditionObserve" class="secondary" type="button" disabled>Registrar incidencia</button>
           <button id="conditionResolve" class="secondary" type="button" disabled>Resolver incidencia</button>
@@ -1126,25 +1160,26 @@
     <summary><span class="stitle">Avisos de recojo · Iron Mountain</span><span class="chev">▶</span></summary>
     <div class="group-body">
       <p class="hint">Cuando haya 30 cajas nuevas listas, prepara el correo para coordinar su recojo. El aviso no confirma un envío a Iron Mountain.</p>
-      <div class="filters">
+      <div class="filters intervention-mail-head">
         <strong id="pickupMailCounts">Consultando cajas…</strong>
         <button id="pickupReload" type="button" class="secondary">Actualizar</button>
         <button id="pickupPrepare" type="button" disabled>Preparar correo de 30 cajas</button>
       </div>
       <p id="pickupMailStatus" class="hint" role="status" aria-live="polite"></p>
-      <div class="table-wrap" aria-label="Correos de recojo pendientes y anteriores">
+      <div class="table-wrap intervention-card intervention-mail-history" aria-label="Correos de recojo pendientes y anteriores">
         <h3>Correos pendientes e historial</h3>
         <div id="pickupMailBatches">Sin correos preparados.</div>
       </div>
-      <div class="prepared-im-box">
-        <h3>Vista previa del correo</h3>
-        <p id="pickupMailPreviewMeta" class="hint">Selecciona un aviso para revisar el destinatario, cuerpo y firma antes de usar Outlook.</p>
-        <iframe id="pickupMailPreview" title="Vista previa segura del correo" sandbox="" referrerpolicy="no-referrer"
-          style="display:block;width:100%;min-height:500px;background:#fff;border:1px solid var(--border);border-radius:8px"></iframe>
-      </div>
-      <details style="margin-top:18px">
-        <summary>Configurar destinatarios y firma corporativa</summary>
-        <div style="padding:14px 0">
+      <details id="pickupPreviewDetails" class="intervention-preview-panel">
+        <summary>Ver correo generado</summary>
+        <div class="intervention-preview-inner">
+          <p id="pickupMailPreviewMeta" class="hint">Selecciona un aviso o utiliza «Simular correo» para revisar el formato.</p>
+          <iframe id="pickupMailPreview" title="Vista previa segura del correo" sandbox="" referrerpolicy="no-referrer"></iframe>
+        </div>
+      </details>
+      <details class="intervention-config-panel">
+        <summary>Configuración del correo · destinatarios, firma y mensaje</summary>
+        <div class="intervention-config-inner">
           <p class="hint">Completa los datos exactos de la persona que enviará los correos. No se completan automáticamente con datos supuestos.</p>
           <div class="filters">
             <label for="pickupSender">Correo remitente
@@ -1174,7 +1209,7 @@
               <input type="text" id="pickupContact" maxlength="240">
             </label>
           </div>
-          <div class="prepared-im-box" style="margin-top:12px">
+          <div class="intervention-template">
             <h3>Mensaje predeterminado y logotipo</h3>
             <p class="hint">Este formato se utilizará para los próximos avisos de 30 cajas. El detalle de cajas se genera desde el Kárdex y no se edita manualmente.</p>
             <label for="pickupSubject">Asunto del correo</label>
@@ -1196,13 +1231,13 @@
               <button id="pickupLogoClear" type="button" class="secondary">Quitar logotipo</button>
             </div>
           </div>
-          <div class="actions" style="margin-top:12px">
+          <div class="actions intervention-actions">
             <button id="pickupSample" type="button" class="secondary">Simular correo (sin enviar)</button>
             <button id="pickupSaveConfig" type="button">Guardar configuración</button>
           </div>
         </div>
       </details>
-      <p class="hint">La descarga EML prepara el mensaje para Outlook. Solo confirma el envío en el Kárdex después de enviarlo realmente desde Outlook.</p>
+      <p class="intervention-note">El archivo EML prepara el mensaje para Outlook, pero no lo envía. Confirma el envío en el Kárdex únicamente después de enviarlo desde Outlook.</p>
     </div>
   </details>
 
