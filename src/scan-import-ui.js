@@ -32,25 +32,25 @@ export function attachScanImport({supabase,isAdmin,appReady,isPreview}){
   };
   const getInput=async()=>{
     if(file.files?.length){
-      progressTo(4,'Leyendo Excel localmente…');
+      progressTo(4,'Abriendo Excel…');
       const parsed=await readScanWorkbook(file.files[0]);
       byId('scanFileName').textContent=parsed.fileName+' · Hoja «'+parsed.sheetName+'» · '+parsed.count.toLocaleString('es-PE')+' registros';
       return {rows:parsed.rows,source:'file:'+file.files[0].name+':'+file.files[0].size+':'+file.files[0].lastModified};
     }
     const rows=parseScanPaste(paste.value);
-    byId('scanFileName').textContent='Modo copiar y pegar';
+    byId('scanFileName').textContent='Datos pegados';
     return {rows,source:'paste:'+paste.value};
   };
   paste.addEventListener('input',()=>{
     if(busy)return;
-    if(paste.value.trim()){file.value='';byId('scanFileName').textContent='Modo copiar y pegar';}
-    clear();notice('Datos modificados. Vuelve a validar antes de guardar.');
+    if(paste.value.trim()){file.value='';byId('scanFileName').textContent='Datos pegados';}
+    clear();notice('Datos modificados. Valida nuevamente.');
   });
   file.addEventListener('change',()=>{
     if(busy)return;
     paste.value='';clear();
-    byId('scanFileName').textContent=file.files?.[0]?file.files[0].name:'No se ha seleccionado un Excel';
-    notice('Archivo seleccionado. Pulsa «Validar Excel» para revisar todas las líneas.');
+    byId('scanFileName').textContent=file.files?.[0]?file.files[0].name:'Selecciona un Excel';
+    notice('Archivo listo para validar.');
   });
   validate.addEventListener('click',async()=>{
     if(busy)return;
@@ -74,9 +74,9 @@ export function attachScanImport({supabase,isAdmin,appReady,isPreview}){
       }
       sample.append(table);
       if(checked.errors.length){
-        progressTo(100,'Validación detenida por errores');
+        progressTo(100,'Revisa las filas indicadas');
         const examples=checked.errors.slice(0,3).map(e=>'Fila '+e.line+': '+e.reason).join(' | ');
-        return notice(checked.errors.length+' filas contienen errores. '+examples+' Corrige el Excel y vuelve a cargarlo.',true);
+        return notice(checked.errors.length+' filas con errores. '+examples,true);
       }
       // Desduplicar TODO el archivo antes de dividirlo: dos bloques nunca reenvían el mismo registro.
       const local=compareScanRows(checked.ready,[]);
@@ -85,8 +85,8 @@ export function attachScanImport({supabase,isAdmin,appReady,isPreview}){
       byId('scanDuplicates').textContent=String(duplicates);
       if(isPreview()){
         byId('scanValid').textContent=String(candidate.length);
-        progressTo(100,'Vista previa aislada, sin escritura');
-        return notice('Excel validado localmente: '+candidate.length+' filas. En Preview no se permite modificar la hoja real.');
+        progressTo(100,'Validación completa');
+        return notice('Vista de prueba: '+candidate.length+' filas válidas.');
       }
       const groups=split(candidate,PREVIEW_BATCH);
       for(let i=0;i<groups.length;i++){
@@ -101,7 +101,7 @@ export function attachScanImport({supabase,isAdmin,appReady,isPreview}){
       save.dataset.valid=accepted>0?'1':'';
       save.disabled=accepted===0;
       progressTo(100,'Validación completa');
-      notice(accepted.toLocaleString('es-PE')+' registros nuevos; '+duplicates+' duplicados exactos. '+crossCargo+' coincidencias con otros cargos (se conservan). '+(accepted?'Puedes confirmar la carga.':'No hay registros nuevos que guardar.'));
+      notice(accepted.toLocaleString('es-PE')+' nuevos · '+duplicates+' repetidos'+(crossCargo?' · '+crossCargo+' presentes en otros cargos':'')+'. '+(accepted?'Listo para confirmar.':'No hay registros nuevos.'));
     }catch(error){
       candidate=[];save.dataset.valid='';save.disabled=true;
       progressTo(0,'No se guardó ningún registro en esta validación');
@@ -128,14 +128,14 @@ export function attachScanImport({supabase,isAdmin,appReady,isPreview}){
         byId('scanReceipt').textContent='Progreso confirmado: '+saved+' nuevas, '+duplicates+' ya registradas, '+processed+' revisadas.';
       }
       candidate=[];reviewedSource='';
-      paste.value='';file.value='';byId('scanFileName').textContent='No se ha seleccionado un Excel';
+      paste.value='';file.value='';byId('scanFileName').textContent='Selecciona un Excel';
       progressTo(100,'Carga terminada y confirmada en Google Sheets');
-      notice('Carga terminada: '+saved.toLocaleString('es-PE')+' filas nuevas verificadas y '+duplicates+' ya registradas. La sincronización del Kárdex se confirma aparte mediante la rutina existente.');
+      notice(saved.toLocaleString('es-PE')+' registros guardados · '+duplicates+' ya existían. Actualización del Kárdex pendiente de sincronización.');
     }catch(error){
       progressTo(Math.floor(100*processed/candidate.length),'Proceso interrumpido tras '+processed+' filas revisadas');
       notice('Carga parcial o pendiente de conciliación. Lotes confirmados: '+processed+' filas, '+saved+' nuevas. '+(error?.message||'Error de red')+' Conserva el Excel: valida de nuevo antes de cualquier reintento.',true);
     }finally{busy=false;validate.disabled=false;file.disabled=false;paste.disabled=false;}
   });
   clear();
-  notice('Sube un Excel (.xlsx / .xlsm), valida todas sus filas y confirma. La opción de pegar registros sigue disponible.');
+  notice('');
 }

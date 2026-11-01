@@ -31,11 +31,11 @@ test('autolectura solo para ráfagas de teclas compatibles con un lector',()=>{
 });
 test('interfaz escanea caja pendiente y rechaza duplicidad por prefijo sin modificar base',async()=>{
  const ids=['boxScanInput','boxScanFeedback','boxScanResult','boxScanHistory','boxScanCount','boxScannerModel',
- 'boxScannerSource','boxScannerDetect','boxScanEnable','boxScanSubmit','boxScanRefresh','boxScanClear'];
+ 'boxScannerSource','boxScannerStatus','boxScanSubmit','boxScanRefresh','boxScanClear'];
  const dom=new JSDOM('<!doctype html><html><body>'+ids.map(id=>
    id==='boxScanInput'?'<input id="'+id+'">':
    id==='boxScanHistory'?'<ol id="'+id+'"></ol>':
-   id.endsWith('Detect')||id.endsWith('Enable')||id.endsWith('Submit')||id.endsWith('Refresh')||id.endsWith('Clear')?
+   id.endsWith('Submit')||id.endsWith('Refresh')||id.endsWith('Clear')?
      '<button id="'+id+'"></button>':'<div id="'+id+'"></div>').join('')+'</body></html>',{url:'https://kardex.example/'});
  const oldDocument=globalThis.document,oldNavigator=Object.getOwnPropertyDescriptor(globalThis,'navigator');
  try{
@@ -46,9 +46,12 @@ test('interfaz escanea caja pendiente y rechaza duplicidad por prefijo sin modif
   const ui=attachBoxScanner({repository,isAdmin:()=>true,appReady:()=>true});
   ui.activate();await new Promise(resolve=>setTimeout(resolve,0));
   assert.equal(reads,1);
+  assert.equal(dom.window.document.getElementById('boxScannerModel').textContent,'');
+  assert.equal(dom.window.document.getElementById('boxScannerStatus').textContent,'Listo para escanear');
   const input=dom.window.document.getElementById('boxScanInput');
   input.value='T00990011';input.dispatchEvent(new dom.window.KeyboardEvent('keydown',{key:'Enter',bubbles:true,cancelable:true}));
   assert.match(dom.window.document.getElementById('boxScanResult').textContent,/933, 934/);
+  assert.equal(dom.window.document.getElementById('boxScannerStatus').textContent,'Lectura recibida');
   assert.equal(dom.window.document.getElementById('boxScanCount').textContent,'1');
   input.value='P00990011';input.dispatchEvent(new dom.window.KeyboardEvent('keydown',{key:'Enter',bubbles:true,cancelable:true}));
   assert.equal(dom.window.document.getElementById('boxScanCount').textContent,'1');
@@ -57,6 +60,64 @@ test('interfaz escanea caja pendiente y rechaza duplicidad por prefijo sin modif
   ui.reset();assert.equal(dom.window.document.getElementById('boxScanCount').textContent,'0');
  }finally{
   if(oldDocument===undefined)delete globalThis.document;else globalThis.document=oldDocument;
+  if(oldNavigator)Object.defineProperty(globalThis,'navigator',oldNavigator);else delete globalThis.navigator;
+  dom.window.close();
+ }
+});
+
+test('muestra modelo automáticamente solo si WebHID confirma un lector previamente autorizado',async()=>{
+ const ids=['boxScanInput','boxScanFeedback','boxScanResult','boxScanHistory','boxScanCount',
+  'boxScannerModel','boxScannerStatus','boxScannerSource','boxScanSubmit','boxScanRefresh','boxScanClear'];
+ const dom=new JSDOM('<!doctype html><html><body>'+ids.map(id=>
+  id==='boxScanInput'?'<input id="'+id+'">':
+  id==='boxScanHistory'?'<ol id="'+id+'"></ol>':
+  id.startsWith('boxScan')&&/(Submit|Refresh|Clear)$/.test(id)?'<button id="'+id+'"></button>':
+  '<div id="'+id+'"'+(id==='boxScannerModel'?' hidden':'')+'></div>').join('')+'</body></html>',{url:'https://kardex.example/'});
+ const oldDoc=globalThis.document,oldNavigator=Object.getOwnPropertyDescriptor(globalThis,'navigator');
+ const listeners={};
+ const reader={productName:'Symbol LS2208',vendorId:1504,productId:23};
+ try{
+  globalThis.document=dom.window.document;
+  Object.defineProperty(dom.window.navigator,'hid',{configurable:true,value:{
+   getDevices:async()=>[reader],
+   addEventListener:(name,fn)=>{listeners[name]=fn;}
+  }});
+  Object.defineProperty(globalThis,'navigator',{configurable:true,value:dom.window.navigator});
+  const ui=attachBoxScanner({repository:{preparedImDetails:async()=>[]},isAdmin:()=>true,appReady:()=>true});
+  ui.activate();await new Promise(r=>setTimeout(r,0));
+  assert.equal(dom.window.document.getElementById('boxScannerStatus').textContent,'Conectado');
+  assert.equal(dom.window.document.getElementById('boxScannerModel').textContent,'Lector: Symbol LS2208');
+  assert.equal(dom.window.document.getElementById('boxScannerModel').hidden,false);
+  listeners.disconnect({device:reader});
+  assert.equal(dom.window.document.getElementById('boxScannerStatus').textContent,'Desconectado');
+  assert.equal(dom.window.document.getElementById('boxScannerModel').hidden,true);
+ }finally{
+  if(oldDoc===undefined)delete globalThis.document;else globalThis.document=oldDoc;
+  if(oldNavigator)Object.defineProperty(globalThis,'navigator',oldNavigator);else delete globalThis.navigator;
+  dom.window.close();
+ }
+});
+test('no atribuye otro dispositivo HID al lector ni muestra un modelo supuesto',async()=>{
+ const ids=['boxScanInput','boxScanFeedback','boxScanResult','boxScanHistory','boxScanCount',
+  'boxScannerModel','boxScannerStatus','boxScannerSource','boxScanSubmit','boxScanRefresh','boxScanClear'];
+ const dom=new JSDOM('<!doctype html><html><body>'+ids.map(id=>
+  id==='boxScanInput'?'<input id="'+id+'">':
+  id==='boxScanHistory'?'<ol id="'+id+'"></ol>':
+  id.startsWith('boxScan')&&/(Submit|Refresh|Clear)$/.test(id)?'<button id="'+id+'"></button>':
+  '<div id="'+id+'" hidden></div>').join('')+'</body></html>',{url:'https://kardex.example/'});
+ const oldDoc=globalThis.document,oldNavigator=Object.getOwnPropertyDescriptor(globalThis,'navigator');
+ try{
+  globalThis.document=dom.window.document;
+  Object.defineProperty(dom.window.navigator,'hid',{configurable:true,value:{getDevices:async()=>[
+   {productName:'Generic USB keyboard',vendorId:123,productId:456}
+  ]}});
+  Object.defineProperty(globalThis,'navigator',{configurable:true,value:dom.window.navigator});
+  const ui=attachBoxScanner({repository:{preparedImDetails:async()=>[]},isAdmin:()=>true,appReady:()=>true});
+  ui.activate();await new Promise(r=>setTimeout(r,0));
+  assert.equal(dom.window.document.getElementById('boxScannerStatus').textContent,'Listo para escanear');
+  assert.equal(dom.window.document.getElementById('boxScannerModel').textContent,'');
+ }finally{
+  if(oldDoc===undefined)delete globalThis.document;else globalThis.document=oldDoc;
   if(oldNavigator)Object.defineProperty(globalThis,'navigator',oldNavigator);else delete globalThis.navigator;
   dom.window.close();
  }
