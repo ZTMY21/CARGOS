@@ -1,8 +1,9 @@
-import {parseBoxScan,findPreparedBox,probableRapidScan} from './box-scanner.js';
+import {parseBoxScan,findPreparedBox} from './box-scanner.js';
 
 // Los lectores USB-HID pueden funcionar como teclado sin exponer su modelo.
 // Mostramos "Conectado" solo si WebHID confirma un lector autorizado.
 const readerName=name=>/symbol|zebra|motorola|honeywell|datalogic|barcode|scanner|lector|cipherlab|newland|unitech|opticon|socket/i.test(String(name??''));
+const SCAN_IDLE_MS=650; // Lee automáticamente al terminar de recibir caracteres, incluso sin Enter.
 
 export function attachBoxScanner({repository,isAdmin,appReady}){
   const el=id=>document.getElementById(id);
@@ -25,7 +26,7 @@ export function attachBoxScanner({repository,isAdmin,appReady}){
   const setModel=info=>{
     if(!info||!readerName(info.productName))return;
     identified={vendorId:info.vendorId,productId:info.productId,productName:info.productName};
-    state.textContent='Conectado';
+    state.textContent='Lector conectado';
     device.textContent='Lector: '+info.productName;
     device.hidden=false;
   };
@@ -76,7 +77,7 @@ export function attachBoxScanner({repository,isAdmin,appReady}){
     const scanned=parseBoxScan(input.value);
     if(!scanned.ok)return notice(scanned.reason,true);
     input.value='';intervals=[];lastKey=0;
-    if(!identified)state.textContent='Lectura recibida';
+    if(!identified)state.textContent='Código recibido';
     const found=findPreparedBox(rows,scanned.original);
     const prior=seen.get(scanned.normalized);
     if(prior){
@@ -123,7 +124,7 @@ export function attachBoxScanner({repository,isAdmin,appReady}){
   input.addEventListener('keydown',event=>{
     if(!canScan())return;
     if(event.key==='Enter'){event.preventDefault();process();return;}
-    if(event.key==='Tab'&&probableRapidScan(intervals,input.value.length)){
+    if(event.key==='Tab'&&parseBoxScan(input.value).ok){
       event.preventDefault();process();return;
     }
     if(event.key.length===1&&!event.ctrlKey&&!event.altKey&&!event.metaKey){
@@ -136,12 +137,14 @@ export function attachBoxScanner({repository,isAdmin,appReady}){
   input.addEventListener('input',()=>{
     if(!canScan())return;
     clearTimer();
-    if(probableRapidScan(intervals,input.value.length)){
-      autoTimer=setTimeout(()=>{
-        autoTimer=null;
-        if(canScan()&&probableRapidScan(intervals,input.value.length))process();
-      },400);
-    }
+    // Escáneres USB como teclado pueden NO enviar Enter, ni eventos especiales de hardware.
+    // Debounce: recibe el código entero y consulta cuando termina de escribir.
+    const typed=input.value;
+    if(!parseBoxScan(typed).ok)return;
+    autoTimer=setTimeout(()=>{
+      autoTimer=null;
+      if(canScan()&&input.value===typed&&parseBoxScan(input.value).ok)process();
+    },SCAN_IDLE_MS);
   });
   if('hid' in navigator&&typeof navigator.hid.addEventListener==='function'){
     navigator.hid.addEventListener('connect',event=>{
@@ -152,7 +155,7 @@ export function attachBoxScanner({repository,isAdmin,appReady}){
         identified=null;
         device.textContent='';
         device.hidden=true;
-        state.textContent='Desconectado';
+        state.textContent='Lector desconectado';
       }
     });
   }
@@ -160,7 +163,7 @@ export function attachBoxScanner({repository,isAdmin,appReady}){
     activate(){
       if(!appReady()||!isAdmin())return;
       enabled=true;
-      state.textContent=identified?'Conectado':'Listo para escanear';
+      state.textContent=identified?'Lector conectado':'Sin lecturas';
       if(!loaded&&!loading)void refresh();
       void observeDevice();
       input.focus();
@@ -172,7 +175,7 @@ export function attachBoxScanner({repository,isAdmin,appReady}){
       input.value='';details.replaceChildren();history.replaceChildren();
       counter.textContent='0';
       device.textContent='';device.hidden=true;
-      state.textContent='Listo para escanear';
+      state.textContent='Sin lecturas';
       source.textContent='';source.hidden=true;
       notice('');
     }
