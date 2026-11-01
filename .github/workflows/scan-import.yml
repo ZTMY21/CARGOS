@@ -19,6 +19,7 @@ on:
       - 'tests/box-scanner.test.js'
       - 'tests/box-conditioning.test.js'
       - 'tests/box-sheet-sync.test.js'
+      - 'tests/box-sheets-api.test.js'
       - '.github/workflows/scan-import.yml'
   push:
     branches: [feature/carga-facturas-app-20261101, feature/excel-facturas-lotes-20261101, feature/control-cajas-escaner-20261101, feature/acondicionamiento-cajas-20261101, feature/drive-sheets-cajas-y-facturas-20261101]
@@ -33,7 +34,7 @@ jobs:
       - name: Instalar dependencias exactas
         run: npm ci
       - name: Probar módulos afectados y navegación del Kárdex
-        run: node --test tests/box-scanner.test.js tests/im-requests.test.js tests/im-shipped-summary.test.js tests/scan-import.test.js tests/scan-workbook.test.js tests/box-conditioning.test.js tests/box-sheet-sync.test.js
+        run: node --test tests/box-scanner.test.js tests/im-requests.test.js tests/im-shipped-summary.test.js tests/scan-import.test.js tests/scan-workbook.test.js tests/box-conditioning.test.js tests/box-sheet-sync.test.js tests/box-sheets-api.test.js
       - name: Compilar aplicativo con configuración pública ficticia
         env:
           SUPABASE_URL: https://example.supabase.co
