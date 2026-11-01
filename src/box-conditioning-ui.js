@@ -2,20 +2,56 @@ import {parseBoxScan} from './box-scanner.js';
 import {parseCargoCell} from './im-requests.js';
 
 const states={EN_PREPARACION:'En acondicionamiento',OBSERVADA:'Observada',LISTA:'Lista para recojo'};
-export function attachBoxConditioning({supabase,isAdmin,appReady,isPreview}){
+export function attachBoxConditioning({supabase,isAdmin,appReady,isPreview,sheetRequest=null}){
  const el=id=>document.getElementById(id);
  const code=el('conditionCode'),classification=el('conditionClass'),cargos=el('conditionCargos'),
    issue=el('conditionIssue'),message=el('conditionMessage'),detail=el('conditionDetail'),
-   summary=el('conditionSummary');
+   summary=el('conditionSummary'),driveStatus=el('boxSheetsStatus'),retry=el('conditionRetryDrive');
  const buttons={iniciar:el('conditionStart'),observar:el('conditionObserve'),
    resolver:el('conditionResolve'),finalizar:el('conditionFinish')};
- let active=false,busy=false,entries=new Map(),selected='',originKnown=false;
+ let active=false,busy=false,entries=new Map(),selected='',originKnown=false,queue=Promise.resolve();
+ const requestSheet=sheetRequest||async(action,box)=>{
+   const {data,error}=await supabase.auth.getSession();
+   if(error||!data?.session?.access_token)throw Error('Inicia sesión para guardar en Google Drive.');
+   const response=await fetch('/api/box-sheets',{
+     method:'POST',credentials:'same-origin',
+     headers:{'Content-Type':'application/json',Authorization:'Bearer '+data.session.access_token},
+     body:JSON.stringify({action,code:box})
+   });
+   const result=await response.json().catch(()=>({}));
+   if(!response.ok||result.googleVerified!==true){
+     throw Error(result.error==='IM_SOURCE_CONFLICT'?
+       'La caja ya existe con cargos o clasificación diferentes. Revisa CARGOS ENVIADOS.':
+       'Google Sheets no confirmó el registro. No repitas sin revisar primero la hoja.');
+   }
+   return result;
+ };
+ const enqueue=(action,box)=>{
+   const job=queue.catch(()=>{}).then(()=>requestSheet(action,box));
+   queue=job;return job;
+ };
+ const syncSheet=async(box)=>{
+   driveStatus.textContent='Sincronizando acondicionamiento con Google Drive…';
+   try{
+     const result=await enqueue('sync',box);
+     driveStatus.textContent=result.sourceSynced
+       ?'Google Sheets actualizado: CONTROL DE CAJAS y CARGOS ENVIADOS.'
+       :'Google Sheets actualizado: CONTROL DE CAJAS.';
+     retry.disabled=true;
+     return true;
+   }catch{
+     driveStatus.textContent='Guardado en Kárdex; Google Sheets pendiente. Revisa la hoja y usa Reintentar Drive.';
+     retry.disabled=false;
+     return false;
+   }
+ };
  const admin=()=>appReady()&&isAdmin();
  const renderStatus=(msg,error=false)=>{message.textContent=msg;message.style.color=error?'var(--red)':'var(--muted)';};
  const setButtons=()=>{
   const item=entries.get(selected);
   const mutable=admin()&&!isPreview()&&!busy&&!!selected;
   buttons.iniciar.disabled=!mutable||!!item;
+  retry.disabled=!mutable||!item;
   buttons.observar.disabled=!mutable||!item||item.status==='LISTA';
   buttons.resolver.disabled=!mutable||!item||item.status!=='OBSERVADA';
   buttons.finalizar.disabled=!mutable||!item||item.status!=='EN_PREPARACION';
@@ -73,6 +109,15 @@ export function attachBoxConditioning({supabase,isAdmin,appReady,isPreview}){
  const scan=({scan,found})=>{
   if(!active||!admin()||!scan?.ok)return;
   if(busy){renderStatus('Termina el registro actual antes de acondicionar otra caja.');return;}
+  if(!isPreview()){
+    driveStatus.textContent='Guardando lectura en Google Sheets…';
+    void enqueue('scan',scan.original).then(()=>{
+      if(selected===scan.normalized)driveStatus.textContent='Lectura registrada en Google Drive.';
+    }).catch(()=>{
+      if(selected===scan.normalized)driveStatus.textContent=
+        'Lectura pendiente en Google Sheets. Revisa la conexión y vuelve a escanear.';
+    });
+  }else{driveStatus.textContent='Vista previa: no se modifica Google Sheets.';}
   selected=scan.normalized;
   code.value=scan.original;
   originKnown=Boolean(found?.found);
@@ -111,14 +156,21 @@ export function attachBoxConditioning({supabase,isAdmin,appReady,isPreview}){
     entries.set(data.code,data);
     if(action==='iniciar'){originKnown=true;classification.value=data.classification;cargos.value=(data.cargos||[]).join(', ');}
     if(action==='resolver')issue.value='';
-    renderStatus(action==='finalizar'?'Caja lista para recojo. Pendiente de envío a Iron Mountain.':
+    renderStatus(action==='finalizar'?'Caja lista para recojo. No se ha registrado su envío a Iron Mountain.':
       action==='iniciar'?'Acondicionamiento iniciado.':
       action==='observar'?'Incidencia registrada.':'Incidencia resuelta.');
+    await syncSheet(data.original_code||code.value);
   }catch(e){renderStatus(e?.message||'No se pudo guardar. Revisa el estado de la caja.',true);}
   finally{busy=false;renderSelected();}
  };
  for(const [action,button] of Object.entries(buttons))button.addEventListener('click',()=>{void execute(action);});
  el('conditionReload').addEventListener('click',()=>{void load();});
+ retry.addEventListener('click',async()=>{
+   if(!admin()||isPreview()||!selected||busy||!entries.has(selected))return;
+   const box=code.value;busy=true;setButtons();
+   await syncSheet(box);
+   busy=false;setButtons();
+ });
  renderSelected();
  return {
   scan,
@@ -126,7 +178,7 @@ export function attachBoxConditioning({supabase,isAdmin,appReady,isPreview}){
   deactivate(){active=false;},
   reset(){
     active=false;entries=new Map();selected='';originKnown=false;code.value='';cargos.value='';issue.value='';
-    renderStatus('');renderSelected();
+    renderStatus('');driveStatus.textContent='Destino: Google Sheets del Drive';retry.disabled=true;renderSelected();
   }
  };
 }
