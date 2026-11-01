@@ -1,4 +1,4 @@
-name: Validar carga de facturas
+name: Validar automatizaciones del Kárdex
 on:
   pull_request:
     paths:
@@ -8,6 +8,13 @@ on:
       - 'src/box-scanner.js'
       - 'src/box-scanner-ui.js'
       - 'src/box-conditioning-ui.js'
+      - 'src/pickup-mail-template.js'
+      - 'src/pickup-mail-ui.js'
+      - 'api/pickup-mail.js'
+      - 'supabase/migrations/20261101210000_pickup_mail.sql'
+      - 'supabase/migrations/20261101211500_pickup_mail_auto_queue.sql'
+      - 'tests/pickup-mail.test.js'
+      - 'tests/pickup-mail-ui.test.js'
       - 'src/box-sheet-sync.js'
       - 'api/box-sheets.js'
       - 'supabase/migrations/20261101195000_box_conditioning.sql'
@@ -19,10 +26,10 @@ on:
       - 'tests/box-scanner.test.js'
       - 'tests/box-conditioning.test.js'
       - 'tests/box-sheet-sync.test.js'
-      - 'tests/box-sheets-api.test.js'
+      - 'tests/box-sheets-api.test.js tests/pickup-mail.test.js tests/pickup-mail-ui.test.js'
       - '.github/workflows/scan-import.yml'
   push:
-    branches: [feature/carga-facturas-app-20261101, feature/excel-facturas-lotes-20261101, feature/control-cajas-escaner-20261101, feature/acondicionamiento-cajas-20261101, feature/drive-sheets-cajas-y-facturas-20261101]
+    branches: [feature/carga-facturas-app-20261101, feature/excel-facturas-lotes-20261101, feature/control-cajas-escaner-20261101, feature/acondicionamiento-cajas-20261101, feature/drive-sheets-cajas-y-facturas-20261101, feature/correos-recojo-eml-20261101]
 jobs:
   scan-tests:
     runs-on: ubuntu-latest

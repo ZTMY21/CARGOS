@@ -687,6 +687,8 @@
         aria-selected="false" aria-controls="grp-escaneos" tabindex="-1">Facturas por cargo</button>
       <button id="workspaceTabCajas" class="workspace-tab" type="button" role="tab" data-workspace="cajas"
         aria-selected="false" aria-controls="grp-cajas" tabindex="-1">Control de cajas</button>
+      <button id="workspaceTabCorreos" class="workspace-tab" type="button" role="tab" data-workspace="correos"
+        aria-selected="false" aria-controls="grp-correos" tabindex="-1">Avisos de recojo</button>
     </nav>
     <div id="googleSyncContent">
     <div class="sync-status-row">
@@ -1096,6 +1098,66 @@
         </table>
       </div>
       <div class="pagination"><button id="btnPaginaAnterior" class="secondary">Anterior</button><span id="paginaActual"></span><button id="btnPaginaSiguiente" class="secondary">Siguiente</button></div>
+    </div>
+  </details>
+
+  <!-- Avisos de recojo: preparación en Outlook, sin envíos automáticos ni datos inventados -->
+  <details class="group" id="grp-correos" hidden>
+    <summary><span class="stitle">Avisos de recojo · Iron Mountain</span><span class="chev">▶</span></summary>
+    <div class="group-body">
+      <p class="hint">Cuando haya 30 cajas nuevas listas, prepara el correo para coordinar su recojo. El aviso no confirma un envío a Iron Mountain.</p>
+      <div class="filters">
+        <strong id="pickupMailCounts">Consultando cajas…</strong>
+        <button id="pickupReload" type="button" class="secondary">Actualizar</button>
+        <button id="pickupPrepare" type="button" disabled>Preparar correo de 30 cajas</button>
+      </div>
+      <p id="pickupMailStatus" class="hint" role="status" aria-live="polite"></p>
+      <div class="table-wrap" aria-label="Correos de recojo pendientes y anteriores">
+        <h3>Correos pendientes e historial</h3>
+        <div id="pickupMailBatches">Sin correos preparados.</div>
+      </div>
+      <div class="prepared-im-box">
+        <h3>Vista previa del correo</h3>
+        <p id="pickupMailPreviewMeta" class="hint">Selecciona un aviso para revisar el destinatario, cuerpo y firma antes de usar Outlook.</p>
+        <iframe id="pickupMailPreview" title="Vista previa segura del correo" sandbox="" referrerpolicy="no-referrer"
+          style="display:block;width:100%;min-height:500px;background:#fff;border:1px solid var(--border);border-radius:8px"></iframe>
+      </div>
+      <details style="margin-top:18px">
+        <summary>Configurar destinatarios y firma corporativa</summary>
+        <div style="padding:14px 0">
+          <p class="hint">Completa los datos exactos de la persona que enviará los correos. No se completan automáticamente con datos supuestos.</p>
+          <div class="filters">
+            <label for="pickupSender">Correo remitente
+              <input type="email" id="pickupSender" placeholder="Cuenta autorizada de Outlook" maxlength="180">
+            </label>
+            <label for="pickupTo">Destinatario principal
+              <input type="text" id="pickupTo" placeholder="Correo real de quien solicita el recojo" maxlength="1000">
+            </label>
+            <label for="pickupCc">Copias (opcional)
+              <input type="text" id="pickupCc" placeholder="Separadas por punto y coma" maxlength="2000">
+            </label>
+          </div>
+          <div class="filters">
+            <label for="pickupName">Nombre de firma
+              <input type="text" id="pickupName" maxlength="120">
+            </label>
+            <label for="pickupPosition">Cargo
+              <input type="text" id="pickupPosition" maxlength="120">
+            </label>
+            <label for="pickupArea">Área
+              <input type="text" id="pickupArea" maxlength="120">
+            </label>
+            <label for="pickupCompany">Empresa
+              <input type="text" id="pickupCompany" maxlength="120">
+            </label>
+            <label for="pickupContact">Datos de contacto
+              <input type="text" id="pickupContact" maxlength="240">
+            </label>
+          </div>
+          <button id="pickupSaveConfig" type="button">Guardar configuración</button>
+        </div>
+      </details>
+      <p class="hint">La descarga EML prepara el mensaje para Outlook. Solo confirma el envío en el Kárdex después de enviarlo realmente desde Outlook.</p>
     </div>
   </details>
 
