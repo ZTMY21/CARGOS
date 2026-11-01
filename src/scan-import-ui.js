@@ -5,7 +5,7 @@ export function attachScanImport({supabase,isAdmin,appReady,isPreview}){
     status=byId('scanStatus'),summary=byId('scanSummary'),sample=byId('scanSample');
   let parsed=[],reviewedText='';
   const notice=(value,error=false)=>{status.textContent=value;status.style.color=error?'var(--red)':'var(--muted)';};
-  const clear=()=>{parsed=[];reviewedText='';save.disabled=true;summary.hidden=true;sample.replaceChildren();};
+  const clear=()=>{parsed=[];reviewedText='';save.dataset.valid='';save.disabled=true;summary.hidden=true;sample.replaceChildren();};
   const td=(row,value)=>{const cell=document.createElement('td');cell.textContent=String(value??'');row.append(cell);};
   const api=async(action,rows)=>{
     const token=(await supabase.auth.getSession()).data?.session?.access_token;
@@ -37,6 +37,7 @@ export function attachScanImport({supabase,isAdmin,appReady,isPreview}){
       byId('scanDuplicates').textContent=String(server.duplicates.length);
       byId('scanCrossCargo').textContent=String(server.otherCargos.length);
       reviewedText=paste.value;
+      save.dataset.valid=server.accepted>0?'1':'';
       save.disabled=server.accepted===0;
       notice(server.accepted+' registros nuevos; '+server.duplicates.length+' ya registrados. '+(server.otherCargos.length?'Hay '+server.otherCargos.length+' coincidencias en otros cargos; no se eliminarán.':'Listo para confirmar.'));
     }catch(error){save.disabled=true;notice(error?.message||'No se pudo validar.',true);}
@@ -45,7 +46,7 @@ export function attachScanImport({supabase,isAdmin,appReady,isPreview}){
   save.addEventListener('click',async()=>{
     if(isPreview()||!appReady()||!isAdmin()||!reviewedText||reviewedText!==paste.value||!parsed.length)return notice('Vuelve a validar antes de guardar.',true);
     if(!confirm('¿Confirmas agregar las filas nuevas a CARGOS NUEVOS? Las coincidencias exactas se omiten y la sincronización con Kárdex se verificará por separado.'))return;
-    save.disabled=true;validate.disabled=true;notice('Guardando directamente en Google Sheets…');
+    save.dataset.valid='';save.disabled=true;validate.disabled=true;notice('Guardando directamente en Google Sheets…');
     try{
       const result=await api('commit',parsed);
       if(result.googleVerified){
