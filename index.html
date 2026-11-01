@@ -1207,27 +1207,41 @@
   <!-- Avisos de recojo: preparación en Outlook, sin envíos automáticos ni datos inventados -->
   <details class="group" id="grp-correos" hidden>
     <summary><span class="stitle">Avisos de recojo · Iron Mountain</span><span class="chev">▶</span></summary>
-    <div class="group-body">
-      <p class="hint">Cuando haya 30 cajas nuevas listas, prepara el correo para coordinar su recojo. El aviso no confirma un envío a Iron Mountain.</p>
-      <div class="filters intervention-mail-head">
-        <strong id="pickupMailCounts">Consultando cajas…</strong>
-        <button id="pickupReload" type="button" class="secondary">Actualizar</button>
-        <button id="pickupPrepare" type="button" disabled>Preparar correo de 30 cajas</button>
+    <div class="group-body iv-premium">
+      <header class="iv-hero"><div class="iv-hero-content"><div class="iv-eyebrow">04 · COORDINACIÓN DE RECOJOS</div><h2>Centro de avisos a Iron Mountain</h2><p>Sigue el avance de las cajas nuevas y prepara avisos con formato institucional para Outlook.</p></div><div class="iv-hero-icon"><svg class="iv-icon" aria-hidden="true"><use href="#iv-mail"></use></svg></div></header>
+      <div class="iv-dual-layout iv-mail-layout">
+        <section class="iv-panel">
+          <div class="iv-panel-head"><h3 class="iv-panel-title">Preparación para recojo</h3><span id="ivMailChip" class="iv-state-chip">Consultando</span></div>
+          <p class="iv-panel-hint">Cada aviso utiliza 30 cajas nuevas acondicionadas. No se considera un envío físico a Iron Mountain.</p>
+          <div class="iv-mail-count"><strong id="ivMailCount">—</strong><span>/ 30 cajas nuevas listas</span></div>
+          <div id="ivMailProgressTrack" class="iv-progress" role="progressbar" aria-label="Cajas nuevas disponibles para un aviso" aria-valuemin="0" aria-valuemax="30" aria-valuenow="0"><div id="ivMailProgress" style="width:0%"></div></div>
+          <p class="iv-mail-help" id="ivMailHelp">Consultando las cajas listas…</p>
+          <p class="iv-mail-detail" id="pickupMailCounts">Consultando cajas…</p>
+          <div class="actions intervention-actions iv-buttons">
+            <button id="pickupPrepare" type="button" disabled><svg class="iv-icon" aria-hidden="true"><use href="#iv-mail"></use></svg> Preparar correo de 30 cajas</button>
+            <button id="pickupReload" type="button" class="secondary"><svg class="iv-icon" aria-hidden="true"><use href="#iv-refresh"></use></svg> Actualizar</button>
+          </div>
+          <p id="pickupMailStatus" class="iv-status-line" role="status" aria-live="polite"></p>
+          <p class="iv-help-strip"><svg class="iv-icon" aria-hidden="true"><use href="#iv-check"></use></svg> La preparación del correo no lo envía. Outlook requiere revisión y envío por el usuario.</p>
+        </section>
+        <section class="iv-panel iv-mail-history" aria-label="Correos de recojo pendientes y anteriores">
+          <h3 class="iv-panel-title">Correos y seguimiento</h3>
+          <p class="iv-panel-hint">Avisos pendientes, preparados y confirmados, con sus fechas y responsables.</p>
+          <div id="pickupMailBatches">Sin correos preparados.</div>
+          <div class="actions intervention-actions">
+            <button id="ivMailSimShortcut" type="button" class="secondary"><svg class="iv-icon" aria-hidden="true"><use href="#iv-mail"></use></svg> Simular correo sin enviar</button>
+          </div>
+        </section>
       </div>
-      <p id="pickupMailStatus" class="hint" role="status" aria-live="polite"></p>
-      <div class="table-wrap intervention-card intervention-mail-history" aria-label="Correos de recojo pendientes y anteriores">
-        <h3>Correos pendientes e historial</h3>
-        <div id="pickupMailBatches">Sin correos preparados.</div>
-      </div>
-      <details id="pickupPreviewDetails" class="intervention-preview-panel">
-        <summary>Ver correo generado</summary>
+      <details id="pickupPreviewDetails" class="intervention-preview-panel iv-mail-preview">
+        <summary><svg class="iv-icon" aria-hidden="true"><use href="#iv-mail"></use></svg> Ver correo generado</summary>
         <div class="intervention-preview-inner">
           <p id="pickupMailPreviewMeta" class="hint">Selecciona un aviso o utiliza «Simular correo» para revisar el formato.</p>
           <iframe id="pickupMailPreview" title="Vista previa segura del correo" sandbox="" referrerpolicy="no-referrer"></iframe>
         </div>
       </details>
-      <details class="intervention-config-panel">
-        <summary>Configuración del correo · destinatarios, firma y mensaje</summary>
+            <details class="intervention-config-panel">
+        <summary><svg class="iv-icon" aria-hidden="true"><use href="#iv-settings"></use></svg> Configuración del correo · destinatarios, firma y mensaje</summary>
         <div class="intervention-config-inner">
           <p class="hint">Completa los datos exactos de la persona que enviará los correos. No se completan automáticamente con datos supuestos.</p>
           <div class="filters">
@@ -1281,16 +1295,17 @@
             </div>
           </div>
           <div class="actions intervention-actions">
-            <button id="pickupSample" type="button" class="secondary">Simular correo (sin enviar)</button>
-            <button id="pickupSaveConfig" type="button">Guardar configuración</button>
+            <button id="pickupSample" type="button" class="secondary"><svg class="iv-icon" aria-hidden="true"><use href="#iv-mail"></use></svg> Simular correo (sin enviar)</button>
+            <button id="pickupSaveConfig" type="button"><svg class="iv-icon" aria-hidden="true"><use href="#iv-check"></use></svg> Guardar configuración</button>
           </div>
         </div>
       </details>
-      <p class="intervention-note">El archivo EML prepara el mensaje para Outlook, pero no lo envía. Confirma el envío en el Kárdex únicamente después de enviarlo desde Outlook.</p>
+
+      <p class="intervention-note">Descargar un archivo EML no significa enviar el correo. Confirma el envío en el Kárdex únicamente después de enviarlo realmente desde Outlook.</p>
     </div>
   </details>
 
-  <!-- Solicitudes administrativas: pestaña final, separada del Resumen. -->
+<!-- Solicitudes administrativas: pestaña final, separada del Resumen. -->
   <details class="group" id="grp-solicitudes" hidden>
     <summary><span class="stitle">Solicitudes de Cuentas Adm.<small>Revisión de accesos pendientes</small></span><span class="chev">▶</span></summary>
     <div class="group-body">
