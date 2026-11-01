@@ -685,6 +685,8 @@
         aria-selected="false" aria-controls="grp-existencias" tabindex="-1">Existencias</button>
       <button id="workspaceTabEscaneos" class="workspace-tab" type="button" role="tab" data-workspace="escaneos"
         aria-selected="false" aria-controls="grp-escaneos" tabindex="-1">Facturas por cargo</button>
+      <button id="workspaceTabCajas" class="workspace-tab" type="button" role="tab" data-workspace="cajas"
+        aria-selected="false" aria-controls="grp-cajas" tabindex="-1">Control de cajas</button>
     </nav>
     <div id="googleSyncContent">
     <div class="sync-status-row">
@@ -984,6 +986,41 @@
       </div>
       <p class="hint">Se preservan los ceros iniciales que estén representados en Excel y los duplicados legítimos de distintos cargos. Solo se guarda tras confirmar. Si una conexión falla, los lotes confirmados permanecen guardados y se deben conciliar antes de reintentar. La sincronización hacia Kárdex se confirma por separado.</p>
       <p id="scanReceipt" class="hint" aria-live="polite"></p>
+    </div>
+  </details>
+
+  <!-- FASE 2: ESCANEO DE CAJAS - CONSULTA, NO MODIFICA ENVIOS IM -->
+  <details class="group" id="grp-cajas" hidden>
+    <summary><span class="stitle">Control de cajas — Escaneo de códigos
+      <small>Compatible con lectores USB tipo teclado · Consulta de cajas pendientes de Iron Mountain</small></span><span class="chev">▶</span></summary>
+    <div class="group-body">
+      <p class="hint"><strong>Escaneo y consulta.</strong> El lector escribe el código en esta pantalla como un teclado. No se generan envíos, no se alteran cargos y no se modifican registros de Iron Mountain.</p>
+      <div class="filters">
+        <span><strong>Modelo de lector:</strong> <span id="boxScannerModel">Modelo no identificado.</span></span>
+        <button type="button" class="secondary" id="boxScannerDetect">Identificar lector (opcional)</button>
+      </div>
+      <p class="hint">La identificación USB requiere autorización del navegador y puede no mostrar lectores que funcionan como teclado. Si no aparece el modelo, el escaneo puede funcionar igual.</p>
+      <label for="boxScanInput"><strong>Código de barras de la caja</strong></label>
+      <div class="filters">
+        <input type="text" id="boxScanInput" autocomplete="off" autocapitalize="characters" spellcheck="false"
+          placeholder="Escanea aquí: T, TD, P o solo números" maxlength="80" aria-describedby="boxScanFeedback">
+        <button id="boxScanEnable" type="button" class="secondary">Activar lectura</button>
+        <button id="boxScanSubmit" type="button">Consultar código</button>
+      </div>
+      <p class="hint">Puedes escanear consecutivamente. El sistema procesa automáticamente al recibir Enter del lector; también admite Tab en una lectura rápida, o el botón Consultar código.</p>
+      <div class="filters">
+        <span><strong>Cajas únicas leídas en esta sesión:</strong> <span id="boxScanCount">0</span></span>
+        <button id="boxScanRefresh" type="button" class="secondary">Actualizar cajas</button>
+        <button id="boxScanClear" type="button" class="secondary">Limpiar sesión</button>
+      </div>
+      <p id="boxScanFeedback" class="hint" aria-live="polite">Conecta el lector y abre esta pestaña para comenzar.</p>
+      <p id="boxScannerSource" class="hint">Consulta pendiente.</p>
+      <div id="boxScanResult" class="prepared-im-box" role="status" aria-live="polite"></div>
+      <div class="table-wrap">
+        <h3>Lecturas de esta sesión</h3>
+        <ol id="boxScanHistory" class="prepared-im-list" aria-label="Historial de códigos de cajas leídos"></ol>
+      </div>
+      <p class="hint"><strong>Atención:</strong> una caja no localizada aquí no debe clasificarse automáticamente como nueva. Solo se consultan las cajas pendientes sincronizadas; podría haber cajas enviadas o información todavía no actualizada. La comprobación física y la integración de acondicionamiento quedan para la siguiente etapa.</p>
     </div>
   </details>
 
