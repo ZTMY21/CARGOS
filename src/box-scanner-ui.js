@@ -5,7 +5,7 @@ import {parseBoxScan,findPreparedBox} from './box-scanner.js';
 const readerName=name=>/symbol|zebra|motorola|honeywell|datalogic|barcode|scanner|lector|cipherlab|newland|unitech|opticon|socket/i.test(String(name??''));
 const SCAN_IDLE_MS=650; // Lee automáticamente al terminar de recibir caracteres, incluso sin Enter.
 
-export function attachBoxScanner({repository,isAdmin,appReady}){
+export function attachBoxScanner({repository,isAdmin,appReady,onScan=()=>{}}){
   const el=id=>document.getElementById(id);
   const input=el('boxScanInput'),feedback=el('boxScanFeedback'),details=el('boxScanResult'),
     history=el('boxScanHistory'),counter=el('boxScanCount'),device=el('boxScannerModel'),
@@ -89,7 +89,7 @@ export function attachBoxScanner({repository,isAdmin,appReady}){
       notice(!loaded?'Código recibido. Actualiza las cajas para consultar.':
         found.found?'Caja encontrada.':'No aparece entre las cajas pendientes.');
     }
-    renderMatch(found);renderHistory();input.focus();
+    renderMatch(found);renderHistory();onScan({scan:scanned,found});input.focus();
   };
   const refresh=async()=>{
     if(!canScan()||loading)return;
