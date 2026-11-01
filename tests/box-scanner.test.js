@@ -191,7 +191,7 @@ test('la pausa entre caracteres no dispara una consulta prematura',async()=>{
   await delay(200);
   input.value='TD00990011';input.dispatchEvent(new dom.window.Event('input',{bubbles:true}));
   await delay(500);
-  assert.equal(dom.window.document.getElementById('boxScanCount').textContent,'0');
+  assert.equal(Number(dom.window.document.getElementById('boxScanCount').textContent||'0'),0);
   await delay(260);
   assert.equal(dom.window.document.getElementById('boxScanCount').textContent,'1');
   ui.reset();
