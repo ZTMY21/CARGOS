@@ -174,6 +174,7 @@ export function attachPickupMail({supabase,isAdmin,appReady,isPreview,mailReques
     previewMeta.textContent='Vista previa · '+data.boxes+' cajas · Para: '+data.to.join('; ')+
       (data.cc?.length?' · CC: '+data.cc.join('; '):'');
     preview.srcdoc=data.previewHtml||data.html;
+    el('pickupPreviewDetails')?.setAttribute('open','');
     selected=id;
     notify('Correo preparado para revisión. Aún no se ha enviado.');
    }else if(action==='download'&&!isPreview()){
@@ -196,6 +197,7 @@ export function attachPickupMail({supabase,isAdmin,appReady,isPreview,mailReques
   const values=Object.fromEntries(Object.entries(input).map(([k,v])=>[k,v.value]));
   values.logo=logoData;
   preview.srcdoc=renderPickupSample(values);
+  el('pickupPreviewDetails')?.setAttribute('open','');
   previewMeta.textContent='Simulación con 30 cajas ficticias · Sin guardar ni enviar.';
   notify('Vista simulada del correo. No se ha generado ningún envío.');
  });
