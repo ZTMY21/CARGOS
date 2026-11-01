@@ -1,4 +1,5 @@
 // Bandeja de recojos: preparación y confirmación manual, sin envío real.
+import {renderPickupSample} from './pickup-mail-demo.js';
 export function attachPickupMail({supabase,isAdmin,appReady,isPreview,mailRequest=null}){
  const el=id=>document.getElementById(id);
  const status=el('pickupMailStatus'),counts=el('pickupMailCounts'),
@@ -6,7 +7,46 @@ export function attachPickupMail({supabase,isAdmin,appReady,isPreview,mailReques
   previewMeta=el('pickupMailPreviewMeta');
  const input={sender:el('pickupSender'),to:el('pickupTo'),cc:el('pickupCc'),
   name:el('pickupName'),position:el('pickupPosition'),area:el('pickupArea'),
-  company:el('pickupCompany'),contact:el('pickupContact')};
+  company:el('pickupCompany'),contact:el('pickupContact'),
+  subject:el('pickupSubject'),greeting:el('pickupGreeting'),
+  introduction:el('pickupIntroduction'),request:el('pickupRequest'),
+  closing:el('pickupClosing')};
+ const logoFile=el('pickupLogoFile'),logoPreview=el('pickupLogoPreview'),
+  logoStatus=el('pickupLogoStatus'),logoClear=el('pickupLogoClear');
+ let logoData='';
+ const defaultCopy={
+  subject:'Solicitud de recojo | {{cantidad}} cajas nuevas | {{sede}} | {{fecha}}',
+  greeting:'Estimados(as),',
+  introduction:'Se comunica que tenemos {{cantidad}} cajas nuevas acondicionadas y listas para recojo en {{sede}}.',
+  request:'Agradeceremos gestionar la solicitud de recojo ante Iron Mountain y confirmar la fecha estimada de atención.',
+  closing:'Quedamos atentos a la confirmación de la coordinación.'
+ };
+ const showLogo=()=>{
+  logoPreview.hidden=!logoData;
+  if(logoData)logoPreview.src='data:image/png;base64,'+logoData;
+  else logoPreview.removeAttribute('src');
+  logoStatus.textContent=logoData?'Logotipo PNG cargado para el correo.':'Sin logotipo. Selecciona un PNG para incrustarlo en Outlook.';
+ };
+ logoFile.addEventListener('change',async()=>{
+  const file=logoFile.files?.[0];
+  if(!file)return;
+  if(file.type!=='image/png'||file.size>120000){
+   logoFile.value='';
+   return notify('El logotipo debe ser PNG de máximo 120 KB.',true);
+  }
+  const bytes=new Uint8Array(await file.arrayBuffer());
+  const prefix=[137,80,78,71,13,10,26,10];
+  if(!prefix.every((v,i)=>bytes[i]===v)){
+   logoFile.value='';
+   return notify('Archivo PNG inválido.',true);
+  }
+  let raw='';
+  for(let i=0;i<bytes.length;i+=8192)raw+=String.fromCharCode(...bytes.subarray(i,i+8192));
+  logoData=btoa(raw);showLogo();notify('Logo preparado. Guarda la configuración cuando esté revisada.');
+ });
+ logoClear.addEventListener('click',()=>{
+  logoFile.value='';logoData='';showLogo();notify('Logo quitado del formulario. Guarda para aplicar el cambio.');
+ });
  let active=false,busy=false,selected=null,items=[],lastReady=null;
  const allowed=()=>appReady()&&isAdmin();
  const notify=(text,error=false)=>{
@@ -65,6 +105,11 @@ export function attachPickupMail({supabase,isAdmin,appReady,isPreview,mailReques
    lastReady=Number(data.ready)||0;
    counts.textContent=lastReady+' cajas nuevas listas sin comunicar · '+
      (lastReady>=30?'Puedes preparar un aviso.':'Faltan '+Math.max(0,30-lastReady)+' para el aviso.');
+   let brand={};
+   try{
+    const result=await supabase.rpc('kardex_pickup_mail_brand_state');
+    if(!result.error)brand=result.data||{};
+   }catch{ /* En Preview antiguo la migración aún puede no estar aplicada. */ }
    const cfg=data.config||{};
    input.sender.value=cfg.sender||'';
    input.to.value=(cfg.to||[]).join('; ');
@@ -74,6 +119,10 @@ export function attachPickupMail({supabase,isAdmin,appReady,isPreview,mailReques
    input.area.value=cfg.area||'';
    input.company.value=cfg.company||'';
    input.contact.value=cfg.contact||'';
+   for(const [field,defaultValue] of Object.entries(defaultCopy)){
+    input[field].value=brand[field]||defaultValue;
+   }
+   logoData=brand.logo||'';showLogo();
    items=Array.isArray(data.batches)?data.batches:[];
    render();
   }catch{
@@ -92,9 +141,15 @@ export function attachPickupMail({supabase,isAdmin,appReady,isPreview,mailReques
    p_recipients:toArray(input.to.value),p_copies:toArray(input.cc.value),
    p_name:input.name.value.trim(),p_position:input.position.value.trim(),
    p_area:input.area.value.trim(),p_company:input.company.value.trim(),
-   p_contact:input.contact.value.trim()
+   p_contact:input.contact.value.trim(),
+   p_subject:input.subject.value.trim(),
+   p_greeting:input.greeting.value.trim(),
+   p_introduction:input.introduction.value.trim(),
+   p_request:input.request.value.trim(),
+   p_closing:input.closing.value.trim(),
+   p_logo:logoData
   };
-  const {error}=await supabase.rpc('kardex_pickup_mail_configure',args);
+  const {error}=await supabase.rpc('kardex_pickup_mail_configure_v2',args);
   if(error)throw error;
   notify('Configuración guardada. Se aplicará a los próximos avisos.');
  });
@@ -118,7 +173,7 @@ export function attachPickupMail({supabase,isAdmin,appReady,isPreview,mailReques
     const data=await callApi('preview',id);
     previewMeta.textContent='Vista previa · '+data.boxes+' cajas · Para: '+data.to.join('; ')+
       (data.cc?.length?' · CC: '+data.cc.join('; '):'');
-    preview.srcdoc=data.html;
+    preview.srcdoc=data.previewHtml||data.html;
     selected=id;
     notify('Correo preparado para revisión. Aún no se ha enviado.');
    }else if(action==='download'&&!isPreview()){
@@ -137,9 +192,16 @@ export function attachPickupMail({supabase,isAdmin,appReady,isPreview,mailReques
   finally{busy=false;render();}
  };
  el('pickupSaveConfig').addEventListener('click',save);
+ el('pickupSample').addEventListener('click',()=>{
+  const values=Object.fromEntries(Object.entries(input).map(([k,v])=>[k,v.value]));
+  values.logo=logoData;
+  preview.srcdoc=renderPickupSample(values);
+  previewMeta.textContent='Simulación con 30 cajas ficticias · Sin guardar ni enviar.';
+  notify('Vista simulada del correo. No se ha generado ningún envío.');
+ });
  el('pickupPrepare').addEventListener('click',prepare);
  el('pickupReload').addEventListener('click',()=>{void read();});
- render();
+ showLogo();render();
  return {
   activate(){active=true;void read();},
   deactivate(){active=false;},
@@ -147,6 +209,7 @@ export function attachPickupMail({supabase,isAdmin,appReady,isPreview,mailReques
    active=false;busy=false;items=[];selected=null;lastReady=null;
    preview.srcdoc='';previewMeta.textContent='';
    for(const x of Object.values(input))x.value='';
+   logoData='';logoFile.value='';showLogo();
    counts.textContent='Sin consultar';notify('');render();
   },
   refresh:read
