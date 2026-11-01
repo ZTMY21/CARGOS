@@ -10,7 +10,7 @@ export function attachBoxConditioning({supabase,isAdmin,appReady,isPreview,sheet
  const buttons={iniciar:el('conditionStart'),observar:el('conditionObserve'),
    resolver:el('conditionResolve'),finalizar:el('conditionFinish')};
  let active=false,busy=false,entries=new Map(),selected='',originKnown=false,queue=Promise.resolve();
- const requestSheet=sheetRequest||async(action,box)=>{
+ const requestSheet=sheetRequest||(async(action,box)=>{
    const {data,error}=await supabase.auth.getSession();
    if(error||!data?.session?.access_token)throw Error('Inicia sesión para guardar en Google Drive.');
    const response=await fetch('/api/box-sheets',{
@@ -25,7 +25,7 @@ export function attachBoxConditioning({supabase,isAdmin,appReady,isPreview,sheet
        'Google Sheets no confirmó el registro. No repitas sin revisar primero la hoja.');
    }
    return result;
- };
+ });
  const enqueue=(action,box)=>{
    const job=queue.catch(()=>{}).then(()=>requestSheet(action,box));
    queue=job;return job;
