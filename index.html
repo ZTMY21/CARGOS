@@ -1237,8 +1237,14 @@
       <details id="pickupPreviewDetails" class="intervention-preview-panel iv-mail-preview">
         <summary><svg class="iv-icon" aria-hidden="true"><use href="#iv-mail"></use></svg> Ver correo generado</summary>
         <div class="intervention-preview-inner">
-          <p id="pickupMailPreviewMeta" class="hint">Selecciona un aviso o utiliza «Simular correo» para revisar el formato.</p>
-          <iframe id="pickupMailPreview" title="Vista previa segura del correo" sandbox="" referrerpolicy="no-referrer"></iframe>
+          <p id="pickupMailPreviewMeta" class="hint">Selecciona un aviso preparado o simula un correo para revisar su formato.</p>
+          <div id="pickupMailPreviewEmpty" class="iv-preview-empty" role="status">
+            <svg class="iv-icon" aria-hidden="true"><use href="#iv-mail"></use></svg>
+            <strong>Todavía no hay un correo seleccionado</strong>
+            <span>Si aún no preparaste un aviso real de 30 cajas, puedes revisar cómo quedaría con un ejemplo ficticio.</span>
+            <button id="pickupPreviewTrySample" type="button" class="secondary">Simular correo de ejemplo (sin enviar)</button>
+          </div>
+          <iframe id="pickupMailPreview" title="Vista previa segura del correo" sandbox="" referrerpolicy="no-referrer" hidden></iframe>
         </div>
       </details>
             <details class="intervention-config-panel">
