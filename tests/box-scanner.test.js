@@ -47,11 +47,11 @@ test('interfaz escanea caja pendiente y rechaza duplicidad por prefijo sin modif
   ui.activate();await new Promise(resolve=>setTimeout(resolve,0));
   assert.equal(reads,1);
   assert.equal(dom.window.document.getElementById('boxScannerModel').textContent,'');
-  assert.equal(dom.window.document.getElementById('boxScannerStatus').textContent,'Listo para escanear');
+  assert.equal(dom.window.document.getElementById('boxScannerStatus').textContent,'Sin lecturas');
   const input=dom.window.document.getElementById('boxScanInput');
   input.value='T00990011';input.dispatchEvent(new dom.window.KeyboardEvent('keydown',{key:'Enter',bubbles:true,cancelable:true}));
   assert.match(dom.window.document.getElementById('boxScanResult').textContent,/933, 934/);
-  assert.equal(dom.window.document.getElementById('boxScannerStatus').textContent,'Lectura recibida');
+  assert.equal(dom.window.document.getElementById('boxScannerStatus').textContent,'Código recibido');
   assert.equal(dom.window.document.getElementById('boxScanCount').textContent,'1');
   input.value='P00990011';input.dispatchEvent(new dom.window.KeyboardEvent('keydown',{key:'Enter',bubbles:true,cancelable:true}));
   assert.equal(dom.window.document.getElementById('boxScanCount').textContent,'1');
@@ -85,11 +85,11 @@ test('muestra modelo automáticamente solo si WebHID confirma un lector previame
   Object.defineProperty(globalThis,'navigator',{configurable:true,value:dom.window.navigator});
   const ui=attachBoxScanner({repository:{preparedImDetails:async()=>[]},isAdmin:()=>true,appReady:()=>true});
   ui.activate();await new Promise(r=>setTimeout(r,0));
-  assert.equal(dom.window.document.getElementById('boxScannerStatus').textContent,'Conectado');
+  assert.equal(dom.window.document.getElementById('boxScannerStatus').textContent,'Lector conectado');
   assert.equal(dom.window.document.getElementById('boxScannerModel').textContent,'Lector: Symbol LS2208');
   assert.equal(dom.window.document.getElementById('boxScannerModel').hidden,false);
   listeners.disconnect({device:reader});
-  assert.equal(dom.window.document.getElementById('boxScannerStatus').textContent,'Desconectado');
+  assert.equal(dom.window.document.getElementById('boxScannerStatus').textContent,'Lector desconectado');
   assert.equal(dom.window.document.getElementById('boxScannerModel').hidden,true);
  }finally{
   if(oldDoc===undefined)delete globalThis.document;else globalThis.document=oldDoc;
@@ -114,8 +114,87 @@ test('no atribuye otro dispositivo HID al lector ni muestra un modelo supuesto',
   Object.defineProperty(globalThis,'navigator',{configurable:true,value:dom.window.navigator});
   const ui=attachBoxScanner({repository:{preparedImDetails:async()=>[]},isAdmin:()=>true,appReady:()=>true});
   ui.activate();await new Promise(r=>setTimeout(r,0));
-  assert.equal(dom.window.document.getElementById('boxScannerStatus').textContent,'Listo para escanear');
+  assert.equal(dom.window.document.getElementById('boxScannerStatus').textContent,'Sin lecturas');
   assert.equal(dom.window.document.getElementById('boxScannerModel').textContent,'');
+ }finally{
+  if(oldDoc===undefined)delete globalThis.document;else globalThis.document=oldDoc;
+  if(oldNavigator)Object.defineProperty(globalThis,'navigator',oldNavigator);else delete globalThis.navigator;
+  dom.window.close();
+ }
+});
+
+test('escáner sin tecla Enter consulta automáticamente un código y permite el siguiente',async()=>{
+ const ids=['boxScanInput','boxScanFeedback','boxScanResult','boxScanHistory','boxScanCount',
+  'boxScannerModel','boxScannerStatus','boxScannerSource','boxScanSubmit','boxScanRefresh','boxScanClear'];
+ const markup='<html><body>'+ids.map(id=>
+  id==='boxScanInput'?'<input id="'+id+'">':
+  id==='boxScanHistory'?'<ol id="'+id+'"></ol>':
+  /(Submit|Refresh|Clear)$/.test(id)?'<button id="'+id+'"></button>':
+  '<div id="'+id+'"></div>').join('')+'</body></html>';
+ const dom=new JSDOM(markup,{url:'https://kardex.example/'});
+ const oldDoc=globalThis.document,oldNavigator=Object.getOwnPropertyDescriptor(globalThis,'navigator');
+ const delay=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+ try{
+  globalThis.document=dom.window.document;
+  Object.defineProperty(globalThis,'navigator',{configurable:true,value:dom.window.navigator});
+  let requests=0;
+  const ui=attachBoxScanner({repository:{preparedImDetails:async()=>{requests++;return [
+   {codigo_caja:'TD00990011',cargos:['933','934'],clasificacion_caja:'Por solicitud'},
+   {codigo_caja:'P00990012',cargos:['935'],clasificacion_caja:'Cajas nuevas'}
+  ];}},isAdmin:()=>true,appReady:()=>true});
+  ui.activate();await delay(0);
+  const input=dom.window.document.getElementById('boxScanInput');
+  const count=dom.window.document.getElementById('boxScanCount');
+  const result=dom.window.document.getElementById('boxScanResult');
+  const sendWithoutEnter=value=>{
+    input.value=value;input.dispatchEvent(new dom.window.Event('input',{bubbles:true}));
+  };
+  assert.equal(dom.window.document.getElementById('boxScannerStatus').textContent,'Sin lecturas');
+  sendWithoutEnter('T00990011');
+  await delay(750);
+  assert.equal(input.value,'');
+  assert.equal(count.textContent,'1');
+  assert.match(result.textContent,/933, 934/);
+  assert.equal(dom.window.document.getElementById('boxScannerStatus').textContent,'Código recibido');
+  sendWithoutEnter('P00990012');
+  await delay(750);
+  assert.equal(count.textContent,'2');
+  assert.match(result.textContent,/935/);
+  sendWithoutEnter('TD00990011');
+  await delay(750);
+  assert.equal(count.textContent,'2');
+  assert.match(dom.window.document.getElementById('boxScanFeedback').textContent,/repetida/i);
+  assert.equal(requests,1);
+  ui.reset();
+ }finally{
+  if(oldDoc===undefined)delete globalThis.document;else globalThis.document=oldDoc;
+  if(oldNavigator)Object.defineProperty(globalThis,'navigator',oldNavigator);else delete globalThis.navigator;
+  dom.window.close();
+ }
+});
+test('la pausa entre caracteres no dispara una consulta prematura',async()=>{
+ const ids=['boxScanInput','boxScanFeedback','boxScanResult','boxScanHistory','boxScanCount',
+  'boxScannerModel','boxScannerStatus','boxScannerSource','boxScanSubmit','boxScanRefresh','boxScanClear'];
+ const dom=new JSDOM('<html><body>'+ids.map(id=>
+  id==='boxScanInput'?'<input id="'+id+'">':
+  id==='boxScanHistory'?'<ol id="'+id+'"></ol>':
+  /(Submit|Refresh|Clear)$/.test(id)?'<button id="'+id+'"></button>':'<div id="'+id+'"></div>').join('')+'</body></html>',{url:'https://kardex.example/'});
+ const oldDoc=globalThis.document,oldNavigator=Object.getOwnPropertyDescriptor(globalThis,'navigator');
+ const delay=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+ try{
+  globalThis.document=dom.window.document;
+  Object.defineProperty(globalThis,'navigator',{configurable:true,value:dom.window.navigator});
+  const ui=attachBoxScanner({repository:{preparedImDetails:async()=>[]},isAdmin:()=>true,appReady:()=>true});
+  ui.activate();await delay(0);
+  const input=dom.window.document.getElementById('boxScanInput');
+  input.value='TD009';input.dispatchEvent(new dom.window.Event('input',{bubbles:true}));
+  await delay(200);
+  input.value='TD00990011';input.dispatchEvent(new dom.window.Event('input',{bubbles:true}));
+  await delay(500);
+  assert.equal(dom.window.document.getElementById('boxScanCount').textContent,'0');
+  await delay(260);
+  assert.equal(dom.window.document.getElementById('boxScanCount').textContent,'1');
+  ui.reset();
  }finally{
   if(oldDoc===undefined)delete globalThis.document;else globalThis.document=oldDoc;
   if(oldNavigator)Object.defineProperty(globalThis,'navigator',oldNavigator);else delete globalThis.navigator;
