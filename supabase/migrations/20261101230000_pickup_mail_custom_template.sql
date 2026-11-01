@@ -52,7 +52,7 @@ begin
    raise exception 'Logotipo demasiado grande' using errcode='22023';
  end if;
  if coalesce(p_logo,'')<>'' then
-   if p_logo !~ '^[A-Za-z0-9+/=]+$' or left(p_logo,12)<>'iVBORw0KGgo' then
+   if p_logo !~ '^[A-Za-z0-9+/=]+$' or left(p_logo,11)<>'iVBORw0KGgo' then
      raise exception 'El logotipo debe ser un PNG válido' using errcode='22023';
    end if;
    begin logo_bytes:=decode(p_logo,'base64');
