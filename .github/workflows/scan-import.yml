@@ -17,7 +17,7 @@ on:
       - 'tests/scan-import.test.js'
       - 'tests/scan-workbook.test.js'
       - 'tests/box-scanner.test.js'
-      - 'tests/box-conditioning.test.js tests/box-sheet-sync.test.js'
+      - 'tests/box-conditioning.test.js'
       - 'tests/box-sheet-sync.test.js'
       - '.github/workflows/scan-import.yml'
   push:
@@ -33,7 +33,7 @@ jobs:
       - name: Instalar dependencias exactas
         run: npm ci
       - name: Probar módulos afectados y navegación del Kárdex
-        run: node --test tests/box-scanner.test.js tests/im-requests.test.js tests/im-shipped-summary.test.js tests/scan-import.test.js tests/scan-workbook.test.js tests/box-conditioning.test.js
+        run: node --test tests/box-scanner.test.js tests/im-requests.test.js tests/im-shipped-summary.test.js tests/scan-import.test.js tests/scan-workbook.test.js tests/box-conditioning.test.js tests/box-sheet-sync.test.js
       - name: Compilar aplicativo con configuración pública ficticia
         env:
           SUPABASE_URL: https://example.supabase.co
