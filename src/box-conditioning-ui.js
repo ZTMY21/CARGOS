@@ -1,15 +1,70 @@
-import {parseBoxScan} from './box-scanner.js';
+import {parseBoxScan,findPreparedBox} from './box-scanner.js';
 import {parseCargoCell} from './im-requests.js';
 
 const states={EN_PREPARACION:'En acondicionamiento',OBSERVADA:'Observada',LISTA:'Lista para recojo'};
-export function attachBoxConditioning({supabase,isAdmin,appReady,isPreview,sheetRequest=null}){
+export function attachBoxConditioning({supabase,repository,isAdmin,appReady,isPreview,sheetRequest=null}){
  const el=id=>document.getElementById(id);
  const code=el('conditionCode'),classification=el('conditionClass'),cargos=el('conditionCargos'),
    issue=el('conditionIssue'),message=el('conditionMessage'),detail=el('conditionDetail'),
-   summary=el('conditionSummary'),driveStatus=el('boxSheetsStatus'),retry=el('conditionRetryDrive');
+   summary=el('conditionSummary'),driveStatus=el('conditionSheetsStatus'),retry=el('conditionRetryDrive'),
+   scanInput=el('conditionScanInput'),scanNotice=el('conditionScanFeedback');
  const buttons={iniciar:el('conditionStart'),observar:el('conditionObserve'),
    resolver:el('conditionResolve'),finalizar:el('conditionFinish')};
  let active=false,busy=false,entries=new Map(),selected='',originKnown=false,queue=Promise.resolve();
+ let sourceRows=[],sourceLoaded=false,sourceLoading=false,scanTimer=null,sourceEpoch=0;
+ const clearScanTimer=()=>{
+   if(scanTimer!==null){clearTimeout(scanTimer);scanTimer=null;}
+ };
+ const refreshSource=async()=>{
+   if(!active||!appReady()||!isAdmin()||sourceLoading||!repository?.preparedImDetails)return;
+   sourceLoading=true;
+   const version=++sourceEpoch;
+   scanNotice.textContent='Consultando cargos y cajas pendientes…';
+   try{
+     const rows=await repository.preparedImDetails();
+     if(version!==sourceEpoch||!active)return;
+     if(!Array.isArray(rows))throw Error('Lista de cajas inválida');
+     sourceRows=rows;sourceLoaded=true;
+     scanNotice.textContent='Consulta de cajas disponible. Escanea para iniciar.';
+   }catch{
+     if(version===sourceEpoch){
+       sourceLoaded=false;sourceRows=[];
+       scanNotice.textContent='No se pudo actualizar los cargos. Puedes consultar manualmente.';
+     }
+   }finally{sourceLoading=false;}
+ };
+ const processScan=()=>{
+   clearScanTimer();
+   if(!active||!appReady()||!isAdmin()||busy)return;
+   const scanCode=parseBoxScan(scanInput.value);
+   if(!scanCode.ok){scanNotice.textContent=scanCode.reason;return;}
+   scanInput.value='';
+   const found=findPreparedBox(sourceLoaded?sourceRows:[],scanCode.original);
+   scanNotice.textContent=!sourceLoaded?
+    'Caja recibida. La fuente de cargos aún no está disponible; verifica los datos antes de registrar.':
+    found.found?'Caja localizada. Revisa los cargos antes de guardar.':
+    'Caja no encontrada entre pendientes. Verifica los cargos y la clasificación.';
+   scan({scan:scanCode,found});
+   scanInput.focus();
+ };
+ el('conditionScanSubmit').addEventListener('click',processScan);
+ el('conditionScanRefresh').addEventListener('click',()=>{void refreshSource();});
+ scanInput.addEventListener('keydown',event=>{
+   if(!active)return;
+   if(event.key==='Enter'||(event.key==='Tab'&&parseBoxScan(scanInput.value).ok)){
+     event.preventDefault();processScan();
+   }
+ });
+ scanInput.addEventListener('input',()=>{
+   clearScanTimer();
+   if(!active||busy||!appReady()||!isAdmin())return;
+   const typed=scanInput.value;
+   if(!parseBoxScan(typed).ok)return;
+   scanTimer=setTimeout(()=>{
+     scanTimer=null;
+     if(active&&!busy&&scanInput.value===typed&&parseBoxScan(typed).ok)processScan();
+   },650);
+ });
  const requestSheet=sheetRequest||(async(action,box)=>{
    const {data,error}=await supabase.auth.getSession();
    if(error||!data?.session?.access_token)throw Error('Inicia sesión para guardar en Google Drive.');
@@ -174,10 +229,16 @@ export function attachBoxConditioning({supabase,isAdmin,appReady,isPreview,sheet
  renderSelected();
  return {
   scan,
-  activate(){active=true;if(admin())void load();},
-  deactivate(){active=false;},
+  activate(){
+    active=true;
+    if(admin()){void load();if(!sourceLoaded)void refreshSource();scanInput.focus();}
+  },
+  deactivate(){active=false;clearScanTimer();sourceEpoch++;sourceLoading=false;},
   reset(){
-    active=false;entries=new Map();selected='';originKnown=false;code.value='';cargos.value='';issue.value='';
+    active=false;sourceEpoch++;sourceLoading=false;clearScanTimer();
+    sourceRows=[];sourceLoaded=false;entries=new Map();selected='';originKnown=false;
+    code.value='';cargos.value='';issue.value='';scanInput.value='';
+    scanNotice.textContent='Sin lecturas de acondicionamiento';
     renderStatus('');driveStatus.textContent='Destino: Google Sheets del Drive';retry.disabled=true;renderSelected();
   }
  };
