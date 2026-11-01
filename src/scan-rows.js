@@ -27,8 +27,9 @@ export function parseScanPaste(input){
   if(!cells.length)throw Error('Pega al menos una factura.');
   return cells;
 }
-export function validateScanRows(input){
-  if(!Array.isArray(input)||input.length<1||input.length>SCAN_LIMIT)throw Error('El lote debe contener entre 1 y 500 filas.');
+export function validateScanRows(input,maxRows=SCAN_LIMIT){
+  if(!Number.isSafeInteger(maxRows)||maxRows<1||maxRows>10000)throw Error('Límite de carga incorrecto.');
+  if(!Array.isArray(input)||input.length<1||input.length>maxRows)throw Error('El lote debe contener entre 1 y '+maxRows.toLocaleString('es-PE')+' filas.');
   const ready=[],errors=[];
   input.forEach((raw,index)=>{
     const row=Array.isArray(raw)?raw.map(clean):[];
