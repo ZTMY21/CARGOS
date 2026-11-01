@@ -8,11 +8,11 @@ const sheetsBase='https://sheets.googleapis.com/v4/spreadsheets/';
 async function jsonBody(req){
   if(req.body!==undefined){
     const value=typeof req.body==='string'?JSON.parse(req.body):req.body;
-    if(Buffer.byteLength(JSON.stringify(value))>450000)throw new ArchiveError('LOTE_DEMASIADO_GRANDE',413);
+    if(Buffer.byteLength(JSON.stringify(value))>1800000)throw new ArchiveError('LOTE_DEMASIADO_GRANDE',413);
     return value;
   }
   const chunks=[];let total=0;
-  for await(const chunk of req){total+=chunk.length;if(total>450000)throw new ArchiveError('LOTE_DEMASIADO_GRANDE',413);chunks.push(chunk);}
+  for await(const chunk of req){total+=chunk.length;if(total>1800000)throw new ArchiveError('LOTE_DEMASIADO_GRANDE',413);chunks.push(chunk);}
   return JSON.parse(Buffer.concat(chunks).toString('utf8'));
 }
 const output=(res,status,data)=>{res.statusCode=status;res.setHeader('Cache-Control','private, no-store');res.setHeader('Content-Type','application/json; charset=utf-8');res.setHeader('X-Content-Type-Options','nosniff');res.end(JSON.stringify(data));};
@@ -36,7 +36,7 @@ export function createScanHandler({env=process.env,fetcher=fetch}={}){
       const body=await jsonBody(req);
       if(body?.action!=='preview'&&body?.action!=='commit')throw new ArchiveError('INVALID_ACTION',400);
       let validation;
-      try{validation=validateScanRows(body.rows);}catch(e){throw new ArchiveError(/máxim|máxima|entre 1/.test(e.message)?'INVALID_BATCH_SIZE':'INVALID_ROWS',400);}
+      try{validation=validateScanRows(body.rows,body.action==='preview'?3000:500);}catch(e){throw new ArchiveError(/máxim|máxima|entre 1/.test(e.message)?'INVALID_BATCH_SIZE':'INVALID_ROWS',400);}
       if(validation.errors.length)return output(res,422,{error:'FILAS_INVALIDAS',errors:validation.errors.slice(0,100),invalid:validation.errors.length});
       // Siempre consultar la hoja actual antes de aceptar o insertar. No sustituir líneas históricas.
       const existing=await values('A2:D50000');
