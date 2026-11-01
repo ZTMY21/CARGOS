@@ -101,12 +101,12 @@ test('acondicionamiento se refleja en Drive; solo listo entra a CARGOS ENVIADOS'
  let a=await t.invoke({action:'sync',code:'00990011'});
  assert.equal(a.status,200);assert.equal(a.googleVerified,true);
  assert.equal(a.sourceSynced,false);
- assert.equal(t.tabs[BOX_CONTROL_TAB][1][2],'EN_PREPARACION');
+ assert.equal(t.tabs[BOX_CONTROL_TAB][1][2],'En preparación');
  assert.equal(t.tabs[BOX_SOURCE_TAB].length,1);
  t.setCondition({...cond,status:'LISTA',finished_at:'2026-11-01T12:15:00Z'});
  a=await t.invoke({action:'sync',code:'T00990011'});
  assert.equal(a.status,200);assert.equal(a.sourceSynced,true);
- assert.equal(t.tabs[BOX_CONTROL_TAB][1][2],'LISTA');
+ assert.equal(t.tabs[BOX_CONTROL_TAB][1][2],'Lista para recojo');
  assert.equal(t.tabs[BOX_SOURCE_TAB].length,2);
  assert.equal(t.tabs[BOX_SOURCE_TAB][1][3],'TD00990011');
  assert.deepEqual(t.tabs[BOX_SOURCE_TAB][1].slice(6),[]);
