@@ -956,20 +956,19 @@
 
   <!-- CARGA DIRECTA DE REGISTROS DE FACTURAS ESCANEADAS -->
   <details class="group" id="grp-escaneos" hidden>
-    <summary><span class="stitle">Carga de facturas digitalizadas por cargo<small>Importa el Excel generado por el programa de escaneo, sin abrir Google Sheets</small></span><span class="chev">▶</span></summary>
+    <summary><span class="stitle">Carga de facturas por cargo</span><span class="chev">▶</span></summary>
     <div class="group-body">
-      <p class="hint">Sube el Excel generado por el programa de digitalización. Se reconocen Fecha, Cargo, Grupo y Código (también las columnas adicionales del formato original). No necesitas abrir Google Sheets ni ejecutar macros.</p>
-      <label for="scanFile"><strong>1. Seleccionar archivo Excel</strong></label>
+      <label for="scanFile"><strong>Seleccionar Excel</strong></label>
       <input id="scanFile" type="file" accept=".xlsx,.xlsm,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel.sheet.macroenabled.12" aria-describedby="scanFileName">
-      <p id="scanFileName" class="hint">Hasta 10.000 registros por archivo y 20 MB. Para trabajos extensos se usará carga por lotes.</p>
+      <p id="scanFileName" class="hint">Hasta 10.000 filas · 20 MB</p>
       <details style="margin:12px 0">
-        <summary>Alternativa: copiar y pegar desde Excel</summary>
-        <label for="scanPaste">Pegar registros (Ctrl+C → Ctrl+V)</label>
+        <summary>Otra opción: pegar datos</summary>
+        <label for="scanPaste">Pegar desde Excel</label>
         <textarea id="scanPaste" rows="5" autocomplete="off" spellcheck="false" placeholder="Fecha	Cargo	Grupo	Codigo&#10;30/10/2026	941	1	01-0FF01-0217573"></textarea>
       </details>
       <div class="actions">
-        <button type="button" class="secondary" id="scanValidate">2. Validar Excel y previsualizar</button>
-        <button type="button" id="scanSave" disabled>3. Confirmar carga en Google Sheets</button>
+        <button type="button" class="secondary" id="scanValidate">Validar archivo</button>
+        <button type="button" id="scanSave" disabled>Confirmar carga</button>
       </div>
       <progress id="scanProgress" value="0" max="100" hidden style="width:100%;height:18px;margin:10px 0 2px"></progress>
       <p id="scanStage" class="hint" aria-live="polite"></p>
@@ -984,43 +983,36 @@
         </div>
         <div class="table-wrap" id="scanSample"></div>
       </div>
-      <p class="hint">Se preservan los ceros iniciales que estén representados en Excel y los duplicados legítimos de distintos cargos. Solo se guarda tras confirmar. Si una conexión falla, los lotes confirmados permanecen guardados y se deben conciliar antes de reintentar. La sincronización hacia Kárdex se confirma por separado.</p>
       <p id="scanReceipt" class="hint" aria-live="polite"></p>
     </div>
   </details>
 
-  <!-- FASE 2: ESCANEO DE CAJAS - CONSULTA, NO MODIFICA ENVIOS IM -->
+  <!-- FASE 2: ESCANEO DE CAJAS EN MODO CONSULTA -->
   <details class="group" id="grp-cajas" hidden>
-    <summary><span class="stitle">Control de cajas — Escaneo de códigos
-      <small>Compatible con lectores USB tipo teclado · Consulta de cajas pendientes de Iron Mountain</small></span><span class="chev">▶</span></summary>
+    <summary><span class="stitle">Control de cajas</span><span class="chev">▶</span></summary>
     <div class="group-body">
-      <p class="hint"><strong>Escaneo y consulta.</strong> El lector escribe el código en esta pantalla como un teclado. No se generan envíos, no se alteran cargos y no se modifican registros de Iron Mountain.</p>
       <div class="filters">
-        <span><strong>Modelo de lector:</strong> <span id="boxScannerModel">Modelo no identificado.</span></span>
-        <button type="button" class="secondary" id="boxScannerDetect">Identificar lector (opcional)</button>
+        <span><strong>Estado:</strong> <span id="boxScannerStatus" role="status">Listo para escanear</span></span>
+        <span id="boxScannerModel" hidden></span>
       </div>
-      <p class="hint">La identificación USB requiere autorización del navegador y puede no mostrar lectores que funcionan como teclado. Si no aparece el modelo, el escaneo puede funcionar igual.</p>
-      <label for="boxScanInput"><strong>Código de barras de la caja</strong></label>
+      <label for="boxScanInput"><strong>Escanea o escribe el código de caja</strong></label>
       <div class="filters">
         <input type="text" id="boxScanInput" autocomplete="off" autocapitalize="characters" spellcheck="false"
-          placeholder="Escanea aquí: T, TD, P o solo números" maxlength="80" aria-describedby="boxScanFeedback">
-        <button id="boxScanEnable" type="button" class="secondary">Activar lectura</button>
-        <button id="boxScanSubmit" type="button">Consultar código</button>
+          placeholder="Código de caja" maxlength="80" aria-describedby="boxScanFeedback">
+        <button id="boxScanSubmit" type="button">Consultar</button>
       </div>
-      <p class="hint">Puedes escanear consecutivamente. El sistema procesa automáticamente al recibir Enter del lector; también admite Tab en una lectura rápida, o el botón Consultar código.</p>
       <div class="filters">
-        <span><strong>Cajas únicas leídas en esta sesión:</strong> <span id="boxScanCount">0</span></span>
-        <button id="boxScanRefresh" type="button" class="secondary">Actualizar cajas</button>
-        <button id="boxScanClear" type="button" class="secondary">Limpiar sesión</button>
+        <span><strong>Cajas leídas:</strong> <span id="boxScanCount">0</span></span>
+        <button id="boxScanRefresh" type="button" class="secondary">Actualizar</button>
+        <button id="boxScanClear" type="button" class="secondary">Limpiar</button>
       </div>
-      <p id="boxScanFeedback" class="hint" aria-live="polite">Conecta el lector y abre esta pestaña para comenzar.</p>
-      <p id="boxScannerSource" class="hint">Consulta pendiente.</p>
+      <p id="boxScanFeedback" class="hint" aria-live="polite"></p>
+      <p id="boxScannerSource" class="hint" hidden></p>
       <div id="boxScanResult" class="prepared-im-box" role="status" aria-live="polite"></div>
       <div class="table-wrap">
-        <h3>Lecturas de esta sesión</h3>
+        <h3>Últimas lecturas</h3>
         <ol id="boxScanHistory" class="prepared-im-list" aria-label="Historial de códigos de cajas leídos"></ol>
       </div>
-      <p class="hint"><strong>Atención:</strong> una caja no localizada aquí no debe clasificarse automáticamente como nueva. Solo se consultan las cajas pendientes sincronizadas; podría haber cajas enviadas o información todavía no actualizada. La comprobación física y la integración de acondicionamiento quedan para la siguiente etapa.</p>
     </div>
   </details>
 
