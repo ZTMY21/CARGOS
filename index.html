@@ -687,6 +687,8 @@
         aria-selected="false" aria-controls="grp-escaneos" tabindex="-1">Facturas por cargo</button>
       <button id="workspaceTabCajas" class="workspace-tab" type="button" role="tab" data-workspace="cajas"
         aria-selected="false" aria-controls="grp-cajas" tabindex="-1">Control de cajas</button>
+      <button id="workspaceTabAcondicionamiento" class="workspace-tab" type="button" role="tab" data-workspace="acondicionamiento"
+        aria-selected="false" aria-controls="grp-acondicionamiento" tabindex="-1">Acondicionamiento</button>
       <button id="workspaceTabCorreos" class="workspace-tab" type="button" role="tab" data-workspace="correos"
         aria-selected="false" aria-controls="grp-correos" tabindex="-1">Avisos de recojo</button>
     </nav>
@@ -995,7 +997,7 @@
   <details class="group" id="grp-cajas" hidden>
     <summary><span class="stitle">Control de cajas</span><span class="chev">▶</span></summary>
     <div class="group-body">
-      <p class="hint">Conecta el lector y escanea una caja: el código se consultará automáticamente, sin pulsar Enter. Si no tienes lector, escribe el código y pulsa Consultar.</p>
+      <p class="hint">Conecta el lector y escanea una caja: el código se consultará automáticamente, sin pulsar Enter. Si no tienes lector, escribe el código y pulsa Buscar manualmente.</p>
       <div class="filters">
         <span><strong>Estado:</strong> <span id="boxScannerStatus" role="status">Sin lecturas</span></span>
         <span id="boxScannerModel" hidden></span>
@@ -1016,12 +1018,33 @@
       <p id="boxScannerSource" class="hint" hidden></p>
       <div id="boxScanResult" class="prepared-im-box" role="status" aria-live="polite"></div>
       <p class="hint">La consulta muestra los cargos y la clasificación registrados. Una caja no encontrada entre pendientes debe verificarse antes de tratarla como nueva.</p>
+
+      <div class="table-wrap">
+        <h3>Últimas lecturas</h3>
+        <ol id="boxScanHistory" class="prepared-im-list" aria-label="Historial de códigos de cajas leídos"></ol>
+      </div>
+    </div>
+  </details>
+
+  <!-- ACONDICIONAMIENTO INDEPENDIENTE DE LA CONSULTA DE CAJAS -->
+  <details class="group" id="grp-acondicionamiento" hidden>
+    <summary><span class="stitle">Acondicionamiento de cajas</span><span class="chev">▶</span></summary>
+    <div class="group-body">
+      <p class="hint">Escanea aquí las cajas que vas a preparar. Esta sección registra preparación, incidencias y cajas listas; Control de cajas queda destinado solo a consultas.</p>
+      <label for="conditionScanInput"><strong>Escanear caja para acondicionar</strong></label>
+      <div class="filters">
+        <input type="text" id="conditionScanInput" autocomplete="off" autocapitalize="characters" spellcheck="false"
+          placeholder="Código T, TD, P o números" maxlength="80" aria-describedby="conditionScanFeedback">
+        <button type="button" class="secondary" id="conditionScanSubmit">Buscar manualmente</button>
+        <button type="button" class="secondary" id="conditionScanRefresh">Actualizar cargos</button>
+      </div>
+      <p id="conditionScanFeedback" class="hint" role="status" aria-live="polite">Sin lecturas de acondicionamiento</p>
       <section id="boxConditionPanel" class="prepared-im-box" aria-label="Acondicionamiento de cajas">
-        <h3>Acondicionamiento</h3>
-        <p class="hint">Después de escanear, revisa los cargos y registra la preparación. Las cajas listas quedan pendientes de recojo; no se marcan como enviadas.</p>
+        <h3>Registro de preparación</h3>
+        <p class="hint">Escanea una caja para consultar sus cargos y registrar su preparación. Las cajas listas quedan pendientes de recojo; no se marcan como enviadas.</p>
         <div class="filters">
           <label for="conditionCode">Caja
-            <input id="conditionCode" type="text" placeholder="Escanea una caja arriba" readonly>
+            <input id="conditionCode" type="text" placeholder="Selecciona una caja con el lector" readonly>
           </label>
           <label for="conditionClass">Clasificación
             <select id="conditionClass">
@@ -1044,6 +1067,7 @@
           <button id="conditionFinish" type="button" disabled>Marcar lista para recojo</button>
         </div>
         <p id="conditionMessage" class="hint" aria-live="polite"></p>
+        <p id="conditionSheetsStatus" class="hint" role="status" aria-live="polite">Destino: Google Sheets del Drive · CONTROL DE CAJAS</p>
         <p class="hint">Los registros de preparación se actualizan en el Google Sheets original. No se marca una caja como enviada por escanearla.</p>
         <button id="conditionRetryDrive" class="secondary" type="button" disabled>Reintentar sincronización con Drive</button>
         <div class="filters">
@@ -1051,10 +1075,6 @@
           <button id="conditionReload" class="secondary" type="button">Actualizar acondicionamientos</button>
         </div>
       </section>
-      <div class="table-wrap">
-        <h3>Últimas lecturas</h3>
-        <ol id="boxScanHistory" class="prepared-im-list" aria-label="Historial de códigos de cajas leídos"></ol>
-      </div>
     </div>
   </details>
 
