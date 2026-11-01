@@ -91,3 +91,41 @@ test('bloquea descarga desde Preview y a usuarios sin privilegios',async()=>{
  assert.equal(t.calls.filter(x=>x.url.includes('pickup_mail_mark')).length,0);
  const g=server(false,true);const b=await g.invoke('download');assert.equal(b.statusCode,403);
 });
+
+
+test('logo PNG incrustado por Content-ID y mensaje editable en Outlook',()=>{
+ // PNG mínimo sintético; el logotipo real se carga por la configuración del administrador.
+ const logo='iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL/nwAAAABJRU5ErkJggg==';
+ const customized={...detail,signature:{
+  ...detail.signature,
+  logo_png_base64:logo,
+  greeting:'Buenas tardes,',
+  introduction:'Se informa que {{cantidad}} cajas están listas en {{sede}}.',
+  request:'Solicitar recojo para el {{fecha}}.',
+  closing:'Atentos a su confirmación.',
+  sede:'CD Santa Anita'
+ }};
+ const built=composePickupMail(customized);
+ assert.match(built.text,/30 cajas están listas en CD Santa Anita/);
+ assert.match(built.text,/Buenas tardes,/);
+ assert.match(built.text,/Atentos a su confirmación/);
+ assert.match(built.eml,/Content-Type: multipart\/related/);
+ assert.match(built.eml,/Content-ID: <farmacias-peruanas-logo>/);
+ assert.match(built.eml,/Content-Type: image\/png/);
+ assert.match(built.html,/src="cid:farmacias-peruanas-logo"/);
+ assert.match(built.previewHtml,/data:image\/png;base64,/);
+ assert.ok(!built.previewHtml.includes('cid:farmacias-peruanas-logo'));
+});
+test('rechaza logotipos mayores del límite y código HTML no confiable',()=>{
+ const tooBig='iVBORw0KGgo'+ 'A'.repeat(170001);
+ assert.throws(()=>composePickupMail({...detail,signature:{...detail.signature,logo_png_base64:tooBig}}),
+  /logotipo PNG/);
+ const crafted=composePickupMail({...detail,signature:{
+  ...detail.signature,
+  introduction:'<img src=x onerror=alert(1)> {{cantidad}} cajas',
+  greeting:'Hola <script>alert(1)</script>'
+ }});
+ assert.ok(!crafted.html.includes('<script>'));
+ assert.match(crafted.html,/&lt;script&gt;/);
+ assert.match(crafted.html,/&lt;img/);
+});
