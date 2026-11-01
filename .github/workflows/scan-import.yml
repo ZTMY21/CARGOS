@@ -25,5 +25,8 @@ jobs:
         run: npm ci
       - name: Probar seguridad, Excel y conciliación
         run: node --test tests/scan-import.test.js tests/scan-workbook.test.js
-      - name: Compilar aplicativo
+      - name: Compilar aplicativo con configuración pública ficticia
+        env:
+          SUPABASE_URL: https://example.supabase.co
+          SUPABASE_ANON_KEY: sb_publishable_ci_placeholder
         run: npm run build
