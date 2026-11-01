@@ -1154,6 +1154,28 @@
               <input type="text" id="pickupContact" maxlength="240">
             </label>
           </div>
+          <div class="prepared-im-box" style="margin-top:12px">
+            <h3>Mensaje predeterminado y logotipo</h3>
+            <p class="hint">Este formato se utilizará para los próximos avisos de 30 cajas. El detalle de cajas se genera desde el Kárdex y no se edita manualmente.</p>
+            <label for="pickupSubject">Asunto del correo</label>
+            <input id="pickupSubject" type="text" maxlength="180" style="width:100%" placeholder="Solicitud de recojo | {{cantidad}} cajas nuevas | {{sede}} | {{fecha}}">
+            <p class="hint">Puedes usar las variables {{cantidad}}, {{sede}} y {{fecha}}.</p>
+            <label for="pickupGreeting">Saludo</label>
+            <input id="pickupGreeting" type="text" maxlength="100" style="width:100%">
+            <label for="pickupIntroduction">Mensaje principal</label>
+            <textarea id="pickupIntroduction" rows="3" maxlength="1200" style="width:100%"></textarea>
+            <label for="pickupRequest">Acción solicitada</label>
+            <textarea id="pickupRequest" rows="3" maxlength="1200" style="width:100%"></textarea>
+            <label for="pickupClosing">Despedida previa a la firma</label>
+            <textarea id="pickupClosing" rows="2" maxlength="400" style="width:100%"></textarea>
+            <label for="pickupLogoFile">Logo de Farmacias Peruanas (PNG, máximo 120 KB)</label>
+            <input id="pickupLogoFile" type="file" accept="image/png,.png">
+            <div class="filters" style="align-items:center">
+              <img id="pickupLogoPreview" alt="Vista previa del logotipo del correo" width="64" height="64" hidden style="object-fit:contain">
+              <span id="pickupLogoStatus" class="hint">Sin logotipo cargado. Puedes utilizar el PNG de tu correo de Inspecciones.</span>
+              <button id="pickupLogoClear" type="button" class="secondary">Quitar logotipo</button>
+            </div>
+          </div>
           <button id="pickupSaveConfig" type="button">Guardar configuración</button>
         </div>
       </details>
