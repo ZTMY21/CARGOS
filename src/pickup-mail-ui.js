@@ -4,7 +4,9 @@ export function attachPickupMail({supabase,isAdmin,appReady,isPreview,mailReques
  const el=id=>document.getElementById(id);
  const status=el('pickupMailStatus'),counts=el('pickupMailCounts'),
   batches=el('pickupMailBatches'),preview=el('pickupMailPreview'),
-  previewMeta=el('pickupMailPreviewMeta');
+  previewMeta=el('pickupMailPreviewMeta'),
+  previewDetails=el('pickupPreviewDetails'),
+  previewEmpty=el('pickupMailPreviewEmpty');
  const input={sender:el('pickupSender'),to:el('pickupTo'),cc:el('pickupCc'),
   name:el('pickupName'),position:el('pickupPosition'),area:el('pickupArea'),
   company:el('pickupCompany'),contact:el('pickupContact'),
@@ -51,6 +53,23 @@ export function attachPickupMail({supabase,isAdmin,appReady,isPreview,mailReques
  const allowed=()=>appReady()&&isAdmin();
  const notify=(text,error=false)=>{
   status.textContent=text;status.style.color=error?'var(--red)':'var(--muted)';
+ };
+ // Un correo simulado se presenta al usuario sin guardar ni enviar mensajes.
+ // El acordeón estaba fuera de pantalla: abrirlo no basta, también hay que llevar al usuario.
+ const showPreview=(html,meta,notice)=>{
+  if(typeof html!=='string'||!html.trim())throw Error('No se pudo generar la vista previa del correo.');
+  preview.srcdoc=html;
+  preview.hidden=false;
+  if(previewEmpty)previewEmpty.hidden=true;
+  previewMeta.textContent=meta;
+  if(previewDetails){
+   previewDetails.open=true;
+   const reveal=()=>previewDetails.scrollIntoView?.({behavior:'smooth',block:'start'});
+   if(typeof window!=='undefined'&&typeof window.requestAnimationFrame==='function')
+    window.requestAnimationFrame(reveal);
+   else reveal();
+  }
+  notify(notice);
  };
  const toArray=s=>String(s||'').split(/[;,\n]/).map(x=>x.trim()).filter(Boolean);
  const callApi=mailRequest||(async(action,id)=>{
@@ -171,12 +190,11 @@ export function attachPickupMail({supabase,isAdmin,appReady,isPreview,mailReques
     notify('Envío confirmado manualmente. No implica recepción por el destinatario.');
    }else if(action==='preview'){
     const data=await callApi('preview',id);
-    previewMeta.textContent='Vista previa · '+data.boxes+' cajas · Para: '+data.to.join('; ')+
-      (data.cc?.length?' · CC: '+data.cc.join('; '):'');
-    preview.srcdoc=data.previewHtml||data.html;
-    el('pickupPreviewDetails')?.setAttribute('open','');
+    showPreview(data.previewHtml||data.html,
+      'Vista previa · '+data.boxes+' cajas · Para: '+data.to.join('; ')+
+        (data.cc?.length?' · CC: '+data.cc.join('; '):''),
+      'Correo preparado para revisión. Aún no se ha enviado.');
     selected=id;
-    notify('Correo preparado para revisión. Aún no se ha enviado.');
    }else if(action==='download'&&!isPreview()){
     const result=await callApi('download',id);
     const blob=result.blob;
@@ -193,14 +211,15 @@ export function attachPickupMail({supabase,isAdmin,appReady,isPreview,mailReques
   finally{busy=false;render();}
  };
  el('pickupSaveConfig').addEventListener('click',save);
- el('pickupSample').addEventListener('click',()=>{
+ const simulate=()=>{
   const values=Object.fromEntries(Object.entries(input).map(([k,v])=>[k,v.value]));
   values.logo=logoData;
-  preview.srcdoc=renderPickupSample(values);
-  el('pickupPreviewDetails')?.setAttribute('open','');
-  previewMeta.textContent='Simulación con 30 cajas ficticias · Sin guardar ni enviar.';
-  notify('Vista simulada del correo. No se ha generado ningún envío.');
- });
+  showPreview(renderPickupSample(values),
+    'SIMULACIÓN · 30 cajas ficticias · Sin guardar ni enviar.',
+    'Ejemplo visible abajo: 30 cajas ficticias. No se ha registrado ni enviado un correo.');
+ };
+ el('pickupSample').addEventListener('click',simulate);
+ el('pickupPreviewTrySample')?.addEventListener('click',simulate);
  el('pickupPrepare').addEventListener('click',prepare);
  el('pickupReload').addEventListener('click',()=>{void read();});
  showLogo();render();
@@ -209,7 +228,10 @@ export function attachPickupMail({supabase,isAdmin,appReady,isPreview,mailReques
   deactivate(){active=false;},
   reset(){
    active=false;busy=false;items=[];selected=null;lastReady=null;
-   preview.srcdoc='';previewMeta.textContent='';
+   preview.srcdoc='';preview.hidden=true;
+   if(previewEmpty)previewEmpty.hidden=false;
+   if(previewDetails)previewDetails.open=false;
+   previewMeta.textContent='Selecciona un aviso preparado o simula un correo para revisar su formato.';
    for(const x of Object.values(input))x.value='';
    logoData='';logoFile.value='';showLogo();
    counts.textContent='Sin consultar';notify('');render();
