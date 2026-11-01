@@ -3,6 +3,7 @@ import {attachBoxScanSheets} from './box-scan-sheet-ui.js';
 import {attachBoxConditioning} from './box-conditioning-ui.js';
 import {attachPickupMail} from './pickup-mail-ui.js';
 import {attachScanImport} from './scan-import-ui.js';
+import {attachInterventionExperience} from './intervention-experience.js';
 import { createClient } from '@supabase/supabase-js';
 import { computeReqEstado as reqEstado, computeDocEstado as docEstado, fmtDate, escapeHtml, limaDate } from './rules.js';
 import { KardexRepository, reqFromDb, docFromDb } from './repository.js';
@@ -2134,3 +2135,6 @@ boxScannerController=attachBoxScanner({
   repository,isAdmin:()=>isAdmin,appReady:()=>appReady,
   onScan:event=>boxScanSheetController?.scan(event)
 });
+
+// Capa visual aprobada: sin modificar la lógica, el menú ni otras pantallas.
+attachInterventionExperience();
