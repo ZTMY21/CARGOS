@@ -343,6 +343,19 @@
 #grp-correos .intervention-config-panel>summary .iv-icon{color:#356c8e}
 #grp-correos .iv-mail-preview .intervention-preview-inner{padding:16px}
 #grp-correos .iv-mail-preview #pickupMailPreview{min-height:420px;background:#fff}
+#grp-correos .iv-mail-preview #pickupMailPreview[hidden]{display:none!important}
+#grp-correos .iv-preview-empty{
+ min-height:180px;padding:25px 18px;border:1px dashed #d6e2eb;border-radius:10px;
+ background:#f8fafc;display:flex;flex-direction:column;justify-content:center;align-items:center;
+ gap:11px;text-align:center;
+}
+#grp-correos .iv-preview-empty[hidden]{display:none!important}
+#grp-correos .iv-preview-empty>.iv-icon{width:31px;height:31px;color:#6d91a8}
+#grp-correos .iv-preview-empty>strong{font-size:14px;color:#24445a}
+#grp-correos .iv-preview-empty>span{max-width:480px;color:#687f91;font-size:12px;line-height:1.5}
+#grp-correos .iv-preview-empty>button{border-radius:8px;padding:10px 13px;font-weight:750}
+#grp-correos .iv-mail-preview{scroll-margin-top:20px}
+
 #grp-correos .intervention-config-panel{margin:0 0 14px}
 #grp-correos .intervention-config-panel .intervention-template{padding:17px}
 #grp-correos .intervention-config-panel .intervention-template>label{color:#435d71}

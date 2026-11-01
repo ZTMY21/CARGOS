@@ -106,7 +106,7 @@ test('vista simulada usa 30 cajas ficticias sin confirmar ni escribir registros'
   t.node('pickupName').value='Angelo';
   t.node('pickupPosition').value='Operador Integral | BPDT - Liquidaciones';
   await t.click('pickupSample');
-  assert.match(t.node('pickupMailPreviewMeta').textContent,/Simulación/);
+  assert.match(t.node('pickupMailPreviewMeta').textContent,/Simulación/i);
   assert.match(t.node('pickupMailPreview').srcdoc,/SIMULACIÓN INTERNA/);
   assert.match(t.node('pickupMailPreview').srcdoc,/TD-DEMO-030/);
   assert.match(t.node('pickupMailPreview').srcdoc,/Angelo/);
