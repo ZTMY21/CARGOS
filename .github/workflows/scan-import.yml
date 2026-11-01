@@ -9,6 +9,8 @@ on:
       - 'src/box-scanner-ui.js'
       - 'src/box-conditioning-ui.js'
       - 'src/box-scan-sheet-ui.js'
+      - 'src/intervention-ui.css'
+      - 'tests/intervention-visual.test.js'
       - 'tests/box-separation.test.js'
       - 'src/pickup-mail-template.js'
       - 'src/pickup-mail-ui.js'
@@ -49,7 +51,7 @@ jobs:
       - name: Instalar dependencias exactas
         run: npm ci
       - name: Probar módulos afectados y navegación del Kárdex
-        run: node --test tests/box-scanner.test.js tests/im-requests.test.js tests/im-shipped-summary.test.js tests/scan-import.test.js tests/scan-workbook.test.js tests/box-conditioning.test.js tests/box-separation.test.js tests/box-sheet-sync.test.js tests/box-sheets-api.test.js tests/pickup-mail.test.js tests/pickup-mail-ui.test.js tests/pickup-mail-demo.test.js
+        run: node --test tests/box-scanner.test.js tests/im-requests.test.js tests/im-shipped-summary.test.js tests/scan-import.test.js tests/scan-workbook.test.js tests/box-conditioning.test.js tests/intervention-visual.test.js tests/box-separation.test.js tests/box-sheet-sync.test.js tests/box-sheets-api.test.js tests/pickup-mail.test.js tests/pickup-mail-ui.test.js tests/pickup-mail-demo.test.js
       - name: Compilar aplicativo con configuración pública ficticia
         env:
           SUPABASE_URL: https://example.supabase.co
