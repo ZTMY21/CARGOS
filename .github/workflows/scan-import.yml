@@ -5,14 +5,17 @@ on:
       - 'src/scan-rows.js'
       - 'src/scan-import-ui.js'
       - 'src/scan-workbook.js'
+      - 'src/box-scanner.js'
+      - 'src/box-scanner-ui.js'
       - 'api/scan-ingest.js'
       - 'src/app.js'
       - 'index.html'
       - 'tests/scan-import.test.js'
       - 'tests/scan-workbook.test.js'
+      - 'tests/box-scanner.test.js'
       - '.github/workflows/scan-import.yml'
   push:
-    branches: [feature/carga-facturas-app-20261101, feature/excel-facturas-lotes-20261101]
+    branches: [feature/carga-facturas-app-20261101, feature/excel-facturas-lotes-20261101, feature/control-cajas-escaner-20261101]
 jobs:
   scan-tests:
     runs-on: ubuntu-latest
@@ -24,7 +27,7 @@ jobs:
       - name: Instalar dependencias exactas
         run: npm ci
       - name: Probar seguridad, Excel y conciliación
-        run: node --test tests/scan-import.test.js tests/scan-workbook.test.js
+        run: node --test tests/scan-import.test.js tests/scan-workbook.test.js tests/box-scanner.test.js
       - name: Compilar aplicativo con configuración pública ficticia
         env:
           SUPABASE_URL: https://example.supabase.co
