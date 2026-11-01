@@ -36,7 +36,7 @@ export function createPickupMailHandler({env=process.env,fetcher=fetch}={}){
    catch{throw new ArchiveError('PICKUP_MAIL_INCOMPLETE',409);}
    if(raw.action==='preview'){
      return json(res,200,{id:detail.id,status:detail.status,subject:prepared.subject,
-       text:prepared.text,html:prepared.html,to:detail.to,cc:detail.cc,from:detail.sender,
+       text:prepared.text,html:prepared.html,previewHtml:prepared.previewHtml,to:detail.to,cc:detail.cc,from:detail.sender,
        boxes:detail.boxes.length});
    }
    if(env.VERCEL_ENV!=='production')throw new ArchiveError('PREVIEW_WRITE_DISABLED',403);

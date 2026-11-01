@@ -1,0 +1,330 @@
+/* Intervención Kárdex Digital — diseño interno solamente.
+   No modifica el menú, Resumen, Requerimientos, Existencias ni el resto del aplicativo. */
+:is(#grp-escaneos,#grp-cajas,#grp-acondicionamiento,#grp-correos) > .group-body{
+  padding:22px 24px 24px;
+  color:#23374b;
+}
+:is(#grp-escaneos,#grp-cajas,#grp-acondicionamiento,#grp-correos) > .group-body > .hint:first-child{
+  color:#5b6e80;
+  font-size:13px;
+  line-height:1.55;
+  max-width:900px;
+  margin:0 0 18px;
+}
+:is(#grp-escaneos,#grp-cajas,#grp-acondicionamiento,#grp-correos) :is(input,select,textarea):focus-visible{
+  border-color:#9d2831;
+  outline:2px solid rgba(185,9,23,.14);
+  outline-offset:1px;
+}
+:is(#grp-escaneos,#grp-cajas,#grp-acondicionamiento,#grp-correos) .intervention-card{
+  background:#fff;
+  border:1px solid #dde6ec;
+  border-radius:12px;
+  padding:18px 20px;
+  min-width:0;
+}
+:is(#grp-escaneos,#grp-cajas,#grp-acondicionamiento,#grp-correos) .intervention-card-title{
+  margin:0 0 8px;
+  color:#16364e;
+  font-size:15px;
+  line-height:1.35;
+  font-weight:750;
+}
+:is(#grp-escaneos,#grp-cajas,#grp-acondicionamiento,#grp-correos) .intervention-section-caption{
+  font-size:12px;
+  line-height:1.5;
+  color:#697e90;
+  margin:0 0 14px;
+}
+:is(#grp-escaneos,#grp-cajas,#grp-acondicionamiento,#grp-correos) .intervention-actions{
+  display:flex;align-items:center;flex-wrap:wrap;gap:10px;
+  margin:16px 0 12px;
+}
+:is(#grp-escaneos,#grp-cajas,#grp-acondicionamiento,#grp-correos) button{
+  border-radius:8px;
+  transition:background .15s ease,border-color .15s ease,box-shadow .15s ease;
+}
+:is(#grp-escaneos,#grp-cajas,#grp-acondicionamiento,#grp-correos) button:not(:disabled):focus-visible{
+  outline:2px solid #bb2735;outline-offset:2px;
+}
+:is(#grp-escaneos,#grp-cajas,#grp-acondicionamiento,#grp-correos) :is(.hint,[role="status"]){
+  line-height:1.45;
+}
+:is(#grp-escaneos,#grp-cajas,#grp-acondicionamiento,#grp-correos) .intervention-note{
+  margin:12px 0 0;
+  border-left:3px solid #d9e3e9;
+  background:#f8fafb;
+  padding:10px 12px;
+  color:#566d7f;
+  font-size:12px;
+  line-height:1.5;
+  border-radius:0 8px 8px 0;
+}
+:is(#grp-escaneos,#grp-cajas,#grp-acondicionamiento,#grp-correos) .intervention-field-label{
+  display:block;
+  margin-bottom:8px;
+  font-size:13px;
+  font-weight:700;
+  color:#273c4f;
+}
+:is(#grp-escaneos,#grp-cajas,#grp-acondicionamiento,#grp-correos) .intervention-meta{
+  font-size:12px;
+  color:#6a7d8f;
+  margin:10px 0 0;
+}
+/* Facturas — carga, alternativa y resultados claramente separados. */
+#grp-escaneos .intervention-upload{
+  background:linear-gradient(180deg,#fbfcfd,#fff);
+  border-style:dashed;
+  border-color:#b9cbd8;
+  padding:22px;
+}
+#grp-escaneos #scanFile{
+  display:block;
+  width:100%;
+  max-width:100%;
+  min-height:54px;
+  padding:8px;
+  background:#fff;
+  border:1px solid #dce5eb;
+  border-radius:9px;
+  color:#405970;
+  font-size:13px;
+}
+#grp-escaneos #scanFile::file-selector-button{
+  border:1px solid #d1dfe8;
+  background:#f1f6f9;
+  color:#20445c;
+  border-radius:7px;
+  padding:9px 14px;
+  margin-right:12px;
+  font:inherit;
+  font-weight:700;
+  cursor:pointer;
+}
+#grp-escaneos #scanFileName{margin:9px 0 0;}
+#grp-escaneos .intervention-option{
+  margin:14px 0;
+  border:1px solid #e1e8ee;
+  border-radius:10px;
+  background:#fff;
+  overflow:hidden;
+}
+#grp-escaneos .intervention-option > summary{
+  font-size:13px;
+  font-weight:700;
+  color:#23465d;
+  padding:12px 15px;
+  background:#f7f9fb;
+  cursor:pointer;
+}
+#grp-escaneos .intervention-option > .intervention-option-content{padding:15px;}
+#grp-escaneos #scanPaste{width:100%;min-height:112px;margin-top:8px;}
+#grp-escaneos .intervention-results{
+  padding:17px 18px;
+  margin:18px 0 4px;
+  background:#f9fbfc;
+  border:1px solid #dce6ed;
+  border-radius:12px;
+}
+#grp-escaneos .intervention-results[hidden]{display:none!important;}
+#grp-escaneos .intervention-results .filters{
+  display:grid;
+  grid-template-columns:repeat(5,minmax(0,1fr));
+  gap:9px;
+  margin:12px 0 14px;
+}
+#grp-escaneos .intervention-results .filters > span{
+  display:flex;
+  flex-direction:column-reverse;
+  justify-content:center;
+  align-items:flex-start;
+  gap:5px;
+  padding:13px;
+  border-radius:9px;
+  background:#fff;
+  border:1px solid #e4ebf0;
+  font-size:11px;
+  color:#62778a;
+}
+#grp-escaneos .intervention-results .filters strong{
+  font-size:23px;
+  color:#18394f;
+  font-weight:800;
+  font-variant-numeric:tabular-nums;
+}
+#grp-escaneos #scanSample{max-height:420px;overflow:auto;}
+#grp-escaneos #scanProgress{accent-color:#bb2735;}
+/* Control de cajas — la lectura y la respuesta se distinguen visualmente. */
+#grp-cajas .intervention-scan-layout{
+  display:grid;
+  grid-template-columns:minmax(0,1.08fr) minmax(0,.92fr);
+  gap:16px;
+  align-items:start;
+}
+#grp-cajas .intervention-scan-tools .filters{
+  display:flex;align-items:center;flex-wrap:wrap;gap:10px;
+  margin:12px 0;
+}
+#grp-cajas #boxScanInput{flex:1;min-width:170px;min-height:41px;font-size:15px;font-weight:600;}
+#grp-cajas .intervention-device{
+  display:flex;gap:10px;align-items:center;flex-wrap:wrap;
+  padding:9px 12px;
+  background:#f5f8fa;border-radius:8px;
+  font-size:12px;color:#50677b;margin-bottom:14px;
+}
+#grp-cajas #boxScanCount{font-size:20px;font-weight:800;color:#163d55;font-variant-numeric:tabular-nums;}
+#grp-cajas #boxScanResult{
+  border:0;box-shadow:none;padding:0;
+  background:transparent;
+  min-height:70px;
+  overflow-wrap:anywhere;
+}
+#grp-cajas #boxScanResult:empty:before{
+  content:"Escanea una caja para consultar sus cargos y clasificación.";
+  display:block;padding:18px 14px;
+  background:#f7f9fb;
+  border:1px dashed #d7e1e8;
+  border-radius:9px;
+  color:#6b7f91;font-size:13px;line-height:1.5;
+}
+#grp-cajas #boxScanResult h3{font-size:16px;color:#183950;margin:4px 0 12px;}
+#grp-cajas #boxScanResult p{margin:7px 0;font-size:13px;}
+#grp-cajas .intervention-history{margin-top:16px;}
+#grp-cajas #boxScanHistory{max-height:240px;overflow:auto;margin-top:8px;}
+#grp-cajas #boxScanHistory:empty:after{
+  content:"Todavía no hay lecturas en esta sesión.";
+  display:block;font-size:12px;color:#738598;padding:12px 0;
+}
+/* Acondicionamiento — indicadores basados en las lecturas reales. */
+#grp-acondicionamiento .intervention-kpis{
+  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:12px;margin:4px 0 17px;
+}
+#grp-acondicionamiento .intervention-kpi{
+  border:1px solid #dce5eb;background:#fff;border-radius:11px;
+  padding:15px 17px;min-width:0;
+}
+#grp-acondicionamiento .intervention-kpi .intervention-kpi-number{
+  display:block;font-size:27px;line-height:1.1;font-weight:800;
+  font-variant-numeric:tabular-nums;color:#1a435b;margin-bottom:7px;
+}
+#grp-acondicionamiento .intervention-kpi .intervention-kpi-label{
+  font-size:12px;font-weight:700;color:#5e7485;
+}
+#grp-acondicionamiento .intervention-kpi[data-kind="observada"]{border-top:3px solid #dcaa57;}
+#grp-acondicionamiento .intervention-kpi[data-kind="lista"]{border-top:3px solid #479a64;}
+#grp-acondicionamiento .intervention-kpi[data-kind="preparacion"]{border-top:3px solid #497f9f;}
+#grp-acondicionamiento .intervention-scan-tools .filters{
+  display:flex;flex-wrap:wrap;align-items:center;gap:9px;
+}
+#grp-acondicionamiento #conditionScanInput{flex:1;min-width:170px;font-size:15px;font-weight:600;min-height:42px;}
+#grp-acondicionamiento #boxConditionPanel{
+  margin-top:16px;padding:20px;
+  border:1px solid #dce6ec;box-shadow:none;
+}
+#grp-acondicionamiento #boxConditionPanel>.filters{
+  display:grid;grid-template-columns:1fr 1fr 1.25fr;
+  gap:12px;margin:15px 0;
+}
+#grp-acondicionamiento #boxConditionPanel>.filters>label{
+  min-width:0;display:flex;flex-direction:column;gap:7px;
+}
+#grp-acondicionamiento #boxConditionPanel>.filters :is(input,select){width:100%;min-width:0;}
+#grp-acondicionamiento #conditionDetail{
+  font-size:13px;
+  color:#4c6175;
+  padding:10px 12px;border-radius:8px;
+  background:#f7f9fb;
+  margin:13px 0;
+}
+#grp-acondicionamiento #conditionIssue{width:100%;margin-top:8px;min-height:68px;}
+#grp-acondicionamiento #conditionSummary{
+  color:#5c7386;font-size:12px;font-weight:650;
+}
+#grp-acondicionamiento #boxConditionPanel>.intervention-actions{
+  padding-top:14px;border-top:1px solid #e6edf2;
+}
+/* Avisos: preparar, historial, configuración y vista previa solo bajo demanda. */
+#grp-correos .intervention-mail-head{
+  display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;
+  padding:16px 18px;
+  gap:14px;
+  border-radius:11px;
+  background:#f7f9fb;
+  border:1px solid #e0e7ec;
+  margin-bottom:16px;
+}
+#grp-correos .intervention-mail-head .filters{
+  margin:0;display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+}
+#grp-correos #pickupMailCounts{font-size:14px;line-height:1.5;color:#193d56;}
+#grp-correos .intervention-mail-history{margin:0 0 15px;}
+#grp-correos .intervention-mail-history #pickupMailBatches{
+  display:grid;gap:10px;margin-top:12px;
+  color:#60768a;font-size:13px;
+}
+#grp-correos #pickupMailBatches>.prepared-im-box{
+  border:1px solid #dfe8ed;border-radius:9px;
+  padding:14px 16px;margin:0;background:#fff;
+}
+#grp-correos #pickupMailBatches .actions{
+  display:flex;flex-wrap:wrap;gap:8px;
+}
+#grp-correos .intervention-preview-panel,
+#grp-correos .intervention-config-panel{
+  border:1px solid #dce6ed;background:#fff;
+  border-radius:11px;overflow:hidden;margin:12px 0;
+}
+#grp-correos .intervention-preview-panel>summary,
+#grp-correos .intervention-config-panel>summary{
+  display:flex;align-items:center;gap:8px;
+  padding:15px 18px;
+  background:#f8fafb;color:#20455d;font-size:14px;
+  font-weight:750;cursor:pointer;
+}
+#grp-correos .intervention-preview-panel:not([open])>summary,
+#grp-correos .intervention-config-panel:not([open])>summary{border-bottom:0;}
+#grp-correos .intervention-preview-inner,
+#grp-correos .intervention-config-inner{padding:16px 18px 18px;}
+#grp-correos #pickupMailPreview{
+  display:block;width:100%;min-height:420px;
+  border:1px solid #d9e4ea;border-radius:9px;background:#fff;
+}
+#grp-correos .intervention-config-panel .filters{
+  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:12px;margin:15px 0;
+}
+#grp-correos .intervention-config-panel .filters>label{
+  min-width:0;display:flex;flex-direction:column;gap:7px;
+  font-size:12px;color:#49647a;font-weight:700;
+}
+#grp-correos .intervention-config-panel .filters :is(input,select){
+  min-width:0;width:100%;
+}
+#grp-correos .intervention-config-panel .intervention-template{
+  border:1px solid #e1e8ee;border-radius:10px;
+  padding:18px;margin:16px 0 0;
+  background:#fafcfd;
+}
+#grp-correos .intervention-config-panel .intervention-template>label{
+  display:block;margin:13px 0 7px;color:#435d71;
+  font-size:12px;font-weight:750;
+}
+#grp-correos .intervention-config-panel .intervention-template textarea{min-width:0;width:100%;}
+#grp-correos .intervention-config-panel #pickupLogoPreview{max-width:72px;max-height:72px;}
+/* Compacto y legible a zoom 75% y en dispositivos pequeños. */
+@media(max-width:920px){
+  #grp-cajas .intervention-scan-layout{grid-template-columns:1fr;}
+  #grp-escaneos .intervention-results .filters{grid-template-columns:repeat(3,minmax(0,1fr));}
+  #grp-correos .intervention-config-panel .filters{grid-template-columns:repeat(2,minmax(0,1fr));}
+}
+@media(max-width:650px){
+  :is(#grp-escaneos,#grp-cajas,#grp-acondicionamiento,#grp-correos) > .group-body{padding:16px;}
+  #grp-escaneos .intervention-results .filters,
+  #grp-acondicionamiento .intervention-kpis{grid-template-columns:repeat(2,minmax(0,1fr));}
+  #grp-acondicionamiento #boxConditionPanel>.filters{grid-template-columns:1fr;}
+  #grp-correos .intervention-config-panel .filters{grid-template-columns:1fr;}
+  #grp-cajas .intervention-scan-tools .filters,
+  #grp-acondicionamiento .intervention-scan-tools .filters{align-items:stretch;}
+}

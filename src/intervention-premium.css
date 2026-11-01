@@ -1,0 +1,374 @@
+/* Experiencia de intervención aprobada: exclusivamente cuatro contenidos.
+   Los módulos Resumen, Requerimientos, Existencias, encabezado y pestañas NO se modifican. */
+.iv-sprite{position:absolute;width:0;height:0;overflow:hidden}
+:is(#grp-escaneos,#grp-cajas,#grp-acondicionamiento,#grp-correos) .iv-premium{
+ --iv-red:#be1e2d;--iv-navy:#183b55;--iv-muted:#657b8f;--iv-green:#17805d;--iv-blue:#23678f;
+ padding:18px 20px 23px;background:#f5f8fa;color:#21374c;
+}
+:is(#grp-escaneos,#grp-cajas,#grp-acondicionamiento,#grp-correos) .iv-premium *{box-sizing:border-box}
+:is(#grp-escaneos,#grp-cajas,#grp-acondicionamiento,#grp-correos) .iv-icon{
+ display:inline-block;width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.85;
+ stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;vertical-align:middle;
+}
+:is(#grp-escaneos,#grp-cajas,#grp-acondicionamiento,#grp-correos) .iv-hero{
+ display:flex;justify-content:space-between;align-items:center;gap:18px;
+ background:linear-gradient(108deg,#12364f 0%,#205b77 100%);
+ color:#fff;border-radius:13px;padding:21px 24px;margin-bottom:16px;
+ overflow:hidden;position:relative;min-height:127px;
+}
+:is(#grp-escaneos,#grp-cajas,#grp-acondicionamiento,#grp-correos) .iv-hero:after{
+ content:"";position:absolute;right:-40px;top:-63px;width:175px;height:175px;
+ border:28px solid rgba(255,255,255,.06);border-radius:50%;pointer-events:none;
+}
+:is(#grp-escaneos,#grp-cajas,#grp-acondicionamiento,#grp-correos) .iv-hero-content{z-index:1;min-width:0}
+:is(#grp-escaneos,#grp-cajas,#grp-acondicionamiento,#grp-correos) .iv-eyebrow{
+ color:#cedce7;font-size:10px;letter-spacing:1.2px;font-weight:800;margin-bottom:6px;
+}
+:is(#grp-escaneos,#grp-cajas,#grp-acondicionamiento,#grp-correos) .iv-hero h2{
+ color:#fff;margin:0 0 8px;font-size:22px;line-height:1.2;font-weight:800;
+}
+:is(#grp-escaneos,#grp-cajas,#grp-acondicionamiento,#grp-correos) .iv-hero p{
+ color:#e3edf4;font-size:12px;line-height:1.6;margin:0;max-width:720px;
+}
+:is(#grp-escaneos,#grp-cajas,#grp-acondicionamiento,#grp-correos) .iv-hero-icon{
+ z-index:1;width:67px;height:67px;flex-shrink:0;border-radius:15px;
+ background:rgba(255,255,255,.13);display:grid;place-items:center;
+ border:1px solid rgba(255,255,255,.1);
+}
+:is(#grp-escaneos,#grp-cajas,#grp-acondicionamiento,#grp-correos) .iv-hero-icon .iv-icon{
+ width:35px;height:35px;stroke-width:1.65;
+}
+:is(#grp-escaneos,#grp-cajas,#grp-acondicionamiento,#grp-correos) .iv-dual-layout{
+ display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);align-items:stretch;gap:15px;
+}
+:is(#grp-escaneos,#grp-cajas,#grp-acondicionamiento,#grp-correos) .iv-panel{
+ background:#fff;border:1px solid #dfe8ef;border-radius:12px;padding:19px 20px;
+ min-width:0;box-shadow:0 2px 8px rgba(17,44,65,.025);
+}
+:is(#grp-escaneos,#grp-cajas,#grp-acondicionamiento,#grp-correos) .iv-panel-title{
+ margin:0 0 6px;color:#1a3a51;font-size:15px;font-weight:800;line-height:1.35;
+}
+:is(#grp-escaneos,#grp-cajas,#grp-acondicionamiento,#grp-correos) .iv-panel-hint{
+ color:#647b8e;font-size:12px;line-height:1.55;margin:0 0 15px;
+}
+:is(#grp-escaneos,#grp-cajas,#grp-acondicionamiento,#grp-correos) .iv-panel-head{
+ display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;
+ margin-bottom:8px;
+}
+:is(#grp-escaneos,#grp-cajas,#grp-acondicionamiento,#grp-correos) .iv-panel-head>.iv-panel-title{margin:0}
+:is(#grp-escaneos,#grp-cajas,#grp-acondicionamiento,#grp-correos) .iv-subtitle{
+ font-size:11px;text-transform:uppercase;letter-spacing:.65px;color:#677d8d;
+ font-weight:850;margin:18px 0 10px;
+}
+:is(#grp-escaneos,#grp-cajas,#grp-acondicionamiento,#grp-correos) .iv-status-line{
+ color:#4a6173;font-size:12px;line-height:1.45;min-height:0;margin:9px 0;
+}
+:is(#grp-escaneos,#grp-cajas,#grp-acondicionamiento,#grp-correos) .iv-status-line:empty{display:none}
+:is(#grp-escaneos,#grp-cajas,#grp-acondicionamiento,#grp-correos) .iv-help-strip{
+ display:flex;gap:9px;align-items:flex-start;margin:16px 0 2px;
+ border-radius:9px;background:#f4f8fa;color:#526f80;padding:12px 13px;
+ font-size:12px;line-height:1.5;
+}
+:is(#grp-escaneos,#grp-cajas,#grp-acondicionamiento,#grp-correos) .iv-help-strip>.iv-icon{color:#2d9066}
+:is(#grp-escaneos,#grp-cajas,#grp-acondicionamiento,#grp-correos) .iv-buttons{
+ display:flex;flex-wrap:wrap;align-items:center;gap:9px;margin-top:14px;
+}
+:is(#grp-escaneos,#grp-cajas,#grp-acondicionamiento,#grp-correos) .iv-buttons button,
+:is(#grp-escaneos,#grp-cajas,#grp-acondicionamiento,#grp-correos) .iv-choose{
+ display:inline-flex;align-items:center;justify-content:center;gap:8px;line-height:1.2;
+ border-radius:8px;padding:10px 13px;min-height:39px;font-size:12px;font-weight:750;
+}
+:is(#grp-escaneos,#grp-cajas,#grp-acondicionamiento,#grp-correos) .iv-buttons button:disabled{opacity:.52}
+:is(#grp-escaneos,#grp-cajas,#grp-acondicionamiento,#grp-correos) .iv-buttons .iv-blue-action,
+#grp-cajas #boxScanSubmit{background:#215f82;color:#fff;border:1px solid #215f82}
+#grp-acondicionamiento #conditionFinish{background:#17825e;color:#fff;border:1px solid #17825e}
+#grp-acondicionamiento #conditionObserve:not(:disabled){background:#fff7e6;color:#99620e;border-color:#ebd5a4}
+:is(#grp-escaneos,#grp-cajas,#grp-acondicionamiento,#grp-correos) .iv-buttons button:not(:disabled):hover{
+ filter:brightness(.97);transform:translateY(-1px);box-shadow:0 4px 12px rgba(22,50,72,.1);
+}
+:is(#grp-escaneos,#grp-cajas,#grp-acondicionamiento,#grp-correos) .iv-buttons button:focus-visible,
+:is(#grp-escaneos,#grp-cajas,#grp-acondicionamiento,#grp-correos) .iv-choose:focus-within{
+ outline:2px solid #c22837;outline-offset:2px;
+}
+:is(#grp-escaneos,#grp-cajas,#grp-acondicionamiento,#grp-correos) .iv-progress{
+ height:10px;border-radius:30px;overflow:hidden;background:#e7edf1;
+ border:0;box-shadow:inset 0 1px 1px rgba(0,0,0,.035);
+}
+:is(#grp-escaneos,#grp-cajas,#grp-acondicionamiento,#grp-correos) .iv-progress>div{
+ height:100%;background:linear-gradient(90deg,#b61c2b,#e8737c);
+ border-radius:30px;transition:width .3s ease;
+}
+:is(#grp-escaneos,#grp-cajas,#grp-acondicionamiento,#grp-correos) .iv-state-chip{
+ display:inline-flex;align-items:center;justify-content:center;gap:7px;
+ padding:6px 10px;border:1px solid #dde6ed;background:#f5f8fa;
+ border-radius:30px;color:#506a7c;font-size:11px;font-weight:800;
+}
+:is(#grp-escaneos,#grp-cajas,#grp-acondicionamiento,#grp-correos) .iv-state-chip[data-state="success"]{
+ background:#e9f7ee;border-color:#c8e8d4;color:#187e52;
+}
+:is(#grp-escaneos,#grp-cajas,#grp-acondicionamiento,#grp-correos) .iv-state-chip[data-state="warning"]{
+ background:#fff6e4;border-color:#f2dcae;color:#925d0d;
+}
+:is(#grp-escaneos,#grp-cajas,#grp-acondicionamiento,#grp-correos) .iv-empty{
+ border:1px dashed #dae4eb;border-radius:10px;min-height:135px;
+ background:#f8fafb;padding:20px;display:flex;align-items:center;
+ justify-content:center;flex-direction:column;gap:7px;text-align:center;
+}
+:is(#grp-escaneos,#grp-cajas,#grp-acondicionamiento,#grp-correos) .iv-empty[hidden]{display:none!important}
+:is(#grp-escaneos,#grp-cajas,#grp-acondicionamiento,#grp-correos) .iv-empty-icon{
+ color:#9aacbb;margin-bottom:3px;
+}
+:is(#grp-escaneos,#grp-cajas,#grp-acondicionamiento,#grp-correos) .iv-empty-icon .iv-icon{
+ width:32px;height:32px;
+}
+:is(#grp-escaneos,#grp-cajas,#grp-acondicionamiento,#grp-correos) .iv-empty strong{font-size:13px;color:#567084}
+:is(#grp-escaneos,#grp-cajas,#grp-acondicionamiento,#grp-correos) .iv-empty span{font-size:11px;color:#768b9e;max-width:300px;line-height:1.5}
+/* Excel */
+#grp-escaneos .iv-steps{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px}
+#grp-escaneos .iv-step{
+ border-radius:30px;padding:6px 10px;font-size:10px;font-weight:800;
+ background:#f3f6f8;border:1px solid #e2e9ef;color:#6d8496;
+}
+#grp-escaneos .iv-step.active{background:#e7f6ed;border-color:#b9e0cb;color:#177c53}
+#grp-escaneos .iv-dropzone{
+ background:linear-gradient(180deg,#f7fcf9,#fff);border:2px dashed #9dc9b0;
+ padding:25px 18px;border-radius:12px;text-align:center;
+ transition:border-color .18s,background .18s,box-shadow .18s;min-width:0;
+}
+#grp-escaneos .iv-dropzone.is-dragging,
+#grp-escaneos .iv-dropzone:focus-within{
+ border-color:#128455;background:#effaf4;box-shadow:0 0 0 3px rgba(24,132,85,.1);
+}
+#grp-escaneos .iv-dropzone strong{display:block;font-size:14px;color:#214634;margin:8px 0}
+#grp-escaneos .iv-dropzone p{font-size:12px;color:#708777;line-height:1.4;margin:4px}
+#grp-escaneos .iv-dropzone .iv-small{font-size:11px}
+#grp-escaneos .iv-excel-mark{
+ position:relative;width:56px;height:58px;display:grid;place-items:center;
+ margin:0 auto 12px;border-radius:10px;background:#157346;color:#fff;
+ box-shadow:6px 5px 0 rgba(27,158,94,.14);
+}
+#grp-escaneos .iv-excel-mark>span{font-size:29px;font-weight:900;z-index:1}
+#grp-escaneos .iv-excel-mark>i{
+ position:absolute;top:9px;right:-5px;width:16px;height:39px;
+ background:linear-gradient(#1aa55f,#126d40);border-radius:2px;opacity:.9;
+}
+#grp-escaneos .iv-choose{
+ background:#18815a;color:#fff;border:0;cursor:pointer;margin-top:14px;
+ box-shadow:0 3px 8px rgba(20,117,76,.11);
+}
+#grp-escaneos .iv-file-input{
+ position:absolute!important;width:1px!important;height:1px!important;
+ padding:0!important;margin:0!important;opacity:0!important;
+ overflow:hidden!important;clip-path:inset(50%)!important;
+}
+#grp-escaneos .iv-import-layout .intervention-option{margin:14px 0 0}
+#grp-escaneos .iv-import-layout .intervention-option>summary{font-size:12px}
+#grp-escaneos .iv-import-layout #scanPaste{min-height:90px}
+#grp-escaneos .iv-file-summary{
+ display:flex;align-items:center;gap:12px;padding:12px;border-radius:9px;
+ background:#f6f9fb;border:1px solid #e4ebf0;margin-bottom:15px;
+}
+#grp-escaneos .iv-file-summary .iv-excel-mark{
+ width:34px;height:37px;margin:0;border-radius:7px;box-shadow:none;flex-shrink:0;
+}
+#grp-escaneos .iv-file-summary .iv-excel-mark>span{font-size:20px}
+#grp-escaneos .iv-file-summary .iv-excel-mark>i{height:25px;top:6px;width:10px;right:-2px}
+#grp-escaneos .iv-file-meta{min-width:0}
+#grp-escaneos #scanFileName{display:block;font-size:12px;font-weight:800;color:#24445b;overflow-wrap:anywhere}
+#grp-escaneos #ivFileStatus{font-size:11px;color:#768b9b;display:block;margin-top:4px;line-height:1.4}
+#grp-escaneos .iv-import-layout .intervention-results{border:0;padding:0;background:none;margin:0}
+#grp-escaneos .intervention-results .filters{
+ grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:10px;
+}
+#grp-escaneos .intervention-results .filters>span{padding:11px;line-height:1.4;min-width:0}
+#grp-escaneos .intervention-results .filters strong{font-size:22px}
+#grp-escaneos .iv-import-layout #scanSample{max-height:220px;overflow:auto}
+#grp-escaneos .iv-import-layout #scanProgress{width:100%;height:10px;margin:12px 0 2px;accent-color:#be1e2d}
+#grp-escaneos .iv-import-layout #scanSave{background:#18805b;color:#fff;border-color:#18805b}
+#grp-escaneos .iv-import-layout #scanValidate{background:#205f83;color:#fff;border-color:#205f83}
+#grp-escaneos .iv-stage{font-size:11px;color:#697e91}
+/* Estación de cajas */
+#grp-cajas .iv-scanner-visual,
+#grp-acondicionamiento .iv-small-scanner{
+ position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;
+ background:#102f41;border-radius:12px;color:#fff;overflow:hidden;
+ min-height:152px;margin:13px 0;
+}
+#grp-cajas .iv-barcode,
+#grp-acondicionamiento .iv-barcode{
+ height:66px;width:72%;max-width:320px;opacity:.93;
+ background:repeating-linear-gradient(90deg,
+ #fff 0 2px,transparent 2px 5px,#fff 5px 8px,transparent 8px 12px,
+ #fff 12px 13px,transparent 13px 17px);
+}
+#grp-cajas .iv-scanner-visual>span,
+#grp-acondicionamiento .iv-small-scanner>span{
+ margin-top:14px;font-size:10px;letter-spacing:1px;color:#c2d4df;font-weight:800;
+ text-align:center;
+}
+#grp-cajas .iv-laser,#grp-acondicionamiento .iv-laser{
+ position:absolute;left:13%;right:13%;height:3px;top:30%;
+ background:#fa4555;box-shadow:0 0 13px #ff3344;opacity:0;
+}
+#grp-cajas .iv-scanner-visual.is-reading .iv-laser,
+#grp-acondicionamiento .iv-small-scanner.is-reading .iv-laser{
+ opacity:1;animation:ivLaser 1s ease-in-out infinite alternate;
+}
+#grp-cajas .iv-scanner-visual.has-read,
+#grp-acondicionamiento .iv-small-scanner.has-read{
+ box-shadow:0 0 0 3px rgba(24,139,91,.12);border:1px solid #248d65;
+}
+@keyframes ivLaser{from{top:19%}to{top:74%}}
+#grp-cajas .iv-field-row,#grp-acondicionamiento .iv-field-row{
+ display:flex;align-items:center;gap:10px;border:1px solid #d9e5ed;
+ background:#fafcfd;border-radius:9px;padding:4px 11px;
+}
+#grp-cajas .iv-field-row>.iv-icon,#grp-acondicionamiento .iv-field-row>.iv-icon{
+ color:#7890a2;width:19px;height:19px;
+}
+#grp-cajas #boxScanInput,#grp-acondicionamiento #conditionScanInput{
+ flex:1;min-width:0;width:100%;border:0!important;outline:0!important;
+ background:transparent!important;font-weight:700;font-size:14px;
+ box-shadow:none!important;padding:10px 0!important;
+}
+#grp-cajas .iv-source-line{font-size:11px;color:#7b8d9d;margin:10px 0 0;line-height:1.5}
+#grp-cajas .iv-device-status{
+ display:flex;justify-content:space-between;gap:10px;
+ align-items:center;flex-wrap:wrap;border-top:1px solid #e7edf1;
+ margin-top:15px;padding-top:13px;font-size:12px;color:#647a8e;
+}
+#grp-cajas .iv-device-status #boxScanCount{color:#1d485f;font-size:20px}
+#grp-cajas #boxScanResult{
+ background:transparent;border:0;box-shadow:none;
+ padding:0;margin-top:0;overflow-wrap:anywhere;min-height:0;
+}
+#grp-cajas #boxScanResult:empty:before{display:none}
+#grp-cajas #boxScanResult h3{
+ font-size:21px;color:#1c425a;margin:8px 0 15px;
+}
+#grp-cajas #boxScanResult p{
+ font-size:13px;padding:8px 0;border-bottom:1px solid #edf1f3;margin:0;
+}
+#grp-cajas .iv-history{border-top:1px solid #e5ecf0;padding-top:13px;margin-top:18px}
+#grp-cajas .iv-history .iv-subtitle{margin:0 0 10px}
+#grp-cajas #boxScanHistory{margin:0;max-height:180px;overflow:auto;padding-left:23px}
+#grp-cajas #boxScanHistory li{font-size:12px;padding:5px 0;color:#526d80}
+#grp-cajas .iv-scanner-results #boxScanResult:not(:empty)+.iv-muted-note{margin-top:13px}
+/* Acondicionamiento */
+#grp-acondicionamiento .iv-premium-kpis{
+ display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:13px;margin:0 0 15px;
+}
+#grp-acondicionamiento .iv-premium-kpis .intervention-kpi{
+ display:flex;align-items:center;gap:14px;border:1px solid #e0e8ed;
+ background:#fff;border-radius:11px;min-height:82px;padding:16px;
+}
+#grp-acondicionamiento .iv-kpi-icon{
+ width:43px;height:43px;flex-shrink:0;display:grid;place-items:center;
+ border-radius:11px;background:#e9f2f9;color:#3279a0;
+}
+#grp-acondicionamiento .intervention-kpi[data-kind="observada"] .iv-kpi-icon{background:#fff5e4;color:#a6761a}
+#grp-acondicionamiento .intervention-kpi[data-kind="lista"] .iv-kpi-icon{background:#e7f7ed;color:#1e8e60}
+#grp-acondicionamiento .iv-premium-kpis .intervention-kpi-number{
+ display:block;font-size:28px;line-height:1.1;color:#183a50;
+}
+#grp-acondicionamiento .iv-premium-kpis .intervention-kpi-label{
+ display:block;font-size:11px;color:#647a8b;font-weight:750;margin-top:5px;
+}
+#grp-acondicionamiento .iv-conditioning-layout{
+ grid-template-columns:minmax(0,.95fr) minmax(0,1.05fr);
+}
+#grp-acondicionamiento .iv-small-scanner{min-height:105px;margin-bottom:14px}
+#grp-acondicionamiento .iv-small-scanner .iv-barcode{height:40px}
+#grp-acondicionamiento .iv-small-scanner>span{font-size:9px;margin-top:8px}
+#grp-acondicionamiento .iv-field-label{
+ display:block;font-size:12px;font-weight:750;color:#486478;margin:12px 0 8px;
+}
+#grp-acondicionamiento #boxConditionPanel{
+ background:#fff;padding:19px 20px;border:1px solid #dfe8ef;margin:0;border-radius:12px;
+}
+#grp-acondicionamiento #boxConditionPanel>.filters{
+ display:grid;grid-template-columns:1fr 1fr;gap:11px;margin:12px 0;
+}
+#grp-acondicionamiento #boxConditionPanel>.filters>label{
+ display:flex;flex-direction:column;gap:7px;
+ font-size:12px;color:#597285;font-weight:750;min-width:0;
+}
+#grp-acondicionamiento #boxConditionPanel>.filters>label:last-child{grid-column:1/-1}
+#grp-acondicionamiento #boxConditionPanel>.filters :is(input,select){width:100%;min-width:0}
+#grp-acondicionamiento .iv-flowsteps{
+ display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin:13px 0;
+}
+#grp-acondicionamiento .iv-flowsteps>span{
+ display:flex;justify-content:center;align-items:center;text-align:center;min-height:31px;
+ border:1px solid #e2e9ee;border-radius:7px;font-size:10px;
+ background:#f4f7f9;color:#758a99;font-weight:700;
+}
+#grp-acondicionamiento .iv-flowsteps>span.is-done{
+ background:#eaf8ef;color:#1c8052;border-color:#bfe3cf;
+}
+#grp-acondicionamiento .iv-flowsteps>span.is-warning{
+ background:#fff6e6;color:#95620a;border-color:#f0d7a5;
+}
+#grp-acondicionamiento .iv-progress-label{
+ font-size:10px;font-weight:800;color:#718599;letter-spacing:.45px;
+ text-transform:uppercase;margin:13px 0 9px;
+}
+#grp-acondicionamiento #conditionDetail{font-size:12px;line-height:1.55;margin:14px 0}
+#grp-acondicionamiento #conditionDetail p{margin:4px 0}
+#grp-acondicionamiento #conditionIssue{min-height:60px;margin-top:8px;width:100%}
+#grp-acondicionamiento #boxConditionPanel>.iv-buttons{
+ padding-top:13px;border-top:1px solid #e7edf1;
+}
+#grp-acondicionamiento #conditionSummary{font-size:11px;color:#708598}
+/* Avisos de recojo */
+#grp-correos .iv-mail-layout{grid-template-columns:minmax(0,.96fr) minmax(0,1.04fr);margin-bottom:14px}
+#grp-correos .iv-mail-count{display:flex;align-items:baseline;gap:8px;margin:17px 0 12px;flex-wrap:wrap}
+#grp-correos .iv-mail-count strong{
+ font-size:40px;line-height:1;font-weight:850;color:#1c4058;font-variant-numeric:tabular-nums;
+}
+#grp-correos .iv-mail-count span{color:#71869a;font-size:12px}
+#grp-correos .iv-mail-help{font-size:12px;color:#547184;line-height:1.5;margin:12px 0}
+#grp-correos .iv-mail-detail{font-size:11px;color:#7b8b99;margin:0 0 8px}
+#grp-correos .iv-mail-history #pickupMailBatches{display:grid;gap:10px;color:#63798a;font-size:12px}
+#grp-correos #pickupMailBatches>.prepared-im-box{
+ border:1px solid #e1e9ee;background:#fafbfd;border-radius:10px;
+ padding:12px 15px;box-shadow:none;margin:0;display:grid;gap:8px;
+}
+#grp-correos #pickupMailBatches>.prepared-im-box>p{
+ font-weight:750;color:#24435b;font-size:12px;margin:2px 0 7px;line-height:1.5;
+}
+#grp-correos #pickupMailBatches .actions{display:flex;flex-wrap:wrap;gap:8px}
+#grp-correos .iv-mail-preview{margin:0 0 14px;border-radius:12px}
+#grp-correos .iv-mail-preview>summary .iv-icon,
+#grp-correos .intervention-config-panel>summary .iv-icon{color:#356c8e}
+#grp-correos .iv-mail-preview .intervention-preview-inner{padding:16px}
+#grp-correos .iv-mail-preview #pickupMailPreview{min-height:420px;background:#fff}
+#grp-correos .intervention-config-panel{margin:0 0 14px}
+#grp-correos .intervention-config-panel .intervention-template{padding:17px}
+#grp-correos .intervention-config-panel .intervention-template>label{color:#435d71}
+/* Responsive: mantiene controles de operación legibles también a zoom 75%. */
+@media(max-width:980px){
+ :is(#grp-escaneos,#grp-cajas,#grp-acondicionamiento,#grp-correos) .iv-dual-layout{grid-template-columns:1fr}
+ #grp-acondicionamiento .iv-premium-kpis{gap:9px}
+}
+@media(max-width:680px){
+ :is(#grp-escaneos,#grp-cajas,#grp-acondicionamiento,#grp-correos) .iv-premium{padding:13px}
+ :is(#grp-escaneos,#grp-cajas,#grp-acondicionamiento,#grp-correos) .iv-hero{padding:17px;min-height:110px}
+ :is(#grp-escaneos,#grp-cajas,#grp-acondicionamiento,#grp-correos) .iv-hero h2{font-size:19px}
+ :is(#grp-escaneos,#grp-cajas,#grp-acondicionamiento,#grp-correos) .iv-hero-icon{width:48px;height:48px}
+ :is(#grp-escaneos,#grp-cajas,#grp-acondicionamiento,#grp-correos) .iv-hero-icon .iv-icon{width:26px;height:26px}
+ :is(#grp-escaneos,#grp-cajas,#grp-acondicionamiento,#grp-correos) .iv-panel{padding:15px}
+ #grp-escaneos .intervention-results .filters{grid-template-columns:repeat(2,minmax(0,1fr))}
+ #grp-acondicionamiento .iv-premium-kpis .intervention-kpi{flex-direction:column;text-align:center;padding:10px;gap:6px}
+ #grp-acondicionamiento .iv-kpi-icon{width:32px;height:32px}
+ #grp-acondicionamiento .iv-premium-kpis .intervention-kpi-number{font-size:23px}
+ #grp-acondicionamiento #boxConditionPanel>.filters{grid-template-columns:1fr}
+ #grp-acondicionamiento #boxConditionPanel>.filters>label:last-child{grid-column:auto}
+}
+@media(prefers-reduced-motion:reduce){
+ :is(#grp-escaneos,#grp-cajas,#grp-acondicionamiento,#grp-correos) .iv-premium *,
+ :is(#grp-escaneos,#grp-cajas,#grp-acondicionamiento,#grp-correos) .iv-premium *:before,
+ :is(#grp-escaneos,#grp-cajas,#grp-acondicionamiento,#grp-correos) .iv-premium *:after{
+  animation:none!important;transition:none!important;
+ }
+}

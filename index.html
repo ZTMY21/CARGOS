@@ -631,6 +631,8 @@
   .previous-cargo-pending{color:#8893a2;font-size:12px;}
   .previous-cargo-error{color:#8a6671;font-size:11px;}
 </style>
+<link rel="stylesheet" href="/src/intervention-ui.css">
+<link rel="stylesheet" href="/src/intervention-premium.css">
 </head>
 <body>
 <style>
@@ -687,6 +689,8 @@
         aria-selected="false" aria-controls="grp-escaneos" tabindex="-1">Facturas por cargo</button>
       <button id="workspaceTabCajas" class="workspace-tab" type="button" role="tab" data-workspace="cajas"
         aria-selected="false" aria-controls="grp-cajas" tabindex="-1">Control de cajas</button>
+      <button id="workspaceTabAcondicionamiento" class="workspace-tab" type="button" role="tab" data-workspace="acondicionamiento"
+        aria-selected="false" aria-controls="grp-acondicionamiento" tabindex="-1">Acondicionamiento</button>
       <button id="workspaceTabCorreos" class="workspace-tab" type="button" role="tab" data-workspace="correos"
         aria-selected="false" aria-controls="grp-correos" tabindex="-1">Avisos de recojo</button>
     </nav>
@@ -959,24 +963,68 @@
   <!-- CARGA DIRECTA DE REGISTROS DE FACTURAS ESCANEADAS -->
   <details class="group" id="grp-escaneos" hidden>
     <summary><span class="stitle">Carga de facturas digitalizadas por cargo</span><span class="chev">▶</span></summary>
-    <div class="group-body">
-      <p class="hint">Sube el Excel generado por el programa de digitalización de facturas. El aplicativo identificará fecha, cargo, grupo y código, y comprobará los registros repetidos antes de guardarlos.</p>
-      <label for="scanFile"><strong>Seleccionar Excel de facturas escaneadas</strong></label>
-      <input id="scanFile" type="file" accept=".xlsx,.xlsm,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel.sheet.macroenabled.12" aria-describedby="scanFileName">
-      <p id="scanFileName" class="hint">Hasta 10.000 filas · 20 MB</p>
-      <details style="margin:12px 0">
-        <summary>Otra opción: pegar datos</summary>
+
+    <div class="group-body iv-premium">
+      <svg class="iv-sprite" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+ <symbol id="iv-file" viewBox="0 0 24 24"><path d="M7 3h7l5 5v13H5V3zM14 3v6h5M8 13h8M8 17h8"/></symbol>
+ <symbol id="iv-upload" viewBox="0 0 24 24"><path d="M12 16V4m-5 5 5-5 5 5M4 16v4h16v-4"/></symbol>
+ <symbol id="iv-scan" viewBox="0 0 24 24"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3M4 12h16M8 9v6m4-6v6m4-6v6"/></symbol>
+ <symbol id="iv-box" viewBox="0 0 24 24"><path d="m3 7 9-4 9 4v10l-9 4-9-4zM3 7l9 5 9-5M12 12v9M7 5l9 5"/></symbol>
+ <symbol id="iv-mail" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></symbol>
+ <symbol id="iv-check" viewBox="0 0 24 24"><path d="m5 12 5 5L20 7"/></symbol>
+ <symbol id="iv-alert" viewBox="0 0 24 24"><path d="m12 3 10 18H2zM12 9v5M12 18h.01"/></symbol>
+ <symbol id="iv-settings" viewBox="0 0 24 24"><path d="M4 7h16M4 17h16M9 4v6M15 14v6"/><circle cx="9" cy="7" r="2"/><circle cx="15" cy="17" r="2"/></symbol>
+ <symbol id="iv-refresh" viewBox="0 0 24 24"><path d="M20 7v5h-5M4 17v-5h5M5 9a8 8 0 0 1 13-2l2 5M4 12l2 5a8 8 0 0 0 13-2"/></symbol>
+ </svg>
+      <header class="iv-hero"><div class="iv-hero-content"><div class="iv-eyebrow">01 · DIGITALIZACIÓN DOCUMENTAL</div><h2>Importación inteligente de facturas</h2><p>Selecciona, valida y revisa tu Excel de digitalización antes de confirmar el registro.</p></div><div class="iv-hero-icon"><svg class="iv-icon" aria-hidden="true"><use href="#iv-file"></use></svg></div></header>
+      <div class="iv-dual-layout iv-import-layout">
+        <div class="iv-panel">
+          <div class="iv-steps" role="list" aria-label="Proceso de importación">
+            <span id="ivStepSelect" class="iv-step active" role="listitem">01 · Seleccionar</span>
+            <span id="ivStepValidate" class="iv-step" role="listitem">02 · Validar</span>
+            <span id="ivStepSave" class="iv-step" role="listitem">03 · Confirmar</span>
+          </div>
+          <h3 class="iv-panel-title">Sube tu archivo Excel</h3>
+          <p class="iv-panel-hint">El aplicativo comprobará fecha, cargo, grupo y código, incluidos los registros repetidos, antes de guardar en Google Sheets.</p>
+          <div id="ivDropzone" class="iv-dropzone" aria-label="Zona de carga de archivo Excel">
+            <div class="iv-excel-mark" aria-hidden="true"><span>X</span><i></i></div>
+            <strong>Arrastra o selecciona tu archivo Excel</strong>
+            <p>Archivo generado por el programa de digitalización</p>
+            <p class="iv-small">.xlsx · .xlsm · Hasta 10.000 filas · Máximo 20 MB</p>
+            <label class="iv-choose" for="scanFile"><svg class="iv-icon" aria-hidden="true"><use href="#iv-upload"></use></svg> Seleccionar archivo</label>
+            <input id="scanFile" class="iv-file-input" type="file" accept=".xlsx,.xlsm,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel.sheet.macroenabled.12" aria-describedby="scanFileName">
+          </div>
+                <details class="intervention-option">
+        <summary>Otra opción: pegar datos desde Excel</summary>
+        <div class="intervention-option-content">
         <label for="scanPaste">Pegar desde Excel</label>
         <textarea id="scanPaste" rows="5" autocomplete="off" spellcheck="false" placeholder="Fecha	Cargo	Grupo	Codigo&#10;30/10/2026	941	1	01-0FF01-0217573"></textarea>
+        </div>
       </details>
-      <div class="actions">
-        <button type="button" class="secondary" id="scanValidate">Validar y previsualizar</button>
-        <button type="button" id="scanSave" disabled>Confirmar carga a Google Sheets</button>
-      </div>
-      <progress id="scanProgress" value="0" max="100" hidden style="width:100%;height:18px;margin:10px 0 2px"></progress>
-      <p id="scanStage" class="hint" aria-live="polite"></p>
-      <p id="scanStatus" class="hint" aria-live="polite"></p>
-      <div id="scanSummary" hidden>
+
+          <div class="actions intervention-actions iv-buttons">
+            <button type="button" class="secondary iv-main-action" id="scanValidate"><svg class="iv-icon" aria-hidden="true"><use href="#iv-check"></use></svg> Validar y previsualizar</button>
+            <button type="button" class="iv-save-button" id="scanSave" disabled><svg class="iv-icon" aria-hidden="true"><use href="#iv-upload"></use></svg> Confirmar carga a Google Sheets</button>
+          </div>
+          <progress id="scanProgress" value="0" max="100" hidden></progress>
+          <p id="scanStage" class="iv-stage" aria-live="polite"></p>
+          <p id="scanStatus" class="iv-status-line" aria-live="polite"></p>
+        </div>
+        <div class="iv-panel">
+          <h3 class="iv-panel-title">Archivo y validación</h3>
+          <p class="iv-panel-hint">El resultado se actualizará con información real cuando selecciones y valides el archivo.</p>
+          <div class="iv-file-summary">
+            <div class="iv-excel-mark iv-excel-small" aria-hidden="true"><span>X</span><i></i></div>
+            <div class="iv-file-meta">
+              <strong id="scanFileName">Sin archivo seleccionado</strong>
+              <small id="ivFileStatus">Esperando archivo Excel</small>
+            </div>
+          </div>
+          <h4 class="iv-subtitle">Resultados</h4>
+          <div id="ivScanEmpty" class="iv-empty"><div class="iv-empty-icon"><svg class="iv-icon" aria-hidden="true"><use href="#iv-file"></use></svg></div><strong>Archivo pendiente</strong><span>Al validar se mostrarán los registros, duplicados y observaciones.</span></div>
+                <div id="scanSummary" class="intervention-results" hidden>
+        <h3 class="intervention-card-title">Resultados de validación</h3>
+        <p class="intervention-section-caption">Revisa los registros antes de confirmar la carga.</p>
         <div class="filters">
           <span>Total de filas: <strong id="scanTotal">0</strong></span>
           <span>Nuevas válidas: <strong id="scanValid">0</strong></span>
@@ -986,42 +1034,98 @@
         </div>
         <div class="table-wrap" id="scanSample"></div>
       </div>
-      <p class="hint">Revisa los resultados antes de confirmar. Los registros nuevos se enviarán a Google Sheets y después se sincronizarán con el Kárdex.</p>
-      <p id="scanReceipt" class="hint" aria-live="polite"></p>
+
+          <p class="iv-help-strip"><svg class="iv-icon" aria-hidden="true"><use href="#iv-check"></use></svg> Los registros nuevos irán a Google Sheets solo después de tu confirmación.</p>
+          <p id="scanReceipt" class="iv-status-line" aria-live="polite"></p>
+        </div>
+      </div>
     </div>
   </details>
 
-  <!-- FASE 2: ESCANEO DE CAJAS EN MODO CONSULTA -->
+<!-- FASE 2: ESCANEO DE CAJAS EN MODO CONSULTA -->
   <details class="group" id="grp-cajas" hidden>
     <summary><span class="stitle">Control de cajas</span><span class="chev">▶</span></summary>
-    <div class="group-body">
-      <p class="hint">Conecta el lector y escanea una caja: el código se consultará automáticamente, sin pulsar Enter. Si no tienes lector, escribe el código y pulsa Consultar.</p>
-      <div class="filters">
-        <span><strong>Estado:</strong> <span id="boxScannerStatus" role="status">Sin lecturas</span></span>
-        <span id="boxScannerModel" hidden></span>
+
+    <div class="group-body iv-premium">
+      <header class="iv-hero"><div class="iv-hero-content"><div class="iv-eyebrow">02 · IDENTIFICACIÓN DOCUMENTAL</div><h2>Centro de escaneo de cajas</h2><p>Escanea con el lector USB o introduce un código para consultar la información documental.</p></div><div class="iv-hero-icon"><svg class="iv-icon" aria-hidden="true"><use href="#iv-scan"></use></svg></div></header>
+      <div class="iv-dual-layout iv-scanner-layout">
+        <section class="iv-panel iv-scanner-panel">
+          <div class="iv-panel-head"><h3 class="iv-panel-title">Escanear código</h3><span class="iv-state-chip"><svg class="iv-icon" aria-hidden="true"><use href="#iv-scan"></use></svg> <span id="boxScannerStatus" role="status">Sin lecturas</span></span></div>
+          <p class="iv-panel-hint">La consulta se realiza automáticamente al recibir el código completo. No necesitas presionar Enter.</p>
+          <div class="iv-scanner-visual" id="ivScannerVisual" aria-hidden="true">
+            <div class="iv-barcode"></div><div class="iv-laser"></div>
+            <span id="ivScannerCaption">ESPERANDO UN CÓDIGO DE CAJA</span>
+          </div>
+          <div class="iv-field-row">
+            <label class="iv-input-icon" for="boxScanInput"><svg class="iv-icon" aria-hidden="true"><use href="#iv-scan"></use></svg></label>
+            <input type="text" id="boxScanInput" autocomplete="off" autocapitalize="characters" spellcheck="false"
+              placeholder="T, TD, P o código numérico" maxlength="80" aria-describedby="boxScanFeedback">
+          </div>
+          <div class="actions intervention-actions iv-buttons">
+            <button id="boxScanSubmit" type="button" class="iv-main-action"><svg class="iv-icon" aria-hidden="true"><use href="#iv-scan"></use></svg> Consultar caja</button>
+            <button id="boxScanRefresh" type="button" class="secondary"><svg class="iv-icon" aria-hidden="true"><use href="#iv-refresh"></use></svg> Actualizar</button>
+            <button id="boxScanClear" type="button" class="secondary">Limpiar</button>
+          </div>
+          <div class="iv-scanner-meta">
+            <div class="iv-device-status"><svg class="iv-icon" aria-hidden="true"><use href="#iv-scan"></use></svg> <span id="boxScannerModel" hidden></span><span>Lecturas únicas: <strong id="boxScanCount">0</strong></span></div>
+          </div>
+          <p id="boxScanFeedback" class="iv-status-line" aria-live="polite"></p>
+          <p id="boxSheetsStatus" class="iv-source-line" aria-live="polite">Destino: Google Sheets del Drive · CONTROL DE CAJAS</p>
+          <p id="boxScannerSource" class="iv-status-line" hidden></p>
+        </section>
+        <section class="iv-panel iv-scanner-results">
+          <div class="iv-panel-head"><h3 class="iv-panel-title">Ficha de la caja</h3><span class="iv-state-chip" id="ivBoxMatch">Sin consultar</span></div>
+          <div id="ivBoxEmpty" class="iv-empty iv-box-empty"><div class="iv-empty-icon"><svg class="iv-icon" aria-hidden="true"><use href="#iv-box"></use></svg></div><strong>Esperando lectura</strong><span>Al escanear aparecerán aquí el código, cargos y clasificación.</span></div>
+          <div id="boxScanResult" class="iv-box-results" role="status" aria-live="polite"></div>
+          <p class="iv-panel-hint iv-muted-note">Una caja no encontrada entre pendientes debe verificarse antes de tratarla como nueva.</p>
+          <div class="iv-history">
+            <h4 class="iv-subtitle">Historial de la sesión</h4>
+            <ol id="boxScanHistory" class="prepared-im-list" aria-label="Historial de códigos de cajas leídos"></ol>
+          </div>
+        </section>
       </div>
-      <label for="boxScanInput"><strong>Escanear código de caja</strong></label>
-      <div class="filters">
-        <input type="text" id="boxScanInput" autocomplete="off" autocapitalize="characters" spellcheck="false"
-          placeholder="Código de caja" maxlength="80" aria-describedby="boxScanFeedback">
-        <button id="boxScanSubmit" type="button" class="secondary">Buscar manualmente</button>
-      </div>
-      <div class="filters">
-        <span><strong>Cajas leídas:</strong> <span id="boxScanCount">0</span></span>
-        <button id="boxScanRefresh" type="button" class="secondary">Actualizar</button>
-        <button id="boxScanClear" type="button" class="secondary">Limpiar</button>
-      </div>
-      <p id="boxScanFeedback" class="hint" aria-live="polite"></p>
-      <p id="boxSheetsStatus" class="hint" aria-live="polite">Destino: Google Sheets del Drive · CARGOS ENVIADOS</p>
-      <p id="boxScannerSource" class="hint" hidden></p>
-      <div id="boxScanResult" class="prepared-im-box" role="status" aria-live="polite"></div>
-      <p class="hint">La consulta muestra los cargos y la clasificación registrados. Una caja no encontrada entre pendientes debe verificarse antes de tratarla como nueva.</p>
-      <section id="boxConditionPanel" class="prepared-im-box" aria-label="Acondicionamiento de cajas">
-        <h3>Acondicionamiento</h3>
-        <p class="hint">Después de escanear, revisa los cargos y registra la preparación. Las cajas listas quedan pendientes de recojo; no se marcan como enviadas.</p>
+    </div>
+  </details>
+
+<!-- ACONDICIONAMIENTO INDEPENDIENTE DE LA CONSULTA DE CAJAS -->
+  <details class="group" id="grp-acondicionamiento" hidden>
+    <summary><span class="stitle">Acondicionamiento de cajas</span><span class="chev">▶</span></summary>
+    <div class="group-body iv-premium">
+<header class="iv-hero"><div class="iv-hero-content"><div class="iv-eyebrow">03 · TRABAJO OPERATIVO</div><h2>Estación de acondicionamiento</h2><p>Escanea, prepara y revisa cada caja. Los estados se actualizan únicamente cuando confirmas las operaciones.</p></div><div class="iv-hero-icon"><svg class="iv-icon" aria-hidden="true"><use href="#iv-box"></use></svg></div></header>
+<div class="intervention-kpis iv-premium-kpis" aria-label="Indicadores de acondicionamiento">
+  <div class="intervention-kpi" data-kind="preparacion"><span class="iv-kpi-icon"><svg class="iv-icon" aria-hidden="true"><use href="#iv-box"></use></svg></span><span><strong id="conditionKpiPreparing" class="intervention-kpi-number">0</strong><span class="intervention-kpi-label">En preparación</span></span></div>
+  <div class="intervention-kpi" data-kind="observada"><span class="iv-kpi-icon"><svg class="iv-icon" aria-hidden="true"><use href="#iv-alert"></use></svg></span><span><strong id="conditionKpiObserved" class="intervention-kpi-number">0</strong><span class="intervention-kpi-label">Observadas</span></span></div>
+  <div class="intervention-kpi" data-kind="lista"><span class="iv-kpi-icon"><svg class="iv-icon" aria-hidden="true"><use href="#iv-check"></use></svg></span><span><strong id="conditionKpiReady" class="intervention-kpi-number">0</strong><span class="intervention-kpi-label">Listas para recojo</span></span></div>
+</div>
+<div class="iv-dual-layout iv-conditioning-layout">
+  <section class="iv-panel iv-conditioning-tools">
+    <h3 class="iv-panel-title">Preparar una caja</h3>
+    <p class="iv-panel-hint">Escanea el código para consultar cargos y comenzar el trabajo.</p>
+    <div class="iv-small-scanner" id="ivConditionScannerVisual" aria-hidden="true">
+      <div class="iv-barcode"></div><div class="iv-laser"></div><span>LECTOR DE CAJAS</span>
+    </div>
+    <label class="iv-field-label" for="conditionScanInput">Código de caja</label>
+    <div class="iv-field-row"><svg class="iv-icon" aria-hidden="true"><use href="#iv-scan"></use></svg> <input type="text" id="conditionScanInput" autocomplete="off" autocapitalize="characters" spellcheck="false"
+      placeholder="T, TD, P o números" maxlength="80" aria-describedby="conditionScanFeedback"></div>
+    <div class="actions intervention-actions iv-buttons">
+      <button type="button" class="iv-blue-action" id="conditionScanSubmit"><svg class="iv-icon" aria-hidden="true"><use href="#iv-scan"></use></svg> Consultar caja</button>
+      <button type="button" class="secondary" id="conditionScanRefresh"><svg class="iv-icon" aria-hidden="true"><use href="#iv-refresh"></use></svg> Actualizar cargos</button>
+    </div>
+    <p id="conditionScanFeedback" class="iv-status-line" role="status" aria-live="polite">Sin lecturas de acondicionamiento</p>
+    <p class="iv-help-strip"><svg class="iv-icon" aria-hidden="true"><use href="#iv-check"></use></svg> La caja no se considera enviada a Iron Mountain hasta confirmar su entrega.</p>
+  </section>
+        <section id="boxConditionPanel" class="iv-panel iv-conditioning-detail" aria-label="Acondicionamiento de cajas">
+        <div class="iv-panel-head"><h3 class="iv-panel-title">Detalle de preparación</h3><span id="ivConditionState" class="iv-state-chip">Sin caja</span></div>
+        <p class="iv-panel-hint">Revisa los cargos y registra el estado de la caja seleccionada.</p>
+<div class="iv-flowsteps" role="list" aria-label="Etapas de acondicionamiento">
+  <span id="ivFlowScan" role="listitem">Identificar</span>
+  <span id="ivFlowStart" role="listitem">Preparar</span>
+  <span id="ivFlowReview" role="listitem">Revisar</span>
+  <span id="ivFlowReady" role="listitem">Lista</span>
+</div>
         <div class="filters">
           <label for="conditionCode">Caja
-            <input id="conditionCode" type="text" placeholder="Escanea una caja arriba" readonly>
+            <input id="conditionCode" type="text" placeholder="Selecciona una caja con el lector" readonly>
           </label>
           <label for="conditionClass">Clasificación
             <select id="conditionClass">
@@ -1035,15 +1139,18 @@
           </label>
         </div>
         <p id="conditionDetail" class="hint"></p>
+<div class="iv-progress-label">Progreso del acondicionamiento</div>
+<div id="ivConditionProgressTrack" class="iv-progress" role="progressbar" aria-label="Progreso del acondicionamiento" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div id="ivConditionProgress" style="width:0%"></div></div>
         <label for="conditionIssue">Incidencia u observación</label>
         <textarea id="conditionIssue" rows="2" maxlength="300" placeholder="Describe un daño o pendiente, si corresponde"></textarea>
-        <div class="actions">
-          <button id="conditionStart" type="button" disabled>Iniciar preparación</button>
-          <button id="conditionObserve" class="secondary" type="button" disabled>Registrar incidencia</button>
-          <button id="conditionResolve" class="secondary" type="button" disabled>Resolver incidencia</button>
-          <button id="conditionFinish" type="button" disabled>Marcar lista para recojo</button>
+        <div class="actions intervention-actions">
+          <button id="conditionStart" class="iv-blue-action" type="button" disabled><svg class="iv-icon" aria-hidden="true"><use href="#iv-box"></use></svg> Iniciar preparación</button>
+          <button id="conditionObserve" class="secondary iv-warning-action" type="button" disabled><svg class="iv-icon" aria-hidden="true"><use href="#iv-alert"></use></svg> Registrar incidencia</button>
+          <button id="conditionResolve" class="secondary" type="button" disabled><svg class="iv-icon" aria-hidden="true"><use href="#iv-check"></use></svg> Resolver incidencia</button>
+          <button id="conditionFinish" class="iv-green-action" type="button" disabled><svg class="iv-icon" aria-hidden="true"><use href="#iv-check"></use></svg> Marcar lista para recojo</button>
         </div>
         <p id="conditionMessage" class="hint" aria-live="polite"></p>
+        <p id="conditionSheetsStatus" class="hint" role="status" aria-live="polite">Destino: Google Sheets del Drive · CONTROL DE CAJAS</p>
         <p class="hint">Los registros de preparación se actualizan en el Google Sheets original. No se marca una caja como enviada por escanearla.</p>
         <button id="conditionRetryDrive" class="secondary" type="button" disabled>Reintentar sincronización con Drive</button>
         <div class="filters">
@@ -1051,14 +1158,11 @@
           <button id="conditionReload" class="secondary" type="button">Actualizar acondicionamientos</button>
         </div>
       </section>
-      <div class="table-wrap">
-        <h3>Últimas lecturas</h3>
-        <ol id="boxScanHistory" class="prepared-im-list" aria-label="Historial de códigos de cajas leídos"></ol>
-      </div>
+</div>
     </div>
   </details>
 
-  <!-- ================= EXISTENCIAS ================= -->
+<!-- ================= EXISTENCIAS ================= -->
   <details class="group" id="grp-existencias" open>
     <summary><span class="stitle">Existencias<small id="existenciasSubtitulo">Consulta, búsqueda y exportación de documentos</small></span><span class="chev">▶</span></summary>
     <div class="group-body">
@@ -1104,27 +1208,42 @@
   <!-- Avisos de recojo: preparación en Outlook, sin envíos automáticos ni datos inventados -->
   <details class="group" id="grp-correos" hidden>
     <summary><span class="stitle">Avisos de recojo · Iron Mountain</span><span class="chev">▶</span></summary>
-    <div class="group-body">
-      <p class="hint">Cuando haya 30 cajas nuevas listas, prepara el correo para coordinar su recojo. El aviso no confirma un envío a Iron Mountain.</p>
-      <div class="filters">
-        <strong id="pickupMailCounts">Consultando cajas…</strong>
-        <button id="pickupReload" type="button" class="secondary">Actualizar</button>
-        <button id="pickupPrepare" type="button" disabled>Preparar correo de 30 cajas</button>
+    <div class="group-body iv-premium">
+      <header class="iv-hero"><div class="iv-hero-content"><div class="iv-eyebrow">04 · COORDINACIÓN DE RECOJOS</div><h2>Centro de avisos a Iron Mountain</h2><p>Sigue el avance de las cajas nuevas y prepara avisos con formato institucional para Outlook.</p></div><div class="iv-hero-icon"><svg class="iv-icon" aria-hidden="true"><use href="#iv-mail"></use></svg></div></header>
+      <div class="iv-dual-layout iv-mail-layout">
+        <section class="iv-panel">
+          <div class="iv-panel-head"><h3 class="iv-panel-title">Preparación para recojo</h3><span id="ivMailChip" class="iv-state-chip">Consultando</span></div>
+          <p class="iv-panel-hint">Cada aviso utiliza 30 cajas nuevas acondicionadas. No se considera un envío físico a Iron Mountain.</p>
+          <div class="iv-mail-count"><strong id="ivMailCount">—</strong><span>/ 30 cajas nuevas listas</span></div>
+          <div id="ivMailProgressTrack" class="iv-progress" role="progressbar" aria-label="Cajas nuevas disponibles para un aviso" aria-valuemin="0" aria-valuemax="30" aria-valuenow="0"><div id="ivMailProgress" style="width:0%"></div></div>
+          <p class="iv-mail-help" id="ivMailHelp">Consultando las cajas listas…</p>
+          <p class="iv-mail-detail" id="pickupMailCounts">Consultando cajas…</p>
+          <div class="actions intervention-actions iv-buttons">
+            <button id="pickupPrepare" type="button" disabled><svg class="iv-icon" aria-hidden="true"><use href="#iv-mail"></use></svg> Preparar correo de 30 cajas</button>
+            <button id="pickupReload" type="button" class="secondary"><svg class="iv-icon" aria-hidden="true"><use href="#iv-refresh"></use></svg> Actualizar</button>
+          </div>
+          <p id="pickupMailStatus" class="iv-status-line" role="status" aria-live="polite"></p>
+          <p class="iv-help-strip"><svg class="iv-icon" aria-hidden="true"><use href="#iv-check"></use></svg> La preparación del correo no lo envía. Outlook requiere revisión y envío por el usuario.</p>
+        </section>
+        <section class="iv-panel iv-mail-history" aria-label="Correos de recojo pendientes y anteriores">
+          <h3 class="iv-panel-title">Correos y seguimiento</h3>
+          <p class="iv-panel-hint">Avisos pendientes, preparados y confirmados, con sus fechas y responsables.</p>
+          <div id="pickupMailBatches">Sin correos preparados.</div>
+          <div class="actions intervention-actions">
+            <button id="ivMailSimShortcut" type="button" class="secondary"><svg class="iv-icon" aria-hidden="true"><use href="#iv-mail"></use></svg> Simular correo sin enviar</button>
+          </div>
+        </section>
       </div>
-      <p id="pickupMailStatus" class="hint" role="status" aria-live="polite"></p>
-      <div class="table-wrap" aria-label="Correos de recojo pendientes y anteriores">
-        <h3>Correos pendientes e historial</h3>
-        <div id="pickupMailBatches">Sin correos preparados.</div>
-      </div>
-      <div class="prepared-im-box">
-        <h3>Vista previa del correo</h3>
-        <p id="pickupMailPreviewMeta" class="hint">Selecciona un aviso para revisar el destinatario, cuerpo y firma antes de usar Outlook.</p>
-        <iframe id="pickupMailPreview" title="Vista previa segura del correo" sandbox="" referrerpolicy="no-referrer"
-          style="display:block;width:100%;min-height:500px;background:#fff;border:1px solid var(--border);border-radius:8px"></iframe>
-      </div>
-      <details style="margin-top:18px">
-        <summary>Configurar destinatarios y firma corporativa</summary>
-        <div style="padding:14px 0">
+      <details id="pickupPreviewDetails" class="intervention-preview-panel iv-mail-preview">
+        <summary><svg class="iv-icon" aria-hidden="true"><use href="#iv-mail"></use></svg> Ver correo generado</summary>
+        <div class="intervention-preview-inner">
+          <p id="pickupMailPreviewMeta" class="hint">Selecciona un aviso o utiliza «Simular correo» para revisar el formato.</p>
+          <iframe id="pickupMailPreview" title="Vista previa segura del correo" sandbox="" referrerpolicy="no-referrer"></iframe>
+        </div>
+      </details>
+            <details class="intervention-config-panel">
+        <summary><svg class="iv-icon" aria-hidden="true"><use href="#iv-settings"></use></svg> Configuración del correo · destinatarios, firma y mensaje</summary>
+        <div class="intervention-config-inner">
           <p class="hint">Completa los datos exactos de la persona que enviará los correos. No se completan automáticamente con datos supuestos.</p>
           <div class="filters">
             <label for="pickupSender">Correo remitente
@@ -1154,14 +1273,40 @@
               <input type="text" id="pickupContact" maxlength="240">
             </label>
           </div>
-          <button id="pickupSaveConfig" type="button">Guardar configuración</button>
+          <div class="intervention-template">
+            <h3>Mensaje predeterminado y logotipo</h3>
+            <p class="hint">Este formato se utilizará para los próximos avisos de 30 cajas. El detalle de cajas se genera desde el Kárdex y no se edita manualmente.</p>
+            <label for="pickupSubject">Asunto del correo</label>
+            <input id="pickupSubject" type="text" maxlength="180" style="width:100%" placeholder="Solicitud de recojo | {{cantidad}} cajas nuevas | {{sede}} | {{fecha}}">
+            <p class="hint">Puedes usar las variables {{cantidad}}, {{sede}} y {{fecha}}.</p>
+            <label for="pickupGreeting">Saludo</label>
+            <input id="pickupGreeting" type="text" maxlength="100" style="width:100%">
+            <label for="pickupIntroduction">Mensaje principal</label>
+            <textarea id="pickupIntroduction" rows="3" maxlength="1200" style="width:100%"></textarea>
+            <label for="pickupRequest">Acción solicitada</label>
+            <textarea id="pickupRequest" rows="3" maxlength="1200" style="width:100%"></textarea>
+            <label for="pickupClosing">Despedida previa a la firma</label>
+            <textarea id="pickupClosing" rows="2" maxlength="400" style="width:100%"></textarea>
+            <label for="pickupLogoFile">Logo de Farmacias Peruanas (PNG, máximo 120 KB)</label>
+            <input id="pickupLogoFile" type="file" accept="image/png,.png">
+            <div class="filters" style="align-items:center">
+              <img id="pickupLogoPreview" alt="Vista previa del logotipo del correo" width="64" height="64" hidden style="object-fit:contain">
+              <span id="pickupLogoStatus" class="hint">Sin logotipo cargado. Puedes utilizar el PNG de tu correo de Inspecciones.</span>
+              <button id="pickupLogoClear" type="button" class="secondary">Quitar logotipo</button>
+            </div>
+          </div>
+          <div class="actions intervention-actions">
+            <button id="pickupSample" type="button" class="secondary"><svg class="iv-icon" aria-hidden="true"><use href="#iv-mail"></use></svg> Simular correo (sin enviar)</button>
+            <button id="pickupSaveConfig" type="button"><svg class="iv-icon" aria-hidden="true"><use href="#iv-check"></use></svg> Guardar configuración</button>
+          </div>
         </div>
       </details>
-      <p class="hint">La descarga EML prepara el mensaje para Outlook. Solo confirma el envío en el Kárdex después de enviarlo realmente desde Outlook.</p>
+
+      <p class="intervention-note">Descargar un archivo EML no significa enviar el correo. Confirma el envío en el Kárdex únicamente después de enviarlo realmente desde Outlook.</p>
     </div>
   </details>
 
-  <!-- Solicitudes administrativas: pestaña final, separada del Resumen. -->
+<!-- Solicitudes administrativas: pestaña final, separada del Resumen. -->
   <details class="group" id="grp-solicitudes" hidden>
     <summary><span class="stitle">Solicitudes de Cuentas Adm.<small>Revisión de accesos pendientes</small></span><span class="chev">▶</span></summary>
     <div class="group-body">
