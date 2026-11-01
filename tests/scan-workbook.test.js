@@ -7,7 +7,8 @@ function workbookFile(lines,name='facturas-semana.xlsx'){
   const wb=XLSX.utils.book_new(),ws=XLSX.utils.aoa_to_sheet(lines);
   XLSX.utils.book_append_sheet(wb,ws,'CARGOS DEL DIA');
   const bytes=XLSX.write(wb,{type:'array',bookType:'xlsx'});
-  return {name,size:bytes.byteLength,lastModified:1,arrayBuffer:async()=>bytes.slice().buffer};
+  const data=bytes instanceof ArrayBuffer?new Uint8Array(bytes):new Uint8Array(bytes);
+  return {name,size:data.byteLength,lastModified:1,arrayBuffer:async()=>data.slice().buffer};
 }
 test('reconoce encabezados en el Excel original aunque haya columnas reordenadas',()=>{
   const map=resolveScanHeaders(['Observaciones','Código','Número Cargo','Grupo','Fecha','PDF']);
