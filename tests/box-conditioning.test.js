@@ -6,7 +6,8 @@ import {attachBoxConditioning} from '../src/box-conditioning-ui.js';
 const makeDom=()=>{
  const ids=['conditionCode','conditionClass','conditionCargos','conditionIssue','conditionMessage',
    'conditionDetail','conditionSummary','conditionStart','conditionObserve','conditionResolve',
-   'conditionFinish','conditionReload','conditionRetryDrive','conditionSheetsStatus','conditionScanInput','conditionScanSubmit','conditionScanRefresh','conditionScanFeedback'];
+   'conditionFinish','conditionReload','conditionRetryDrive','conditionSheetsStatus','conditionScanInput','conditionScanSubmit','conditionScanRefresh','conditionScanFeedback',
+   'conditionKpiPreparing','conditionKpiObserved','conditionKpiReady'];
  const html='<html><body>'+ids.map(id=>{
   if(id==='conditionClass')return '<select id="'+id+'"><option value="Cajas Nuevas">Cajas nuevas</option><option value="POR SOLICITUD">Por solicitud</option><option value="Reparación">Reparación</option></select>';
   if(id==='conditionIssue')return '<textarea id="'+id+'"></textarea>';
@@ -70,17 +71,20 @@ test('solo registra la preparación cuando el administrador confirma, y no dupli
   assert.equal(t.calls.at(-1).params.p_action,'iniciar');
   assert.deepEqual(t.calls.at(-1).params.p_cargos,['933','934']);
   assert.match(t.node('conditionSummary').textContent,/1 en preparación/);
+  assert.equal(t.node('conditionKpiPreparing').textContent,'1');
   assert.equal(t.node('conditionStart').disabled,true);
   t.node('conditionIssue').value='Etiqueta dañada';
   t.click('conditionObserve');await new Promise(resolve=>setTimeout(resolve,0));
   assert.equal(t.calls.at(-1).params.p_action,'observar');
   assert.match(t.node('conditionDetail').textContent,/Etiqueta dañada/);
+  assert.equal(t.node('conditionKpiObserved').textContent,'1');
   assert.equal(t.node('conditionFinish').disabled,true);
   t.click('conditionResolve');await new Promise(resolve=>setTimeout(resolve,0));
   assert.equal(t.calls.at(-1).params.p_action,'resolver');
   t.click('conditionFinish');await new Promise(resolve=>setTimeout(resolve,0));
   assert.equal(t.calls.at(-1).params.p_action,'finalizar');
   assert.match(t.node('conditionSummary').textContent,/1 listas para recojo/);
+  assert.equal(t.node('conditionKpiReady').textContent,'1');
   assert.match(t.node('conditionMessage').textContent,/No se ha registrado su envío/);
   assert.equal(t.sheetCalls.some(x=>x.action==='sync'),true);
   assert.match(t.node('conditionSheetsStatus').textContent,/CARGOS ENVIADOS/);
