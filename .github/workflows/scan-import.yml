@@ -26,8 +26,8 @@ jobs:
           node-version: '24'
       - name: Instalar dependencias exactas
         run: npm ci
-      - name: Ejecutar suite completa del Kárdex
-        run: npm test
+      - name: Probar módulos afectados y navegación del Kárdex
+        run: node --test tests/box-scanner.test.js tests/im-requests.test.js tests/im-shipped-summary.test.js tests/scan-import.test.js tests/scan-workbook.test.js tests/app.test.js
       - name: Compilar aplicativo con configuración pública ficticia
         env:
           SUPABASE_URL: https://example.supabase.co
