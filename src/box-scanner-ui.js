@@ -144,6 +144,17 @@ export function attachBoxScanner({repository,isAdmin,appReady}){
       autoTimer=setTimeout(()=>{autoTimer=null;if(canScan()&&probableRapidScan(intervals,input.value.length))process();},400);
     }
   });
+  // WebHID solo informa de dispositivos que el navegador haya autorizado.
+  // Los lectores en modo teclado protegido pueden no aparecer y seguir funcionando.
+  if('hid' in navigator&&typeof navigator.hid.addEventListener==='function'){
+    navigator.hid.addEventListener('connect',event=>{if(enabled)displayHID(event.device);});
+    navigator.hid.addEventListener('disconnect',event=>{
+      if(enabled){
+        device.textContent='Dispositivo HID desconectado: '+String(event.device?.productName||'modelo no disponible')+
+          '. El modo teclado puede seguir disponible para otros lectores.';
+      }
+    });
+  }
   return {
     activate(){
       if(!appReady()||!isAdmin())return;
