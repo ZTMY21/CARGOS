@@ -1044,45 +1044,49 @@
 <!-- FASE 2: ESCANEO DE CAJAS EN MODO CONSULTA -->
   <details class="group" id="grp-cajas" hidden>
     <summary><span class="stitle">Control de cajas</span><span class="chev">▶</span></summary>
-    <div class="group-body">
-      <p class="hint">Conecta el lector y escanea una caja: el código se consultará automáticamente, sin pulsar Enter. Si no tienes lector, escribe el código y pulsa Buscar manualmente.</p>
-      <div class="intervention-scan-layout">
-        <section class="intervention-card intervention-scan-tools">
-          <h3 class="intervention-card-title">Escaneo y consulta</h3>
-          <div class="filters intervention-device">
-        <span><strong>Estado:</strong> <span id="boxScannerStatus" role="status">Sin lecturas</span></span>
-        <span id="boxScannerModel" hidden></span>
-      </div>
-      <label for="boxScanInput"><strong>Escanear código de caja</strong></label>
-      <div class="filters">
-        <input type="text" id="boxScanInput" autocomplete="off" autocapitalize="characters" spellcheck="false"
-          placeholder="Código de caja" maxlength="80" aria-describedby="boxScanFeedback">
-        <button id="boxScanSubmit" type="button" class="secondary">Buscar manualmente</button>
-      </div>
-      <div class="filters">
-        <span><strong>Cajas leídas:</strong> <span id="boxScanCount">0</span></span>
-        <button id="boxScanRefresh" type="button" class="secondary">Actualizar</button>
-        <button id="boxScanClear" type="button" class="secondary">Limpiar</button>
-      </div>
-      <p id="boxScanFeedback" class="hint" aria-live="polite"></p>
-      <p id="boxSheetsStatus" class="hint" aria-live="polite">Destino: Google Sheets del Drive · CARGOS ENVIADOS</p>
-      <p id="boxScannerSource" class="hint" hidden></p>
-        </section>
-        <section class="intervention-card intervention-scan-results">
-          <h3 class="intervention-card-title">Información de la caja</h3>
-          <div id="boxScanResult" class="prepared-im-box" role="status" aria-live="polite"></div>
-      <p class="hint">La consulta muestra los cargos y la clasificación registrados. Una caja no encontrada entre pendientes debe verificarse antes de tratarla como nueva.</p>
 
-      <div class="table-wrap intervention-history">
-        <h3 class="intervention-card-title">Últimas lecturas</h3>
-        <ol id="boxScanHistory" class="prepared-im-list" aria-label="Historial de códigos de cajas leídos"></ol>
-      </div>
+    <div class="group-body iv-premium">
+      <header class="iv-hero"><div class="iv-hero-content"><div class="iv-eyebrow">02 · IDENTIFICACIÓN DOCUMENTAL</div><h2>Centro de escaneo de cajas</h2><p>Escanea con el lector USB o introduce un código para consultar la información documental.</p></div><div class="iv-hero-icon"><svg class="iv-icon" aria-hidden="true"><use href="#iv-scan"></use></svg></div></header>
+      <div class="iv-dual-layout iv-scanner-layout">
+        <section class="iv-panel iv-scanner-panel">
+          <div class="iv-panel-head"><h3 class="iv-panel-title">Escanear código</h3><span class="iv-state-chip"><svg class="iv-icon" aria-hidden="true"><use href="#iv-scan"></use></svg> <span id="boxScannerStatus" role="status">Sin lecturas</span></span></div>
+          <p class="iv-panel-hint">La consulta se realiza automáticamente al recibir el código completo. No necesitas presionar Enter.</p>
+          <div class="iv-scanner-visual" id="ivScannerVisual" aria-hidden="true">
+            <div class="iv-barcode"></div><div class="iv-laser"></div>
+            <span id="ivScannerCaption">ESPERANDO UN CÓDIGO DE CAJA</span>
+          </div>
+          <div class="iv-field-row">
+            <label class="iv-input-icon" for="boxScanInput"><svg class="iv-icon" aria-hidden="true"><use href="#iv-scan"></use></svg></label>
+            <input type="text" id="boxScanInput" autocomplete="off" autocapitalize="characters" spellcheck="false"
+              placeholder="T, TD, P o código numérico" maxlength="80" aria-describedby="boxScanFeedback">
+          </div>
+          <div class="actions intervention-actions iv-buttons">
+            <button id="boxScanSubmit" type="button" class="iv-main-action"><svg class="iv-icon" aria-hidden="true"><use href="#iv-scan"></use></svg> Consultar caja</button>
+            <button id="boxScanRefresh" type="button" class="secondary"><svg class="iv-icon" aria-hidden="true"><use href="#iv-refresh"></use></svg> Actualizar</button>
+            <button id="boxScanClear" type="button" class="secondary">Limpiar</button>
+          </div>
+          <div class="iv-scanner-meta">
+            <div class="iv-device-status"><svg class="iv-icon" aria-hidden="true"><use href="#iv-scan"></use></svg> <span id="boxScannerModel" hidden></span><span>Lecturas únicas: <strong id="boxScanCount">0</strong></span></div>
+          </div>
+          <p id="boxScanFeedback" class="iv-status-line" aria-live="polite"></p>
+          <p id="boxSheetsStatus" class="iv-source-line" aria-live="polite">Destino: Google Sheets del Drive · CONTROL DE CAJAS</p>
+          <p id="boxScannerSource" class="iv-status-line" hidden></p>
+        </section>
+        <section class="iv-panel iv-scanner-results">
+          <div class="iv-panel-head"><h3 class="iv-panel-title">Ficha de la caja</h3><span class="iv-state-chip" id="ivBoxMatch">Sin consultar</span></div>
+          <div id="ivBoxEmpty" class="iv-empty iv-box-empty"><div class="iv-empty-icon"><svg class="iv-icon" aria-hidden="true"><use href="#iv-box"></use></svg></div><strong>Esperando lectura</strong><span>Al escanear aparecerán aquí el código, cargos y clasificación.</span></div>
+          <div id="boxScanResult" class="iv-box-results" role="status" aria-live="polite"></div>
+          <p class="iv-panel-hint iv-muted-note">Una caja no encontrada entre pendientes debe verificarse antes de tratarla como nueva.</p>
+          <div class="iv-history">
+            <h4 class="iv-subtitle">Historial de la sesión</h4>
+            <ol id="boxScanHistory" class="prepared-im-list" aria-label="Historial de códigos de cajas leídos"></ol>
+          </div>
         </section>
       </div>
     </div>
   </details>
 
-  <!-- ACONDICIONAMIENTO INDEPENDIENTE DE LA CONSULTA DE CAJAS -->
+<!-- ACONDICIONAMIENTO INDEPENDIENTE DE LA CONSULTA DE CAJAS -->
   <details class="group" id="grp-acondicionamiento" hidden>
     <summary><span class="stitle">Acondicionamiento de cajas</span><span class="chev">▶</span></summary>
     <div class="group-body">
