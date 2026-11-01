@@ -683,6 +683,8 @@
         aria-selected="false" aria-controls="grp-requerimientos" tabindex="-1">Requerimientos</button>
       <button id="workspaceTabExistencias" class="workspace-tab" type="button" role="tab" data-workspace="existencias"
         aria-selected="false" aria-controls="grp-existencias" tabindex="-1">Existencias</button>
+      <button id="workspaceTabEscaneos" class="workspace-tab" type="button" role="tab" data-workspace="escaneos"
+        aria-selected="false" aria-controls="grp-escaneos" tabindex="-1">Carga de facturas</button>
     </nav>
     <div id="googleSyncContent">
     <div class="sync-status-row">
@@ -947,6 +949,33 @@
         <button class="secondary" id="btnCancelarEdicion" style="display:none">Cancelar edición</button>
         <span class="msg" id="msgGuardado"></span>
       </div>
+    </div>
+  </details>
+
+  <!-- CARGA DIRECTA DE REGISTROS DE FACTURAS ESCANEADAS -->
+  <details class="group" id="grp-escaneos" hidden>
+    <summary><span class="stitle">Carga de facturas escaneadas<small>Registros diarios sin abrir Google Sheets</small></span><span class="chev">▶</span></summary>
+    <div class="group-body">
+      <p class="hint">Copia desde el Excel generado por el programa de digitalización y pega las filas aquí. Acepta Fecha, Cargo, Grupo, Código y las columnas originales E–K. No pegues datos de otros años ni modifiques el histórico.</p>
+      <label for="scanPaste">Pegar registros desde Excel (Ctrl+C → Ctrl+V)</label>
+      <textarea id="scanPaste" rows="8" autocomplete="off" spellcheck="false" placeholder="Fecha	Cargo	Grupo	Codigo&#10;30/10/2026	941	1	01-0FF01-0217573"></textarea>
+      <div class="actions">
+        <button type="button" class="secondary" id="scanValidate">Validar y previsualizar</button>
+        <button type="button" id="scanSave" disabled>Confirmar carga en Google Sheets</button>
+      </div>
+      <p id="scanStatus" class="hint" aria-live="polite"></p>
+      <div id="scanSummary" hidden>
+        <div class="filters">
+          <span>Total de filas: <strong id="scanTotal">0</strong></span>
+          <span>Nuevas válidas: <strong id="scanValid">0</strong></span>
+          <span>Errores: <strong id="scanErrors">0</strong></span>
+          <span>Ya registradas: <strong id="scanDuplicates">0</strong></span>
+          <span>En otros cargos: <strong id="scanCrossCargo">0</strong></span>
+        </div>
+        <div class="table-wrap" id="scanSample"></div>
+      </div>
+      <p class="hint">Se preservan los ceros iniciales y los duplicados legítimos de distintos cargos. Solo se guarda tras una confirmación explícita. Las filas añadidas se sincronizarán posteriormente con Kárdex mediante la rutina periódica existente.</p>
+      <p id="scanReceipt" class="hint" aria-live="polite"></p>
     </div>
   </details>
 
