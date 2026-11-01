@@ -26,7 +26,7 @@ test('la tabla de control preserva última lectura y cargo original mientras cam
  const newRow=buildBoxControlValues(condition,old,'01/11/2026 14:20','other@company.com');
  assert.equal(newRow[0],'T00990011');
  assert.equal(newRow[1],'00990011');
- assert.equal(newRow[2],'LISTA');
+ assert.equal(newRow[2],'Lista para recojo');
  assert.equal(newRow[3],'933-934');
  assert.equal(newRow[7],'admin@company.com');
  assert.equal(newRow[9],'01/11/2026 09:00');
