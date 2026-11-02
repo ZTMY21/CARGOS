@@ -86,8 +86,26 @@ export function attachScanImport({supabase,isAdmin,appReady,isPreview}){
         duplicates=local.duplicates.length,crossCargo=0,conflicts=local.conflicts.length;
       const issues=[...local.conflicts.map(x=>'Excel · fila '+x.line+': '+x.reason)];
       byId('scanDuplicates').textContent=String(duplicates);
-      // La vista Preview también consulta al servidor, pero SOLO con action=preview.
-      // Nunca enviará action=commit ni escribirá en una hoja de producción.
+      // Preview está aislado de la base productiva por configuración de seguridad.
+      // Simular SOLO el Excel local; jamás afirmar que se cotejó la hoja oficial.
+      if(isPreview()){
+        byId('scanValid').textContent=String(candidate.length);
+        byId('scanConflicts').textContent=String(conflicts);
+        byId('scanUpdates').textContent='—';
+        byId('scanUpdateCells').textContent='—';
+        if(issues.length){
+          const list=document.createElement('ul');
+          for(const note of issues.slice(0,12)){
+            const li=document.createElement('li');li.textContent=note;list.append(li);
+          }
+          sample.append(list);
+        }
+        save.disabled=true;
+        progressTo(100,'Simulación local terminada, sin escrituras');
+        return notice('PREVIEW: '+candidate.length+' documentos candidatos · '+duplicates
+          +' repetidos dentro del Excel · '+conflicts+' conflictos locales. '
+          +'Sin conexión a Google Sheets ni al histórico productivo; los cambios reales se determinarán en un entorno autorizado.',conflicts>0);
+      }
       const groups=split(candidate,PREVIEW_BATCH);
       for(let i=0;i<groups.length;i++){
         progressTo(10+Math.round((i/Math.max(1,groups.length))*85),
