@@ -985,7 +985,7 @@
             <span id="ivStepSave" class="iv-step" role="listitem">03 · Confirmar</span>
           </div>
           <h3 class="iv-panel-title">Sube tu archivo Excel</h3>
-          <p class="iv-panel-hint">El aplicativo comprobará fecha, cargo, grupo y código, incluidos los registros repetidos, antes de guardar en Google Sheets.</p>
+          <p class="iv-panel-hint">El aplicativo compara cargo, grupo, código y archivo digitalizado con Google Sheets y el Kárdex. Solo agrega documentos nuevos o completa celdas vacías; los conflictos se revisan.</p>
           <div id="ivDropzone" class="iv-dropzone" aria-label="Zona de carga de archivo Excel">
             <div class="iv-excel-mark" aria-hidden="true"><span>X</span><i></i></div>
             <strong>Arrastra o selecciona tu archivo Excel</strong>
@@ -1029,13 +1029,16 @@
           <span>Total de filas: <strong id="scanTotal">0</strong></span>
           <span>Nuevas válidas: <strong id="scanValid">0</strong></span>
           <span>Errores: <strong id="scanErrors">0</strong></span>
-          <span>Ya registradas: <strong id="scanDuplicates">0</strong></span>
+          <span>Sin cambios (idénticas): <strong id="scanDuplicates">0</strong></span>
+          <span>Registros para completar: <strong id="scanUpdates">0</strong></span>
+          <span>Celdas vacías que se completarían: <strong id="scanUpdateCells">0</strong></span>
+          <span>Conflictos para revisar: <strong id="scanConflicts">0</strong></span>
           <span>En otros cargos: <strong id="scanCrossCargo">0</strong></span>
         </div>
         <div class="table-wrap" id="scanSample"></div>
       </div>
 
-          <p class="iv-help-strip"><svg class="iv-icon" aria-hidden="true"><use href="#iv-check"></use></svg> Los registros nuevos irán a Google Sheets solo después de tu confirmación.</p>
+          <p class="iv-help-strip"><svg class="iv-icon" aria-hidden="true"><use href="#iv-check"></use></svg> Se agregan únicamente archivos nuevos y se completan celdas vacías. No se reemplazan valores existentes. La simulación en Preview nunca escribe.</p>
           <p id="scanReceipt" class="iv-status-line" aria-live="polite"></p>
         </div>
       </div>
