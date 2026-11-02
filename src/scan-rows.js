@@ -51,22 +51,117 @@ export function validateScanRows(input,maxRows=SCAN_LIMIT){
   });
   return {ready,errors};
 }
-export function compareScanRows(ready,sheetRows=[]){
-  const existingExact=new Set(),existingCargoCodes=new Map(),within=new Set();
-  for(const r of sheetRows){
-    if(!Array.isArray(r)||r.length<4)continue;
-    const fecha=normalizeDate(r[0])?.iso,cargo=clean(r[1]),grupo=clean(r[2]),codigo=normalizeInvoice(r[3]);
-    if(!fecha||!codigo||!cargo)continue;
-    existingExact.add([fecha,cargo,grupo,codigo].join('|'));
-    const list=existingCargoCodes.get(codigo)||new Set();list.add(fecha+'|'+cargo);existingCargoCodes.set(codigo,list);
+// Una factura puede tener varios archivos digitalizados. La identidad incluye el
+// archivo; el cargo/código por sí solos NO son una clave única.
+const coreKey=values=>{
+  const date=normalizeDate(values[0])?.iso||'';
+  return [date,clean(values[1]),clean(values[2]),normalizeInvoice(values[3])].join('|');
+};
+const asset=value=>clean(value).toLocaleLowerCase('es-PE');
+function sameDocument(a,b){
+  return (asset(a[4])!=='' && asset(a[4])===asset(b[4]))
+    || (asset(a[5])!=='' && asset(a[5])===asset(b[5]));
+}
+function hasAsset(v){return !!(asset(v[4])||asset(v[5]));}
+function distinctDocument(a,b){
+  // Solo se reconoce un segundo documento cuando ambos tienen archivo principal
+  // explícito y diferente. Un PDF cambiado de un mismo JPG no crea otra factura.
+  return !!(asset(a[4])&&asset(b[4])&&asset(a[4])!==asset(b[4])
+    && (!asset(a[5])||!asset(b[5])||asset(a[5])!==asset(b[5])));
+}
+function differences(oldValues,newValues){
+  const patches=[],conflicting=[];
+  for(let i=4;i<SCAN_HEADERS.length;i++){
+    const before=clean(oldValues[i]),after=clean(newValues[i]);
+    if(!after||before===after)continue; // Nunca borrar datos ni reescribir iguales.
+    if(before)conflicting.push({column:i,field:SCAN_HEADERS[i],from:before,to:after});
+    else patches.push({column:i,field:SCAN_HEADERS[i],from:'',to:after});
   }
-  const newRows=[],duplicates=[],otherCargos=[];
+  return {patches,conflicting};
+}
+/**
+ * Clasifica sin modificar datos. sheetRows representa las filas A:K a partir de
+ * la segunda fila; los números son absolutos para una actualización puntual.
+ * No se borran repetidos legítimos con distinto archivo digitalizado.
+ * Nota: es indispensable contrastar también el histórico ANTES de confirmar.
+ */
+export function compareScanRows(ready,sheetRows=[]){
+  const existing=[],byCore=new Map(),byCode=new Map();
+  for(let i=0;i<sheetRows.length;i++){
+    const raw=sheetRows[i];
+    if(!Array.isArray(raw)||raw.length<4||!normalizeDate(raw[0]))continue;
+    const values=Array.from({length:SCAN_HEADERS.length},(_,c)=>clean(raw[c]));
+    const key=coreKey(values);
+    if(!clean(values[1])||!normalizeInvoice(values[3]))continue;
+    const item={values,rowNumber:i+2,key};
+    existing.push(item);
+    if(!byCore.has(key))byCore.set(key,[]);
+    byCore.get(key).push(item);
+    const code=normalizeInvoice(values[3]);
+    if(!byCode.has(code))byCode.set(code,new Set());
+    byCode.get(code).add(normalizeDate(values[0]).iso+'|'+values[1]);
+  }
+  // Conciliación dentro del Excel antes de compararlo con la hoja de destino.
+  const local=[],localByCore=new Map(),duplicates=[],conflicts=[];
   for(const row of ready){
-    if(existingExact.has(row.key)||within.has(row.key)){duplicates.push({line:row.line,reason:'La misma factura, cargo, grupo y fecha ya está registrada.'});continue;}
-    within.add(row.key);
-    const others=existingCargoCodes.get(normalizeInvoice(row.codigo));
-    if(others&&[...others].some(x=>x!==row.iso+'|'+row.cargo))otherCargos.push({line:row.line,reason:'Código presente en otro cargo; se conserva la relación legítima.'});
+    const values=Array.from({length:SCAN_HEADERS.length},(_,i)=>clean(row.values[i]));
+    const key=coreKey(values),group=localByCore.get(key)||[];
+    const matches=group.filter(x=>sameDocument(x.values,values));
+    if(matches.length>1){
+      conflicts.push({line:row.line,reason:'Archivo coincidente con varios registros del mismo Excel; revisar.'});
+      matches.forEach(x=>{x.blocked=true;});continue;
+    }
+    if(matches.length===1){
+      const match=matches[0],delta=differences(match.values,values);
+      if(delta.conflicting.length){
+        match.blocked=true;
+        conflicts.push({line:row.line,reason:'El mismo documento tiene valores diferentes dentro del Excel.',fields:delta.conflicting});
+      }else{
+        for(const patch of delta.patches)match.values[patch.column]=patch.to;
+        duplicates.push({line:row.line,reason:delta.patches.length?'Se complementó el registro del mismo Excel.':'Registro idéntico en el mismo Excel.'});
+      }
+      continue;
+    }
+    // Con nombres ausentes no es posible afirmar que se trata de otro archivo.
+    if(group.some(x=>!hasAsset(x.values)||!hasAsset(values))){
+      group.forEach(x=>{x.blocked=true;});
+      conflicts.push({line:row.line,reason:'No se puede diferenciar el documento: faltan nombres de archivo.'});
+      continue;
+    }
+    const item={...row,values,key};
+    local.push(item);group.push(item);localByCore.set(key,group);
+  }
+  const newRows=[],updates=[],otherCargos=[];
+  for(const row of local){
+    if(row.blocked)continue;
+    const group=byCore.get(row.key)||[];
+    const matches=group.filter(x=>sameDocument(x.values,row.values));
+    const blanks=group.filter(x=>!hasAsset(x.values));
+    let match;
+    if(matches.length===1)match=matches[0];
+    else if(matches.length>1){
+      conflicts.push({line:row.line,reason:'El documento coincide con múltiples filas existentes.'});continue;
+    }else if(blanks.length===1&&group.length===1)match=blanks[0];
+    else if(group.length===1&&!hasAsset(row.values))match=group[0];
+    else if(blanks.length||group.some(x=>!hasAsset(row.values)||!distinctDocument(x.values,row.values))){
+      conflicts.push({line:row.line,reason:'El mismo cargo/código tiene archivos no identificables o incompatibles; requiere revisión.'});continue;
+    }
+    if(match){
+      const delta=differences(match.values,row.values);
+      if(delta.conflicting.length){
+        conflicts.push({line:row.line,rowNumber:match.rowNumber,reason:'Hay valores distintos en celdas ya ocupadas; no se sobrescriben.',fields:delta.conflicting});
+      }else if(delta.patches.length){
+        updates.push({line:row.line,rowNumber:match.rowNumber,key:row.key,patches:delta.patches});
+      }else{
+        duplicates.push({line:row.line,rowNumber:match.rowNumber,reason:'El documento y sus valores ya están registrados.'});
+      }
+      continue;
+    }
+    const others=byCode.get(normalizeInvoice(row.values[3]));
+    const place=normalizeDate(row.values[0]).iso+'|'+row.values[1];
+    if(others&&[...others].some(x=>x!==place))
+      otherCargos.push({line:row.line,reason:'Código en otro cargo; se conserva como relación legítima.'});
     newRows.push(row);
   }
-  return {newRows,duplicates,otherCargos};
+  return {newRows,updates,duplicates,conflicts,otherCargos};
 }
