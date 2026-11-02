@@ -103,6 +103,7 @@ export function createScanHandler({env=process.env,fetcher=fetch}={}){
       if(body.action==='preview')return output(res,200,{...summary,preview:true,
         changes:comparison.updates.slice(0,30).map(u=>({line:u.line,rowNumber:u.rowNumber,fields:u.patches.map(p=>p.field)}))});
       if(env.VERCEL_ENV!=='production')throw new ArchiveError('PREVIEW_WRITE_DISABLED',403);
+      if(allConflicts.length)throw new ArchiveError('CONFLICTOS_REQUIEREN_REVISION',409);
       if(!changes.length&&!comparison.updates.length)return output(res,200,{
         ...summary,saved:0,updated:0,alreadyRegistered:true,googleVerified:true});
       // Protección frente a cambios entre la validación y la confirmación.
@@ -123,6 +124,8 @@ export function createScanHandler({env=process.env,fetcher=fetch}={}){
         auditId=2401102;
         if(sheetInfo.some(x=>x.properties?.sheetId===auditId))throw new ArchiveError('AUDITORIA_ID_OCUPADO',503);
         requests.push({addSheet:{properties:{sheetId:auditId,title:auditTitle,gridProperties:{columnCount:8}}}});
+        requests.push({appendCells:{sheetId:auditId,rows:[{values:
+          ['Fecha_UTC','Responsable','Accion','Clave','Fila','Campo','Anterior','Nuevo'].map(userCell)}],fields:'userEnteredValue'}});
       }
       const audit=[];
       const timestamp=new Date().toISOString();
@@ -151,7 +154,8 @@ export function createScanHandler({env=process.env,fetcher=fetch}={}){
         message:'Google podría haber aplicado cambios; revisa antes de reintentar.'});
       // Comprobar de nuevo los datos realmente visibles después de la operación.
       const after=await values('A2:K50000');
-      const post=compareScanRows(validation.ready,after);
+      const checkedLines=new Set([...changes.map(row=>row.line),...comparison.updates.map(row=>row.line)]);
+      const post=compareScanRows(validation.ready.filter(row=>checkedLines.has(row.line)),after);
       if(post.newRows.length||post.updates.length)
         return output(res,503,{error:'CONCILIACION_PENDIENTE',
           message:'Google respondió, pero hay filas sin confirmar. Revalida antes de repetir.'});
