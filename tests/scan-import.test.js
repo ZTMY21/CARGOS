@@ -109,13 +109,14 @@ test('la limpieza de Google Sheets no permite reincorporar un código del histó
  const save=await t.invoke('POST',{action:'commit',rows:[attempt]});
  assert.equal(save.status,409);assert.equal(t.getWrites(),0);
 });
-test('vista preview no permite escritura aunque alguien invoque commit',async()=>{
+test('vista preview no habilita la conexión productiva ni permite escritura',async()=>{
  const t=setup({preview:true});
  const candidate=row('NEW999','955','1');
  const result=await t.invoke('POST',{action:'preview',rows:[candidate]});
- assert.equal(result.status,200);assert.equal(result.value.accepted,1);
+ assert.equal(result.status,503); // Falta autorización explícita de copia aislada.
  const save=await t.invoke('POST',{action:'commit',rows:[candidate]});
- assert.equal(save.status,403);assert.equal(t.getWrites(),0);
+ assert.equal(save.status,503);
+ assert.equal(t.getWrites(),0);
 });
 test('sube 3.000 facturas en ocho lotes y al repetir no agrega otras filas',async()=>{
  const t=setup(),total=3000,batch=400;
