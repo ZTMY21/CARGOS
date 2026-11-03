@@ -62,7 +62,7 @@ test('arrastrar un Excel al cuadro lo selecciona y permite validar 942, sin carg
   assert.equal(doc.getElementById('scanSave').disabled,true);
   assert.equal(doc.getElementById('scanSummary').hidden,true);
   doc.getElementById('scanValidate').click();
-  await until(()=>doc.getElementById('scanStage').textContent.includes('Validación completa'));
+  await until(()=>doc.getElementById('scanStage').textContent.includes('Validación terminada'));
   assert.equal(doc.getElementById('scanCrossCargo').textContent,'1');
   assert.equal(doc.getElementById('scanValid').textContent,'2');
   assert.match(doc.getElementById('scanSample').textContent,/942/);
