@@ -1,4 +1,4 @@
-import {createHash} from 'node:crypto';
+import {createHash,createHmac,timingSafeEqual} from 'node:crypto';
 import {ArchiveError,configuration} from '../server/archive/security.js';
 import {authorize} from '../server/archive/repository.js';
 import {DriveClient} from '../server/archive/drive-client.js';
@@ -48,6 +48,41 @@ export function createCargoExcelHandler({env=process.env,fetcher=fetch}={}){
       if(!configuration(env).enabled)throw new ArchiveError('DRIVE_NO_PREPARADO',503);
       const client=new DriveClient(env,{fetcher});
       const originalsId=await client.folder('originals');
+      const secret=Buffer.from(env.KARDEX_DRIVE_SESSION_KEY||'','base64');
+      if(secret.length<32)throw new ArchiveError('FIRMA_DE_CARGA_NO_PREPARADA',503);
+      const signature=(target,cargo,rows,codes,fingerprint,md5,size)=>
+        createHmac('sha256',secret)
+          .update(JSON.stringify([target,cargo,rows,codes,fingerprint,md5,size]))
+          .digest('hex');
+      const sameSignature=(a,b)=>typeof a==='string'&&/^[a-f0-9]{64}$/.test(a)&&
+        typeof b==='string'&&/^[a-f0-9]{64}$/.test(b)&&
+        timingSafeEqual(Buffer.from(a,'hex'),Buffer.from(b,'hex'));
+      const rpc=async(name,data)=>{
+        const response=await fetcher(env.SUPABASE_URL+'/rest/v1/rpc/'+name,{
+          method:'POST',headers:{
+            apikey:env.SUPABASE_ANON_KEY,Authorization:req.headers.authorization,
+            'Content-Type':'application/json'
+          },body:JSON.stringify(data||{}),signal:AbortSignal.timeout(15000),redirect:'error'
+        });
+        if(!response.ok){
+          const detail=await response.json().catch(()=>({}));
+          console.error(JSON.stringify({event:'excel_rpc_failed',name,status:response.status,code:detail.code||'unknown'}));
+          throw new ArchiveError(name==='kardex_excel_finalizar'
+            ?'NO_SE_PUDO_FINALIZAR_INDICE_KARDEX':'VERIFICACION_DE_CARGA_NO_REGISTRADA',503);
+        }
+        return response.json();
+      };
+      const verifiedReceipt=async(target,cargo,rows,codes,fingerprint,master)=>{
+        const md5=master.md5Checksum?.toLowerCase();
+        if(!md5||!/^[a-f0-9]{32}$/.test(md5)||!Number.isSafeInteger(Number(master.size)))
+          throw new ArchiveError('NO_SE_PUDO_VERIFICAR_CHECKSUM_DRIVE',503);
+        const size=Number(master.size);
+        const firma=signature(target,cargo,rows,codes,fingerprint,md5,size);
+        await rpc('kardex_excel_guardar_recibo',{
+          p_destino:target,p_cargo:cargo,p_filas:rows,p_codigos:codes,
+          p_huella:fingerprint,p_master_md5:md5,p_master_size:size,p_firma:firma
+        });
+      };
       const request=async(id,fields)=>await(await client.request(prefix+id+'?fields='+encodeURIComponent(fields)+'&supportsAllDrives=true')).json();
       const meta=async target=>{
         const f=MASTERS[target];
@@ -118,6 +153,7 @@ export function createCargoExcelHandler({env=process.env,fetcher=fetch}={}){
         if(before.cargos.includes(cargo)){
           if(before.counts[cargo]!==rows.length||before.distinctCodes[cargo]!==codes||before.fingerprints[cargo]!==cargoFingerprint(rows))
             throw new ArchiveError('CONFLICTO_CARGO_EXISTENTE_EN_MAESTRO',409);
+          await verifiedReceipt(target,cargo,rows.length,codes,cargoFingerprint(rows),current.m);
           return output(res,200,{target,cargo,verified:true,alreadyPresent:true,saved:0});
         }
         if(before.lastCargo!==cargo-1)
@@ -147,6 +183,7 @@ export function createCargoExcelHandler({env=process.env,fetcher=fetch}={}){
         const after=await meta(target);
         if(Number(after.size)!==updated.newSize||after.md5Checksum!==hex(updated.bytes))
           throw new ArchiveError('ESCRITURA_PENDIENTE_DE_VERIFICACION',503);
+        await verifiedReceipt(target,cargo,rows.length,codes,cargoFingerprint(rows),after);
         return output(res,200,{target,cargo,verified:true,alreadyPresent:false,saved:rows.length,
           revision:after.headRevisionId});
         }finally{
@@ -154,23 +191,32 @@ export function createCargoExcelHandler({env=process.env,fetcher=fetch}={}){
           catch{console.error(JSON.stringify({event:'excel_lease_release_failed',target}));}
         }
       }
-      // Solo índice ligero en PostgreSQL y únicamente después de verificar AMBOS libros.
-      const [one,two]=await Promise.all([read('original'),read('depurado')]);
-      if([one,two].some(x=>x.info.counts[cargo]!==rows.length||x.info.distinctCodes[cargo]!==codes||x.info.fingerprints[cargo]!==cargoFingerprint(rows)))
-        throw new ArchiveError('LOS_DOS_EXCEL_NO_ESTAN_CONCILIADOS',409);
+      // La descarga completa de los libros ya fue verificada al confirmar cada destino.
+      // En esta fase se verifican metadatos y recibos HMAC; no se descargan 100 MB otra vez.
+      const fingerprint=cargoFingerprint(rows);
+      const [one,two,receipts]=await Promise.all([
+        meta('original'),meta('depurado'),rpc('kardex_excel_consultar_recibos',{p_cargo:cargo})
+      ]);
+      for(const [target,master] of [['original',one],['depurado',two]]){
+        const receipt=Array.isArray(receipts)?receipts.find(x=>x.destino===target):null;
+        if(!receipt||Number(receipt.cargo)!==cargo||
+          Number(receipt.filas)!==rows.length||Number(receipt.codigos)!==codes||
+          receipt.huella!==fingerprint||receipt.master_md5!==master.md5Checksum?.toLowerCase()||
+          Number(receipt.master_size)!==Number(master.size)||
+          !sameSignature(receipt.firma,signature(target,cargo,rows.length,codes,
+            fingerprint,receipt.master_md5,Number(receipt.master_size))))
+          throw new ArchiveError('AMBOS_EXCEL_NO_VERIFICADOS_REVALIDA_EL_CARGO',409);
+      }
       const groups={};
       for(const r of rows){
         const code=normalizeInvoice(r[3]),group=String(r[2]);
         if(!groups[code])groups[code]=[];
         if(!groups[code].includes(group))groups[code].push(group);
       }
-      const bearer=req.headers.authorization;
-      const rpc=await fetcher(env.SUPABASE_URL+'/rest/v1/rpc/kardex_excel_finalizar',{
-        method:'POST',headers:{apikey:env.SUPABASE_ANON_KEY,Authorization:bearer,'Content-Type':'application/json'},
-        body:JSON.stringify({p_anio:2026,p_cargo:String(cargo),p_fecha:date,p_filas:rows.length,
-          p_grupos_por_codigo:groups}),signal:AbortSignal.timeout(15000),redirect:'error'});
-      if(!rpc.ok)throw new ArchiveError('EXCEL_CONFIRMADO_INDICE_PENDIENTE',503);
-      const indexed=await rpc.json();
+      const indexed=await rpc('kardex_excel_finalizar',{
+        p_anio:2026,p_cargo:String(cargo),p_fecha:date,p_filas:rows.length,
+        p_grupos_por_codigo:groups
+      });
       return output(res,200,{cargo,verified:true,indexed:true,saved:rows.length,codes,
         documentId:indexed.documento_id||indexed.id||null,
         detail:'Los dos Excel se verificaron y el índice del Kárdex fue actualizado.'});
