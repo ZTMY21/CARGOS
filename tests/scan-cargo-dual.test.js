@@ -47,6 +47,16 @@ test('no reaparece un cargo ya confirmado; un cargo parcial se recupera solo en 
   assert.equal(p.ignoredRows,1);assert.equal(p.cargos.length,1);
   assert.deepEqual(p.cargos[0].missing,{original:false,depurado:true});
 });
+test('retoma solamente indexación cuando cargo 942 ya fue escrito en los dos libros',()=>{
+  const ready=validateScanRows([['31/10/2026','942','1','01-0FF01-0217573']],50000).ready;
+  const p=planCargoImport(ready,{original:{cargos:[941,942]},depurado:{cargos:[941,942]},
+    indexedLastCargo:941,indexedCargos:[]});
+  assert.equal(p.cargos.length,1);
+  assert.deepEqual(p.cargos[0].missing,{original:false,depurado:false});
+  const indexed=planCargoImport(ready,{original:{cargos:[941,942]},depurado:{cargos:[941,942]},
+    indexedLastCargo:942,indexedCargos:[942]});
+  assert.equal(indexed.cargos.length,0);
+});
 test('rechaza saltar correlativo aunque la factura ya esté registrada en un cargo anterior',()=>{
   const ready=validateScanRows([['31/10/2026','944','1','01-0FF01-0217573']],50000).ready;
   assert.throws(()=>planCargoImport(ready,{original:{cargos:[941]},depurado:{cargos:[941]}}),/Falta el cargo 942/);
