@@ -33,6 +33,9 @@ export function planCargoImport(ready,masters) {
       original:!present.original.has(cargo),
       depurado:!present.depurado.has(cargo)
     };
+    if(indexed.has(cargo)&&(missing.original||missing.depurado)){
+      throw Error('El cargo '+cargo+' ya figura en el Kárdex, pero falta en alguno de los Excel. Requiere conciliación antes de importar.');
+    }
     if(!missing.original&&!missing.depurado && (cargo<=941||indexed.has(cargo))){rejected.push(item);continue;}
     const current=groups.get(cargo)||{cargo,rows:[],missing,codes:new Set(),dates:new Set(),duplicateRows:0};
     current.rows.push(item.values);
