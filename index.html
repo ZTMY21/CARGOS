@@ -984,12 +984,12 @@
             <span id="ivStepSave" class="iv-step" role="listitem">03 · Confirmar</span>
           </div>
           <h3 class="iv-panel-title">Sube tu archivo Excel</h3>
-          <p class="iv-panel-hint">El aplicativo comprobará fecha, cargo, grupo y código, incluidos los registros repetidos, antes de guardar en Google Sheets.</p>
+          <p class="iv-panel-hint">El aplicativo comparará el número de cargo con los dos Excel históricos y mostrará solo los cargos nuevos, sin borrar facturas antiguas.</p>
           <div id="ivDropzone" class="iv-dropzone" aria-label="Zona de carga de archivo Excel">
             <div class="iv-excel-mark" aria-hidden="true"><span>X</span><i></i></div>
             <strong>Arrastra o selecciona tu archivo Excel</strong>
             <p>Archivo generado por el programa de digitalización</p>
-            <p class="iv-small">.xlsx · .xlsm · Hasta 10.000 filas · Máximo 20 MB</p>
+            <p class="iv-small">.xlsx · .xlsm · Archivo hasta 500 MB · Solo se extraen los cargos nuevos (máx. 50.000 filas por validación). La lectura depende de la memoria disponible.</p>
             <label class="iv-choose" for="scanFile"><svg class="iv-icon" aria-hidden="true"><use href="#iv-upload"></use></svg> Seleccionar archivo</label>
             <input id="scanFile" class="iv-file-input" type="file" accept=".xlsx,.xlsm,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel.sheet.macroenabled.12" aria-describedby="scanFileName">
           </div>
@@ -1003,7 +1003,7 @@
 
           <div class="actions intervention-actions iv-buttons">
             <button type="button" class="secondary iv-main-action" id="scanValidate"><svg class="iv-icon" aria-hidden="true"><use href="#iv-check"></use></svg> Validar y previsualizar</button>
-            <button type="button" class="iv-save-button" id="scanSave" disabled><svg class="iv-icon" aria-hidden="true"><use href="#iv-upload"></use></svg> Confirmar carga a Google Sheets</button>
+            <button type="button" class="iv-save-button" id="scanSave" disabled><svg class="iv-icon" aria-hidden="true"><use href="#iv-upload"></use></svg> Confirmar carga</button>
           </div>
           <progress id="scanProgress" value="0" max="100" hidden></progress>
           <p id="scanStage" class="iv-stage" aria-live="polite"></p>
@@ -1020,21 +1020,21 @@
             </div>
           </div>
           <h4 class="iv-subtitle">Resultados</h4>
-          <div id="ivScanEmpty" class="iv-empty"><div class="iv-empty-icon"><svg class="iv-icon" aria-hidden="true"><use href="#iv-file"></use></svg></div><strong>Archivo pendiente</strong><span>Al validar se mostrarán los registros, duplicados y observaciones.</span></div>
+          <div id="ivScanEmpty" class="iv-empty"><div class="iv-empty-icon"><svg class="iv-icon" aria-hidden="true"><use href="#iv-file"></use></svg></div><strong>Archivo pendiente</strong><span>Al validar aparecerán los cargos nuevos, sus códigos, filas y el destino de cada carga.</span></div>
                 <div id="scanSummary" class="intervention-results" hidden>
-        <h3 class="intervention-card-title">Resultados de validación</h3>
-        <p class="intervention-section-caption">Revisa los registros antes de confirmar la carga.</p>
+        <h3 class="intervention-card-title">Cargos nuevos encontrados</h3>
+        <p class="intervention-section-caption">Revisa los cargos encontrados y sus cantidades antes de confirmar la carga a los dos Excel.</p>
         <div class="filters">
-          <span>Total de filas: <strong id="scanTotal">0</strong></span>
-          <span>Nuevas válidas: <strong id="scanValid">0</strong></span>
+          <span>Filas candidatas: <strong id="scanTotal">0</strong></span>
+          <span>Filas por agregar: <strong id="scanValid">0</strong></span>
           <span>Errores: <strong id="scanErrors">0</strong></span>
-          <span>Ya registradas: <strong id="scanDuplicates">0</strong></span>
-          <span>En otros cargos: <strong id="scanCrossCargo">0</strong></span>
+          <span>Filas omitidas: <strong id="scanDuplicates">0</strong></span>
+          <span>Cargos nuevos: <strong id="scanCrossCargo">0</strong></span>
         </div>
         <div class="table-wrap" id="scanSample"></div>
       </div>
 
-          <p class="iv-help-strip"><svg class="iv-icon" aria-hidden="true"><use href="#iv-check"></use></svg> Los registros nuevos irán a Google Sheets solo después de tu confirmación.</p>
+          <p class="iv-help-strip"><svg class="iv-icon" aria-hidden="true"><use href="#iv-check"></use></svg> Los cargos nuevos se incorporarán a los dos Excel históricos de Drive solo después de tu confirmación. Si falla uno, la carga quedará pendiente.</p>
           <p id="scanReceipt" class="iv-status-line" aria-live="polite"></p>
         </div>
       </div>
