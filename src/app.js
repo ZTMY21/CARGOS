@@ -148,13 +148,15 @@ function currentFilters() {
 }
 function populateYearOptions() {
   const select=document.getElementById('filtroAnio'),previous=select.value;
-  const years=[...new Set(docs.filter(d=>d.periodo).map(d=>d.periodo.slice(0,4)))].sort().reverse();
-  const originYears=[...new Set(docs.filter(d=>d.anioOrigen).map(d=>String(d.anioOrigen)))].sort().reverse();
+  // Para Existencias hay un único año por cargo. No duplicar "2026"
+  // por tener simultáneamente periodo contable y año de origen.
+  const years=[...new Set(docs.map(cargoYear).filter(y=>/^\\d{4}$/.test(y)))].sort().reverse();
   select.innerHTML='<option value="">Todos los años / períodos</option>'
-    + years.map(y=>`<option value="${y}">${y} — Período contable</option>`).join('')
-    + originYears.map(y=>`<option value="origen:${y}">${y} — Año de origen</option>`).join('')
+    + years.map(y=>`<option value="${y}">${y}</option>`).join('')
     + '<option value="sin-periodo">Sin período contable registrado</option>';
-  select.value=previous;if(select.value!==previous)select.value='';
+  // Preservar filtros anteriores si la página estaba abierta antes del cambio.
+  const selected=/^origen:\\d{4}$/.test(previous)?previous.slice(7):previous;
+  select.value=selected;if(select.value!==selected)select.value='';
 }
 async function fetchSearchResults(render=true) {
   if(!repository?.search||!currentUserId) {queryResults=null;return;}
@@ -968,9 +970,7 @@ function renderDocs(){
     for(const id of ['filtroEstado','filtroUbicacion','filtroFactura'])document.getElementById(id).value='';
     document.getElementById('filtroTipo').value='solo-cargos';
     const yearSelect=document.getElementById('filtroAnio');
-    const originYear=`origen:${button.dataset.cargoYear}`;
-    yearSelect.value=[...yearSelect.options].some(option=>option.value===originYear)
-      ? originYear : button.dataset.cargoYear;
+    yearSelect.value=button.dataset.cargoYear;
     selectWorkspaceTab('existencias',true);
     searchNow();
     document.getElementById('grp-existencias').scrollIntoView({behavior:'smooth',block:'start'});
