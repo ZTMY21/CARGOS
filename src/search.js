@@ -96,10 +96,13 @@ export function filterDocuments(documents, requirements, filters, now=new Date()
     const fields=[d.kardex,...(d.cargos||[]),d.facturas,reqs.get(d.cajaAsignada),d.sustento,d.obs,d.usuario,d.tipoDoc,d.hojaOrigen].map(normalizeSearch);
     const periodYear=d.periodo?.slice(0,4);
     const year=filters.year||'';
+    // Un mismo cargo se asigna a un único año en el selector.
+    // El año de origen tiene prioridad; si falta, usar el período contable,
+    // y como último recurso la fecha original. Coincide con cargoYear().
+    const canonicalYear=String(d.anioOrigen||periodYear||d.fechaOrigen?.slice(0,4)||'');
+    const selectedYear=year.startsWith('origen:')?year.slice(7):year;
     const matchesYear=!year || (year==='sin-periodo' && !d.periodo)
-      || (year.startsWith('origen:') && (String(d.anioOrigen)===year.slice(7)
-        || (cargoOnly && String(d.anioOrigen||periodYear||d.fechaOrigen?.slice(0,4))===year.slice(7))))
-      || (!year.includes(':') && periodYear===year);
+      || (/^\\d{4}$/.test(selectedYear) && canonicalYear===selectedYear);
     const matchesInvoice=cargoOnly || boxOnly || !filters.invoiceExact || !cargoQuery
       || (d.facturas||'').split(/[,;\n]/).some(number=>normalizeSearch(number)===cargoQuery);
     const matchesCargo=boxOnly
