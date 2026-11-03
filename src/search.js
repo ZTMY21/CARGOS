@@ -102,7 +102,7 @@ export function filterDocuments(documents, requirements, filters, now=new Date()
     const canonicalYear=String(d.anioOrigen||periodYear||d.fechaOrigen?.slice(0,4)||'');
     const selectedYear=year.startsWith('origen:')?year.slice(7):year;
     const matchesYear=!year || (year==='sin-periodo' && !d.periodo)
-      || (/^\\d{4}$/.test(selectedYear) && canonicalYear===selectedYear);
+      || (/^\d{4}$/.test(selectedYear) && canonicalYear===selectedYear);
     const matchesInvoice=cargoOnly || boxOnly || !filters.invoiceExact || !cargoQuery
       || (d.facturas||'').split(/[,;\n]/).some(number=>normalizeSearch(number)===cargoQuery);
     const matchesCargo=boxOnly
