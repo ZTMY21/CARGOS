@@ -71,3 +71,21 @@ test('fechas octubre anteriores no falsean 2026; el año futuro se incorpora sol
  assert.equal(next.currentCount,1);
  assert.equal(next.comparison.at(-1).values[1],null);
 });
+
+test('los Excel confirmados en noviembre aumentan cargos incorporados del mes y total anual',()=>{
+ const documents=[
+  {anioOrigen:2026,claveOrigen:'google-live|antiguo',fechaOrigen:'2026-10-30',cargos:['941']},
+  {anioOrigen:2026,claveOrigen:'excel-drive|2026|942',
+   fechaOrigen:'2026-10-31',fechaRegistro:'2026-11-03',cargos:['942']},
+  {anioOrigen:2026,claveOrigen:'excel-drive|2026|943',
+   fechaOrigen:'2026-11-02',fechaRegistro:'2026-11-03',cargos:['943']},
+  {anioOrigen:2026,claveOrigen:'excel-drive|2026|944',
+   fechaOrigen:'2026-11-02',fechaRegistro:'2026-11-03',cargos:['944']}
+ ];
+ const s=summarizeCreatedCargos(documents,new Date('2026-11-04T15:00:00Z'));
+ assert.equal(s.currentCount,3);
+ assert.equal(s.annual.at(-1).count,4);
+ assert.equal(s.comparison.at(-1).values[10],3);
+ // La antigüedad del 942 seguirá desde 31/10; el mes de ingreso es 03/11.
+ assert.equal(documents[1].fechaOrigen,'2026-10-31');
+});

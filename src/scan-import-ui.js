@@ -2,7 +2,7 @@ import {parseScanPaste,validateScanRows} from './scan-rows.js';
 import {readScanWorkbook,SCAN_FILE_ROWS} from './scan-workbook.js';
 import {planCargoImport} from './scan-cargo-plan.js';
 
-export function attachScanImport({supabase,isAdmin,appReady,isPreview}){
+export function attachScanImport({supabase,isAdmin,appReady,isPreview,onCompleted=async()=>{}}){
   const byId=id=>document.getElementById(id);
   const paste=byId('scanPaste'),file=byId('scanFile'),validate=byId('scanValidate'),save=byId('scanSave'),
     status=byId('scanStatus'),summary=byId('scanSummary'),sample=byId('scanSample'),
@@ -247,7 +247,18 @@ export function attachScanImport({supabase,isAdmin,appReady,isPreview}){
       notice((partial?'Un Excel puede haber sido actualizado. ':'')+
         'No se confirma la carga completa. '+(error?.message||'Error de conexión')+
         ' Conserva el Excel y vuelve a validar para recuperar el destino pendiente.',true);
-    }finally{busy=false;validate.disabled=false;file.disabled=false;paste.disabled=false;}
+    }finally{
+      // Refrescar el Resumen solo después de guardar e indexar realmente.
+      // Un fallo visual no debe tratarse como fallo de la carga ya persistida.
+      if(completed>0){
+        try{await onCompleted({cargos:completed,filas:saved});}
+        catch{
+          notice('Se confirmaron '+completed+' cargos, pero no se pudo actualizar el Resumen. '+
+            'Recarga la página para ver el nuevo total. No repitas la carga sin validar.',true);
+        }
+      }
+      busy=false;validate.disabled=false;file.disabled=false;paste.disabled=false;
+    }
   });
   clear();notice('');
 }
