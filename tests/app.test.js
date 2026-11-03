@@ -8,7 +8,6 @@ import {computeReqEstado as reqEstado,computeDocEstado as docEstado,fmtDate,esca
 import {reqFromDb,docFromDb,KardexRepository} from '../src/repository.js';
 import {buildWorkbook,parseWorkbook} from '../src/excel.js';
 import {highlightMatch,normalizeSearch,filterDocuments,filterRequirements,invoiceSearchPresentation,assignedBoxCode} from '../src/search.js';
-import {createIdleSession} from '../src/idle-session.js';
 import {cargoYear,invoiceLocation,locationLabel,groupsForCodes} from '../src/cargo-details.js';
 import {cargoExpiryGroups,formatCargoDuration} from '../src/cargo-expiry.js';
 import {requestedIMBoxes,countRequestedCargos,summarizePreparedIm} from '../src/im-requests.js';
@@ -33,7 +32,7 @@ async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recov
   state.syncRow={enabled:true,status:'Revisión completada: 276 cargos ya registrados. 1480 filas pendientes.',
     last_checked_at:'2026-10-17T03:09:17Z',
     last_result:{groups:276,pending_rows:1480,conflictos:0,cargos_nuevos:0,cargos_actualizados:0}};
-  state.authCalls=[];state.exportCalls=[];state.searchCalls=[];state.previousCalls=[];state.now=now;
+  state.authCalls=[];state.signOuts=0;state.authOptions=null;state.exportCalls=[];state.searchCalls=[];state.previousCalls=[];state.now=now;
   dom.window.URL.createObjectURL=()=> 'blob:test';dom.window.URL.revokeObjectURL=()=>{};
   dom.window.HTMLAnchorElement.prototype.click=function(){state.downloadName=this.download;};
   const client={
@@ -48,7 +47,7 @@ async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recov
       signInWithOtp:async input=>{state.authCalls.push(['link',input]);return {error:null};},
       resetPasswordForEmail:async(email,options)=>{state.authCalls.push(['recovery',email,options]);return {error:null};},
       updateUser:async input=>{state.authCalls.push(['updatePassword',input]);return {error:null};},
-      signOut:async()=>{state.session=null;state.authCallback('SIGNED_OUT',null);return {error:null};}}
+      signOut:async()=>{state.signOuts++;state.session=null;state.authCallback('SIGNED_OUT',null);return {error:null};}}
   };
   class FakeRepository {
     async reportDocs(rows,year=null){state.reportRequestedYear=year;return rows.filter(d=>year===null||cargoYear(d)===String(year));}
@@ -88,7 +87,12 @@ async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recov
   context.setInterval=(callback,delay)=>{state.intervals.push({callback,delay});return scheduleInterval(callback,delay);};
   context.Date=class extends Date {constructor(...args){super(...(args.length?args:[state.now]));}static now(){return state.now;}};
   Object.assign(context,{cargoExpiryGroups,formatCargoDuration,limaDate,requestedIMBoxes,countRequestedCargos,summarizePreparedIm,summarizeShippedBoxes,summarizeCreatedCargos,renderImBarChart,renderCargoLineChart});
-  Object.assign(context,{createIdleSession:options=>createIdleSession({...options,now:()=>state.now}),createClient:()=>client,KardexRepository:FakeRepository,reqFromDb,docFromDb,reqEstado,docEstado,fmtDate,escapeHtml,invoiceSearchPresentation,buildWorkbook:async(...args)=>{state.exportCalls.push(args);return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},buildCargoWorkbook:async(cargo)=>{state.guestExport=cargo;return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},buildExistenciasReport:async(...args)=>{state.reportArgs=args;return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},serializeExistenciasReport:async()=>{state.serializedReport=true;return new Uint8Array([1]);},parseWorkbook,highlightMatch,normalizeSearch,filterDocuments,filterRequirements,assignedBoxCode,cargoYear,invoiceLocation,locationLabel,groupsForCodes,
+  Object.assign(context,{
+    // Los módulos de interfaz externos no forman parte del test de autenticación.
+    attachScanImport:()=>{},attachPickupMail:()=>({}),attachBoxConditioning:()=>({}),
+    attachBoxScanSheets:()=>({scan:()=>{}}),attachBoxScanner:()=>({}),
+    attachInterventionExperience:()=>{},
+    createClient:(url,key,options)=>{state.authOptions=options?.auth;return client;},KardexRepository:FakeRepository,reqFromDb,docFromDb,reqEstado,docEstado,fmtDate,escapeHtml,invoiceSearchPresentation,buildWorkbook:async(...args)=>{state.exportCalls.push(args);return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},buildCargoWorkbook:async(cargo)=>{state.guestExport=cargo;return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},buildExistenciasReport:async(...args)=>{state.reportArgs=args;return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},serializeExistenciasReport:async()=>{state.serializedReport=true;return new Uint8Array([1]);},parseWorkbook,highlightMatch,normalizeSearch,filterDocuments,filterRequirements,assignedBoxCode,cargoYear,invoiceLocation,locationLabel,groupsForCodes,
     __SUPABASE_URL__:'https://example.supabase.co',__SUPABASE_ANON_KEY__:'sb_publishable_test',confirm:()=>true,alert:()=>{}});
   await vm.runInContext(`(async()=>{${source}})()`,context);
   const node=id=>dom.window.document.getElementById(id);
@@ -958,15 +962,28 @@ test('only Buscar runs the query; typing, Enter and filter changes wait for the 
  }finally{a.close();}
 });
 
-test('one hour of inactivity signs out the account and hides data before another interaction',async()=>{
- const a=await app();try{
-  a.state.now+=3600000;
+test('session persists beyond one hour during search, tab focus and token refresh',async()=>{
+ const a=await app({enableSearch:true});try{
+  assert.deepEqual(JSON.parse(JSON.stringify(a.state.authOptions)),{
+    persistSession:true,autoRefreshToken:true,detectSessionInUrl:true
+  });
+  a.state.now+=2*3600000;
   a.dom.window.dispatchEvent(new a.dom.window.Event('focus'));
-  assert.equal(a.node('appShell').hidden,true);
+  a.node('buscar').value='F-001';
+  a.node('btnBuscar').click();
   await flush();
-  assert.equal(a.state.session,null);
-  assert.equal(a.node('authOverlay').hidden,false);
-  assert.match(a.node('authMessage').textContent,/una hora de inactividad/);
+  assert.equal(a.node('appShell').hidden,false);
+  assert.equal(a.node('authOverlay').hidden,true);
+  assert.match(a.node('tbody').textContent,/SA-00001/);
+  const snapshots=a.state.snapshots;
+  a.state.authCallback('TOKEN_REFRESHED',a.state.session);
+  a.state.authCallback('SIGNED_IN',a.state.session);
+  await flush();
+  assert.equal(a.state.snapshots,snapshots,'refresh must not reload the full app');
+  assert.equal(a.state.signOuts,0);
+  assert.ok(a.state.session,'valid session must be kept');
+  assert.equal(a.node('appShell').hidden,false);
+  assert.equal(a.node('buscar').value,'F-001','search input must be preserved');
  }finally{a.close();}
 });
 
