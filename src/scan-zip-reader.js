@@ -10,7 +10,7 @@ const xmlText=s=>String(s||'').replace(/&#(x[0-9a-f]+|\d+);|&(amp|lt|gt|quot|apo
 function attr(source,name){
   const escaped=name.replace(/[:]/g,'\\:');
   const match=String(source||'').match(new RegExp('(?:^|\\s)'+escaped+'="([^"]*)"'));
-  return match?xmlText(match[2]):'';
+  return match?xmlText(match[1]):'';
 }
 function colNumber(letters){
   let n=0;for(const c of letters.toUpperCase())n=n*26+c.charCodeAt(0)-64;return n-1;
