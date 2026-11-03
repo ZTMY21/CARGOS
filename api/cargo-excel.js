@@ -74,8 +74,14 @@ export function createCargoExcelHandler({env=process.env,fetcher=fetch}={}){
       const short=({m,info})=>({name:m.name,lastCargo:info.lastCargo,cargos:info.cargos,
         counts:info.counts,distinctCodes:info.distinctCodes,revision:m.headRevisionId,rows:info.rows});
       if(req.method==='GET'){
+        const index=await fetcher(env.SUPABASE_URL+'/rest/v1/rpc/kardex_excel_estado',{
+          method:'POST',headers:{apikey:env.SUPABASE_ANON_KEY,Authorization:req.headers.authorization,'Content-Type':'application/json'},
+          body:'{}',signal:AbortSignal.timeout(15000),redirect:'error'});
+        if(!index.ok)throw new ArchiveError('INDICE_KARDEX_NO_DISPONIBLE',503);
+        const current=await index.json();
         const [original,depurado]=await Promise.all([read('original'),read('depurado')]);
         return output(res,200,{ready:true,year:2026,original:short(original),depurado:short(depurado),
+          indexedCargos:current.indexedCargos||[],indexedLastCargo:current.indexedLastCargo??941,
           writesEnabled:env.VERCEL_ENV==='production'});
       }
       const body=await jsonInput(req),action=body?.action;
