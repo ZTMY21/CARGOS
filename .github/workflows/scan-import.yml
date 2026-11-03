@@ -31,6 +31,7 @@ on:
       - 'supabase/migrations/20261101195000_box_conditioning.sql'
       - 'api/scan-ingest.js'
       - 'src/app.js'
+      - 'tests/app.test.js'
       - 'index.html'
       - 'tests/scan-import.test.js'
       - 'tests/scan-workbook.test.js'
@@ -55,7 +56,7 @@ jobs:
       - name: Instalar dependencias exactas
         run: npm ci
       - name: Probar módulos afectados y navegación del Kárdex
-        run: node --test tests/box-scanner.test.js tests/im-requests.test.js tests/im-shipped-summary.test.js tests/scan-import.test.js tests/scan-workbook.test.js tests/box-conditioning.test.js tests/intervention-visual.test.js tests/intervention-premium.test.js tests/box-separation.test.js tests/box-sheet-sync.test.js tests/box-sheets-api.test.js tests/pickup-mail.test.js tests/pickup-mail-ui.test.js tests/pickup-mail-visibility.test.js tests/pickup-mail-demo.test.js
+        run: node --test tests/app.test.js tests/box-scanner.test.js tests/im-requests.test.js tests/im-shipped-summary.test.js tests/scan-import.test.js tests/scan-workbook.test.js tests/box-conditioning.test.js tests/intervention-visual.test.js tests/intervention-premium.test.js tests/box-separation.test.js tests/box-sheet-sync.test.js tests/box-sheets-api.test.js tests/pickup-mail.test.js tests/pickup-mail-ui.test.js tests/pickup-mail-visibility.test.js tests/pickup-mail-demo.test.js
       - name: Compilar aplicativo con configuración pública ficticia
         env:
           SUPABASE_URL: https://example.supabase.co
