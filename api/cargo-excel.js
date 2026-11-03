@@ -2,7 +2,7 @@ import {createHash} from 'node:crypto';
 import {ArchiveError,configuration} from '../server/archive/security.js';
 import {authorize} from '../server/archive/repository.js';
 import {DriveClient} from '../server/archive/drive-client.js';
-import {MASTERS,inspectMaster,appendMasterCargo} from '../server/cargo-excel-book.js';
+import {MASTERS,inspectMaster,appendMasterCargo,cargoFingerprint} from '../server/cargo-excel-book.js';
 import {validateScanRows,normalizeInvoice} from '../src/scan-rows.js';
 
 // Un archivo de entrada de 500 MB NUNCA se envía a Vercel: solo llegan las filas nuevas.
@@ -97,7 +97,7 @@ export function createCargoExcelHandler({env=process.env,fetcher=fetch}={}){
         const current=await read(target);
         const before=current.info;
         if(before.cargos.includes(cargo)){
-          if(before.counts[cargo]!==rows.length||before.distinctCodes[cargo]!==codes)
+          if(before.counts[cargo]!==rows.length||before.distinctCodes[cargo]!==codes||before.fingerprints[cargo]!==cargoFingerprint(rows))
             throw new ArchiveError('CONFLICTO_CARGO_EXISTENTE_EN_MAESTRO',409);
           return output(res,200,{target,cargo,verified:true,alreadyPresent:true,saved:0});
         }
@@ -137,7 +137,7 @@ export function createCargoExcelHandler({env=process.env,fetcher=fetch}={}){
       }
       // Solo índice ligero en PostgreSQL y únicamente después de verificar AMBOS libros.
       const [one,two]=await Promise.all([read('original'),read('depurado')]);
-      if([one,two].some(x=>x.info.counts[cargo]!==rows.length||x.info.distinctCodes[cargo]!==codes))
+      if([one,two].some(x=>x.info.counts[cargo]!==rows.length||x.info.distinctCodes[cargo]!==codes||x.info.fingerprints[cargo]!==cargoFingerprint(rows)))
         throw new ArchiveError('LOS_DOS_EXCEL_NO_ESTAN_CONCILIADOS',409);
       const groups={};
       for(const r of rows){
