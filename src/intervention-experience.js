@@ -17,7 +17,7 @@ export function attachInterventionExperience({doc=document}={}){
  const empty=byId('ivScanEmpty');
  function renderFile(){
   if(!file||!summary||!empty)return;
-  const chosen=file.files?.length>0;
+  const chosen=file.files?.length>0||Boolean(drop?.dataset?.droppedFileName);
   const pasted=Boolean(byId('scanPaste')?.value.trim());
   const selected=chosen||pasted;
   const validated=!summary.hidden;
@@ -33,8 +33,35 @@ export function attachInterventionExperience({doc=document}={}){
   }
  }
  if(file&&drop){
-  file.addEventListener('change',renderFile);
-  byId('scanPaste')?.addEventListener('input',renderFile);
+  // Transferir el archivo real al módulo operativo mediante un evento. Asignar
+  // file.files directamente no funciona de forma consistente entre navegadores.
+  const acceptDropped=source=>{
+   if(!source)return;
+   if(!/\.(xlsx|xlsm)$/i.test(source.name||'')){
+    if(fileStatus)fileStatus.textContent='Solo se permiten archivos Excel .xlsx o .xlsm.';
+    return;
+   }
+   if(!Number.isSafeInteger(source.size)||source.size<1||source.size>500*1024**2){
+    if(fileStatus)fileStatus.textContent='El archivo debe pesar entre 1 byte y 500 MB.';
+    return;
+   }
+   const detail={file:source,accepted:false};
+   drop.dispatchEvent(new doc.defaultView.CustomEvent('scan:file-dropped',{detail}));
+   if(!detail.accepted){
+    if(fileStatus)fileStatus.textContent='No se pudo seleccionar el archivo. Intenta nuevamente.';
+    return;
+   }
+   drop.dataset.droppedFileName=source.name;
+   renderFile();
+  };
+  file.addEventListener('change',()=>{
+   delete drop.dataset.droppedFileName;
+   renderFile();
+  });
+  byId('scanPaste')?.addEventListener('input',()=>{
+   delete drop.dataset.droppedFileName;
+   renderFile();
+  });
   drop.tabIndex=0;
   drop.setAttribute('role','button');
   drop.setAttribute('aria-label','Seleccionar o soltar un archivo Excel para validar');
@@ -46,28 +73,40 @@ export function attachInterventionExperience({doc=document}={}){
    if(event.target!==drop)return;
    if(event.key==='Enter'||event.key===' '){event.preventDefault();file.click();}
   });
+  drop.addEventListener('dragenter',event=>{
+   event.preventDefault();
+   drop.classList.add('is-dragging');
+  });
   drop.addEventListener('dragover',event=>{
-   event.preventDefault();drop.classList.add('is-dragging');
+   event.preventDefault();
+   if(event.dataTransfer)event.dataTransfer.dropEffect='copy';
+   drop.classList.add('is-dragging');
   });
   drop.addEventListener('dragleave',event=>{
    if(!drop.contains(event.relatedTarget))drop.classList.remove('is-dragging');
   });
   drop.addEventListener('drop',event=>{
-   event.preventDefault();drop.classList.remove('is-dragging');
+   event.preventDefault();
+   event.stopPropagation();
+   drop.classList.remove('is-dragging');
    const files=event.dataTransfer?.files;
-   if(!files?.length)return;
-   if(!/\.(xlsx|xlsm)$/i.test(files[0].name)){
-    if(fileStatus)fileStatus.textContent='Selecciona un archivo Excel .xlsx o .xlsm.';
+   if(files?.length!==1){
+    if(fileStatus)fileStatus.textContent='Suelta un único archivo Excel para validar.';
     return;
    }
-   try{
-    file.files=files;
-    file.dispatchEvent(new doc.defaultView.Event('change',{bubbles:true}));
-   }catch{
-    // El navegador puede restringir el intercambio de FileList.
-    // Nunca simulamos que se cargó un archivo que no llegó al input original.
-    if(fileStatus)fileStatus.textContent='Usa Seleccionar archivo para cargar el Excel.';
+   acceptDropped(files[0]);
+  });
+  // Cuando el navegador permite pegar un archivo desde el portapapeles,
+  // Ctrl+V sobre el recuadro también selecciona ese Excel.
+  drop.addEventListener('paste',event=>{
+   const files=event.clipboardData?.files;
+   if(!files?.length)return;
+   event.preventDefault();
+   if(files.length!==1){
+    if(fileStatus)fileStatus.textContent='Pega un único archivo Excel.';
+    return;
    }
+   acceptDropped(files[0]);
   });
   watch(status,renderFile);
   watch(fileName,renderFile);
