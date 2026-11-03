@@ -8,12 +8,13 @@ const numberCargo = value => {
 export function planCargoImport(ready,masters) {
   if(!masters || !Array.isArray(masters.original?.cargos) || !Array.isArray(masters.depurado?.cargos))
     throw Error('No se pudo verificar los dos Excel maestros.');
+  const indexed=new Set((masters.indexedCargos||[]).map(numberCargo));
   const present={
     original:new Set(masters.original.cargos.map(numberCargo)),
     depurado:new Set(masters.depurado.cargos.map(numberCargo))
   };
   const lastOriginal=Math.max(0,...present.original),lastDepurado=Math.max(0,...present.depurado);
-  const baseline=Math.min(lastOriginal,lastDepurado);
+  const baseline=Math.min(lastOriginal,lastDepurado,Number.isSafeInteger(masters.indexedLastCargo)?masters.indexedLastCargo:Math.min(lastOriginal,lastDepurado));
   if(baseline<941)throw Error('Los Excel maestros no están conciliados hasta el cargo 941.');
   const groups=new Map(),rejected=[],invalid=[];
   for(const item of ready){
@@ -32,7 +33,7 @@ export function planCargoImport(ready,masters) {
       original:!present.original.has(cargo),
       depurado:!present.depurado.has(cargo)
     };
-    if(!missing.original&&!missing.depurado){rejected.push(item);continue;}
+    if(!missing.original&&!missing.depurado && (cargo<=941||indexed.has(cargo))){rejected.push(item);continue;}
     const current=groups.get(cargo)||{cargo,rows:[],missing,codes:new Set(),dates:new Set(),duplicateRows:0};
     current.rows.push(item.values);
     current.codes.add(normalizeInvoice(item.codigo));
