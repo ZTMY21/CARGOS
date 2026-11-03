@@ -150,7 +150,7 @@ function populateYearOptions() {
   const select=document.getElementById('filtroAnio'),previous=select.value;
   // Para Existencias hay un único año por cargo. No duplicar "2026"
   // por tener simultáneamente periodo contable y año de origen.
-  const years=[...new Set(docs.map(cargoYear).filter(y=>/^\\d{4}$/.test(y)))].sort().reverse();
+  const years=[...new Set(docs.map(cargoYear).filter(y=>/^\d{4}$/.test(y)))].sort().reverse();
   select.innerHTML='<option value="">Todos los años / períodos</option>'
     + years.map(y=>`<option value="${y}">${y}</option>`).join('')
     + '<option value="sin-periodo">Sin período contable registrado</option>';
