@@ -84,6 +84,16 @@ export function createCargoExcelHandler({env=process.env,fetcher=fetch}={}){
       if(env.VERCEL_ENV!=='production')throw new ArchiveError('PREVIEW_SIN_ESCRITURA',403);
       if(action==='commit'){
         const target=body.target;if(!MASTERS[target])throw new ArchiveError('MAESTRO_NO_VALIDO',400);
+        const leaseReq=async(path,data)=>{
+          const result=await fetcher(env.SUPABASE_URL+'/rest/v1/rpc/'+path,{
+            method:'POST',headers:{apikey:env.SUPABASE_ANON_KEY,Authorization:req.headers.authorization,'Content-Type':'application/json'},
+            body:JSON.stringify(data),signal:AbortSignal.timeout(15000),redirect:'error'
+          });
+          if(!result.ok)throw new ArchiveError('OTRA_CARGA_DEL_MISMO_EXCEL_EN_CURSO',423);
+          return result.json();
+        };
+        const lease=await leaseReq('kardex_excel_tomar_lease',{p_destino:target,p_cargo:cargo});
+        try{
         const current=await read(target);
         const before=current.info;
         if(before.cargos.includes(cargo)){
@@ -120,6 +130,10 @@ export function createCargoExcelHandler({env=process.env,fetcher=fetch}={}){
           throw new ArchiveError('ESCRITURA_PENDIENTE_DE_VERIFICACION',503);
         return output(res,200,{target,cargo,verified:true,alreadyPresent:false,saved:rows.length,
           revision:after.headRevisionId});
+        }finally{
+          try{await leaseReq('kardex_excel_liberar_lease',{p_destino:target,p_token:lease});}
+          catch{console.error(JSON.stringify({event:'excel_lease_release_failed',target}));}
+        }
       }
       // Solo índice ligero en PostgreSQL y únicamente después de verificar AMBOS libros.
       const [one,two]=await Promise.all([read('original'),read('depurado')]);
