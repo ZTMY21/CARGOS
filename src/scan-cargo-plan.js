@@ -18,7 +18,7 @@ export function planCargoImport(ready,masters) {
   const groups=new Map(),rejected=[],invalid=[];
   for(const item of ready){
     const cargo=numberCargo(item.cargo),year=Number(item.iso.slice(0,4));
-    if(year!==2026 || !Number.isSafeInteger(cargo) || cargo<942){
+    if(year!==2026 || !Number.isSafeInteger(cargo)){
       invalid.push({line:item.line,cargo:item.cargo,reason:'Solo se admiten cargos nuevos correlativos de 2026 (desde 942).'});
       continue;
     }
@@ -26,6 +26,7 @@ export function planCargoImport(ready,masters) {
       rejected.push(item);
       continue;
     }
+    if(cargo<942){invalid.push({line:item.line,cargo:item.cargo,reason:'Cargo histórico no identificado en ambos Excel; requiere conciliación manual.'});continue;}
     // Si una carga anterior quedó parcial, se permite recuperar el Excel que falta.
     const missing={
       original:!present.original.has(cargo),
