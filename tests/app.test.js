@@ -381,6 +381,36 @@ test('administrator downloads report on demand with the Lima date and all snapsh
 });
 
 
+test('Existencias muestra 2026 una sola vez y reúne cargos del Excel histórico y nuevos',async()=>{
+ const a=await app();
+ try{
+  const base=a.state.docs[0];
+  a.state.docs=[
+    {...structuredClone(base),id:randomUUID(),periodo:'2026-02-05',anio_origen:null,cargos:['901']},
+    {...structuredClone(base),id:randomUUID(),periodo:null,anio_origen:2026,fecha_origen:'2026-10-29',cargos:['941']},
+    {...structuredClone(base),id:randomUUID(),periodo:'2026-11-03',anio_origen:2026,fecha_origen:'2026-11-02',cargos:['942']},
+    {...structuredClone(base),id:randomUUID(),periodo:null,anio_origen:2025,fecha_origen:'2025-02-01',cargos:['700']}
+  ];
+  a.node('btnReconnect').click();await flush();
+  const select=a.node('filtroAnio');
+  const choices=[...select.options].map(option=>option.textContent.trim());
+  assert.equal(choices.filter(y=>y==='2026').length,1,'El año 2026 debe ser único');
+  assert.equal(choices.filter(y=>y==='2025').length,1);
+  assert.equal([...select.options].filter(option=>option.value==='2026').length,1);
+  select.value='2026';
+  a.node('btnBuscar').click();await flush();
+  assert.match(a.node('conteoResultados').textContent,/3 registros/);
+  assert.equal(a.node('filtroAnio').value,'2026');
+ }finally{a.close();}
+});
+test('filtro de año de Existencias prioriza año de origen y no repite el cargo en 2025 y 2026',()=>{
+ const doc={...docFromDb(docRow),periodo:'2025-12-31',anioOrigen:2026,fechaOrigen:'2026-01-02'};
+ const base={query:'',state:'',type:'',location:'',invoiceExact:false};
+ const from2026=filterDocuments([doc],[],{...base,year:'2026'});
+ const from2025=filterDocuments([doc],[],{...base,year:'2025'});
+ assert.equal(from2026.length,1);
+ assert.equal(from2025.length,0);
+});
 test('clicking the annual cargo count opens the filtered cargo list in Existencias',async()=>{
  const a=await app();
  try {
