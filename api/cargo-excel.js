@@ -98,6 +98,9 @@ export function createCargoExcelHandler({env=process.env,fetcher=fetch}={}){
           if(!result.ok)throw new ArchiveError('OTRA_CARGA_DEL_MISMO_EXCEL_EN_CURSO',423);
           return result.json();
         };
+        const indexState=await leaseReq('kardex_excel_estado',{});
+        if((indexState.indexedCargos||[]).map(Number).includes(cargo))
+          throw new ArchiveError('CARGO_YA_EXISTE_EN_KARDEX',409);
         const lease=await leaseReq('kardex_excel_tomar_lease',{p_destino:target,p_cargo:cargo});
         try{
         const current=await read(target);
