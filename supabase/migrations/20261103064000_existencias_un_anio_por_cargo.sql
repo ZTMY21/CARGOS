@@ -1,5 +1,4 @@
--- Existencias: un único año visible y un único criterio de origen en búsquedas SQL.
--- No modifica filas, índices, documentos ni Excel históricos.
+-- Un único año de cargo para Existencias; no modifica filas.
 CREATE OR REPLACE FUNCTION public.kardex_search(query_text text DEFAULT ''::text, estado_filter text DEFAULT ''::text, tipo_filter text DEFAULT ''::text, ubicacion_filter text DEFAULT ''::text, year_filter text DEFAULT ''::text, invoice_exact boolean DEFAULT false, page_offset integer DEFAULT 0, page_limit integer DEFAULT 100)
  RETURNS jsonb
  LANGUAGE sql
@@ -48,148 +47,12 @@ AS $function$
    and (ubicacion_filter='' or d.ubicacion=ubicacion_filter or (ubicacion_filter='sin-dato' and d.ubicacion is null))
    and (year_filter='' or (year_filter='sin-periodo' and d.periodo is null)
     or (
-      (year_filter ~ '^[0-9]{4}
- ), page as (
-  select * from matched order by exact_match desc,kardex desc limit least(greatest(page_limit,1),1000) offset greatest(page_offset,0)
- ), output as (
- select p.kardex,p.exact_match,to_jsonb(v)||jsonb_build_object('facturas_encontradas',
-  case when i.q='' or exists(select 1 from exact_cargo) then
-   to_jsonb(array_remove(array[
-    nullif(btrim(split_part(translate(d.facturas,E';\n',',,'),',',1)),''),
-    nullif(btrim(split_part(translate(d.facturas,E';\n',',,'),',',2)),''),
-    nullif(btrim(split_part(translate(d.facturas,E';\n',',,'),',',3)),'')
-   ],null))
-  else coalesce(
-   (select jsonb_agg(f.numero) from (
-    select distinct btrim(raw) as numero
-    from regexp_split_to_table(d.facturas,E'[,;\n]+') raw
-    where btrim(raw)<>'' and strpos(private.kardex_normalize(raw),i.q)>0
-      and (not invoice_exact or private.kardex_normalize(raw)=i.q)
-    limit 10
-   ) f),
-   (select jsonb_agg(f.numero) from (
-    select (hits.m)[1] as numero
-    from regexp_matches(d.busqueda_facturas,'[a-z0-9]*'||i.q||'[a-z0-9]*','g') hits(m)
-    where not invoice_exact or (hits.m)[1]=i.q
-    limit 10
-   ) f),
-   '[]'::jsonb)
-  end) as data
- from page p join public.documentos d on d.id=p.id
- join resumen v on v.id=p.id cross join input i
- )
- select jsonb_build_object('rows',coalesce((select jsonb_agg(data order by exact_match desc,kardex desc) from output),'[]'::jsonb),
-  'total',(select count(*) from matched),'folios',(select coalesce(sum(folios),0) from matched),
-  'folios_sin_dato',(select count(*) from matched where folios is null));
-$function$
- or year_filter ~ '^origen:[0-9]{4}
- ), page as (
-  select * from matched order by exact_match desc,kardex desc limit least(greatest(page_limit,1),1000) offset greatest(page_offset,0)
- ), output as (
- select p.kardex,p.exact_match,to_jsonb(v)||jsonb_build_object('facturas_encontradas',
-  case when i.q='' or exists(select 1 from exact_cargo) then
-   to_jsonb(array_remove(array[
-    nullif(btrim(split_part(translate(d.facturas,E';\n',',,'),',',1)),''),
-    nullif(btrim(split_part(translate(d.facturas,E';\n',',,'),',',2)),''),
-    nullif(btrim(split_part(translate(d.facturas,E';\n',',,'),',',3)),'')
-   ],null))
-  else coalesce(
-   (select jsonb_agg(f.numero) from (
-    select distinct btrim(raw) as numero
-    from regexp_split_to_table(d.facturas,E'[,;\n]+') raw
-    where btrim(raw)<>'' and strpos(private.kardex_normalize(raw),i.q)>0
-      and (not invoice_exact or private.kardex_normalize(raw)=i.q)
-    limit 10
-   ) f),
-   (select jsonb_agg(f.numero) from (
-    select (hits.m)[1] as numero
-    from regexp_matches(d.busqueda_facturas,'[a-z0-9]*'||i.q||'[a-z0-9]*','g') hits(m)
-    where not invoice_exact or (hits.m)[1]=i.q
-    limit 10
-   ) f),
-   '[]'::jsonb)
-  end) as data
- from page p join public.documentos d on d.id=p.id
- join resumen v on v.id=p.id cross join input i
- )
- select jsonb_build_object('rows',coalesce((select jsonb_agg(data order by exact_match desc,kardex desc) from output),'[]'::jsonb),
-  'total',(select count(*) from matched),'folios',(select coalesce(sum(folios),0) from matched),
-  'folios_sin_dato',(select count(*) from matched where folios is null));
-$function$
-)
+      (year_filter ~ '^[0-9]{4}$' or year_filter ~ '^origen:[0-9]{4}$')
       and coalesce(d.anio_origen,
         extract(year from d.periodo)::integer,
         extract(year from d.fecha_origen)::integer)
-      = case when year_filter ~ '^[0-9]{4}
- ), page as (
-  select * from matched order by exact_match desc,kardex desc limit least(greatest(page_limit,1),1000) offset greatest(page_offset,0)
- ), output as (
- select p.kardex,p.exact_match,to_jsonb(v)||jsonb_build_object('facturas_encontradas',
-  case when i.q='' or exists(select 1 from exact_cargo) then
-   to_jsonb(array_remove(array[
-    nullif(btrim(split_part(translate(d.facturas,E';\n',',,'),',',1)),''),
-    nullif(btrim(split_part(translate(d.facturas,E';\n',',,'),',',2)),''),
-    nullif(btrim(split_part(translate(d.facturas,E';\n',',,'),',',3)),'')
-   ],null))
-  else coalesce(
-   (select jsonb_agg(f.numero) from (
-    select distinct btrim(raw) as numero
-    from regexp_split_to_table(d.facturas,E'[,;\n]+') raw
-    where btrim(raw)<>'' and strpos(private.kardex_normalize(raw),i.q)>0
-      and (not invoice_exact or private.kardex_normalize(raw)=i.q)
-    limit 10
-   ) f),
-   (select jsonb_agg(f.numero) from (
-    select (hits.m)[1] as numero
-    from regexp_matches(d.busqueda_facturas,'[a-z0-9]*'||i.q||'[a-z0-9]*','g') hits(m)
-    where not invoice_exact or (hits.m)[1]=i.q
-    limit 10
-   ) f),
-   '[]'::jsonb)
-  end) as data
- from page p join public.documentos d on d.id=p.id
- join resumen v on v.id=p.id cross join input i
- )
- select jsonb_build_object('rows',coalesce((select jsonb_agg(data order by exact_match desc,kardex desc) from output),'[]'::jsonb),
-  'total',(select count(*) from matched),'folios',(select coalesce(sum(folios),0) from matched),
-  'folios_sin_dato',(select count(*) from matched where folios is null));
-$function$
- then year_filter::integer
-          when year_filter ~ '^origen:[0-9]{4}
- ), page as (
-  select * from matched order by exact_match desc,kardex desc limit least(greatest(page_limit,1),1000) offset greatest(page_offset,0)
- ), output as (
- select p.kardex,p.exact_match,to_jsonb(v)||jsonb_build_object('facturas_encontradas',
-  case when i.q='' or exists(select 1 from exact_cargo) then
-   to_jsonb(array_remove(array[
-    nullif(btrim(split_part(translate(d.facturas,E';\n',',,'),',',1)),''),
-    nullif(btrim(split_part(translate(d.facturas,E';\n',',,'),',',2)),''),
-    nullif(btrim(split_part(translate(d.facturas,E';\n',',,'),',',3)),'')
-   ],null))
-  else coalesce(
-   (select jsonb_agg(f.numero) from (
-    select distinct btrim(raw) as numero
-    from regexp_split_to_table(d.facturas,E'[,;\n]+') raw
-    where btrim(raw)<>'' and strpos(private.kardex_normalize(raw),i.q)>0
-      and (not invoice_exact or private.kardex_normalize(raw)=i.q)
-    limit 10
-   ) f),
-   (select jsonb_agg(f.numero) from (
-    select (hits.m)[1] as numero
-    from regexp_matches(d.busqueda_facturas,'[a-z0-9]*'||i.q||'[a-z0-9]*','g') hits(m)
-    where not invoice_exact or (hits.m)[1]=i.q
-    limit 10
-   ) f),
-   '[]'::jsonb)
-  end) as data
- from page p join public.documentos d on d.id=p.id
- join resumen v on v.id=p.id cross join input i
- )
- select jsonb_build_object('rows',coalesce((select jsonb_agg(data order by exact_match desc,kardex desc) from output),'[]'::jsonb),
-  'total',(select count(*) from matched),'folios',(select coalesce(sum(folios),0) from matched),
-  'folios_sin_dato',(select count(*) from matched where folios is null));
-$function$
- then substring(year_filter from 8)::integer
+      = case when year_filter ~ '^[0-9]{4}$' then year_filter::integer
+          when year_filter ~ '^origen:[0-9]{4}$' then substring(year_filter from 8)::integer
         end
     ))
  ), page as (
