@@ -7,7 +7,8 @@ export function attachScanImport({supabase,isAdmin,appReady,isPreview}){
   const paste=byId('scanPaste'),file=byId('scanFile'),validate=byId('scanValidate'),save=byId('scanSave'),
     status=byId('scanStatus'),summary=byId('scanSummary'),sample=byId('scanSample'),
     progress=byId('scanProgress'),stage=byId('scanStage');
-  let plan=null,reviewedSource='',busy=false,generation=0;
+  let plan=null,reviewedSource='',busy=false,generation=0,droppedFile=null;
+  const chosenFile=()=>droppedFile||file.files?.[0]||null;
   const notice=(value,error=false)=>{status.textContent=value;status.style.color=error?'var(--red)':'var(--muted)';};
   const progressTo=(percent,label)=>{progress.hidden=false;progress.value=Math.max(0,Math.min(100,percent));stage.textContent=label;};
   const clear=()=>{
@@ -16,9 +17,11 @@ export function attachScanImport({supabase,isAdmin,appReady,isPreview}){
     summary.hidden=true;sample.replaceChildren();byId('scanReceipt').textContent='';progress.hidden=true;stage.textContent='';
   };
   const cell=(tr,value)=>{const td=document.createElement('td');td.textContent=String(value??'');tr.append(td);};
-  const sourceId=()=>file.files?.length
-    ?'file:'+file.files[0].name+':'+file.files[0].size+':'+file.files[0].lastModified
-    :'paste:'+paste.value;
+  const sourceId=()=>{
+    const selected=chosenFile();
+    return selected?'file:'+selected.name+':'+selected.size+':'+selected.lastModified
+      :'paste:'+paste.value;
+  };
   const api=async(body,method='POST')=>{
     if(isPreview()&&method==='GET'){
       return {year:2026,original:{lastCargo:941,cargos:[941],name:'Original (simulación)'},
@@ -41,9 +44,10 @@ export function attachScanImport({supabase,isAdmin,appReady,isPreview}){
     return result;
   };
   const getInput=async(baseline)=>{
-    if(file.files?.length){
+    const selected=chosenFile();
+    if(selected){
       progressTo(9,'Leyendo únicamente cargos desde el '+(baseline+1)+'…');
-      const parsed=await readScanWorkbook(file.files[0],{minCargo:baseline});
+      const parsed=await readScanWorkbook(selected,{minCargo:baseline});
       byId('scanFileName').textContent=parsed.fileName+' · Hoja «'+parsed.sheetName+'» · '+
         parsed.count.toLocaleString('es-PE')+' filas candidatas';
       return {rows:parsed.rows,source:sourceId()};
@@ -76,14 +80,30 @@ export function attachScanImport({supabase,isAdmin,appReady,isPreview}){
   };
   paste.addEventListener('input',()=>{
     if(busy)return;
-    if(paste.value.trim()){file.value='';byId('scanFileName').textContent='Datos pegados';}
+    if(paste.value.trim()){
+      droppedFile=null;file.value='';
+      const zone=byId('ivDropzone');if(zone)delete zone.dataset.droppedFileName;
+      byId('scanFileName').textContent='Datos pegados';
+    }
     clear();notice('Datos modificados. Valida nuevamente.');
   });
   file.addEventListener('change',()=>{
     if(busy)return;
+    droppedFile=null;
     paste.value='';clear();
-    byId('scanFileName').textContent=file.files?.[0]?file.files[0].name:'Selecciona un Excel';
+    byId('scanFileName').textContent=chosenFile()?.name||'Selecciona un Excel';
     notice('Archivo listo. El aplicativo leerá solo los cargos que faltan.');
+  });
+  byId('ivDropzone')?.addEventListener('scan:file-dropped',event=>{
+    if(busy)return notice('Finaliza la validación actual antes de cambiar de archivo.',true);
+    const selected=event.detail?.file;
+    if(!selected||!/\.(xlsx|xlsm)$/i.test(selected.name||'')||
+      !Number.isSafeInteger(selected.size)||selected.size<1||selected.size>500*1024**2)return;
+    file.value='';paste.value='';
+    droppedFile=selected;clear();
+    byId('scanFileName').textContent=selected.name;
+    notice('Excel recibido. Pulsa «Validar y previsualizar» para ver los cargos nuevos.');
+    event.detail.accepted=true;
   });
   validate.addEventListener('click',async()=>{
     if(busy)return;
@@ -158,7 +178,9 @@ export function attachScanImport({supabase,isAdmin,appReady,isPreview}){
           'Cargo '+group.cargo+' confirmado en ambos Excel y Kárdex');
       }
       plan=null;reviewedSource='';
-      paste.value='';file.value='';byId('scanFileName').textContent='Selecciona un Excel';
+      paste.value='';file.value='';droppedFile=null;
+      const zone=byId('ivDropzone');if(zone)delete zone.dataset.droppedFileName;
+      byId('scanFileName').textContent='Selecciona un Excel';
       progressTo(100,'Carga verificada en los dos históricos');
       notice('Se incorporaron '+completed+' cargos y '+saved.toLocaleString('es-PE')+
         ' filas en los dos Excel. El índice del Kárdex también quedó actualizado.');
