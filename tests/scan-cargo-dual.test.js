@@ -5,7 +5,7 @@ import JSZip from 'jszip';
 import {readScanWorkbook} from '../src/scan-workbook.js';
 import {validateScanRows} from '../src/scan-rows.js';
 import {planCargoImport} from '../src/scan-cargo-plan.js';
-import {appendMasterCargo,inspectMaster} from '../server/cargo-excel-book.js';
+import {appendMasterCargo,inspectMaster,cargoFingerprint} from '../server/cargo-excel-book.js';
 
 function sourceFile(data,bookSST=false){
   const book=XLSX.utils.book_new();
@@ -72,6 +72,8 @@ test('ambos libros conservan hojas ajenas, macros originales y actualizan solo l
     const before=await baseZip({macro:target==='original'});
     const result=await appendMasterCargo(before,target,942,records);
     assert.equal(result.rowsAdded,2);assert.equal(result.lastCargo,942);
+    const inspected=await inspectMaster(result.bytes,target);
+    assert.equal(inspected.fingerprints[942],cargoFingerprint(records));
     const zipBefore=await JSZip.loadAsync(before),zipAfter=await JSZip.loadAsync(result.bytes);
     assert.equal(await zipBefore.file('xl/worksheets/sheet2.xml').async('string'),
       await zipAfter.file('xl/worksheets/sheet2.xml').async('string'));
