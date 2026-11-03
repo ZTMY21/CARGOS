@@ -9,6 +9,7 @@ export const MASTERS=Object.freeze({
 });
 const SHEET='xl/worksheets/sheet1.xml',TABLE='xl/tables/table1.xml';
 const digest=bytes=>createHash('sha256').update(bytes).digest('hex');
+const normalizedCode=s=>String(s??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/[^A-Z0-9]/g,'');
 const escapeXml=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'}[c]));
 function extractBook(xml){
   const dimension=xml.match(/<dimension\s+ref="A1:K(\d+)"\s*\/>/);
@@ -25,7 +26,7 @@ function extractBook(xml){
     if(cargo>=942){
       const code=part.match(/<c\s+[^>]*r="D\d+"[^>]*>(?:<is><t[^>]*>([\s\S]*?)<\/t><\/is>|<v>([^<]*)<\/v>)<\/c>/);
       if(code){
-        const set=codes.get(cargo)||new Set();set.add(code[1]||code[2]);codes.set(cargo,set);
+        const set=codes.get(cargo)||new Set();set.add(normalizedCode(code[1]||code[2]));codes.set(cargo,set);
       }
     }
   }
