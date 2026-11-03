@@ -1,45 +1,78 @@
-import {parseScanPaste,validateScanRows,compareScanRows} from './scan-rows.js';
+import {parseScanPaste,validateScanRows} from './scan-rows.js';
 import {readScanWorkbook,SCAN_FILE_ROWS} from './scan-workbook.js';
-const PREVIEW_BATCH=3000,UPLOAD_BATCH=400;
-const split=(rows,size)=>Array.from({length:Math.ceil(rows.length/size)},(_,i)=>rows.slice(i*size,(i+1)*size));
+import {planCargoImport} from './scan-cargo-plan.js';
+
 export function attachScanImport({supabase,isAdmin,appReady,isPreview}){
   const byId=id=>document.getElementById(id);
   const paste=byId('scanPaste'),file=byId('scanFile'),validate=byId('scanValidate'),save=byId('scanSave'),
     status=byId('scanStatus'),summary=byId('scanSummary'),sample=byId('scanSample'),
     progress=byId('scanProgress'),stage=byId('scanStage');
-  let candidate=[],reviewedSource='',busy=false,generation=0;
+  let plan=null,reviewedSource='',busy=false,generation=0;
   const notice=(value,error=false)=>{status.textContent=value;status.style.color=error?'var(--red)':'var(--muted)';};
   const progressTo=(percent,label)=>{progress.hidden=false;progress.value=Math.max(0,Math.min(100,percent));stage.textContent=label;};
   const clear=()=>{
     if(busy)return;
-    candidate=[];reviewedSource='';generation++;save.dataset.valid='';save.disabled=true;
+    plan=null;reviewedSource='';generation++;save.dataset.valid='';save.disabled=true;
     summary.hidden=true;sample.replaceChildren();byId('scanReceipt').textContent='';progress.hidden=true;stage.textContent='';
   };
-  const td=(row,value)=>{const cell=document.createElement('td');cell.textContent=String(value??'');row.append(cell);};
-  const api=async(action,rows)=>{
+  const cell=(tr,value)=>{const td=document.createElement('td');td.textContent=String(value??'');tr.append(td);};
+  const sourceId=()=>file.files?.length
+    ?'file:'+file.files[0].name+':'+file.files[0].size+':'+file.files[0].lastModified
+    :'paste:'+paste.value;
+  const api=async(body,method='POST')=>{
+    if(isPreview()&&method==='GET'){
+      return {year:2026,original:{lastCargo:941,cargos:[941],name:'Original (simulación)'},
+        depurado:{lastCargo:941,cargos:[941],name:'Depurado (simulación)'},writesEnabled:false,preview:true};
+    }
     const {data,error}=await supabase.auth.getSession();
     if(error||!data?.session?.access_token)throw Error('Debes iniciar sesión nuevamente.');
-    const response=await fetch('/api/scan-ingest',{
-      method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+data.session.access_token},
-      credentials:'same-origin',body:JSON.stringify({action,rows})});
-    const dataOut=await response.json().catch(()=>({}));
+    const url='/api/cargo-excel'+(method==='GET'?'?action=status':'');
+    const response=await fetch(url,{method,headers:{
+      Authorization:'Bearer '+data.session.access_token,
+      ...(method==='POST'?{'Content-Type':'application/json'}:{})
+    },credentials:'same-origin',body:method==='POST'?JSON.stringify(body):undefined});
+    const result=await response.json().catch(()=>({}));
     if(!response.ok){
-      if(dataOut.error==='FILAS_INVALIDAS'&&dataOut.errors?.length)
-        throw Error('Fila '+dataOut.errors[0].line+': '+dataOut.errors[0].reason);
-      throw Error((dataOut.message||dataOut.error||'No fue posible validar contra Google Sheets')+'. No repitas una carga incompleta sin revisar los registros.');
+      if(result.error==='FILAS_INVALIDAS')throw Error('Hay filas inválidas en el cargo.');
+      if(result.error==='ESCRITURA_PENDIENTE_DE_VERIFICACION')
+        throw Error('Google Drive podría haber guardado el archivo. Valida nuevamente antes de continuar.');
+      throw Error(result.message||result.error||'No se pudo verificar el almacenamiento.');
     }
-    return dataOut;
+    return result;
   };
-  const getInput=async()=>{
+  const getInput=async(baseline)=>{
     if(file.files?.length){
-      progressTo(4,'Abriendo Excel…');
-      const parsed=await readScanWorkbook(file.files[0]);
-      byId('scanFileName').textContent=parsed.fileName+' · Hoja «'+parsed.sheetName+'» · '+parsed.count.toLocaleString('es-PE')+' registros';
-      return {rows:parsed.rows,source:'file:'+file.files[0].name+':'+file.files[0].size+':'+file.files[0].lastModified};
+      progressTo(9,'Leyendo únicamente cargos desde el '+(baseline+1)+'…');
+      const parsed=await readScanWorkbook(file.files[0],{minCargo:baseline});
+      byId('scanFileName').textContent=parsed.fileName+' · Hoja «'+parsed.sheetName+'» · '+
+        parsed.count.toLocaleString('es-PE')+' filas candidatas';
+      return {rows:parsed.rows,source:sourceId()};
     }
     const rows=parseScanPaste(paste.value);
     byId('scanFileName').textContent='Datos pegados';
-    return {rows,source:'paste:'+paste.value};
+    return {rows,source:sourceId()};
+  };
+  const showPlan=(current)=>{
+    summary.hidden=false;
+    byId('scanTotal').textContent=String(current.newRows+current.ignoredRows);
+    byId('scanValid').textContent=String(current.newRows);
+    byId('scanErrors').textContent=String(current.invalid.length);
+    byId('scanDuplicates').textContent=String(current.ignoredRows);
+    byId('scanCrossCargo').textContent=String(current.cargos.length);
+    sample.replaceChildren();
+    const table=document.createElement('table'),head=document.createElement('tr');
+    for(const title of ['Cargo nuevo','Filas','Códigos distintos','Destino']){
+      const th=document.createElement('th');th.textContent=title;head.append(th);
+    }
+    table.append(head);
+    for(const group of current.cargos){
+      const tr=document.createElement('tr');
+      cell(tr,group.cargo);cell(tr,group.count);cell(tr,group.codes);
+      cell(tr,group.missing.original&&group.missing.depurado?'Ambos Excel':
+        group.missing.original?'Falta en histórico':'Falta en depurado');
+      table.append(tr);
+    }
+    sample.append(table);
   };
   paste.addEventListener('input',()=>{
     if(busy)return;
@@ -50,7 +83,7 @@ export function attachScanImport({supabase,isAdmin,appReady,isPreview}){
     if(busy)return;
     paste.value='';clear();
     byId('scanFileName').textContent=file.files?.[0]?file.files[0].name:'Selecciona un Excel';
-    notice('Archivo listo para validar.');
+    notice('Archivo listo. El aplicativo leerá solo los cargos que faltan.');
   });
   validate.addEventListener('click',async()=>{
     if(busy)return;
@@ -58,84 +91,83 @@ export function attachScanImport({supabase,isAdmin,appReady,isPreview}){
     if(!appReady()||!isAdmin())return notice('Acceso reservado a administradores.',true);
     const epoch=generation;busy=true;validate.disabled=true;file.disabled=true;
     try{
-      const source=await getInput(),rows=source.rows;
+      progressTo(2,'Consultando los dos Excel maestros de Google Drive…');
+      const masters=await api(null,'GET');
       if(generation!==epoch)return;
-      progressTo(10,'Verificando '+rows.length.toLocaleString('es-PE')+' filas…');
+      const baseline=Math.min(masters.original.lastCargo,masters.depurado.lastCargo);
+      const source=await getInput(baseline),rows=source.rows;
+      if(generation!==epoch)return;
+      progressTo(50,'Validando '+rows.length.toLocaleString('es-PE')+' filas candidatas…');
+      if(rows.length===0){
+        plan={cargos:[],newRows:0,ignoredRows:0,invalid:[]};
+        showPlan(plan);progressTo(100,'Sin cargos nuevos');
+        return notice('No se encontraron cargos nuevos posteriores al '+baseline+'.');
+      }
       const checked=validateScanRows(rows,SCAN_FILE_ROWS);
-      summary.hidden=false;
-      byId('scanTotal').textContent=String(rows.length);
-      byId('scanValid').textContent=String(checked.ready.length);
-      byId('scanErrors').textContent=String(checked.errors.length);
-      byId('scanDuplicates').textContent='0';byId('scanCrossCargo').textContent='0';
-      const table=document.createElement('table'),head=document.createElement('tr');
-      for(const title of ['Fecha','Cargo','Grupo','Código']){const th=document.createElement('th');th.textContent=title;head.append(th);}table.append(head);
-      for(const row of checked.ready.slice(0,8)){
-        const tr=document.createElement('tr');for(const col of row.values.slice(0,4))td(tr,col);table.append(tr);
-      }
-      sample.append(table);
       if(checked.errors.length){
-        progressTo(100,'Revisa las filas indicadas');
-        const examples=checked.errors.slice(0,3).map(e=>'Fila '+e.line+': '+e.reason).join(' | ');
-        return notice(checked.errors.length+' filas con errores. '+examples,true);
+        const message=checked.errors.slice(0,3).map(x=>'Fila '+x.line+': '+x.reason).join(' | ');
+        progressTo(100,'Corrige las filas indicadas');
+        return notice(checked.errors.length+' filas con errores. '+message,true);
       }
-      // Desduplicar TODO el archivo antes de dividirlo: dos bloques nunca reenvían el mismo registro.
-      const local=compareScanRows(checked.ready,[]);
-      candidate=local.newRows.map(x=>x.values);
-      let accepted=0,duplicates=local.duplicates.length,crossCargo=0;
-      byId('scanDuplicates').textContent=String(duplicates);
-      if(isPreview()){
-        byId('scanValid').textContent=String(candidate.length);
-        progressTo(100,'Validación completa');
-        return notice('Vista de prueba: '+candidate.length+' filas válidas.');
+      const proposed=planCargoImport(checked.ready,masters);
+      if(proposed.invalid.length){
+        const first=proposed.invalid[0];
+        progressTo(100,'Revisión requerida');
+        return notice('Cargo incorrecto en fila '+first.line+': '+first.reason,true);
       }
-      const groups=split(candidate,PREVIEW_BATCH);
-      for(let i=0;i<groups.length;i++){
-        progressTo(10+Math.round((i/groups.length)*85),'Contrastando '+((i*PREVIEW_BATCH)+1)+'–'+Math.min(candidate.length,(i+1)*PREVIEW_BATCH)+' con la hoja oficial…');
-        const result=await api('preview',groups[i]);
-        accepted+=result.accepted;duplicates+=result.duplicates.length;crossCargo+=result.otherCargos.length;
+      if(proposed.cargos.some(c=>c.count>15000)){
+        progressTo(100,'Dividir el cargo');
+        return notice('Un cargo tiene más de 15.000 filas nuevas. Divide esa carga antes de confirmarla.',true);
       }
-      byId('scanValid').textContent=String(accepted);
-      byId('scanDuplicates').textContent=String(duplicates);
-      byId('scanCrossCargo').textContent=String(crossCargo);
+      plan=proposed;showPlan(plan);
       reviewedSource=source.source;
-      save.dataset.valid=accepted>0?'1':'';
-      save.disabled=accepted===0;
+      save.dataset.valid=plan.cargos.length>0&&!isPreview()?'1':'';
+      save.disabled=plan.cargos.length===0||isPreview();
       progressTo(100,'Validación completa');
-      notice(accepted.toLocaleString('es-PE')+' nuevos · '+duplicates+' repetidos'+(crossCargo?' · '+crossCargo+' presentes en otros cargos':'')+'. '+(accepted?'Listo para confirmar.':'No hay registros nuevos.'));
+      notice(plan.cargos.length+' cargos nuevos encontrados · '+plan.newRows.toLocaleString('es-PE')+
+        ' filas · '+plan.ignoredRows+' existentes omitidas. '+
+        (isPreview()?'Simulación sin escritura.':plan.cargos.length?'Listo para confirmar.':'No hay cambios.'));
     }catch(error){
-      candidate=[];save.dataset.valid='';save.disabled=true;
-      progressTo(0,'No se guardó ningún registro en esta validación');
-      notice(error?.message||'Error al abrir o validar el Excel.',true);
+      plan=null;save.dataset.valid='';save.disabled=true;progressTo(0,'Validación interrumpida');
+      notice(error?.message||'Error al leer o validar el Excel.',true);
     }finally{busy=false;file.disabled=false;validate.disabled=false;}
   });
   save.addEventListener('click',async()=>{
-    if(busy||isPreview()||!appReady()||!isAdmin()||!reviewedSource||!candidate.length)return notice('Valida primero el Excel antes de guardar.',true);
-    const sourceNow=file.files?.length
-      ?'file:'+file.files[0].name+':'+file.files[0].size+':'+file.files[0].lastModified
-      :'paste:'+paste.value;
-    if(sourceNow!==reviewedSource)return notice('El archivo cambió. Repite la validación.',true);
-    if(!confirm('¿Confirmas enviar hasta '+candidate.length.toLocaleString('es-PE')+' filas a la hoja CARGOS NUEVOS? Se omiten los códigos ya registrados. Los datos históricos no se reemplazan.'))return;
+    if(busy||isPreview()||!appReady()||!isAdmin()||!plan?.cargos?.length||sourceId()!==reviewedSource)
+      return notice('Debes validar el archivo antes de confirmar.',true);
+    if(!confirm('¿Confirmas incorporar '+plan.cargos.length+' cargos nuevos ('+plan.newRows.toLocaleString('es-PE')+
+      ' filas) a los DOS Excel históricos? No se modificarán cargos anteriores.'))return;
     busy=true;save.disabled=true;save.dataset.valid='';validate.disabled=true;file.disabled=true;paste.disabled=true;
-    let saved=0,duplicates=0,processed=0;const groups=split(candidate,UPLOAD_BATCH);
-    progressTo(0,'Iniciando carga por lotes…');
+    let saved=0,completed=0,partial=false;
     try{
-      for(let i=0;i<groups.length;i++){
-        progressTo(Math.floor(100*i/groups.length),'Procesando lote '+(i+1)+' de '+groups.length+' — '+processed+' de '+candidate.length+' filas revisadas');
-        const result=await api('commit',groups[i]);
-        if(result.googleVerified!==true)throw Error('El lote '+(i+1)+' no devolvió confirmación verificable.');
-        saved+=result.saved;duplicates+=result.duplicates.length;processed+=groups[i].length;
-        progressTo(Math.floor(100*(i+1)/groups.length),'Confirmadas '+processed.toLocaleString('es-PE')+' de '+candidate.length.toLocaleString('es-PE')+' filas · '+saved+' nuevas');
-        byId('scanReceipt').textContent='Progreso confirmado: '+saved+' nuevas, '+duplicates+' ya registradas, '+processed+' revisadas.';
+      for(const group of plan.cargos){
+        const steps=[...(['original','depurado'].filter(target=>group.missing[target])),'finalize'];
+        for(let i=0;i<steps.length;i++){
+          const action=steps[i]==='finalize'?'finalize':'commit';
+          progressTo(Math.floor(100*completed/plan.cargos.length),
+            'Cargo '+group.cargo+' — '+(action==='finalize'?'verificando índices':'actualizando '+steps[i])+'…');
+          const result=await api({action,target:action==='commit'?steps[i]:undefined,cargo:group.cargo,rows:group.rows});
+          if(result.verified!==true)throw Error('Falta la verificación de Drive para el cargo '+group.cargo+'.');
+          if(action==='commit')partial=true;
+          if(action==='finalize')partial=false;
+        }
+        saved+=group.count;completed++;
+        byId('scanReceipt').textContent='Cargos completados: '+completed+'/'+plan.cargos.length+
+          ' · Filas incorporadas: '+saved.toLocaleString('es-PE')+'.';
+        progressTo(Math.floor(100*completed/plan.cargos.length),
+          'Cargo '+group.cargo+' confirmado en ambos Excel y Kárdex');
       }
-      candidate=[];reviewedSource='';
+      plan=null;reviewedSource='';
       paste.value='';file.value='';byId('scanFileName').textContent='Selecciona un Excel';
-      progressTo(100,'Carga terminada y confirmada en Google Sheets');
-      notice(saved.toLocaleString('es-PE')+' registros guardados · '+duplicates+' ya existían. Actualización del Kárdex pendiente de sincronización.');
+      progressTo(100,'Carga verificada en los dos históricos');
+      notice('Se incorporaron '+completed+' cargos y '+saved.toLocaleString('es-PE')+
+        ' filas en los dos Excel. El índice del Kárdex también quedó actualizado.');
     }catch(error){
-      progressTo(Math.floor(100*processed/candidate.length),'Proceso interrumpido tras '+processed+' filas revisadas');
-      notice('Carga parcial o pendiente de conciliación. Lotes confirmados: '+processed+' filas, '+saved+' nuevas. '+(error?.message||'Error de red')+' Conserva el Excel: valida de nuevo antes de cualquier reintento.',true);
+      progressTo(Math.floor(100*completed/Math.max(1,plan.cargos.length)),'Carga pendiente de conciliación');
+      notice((partial?'Un Excel puede haber sido actualizado. ':'')+
+        'No se confirma la carga completa. '+(error?.message||'Error de conexión')+
+        ' Conserva el Excel y vuelve a validar para recuperar el destino pendiente.',true);
     }finally{busy=false;validate.disabled=false;file.disabled=false;paste.disabled=false;}
   });
-  clear();
-  notice('');
+  clear();notice('');
 }
