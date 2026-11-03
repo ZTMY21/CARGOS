@@ -110,3 +110,46 @@ test('el selector normal sigue funcionando y reemplaza al Excel arrastrado',asyn
   assert.equal(doc.getElementById('scanSave').disabled,true);
  });
 });
+
+test('Resultados muestra cargos nuevos aunque la verificación de Drive falle y bloquea Confirmar',async()=>{
+ const dom=new JSDOM(html),doc=dom.window.document;
+ const oldDocument=globalThis.document,oldFetch=globalThis.fetch;
+ let requested=0,posts=0;
+ globalThis.document=doc;
+ globalThis.fetch=async(url,options={})=>{
+  requested++;
+  if(options.method==='POST')posts++;
+  return Response.json({error:'DRIVE_NO_PREPARADO'},{status:503});
+ };
+ const supabase={auth:{getSession:async()=>({data:{session:{access_token:'token'}}})}};
+ const ui=(()=>{
+  attachScanImport({supabase,isAdmin:()=>true,appReady:()=>true,isPreview:()=>false});
+  return attachInterventionExperience({doc});
+ })();
+ try{
+  const zone=doc.getElementById('ivDropzone'),excel=exampleFile();
+  zone.dispatchEvent(setPayload(new dom.window.Event('drop',{bubbles:true,cancelable:true}),
+    'dataTransfer',{files:[excel]}));
+  await until(()=>doc.getElementById('scanResultStatus').textContent.includes('preliminares'));
+  assert.equal(doc.getElementById('scanCrossCargo').textContent,'1');
+  assert.equal(doc.getElementById('scanValid').textContent,'2');
+  assert.equal(doc.getElementById('scanSummary').hidden,false);
+  assert.match(doc.getElementById('scanSample').textContent,/942/);
+  assert.equal(doc.getElementById('scanSave').disabled,true);
+  assert.equal(requested,1);
+  assert.equal(posts,0);
+ }finally{
+  ui.disconnect();globalThis.document=oldDocument;globalThis.fetch=oldFetch;dom.window.close();
+ }
+});
+test('Resultados aparece automáticamente sin pulsar Validar cuando se elige archivo',async()=>{
+ await withApp(async({dom,doc})=>{
+  const input=doc.getElementById('scanFile'),excel=exampleFile();
+  Object.defineProperty(input,'files',{configurable:true,value:[excel]});
+  input.dispatchEvent(new dom.window.Event('change',{bubbles:true}));
+  await until(()=>doc.getElementById('scanStage').textContent.includes('Validación terminada'));
+  assert.equal(doc.getElementById('scanSummary').hidden,false);
+  assert.equal(doc.getElementById('scanCrossCargo').textContent,'1');
+  assert.equal(doc.getElementById('scanSave').disabled,true);
+ });
+});
