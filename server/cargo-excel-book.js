@@ -11,12 +11,33 @@ const SHEET='xl/worksheets/sheet1.xml',TABLE='xl/tables/table1.xml';
 const digest=bytes=>createHash('sha256').update(bytes).digest('hex');
 const normalizedCode=s=>String(s??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/[^A-Z0-9]/g,'');
 const escapeXml=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'}[c]));
+
+const normalizeInputRow=row=>row.map((v,index)=>{
+  const value=String(v??'').trim();
+  if([1,2,6].includes(index)&&/^\d+$/.test(value))return String(Number(value));
+  return index===0?value.replace(/\//g,'-'):value;
+});
+export function cargoFingerprint(rows){
+  return createHash('sha256').update(JSON.stringify(rows.map(normalizeInputRow))).digest('hex');
+}
+function decodeCellXml(xml){
+  const v=xml.match(/<is><t(?:\s[^>]*)?>([\s\S]*?)<\/t><\/is>/)?.[1]??
+    xml.match(/<v>([\s\S]*?)<\/v>/)?.[1]??'';
+  return v.replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&apos;/g,"'");
+}
+function rawRowValues(xml,rowNumber){
+  return [...'ABCDEFGHIJK'].map(col=>{
+    const regex=new RegExp('<c\\b[^>]*r="'+col+rowNumber+'"[^>]*(?:\\/>|>([\\s\\S]*?)<\\/c>)');
+    return decodeCellXml(xml.match(regex)?.[1]||'');
+  });
+}
+
 function extractBook(xml){
   const dimension=xml.match(/<dimension\s+ref="A1:K(\d+)"\s*\/>/);
   if(!dimension)throw Error('CABECERAS_MAESTRAS_INCOMPATIBLES');
   const count=Number(dimension[1]);
   if(count<1||count>1048576)throw Error('RANGO_MAESTRO_INVALIDO');
-  const cargoRows=new Map(),codes=new Map();
+  const cargoRows=new Map(),codes=new Map(),details=new Map();
   for(const match of xml.matchAll(/<row\b[^>]*\br="(\d+)"[^>]*>([\s\S]*?)<\/row>/g)){
     const rowNumber=Number(match[1]),part=match[2];
     if(rowNumber<2)continue;
@@ -24,6 +45,7 @@ function extractBook(xml){
     if(!Number.isSafeInteger(cargo)||cargo<1)throw Error('CARGO_INVALIDO_EN_MAESTRO');
     cargoRows.set(cargo,(cargoRows.get(cargo)||0)+1);
     if(cargo>=942){
+      const rows=details.get(cargo)||[];rows.push(rawRowValues(part,rowNumber));details.set(cargo,rows);
       const code=part.match(/<c\s+[^>]*r="D\d+"[^>]*>(?:<is><t[^>]*>([\s\S]*?)<\/t><\/is>|<v>([^<]*)<\/v>)<\/c>/);
       if(code){
         const set=codes.get(cargo)||new Set();set.add(normalizedCode(code[1]||code[2]));codes.set(cargo,set);
@@ -32,6 +54,7 @@ function extractBook(xml){
   }
   return {rows:count,cargos:[...cargoRows.keys()].sort((a,b)=>a-b),
     counts:Object.fromEntries(cargoRows),distinctCodes:Object.fromEntries([...codes].map(([n,set])=>[n,set.size])),
+    fingerprints:Object.fromEntries([...details].map(([n,rows])=>[n,cargoFingerprint(rows)])),
     lastCargo:Math.max(0,...cargoRows.keys())};
 }
 export async function inspectMaster(bytes,target){
