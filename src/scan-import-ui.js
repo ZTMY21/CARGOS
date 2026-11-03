@@ -94,7 +94,7 @@ export function attachScanImport({supabase,isAdmin,appReady,isPreview}){
       progressTo(2,'Consultando los dos Excel maestros de Google Drive…');
       const masters=await api(null,'GET');
       if(generation!==epoch)return;
-      const baseline=Math.min(masters.original.lastCargo,masters.depurado.lastCargo);
+      const baseline=Math.min(masters.original.lastCargo,masters.depurado.lastCargo,masters.indexedLastCargo??941);
       const source=await getInput(baseline),rows=source.rows;
       if(generation!==epoch)return;
       progressTo(50,'Validando '+rows.length.toLocaleString('es-PE')+' filas candidatas…');
