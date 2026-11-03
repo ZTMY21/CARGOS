@@ -2114,7 +2114,10 @@ document.getElementById('btnToggleGoogleSync').addEventListener('click',async ev
 });
 
 // Carga guiada desde Excel a la hoja original; el endpoint valida permisos y evita escrituras en Preview.
-attachScanImport({supabase,isAdmin:()=>isAdmin,appReady:()=>appReady,isPreview:()=>isPreview});
+attachScanImport({
+  supabase,isAdmin:()=>isAdmin,appReady:()=>appReady,isPreview:()=>isPreview,
+  onCompleted:async()=>{await refreshData();}
+});
 
 // Correos de recojo: configuración, vista previa, EML y confirmación manual.
 pickupMailController=attachPickupMail({
