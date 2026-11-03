@@ -10,7 +10,6 @@ import { KardexRepository, reqFromDb, docFromDb } from './repository.js';
 import { buildCargoWorkbook, buildExistenciasReport, serializeExistenciasReport, parseWorkbook } from './excel-api.js';
 import { highlightMatch, normalizeSearch, filterDocuments, filterRequirements, invoiceSearchPresentation, assignedBoxCode } from './search.js';
 import './connection.css';
-import { createIdleSession } from './idle-session.js';
 import { cargoYear, locationLabel, groupsForCodes } from './cargo-details.js';
 import { summarizeCreatedCargos } from './monthly-created-summary.js';
 import { renderCargoLineChart } from './cargo-line-chart.js';
@@ -23,14 +22,11 @@ const configuration = { url: __SUPABASE_URL__, key: __SUPABASE_ANON_KEY__ };
 // Capture recovery mode before the client consumes the email callback fragment.
 let passwordRecovery = new URLSearchParams(window.location.hash.slice(1)).get('type') === 'recovery';
 let passwordRecoveryCompleted = false;
-const supabase = configuration.url && configuration.key ? createClient(configuration.url, configuration.key) : null;
+// El JWT de Supabase vence periódicamente, pero su renovación NO debe cerrar la sesión.
+const supabase = configuration.url && configuration.key ? createClient(configuration.url, configuration.key, {
+  auth: {persistSession:true, autoRefreshToken:true, detectSessionInUrl:true}
+}) : null;
 const repository = supabase ? new KardexRepository(supabase) : null;
-const idleSession = createIdleSession({window, onExpire: async()=>{
-  // Lock the interface immediately, including when the network is unavailable.
-  await handleSession(null);
-  message('authMessage','Tu sesión se cerró por una hora de inactividad. Vuelve a ingresar.');
-  try { await supabase.auth.signOut({scope:'local'}); } catch { /* The expired local deadline keeps the app locked. */ }
-}});
 let googleSyncEnabled=true;
 let activeWorkspaceTab='resumen';
 let boxScannerController=null;
@@ -1660,7 +1656,6 @@ async function handleSession(session) {
     clearPreviousCargoCache();
     clearInterval(adminRequestsTimer);adminRequestsTimer=null;adminRequestsEpoch++;setAdminRequestBadge(null);
     document.getElementById('adminRequestsPanel').hidden=true;
-    idleSession.stop();
     showAuthPage(true);
     if (passwordRecovery) message('authMessage','El enlace de recuperación no es válido. Solicita uno nuevo.',true);
     passwordRecovery = false;
@@ -1681,7 +1676,6 @@ async function handleSession(session) {
     document.getElementById('btnAuthSignOut').hidden = true;
     setStatus('Inicia sesión para conectar'); setAvailability(); return;
   }
-  if(!idleSession.start(session))return;
   currentUserId = user.id;
   document.getElementById('btnAuthSignOut').hidden = false;
   try {
@@ -1851,7 +1845,10 @@ if (!supabase) {
   supabase.auth.onAuthStateChange((event,session)=>{
     if (event === 'INITIAL_SESSION') return;
     if (event === 'PASSWORD_RECOVERY' && !passwordRecoveryCompleted) passwordRecovery = true;
-    if (event === 'TOKEN_REFRESHED' && currentUserId === session?.user?.id) { if(idleSession.check())scheduleRefresh(); return; }
+    // Un token renovado no equivale a volver a iniciar sesión: se conserva la pantalla
+    // y la búsqueda en curso. Evita reconsultas y cierres aparentes al volver a la pestaña.
+    if (event === 'TOKEN_REFRESHED' && currentUserId === session?.user?.id) return;
+    if (event === 'SIGNED_IN' && appReady && currentUserId === session?.user?.id && !passwordRecovery) return;
     setTimeout(()=>handleSession(session),0);
   });
   try {
