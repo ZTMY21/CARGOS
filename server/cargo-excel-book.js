@@ -1,0 +1,88 @@
+import JSZip from 'jszip';
+import {createHash} from 'node:crypto';
+
+export const MASTERS=Object.freeze({
+  original:{id:'1E4wmCkdei32i6NEcLh4ztQaK8_fOz5u3',name:'Lista de Cargos 2021-2026(2).xlsm',
+    mime:'application/vnd.ms-excel.sheet.macroenabled.12'},
+  depurado:{id:'16s2rreNgACVhPsckh8-vSFUwWMjcpvwr',name:'Lista_de_Cargos_2021-2026_DEPURADO_2026_SIN_MACROS.xlsx',
+    mime:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}
+});
+const SHEET='xl/worksheets/sheet1.xml',TABLE='xl/tables/table1.xml';
+const digest=bytes=>createHash('sha256').update(bytes).digest('hex');
+const escapeXml=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'}[c]));
+function extractBook(xml){
+  const dimension=xml.match(/<dimension\s+ref="A1:K(\d+)"\s*\/>/);
+  if(!dimension)throw Error('CABECERAS_MAESTRAS_INCOMPATIBLES');
+  const count=Number(dimension[1]);
+  if(count<1||count>1048576)throw Error('RANGO_MAESTRO_INVALIDO');
+  const cargoRows=new Map(),codes=new Map();
+  for(const match of xml.matchAll(/<row\b[^>]*\br="(\d+)"[^>]*>([\s\S]*?)<\/row>/g)){
+    const rowNumber=Number(match[1]),part=match[2];
+    if(rowNumber<2)continue;
+    const cargo=Number(part.match(/<c\s+[^>]*r="B\d+"[^>]*><v>(\d+)<\/v><\/c>/)?.[1]);
+    if(!Number.isSafeInteger(cargo)||cargo<1)throw Error('CARGO_INVALIDO_EN_MAESTRO');
+    cargoRows.set(cargo,(cargoRows.get(cargo)||0)+1);
+    if(cargo>=942){
+      const code=part.match(/<c\s+[^>]*r="D\d+"[^>]*>(?:<is><t[^>]*>([\s\S]*?)<\/t><\/is>|<v>([^<]*)<\/v>)<\/c>/);
+      if(code){
+        const set=codes.get(cargo)||new Set();set.add(code[1]||code[2]);codes.set(cargo,set);
+      }
+    }
+  }
+  return {rows:count,cargos:[...cargoRows.keys()].sort((a,b)=>a-b),
+    counts:Object.fromEntries(cargoRows),distinctCodes:Object.fromEntries([...codes].map(([n,set])=>[n,set.size])),
+    lastCargo:Math.max(0,...cargoRows.keys())};
+}
+export async function inspectMaster(bytes,target){
+  if(!MASTERS[target])throw Error('MAESTRO_DESCONOCIDO');
+  const zip=await JSZip.loadAsync(bytes);
+  const files=[SHEET,TABLE,'xl/workbook.xml'];
+  if(files.some(f=>!zip.file(f)))throw Error('ESTRUCTURA_MAESTRA_INVALIDA');
+  if(target==='original'&&!zip.file('xl/vbaProject.bin'))throw Error('MACRO_HISTORICA_AUSENTE');
+  if(target==='depurado'&&zip.file('xl/vbaProject.bin'))throw Error('DEPURADO_CONTIENE_MACROS');
+  const xml=await zip.file(SHEET).async('string'),table=await zip.file(TABLE).async('string');
+  const workbook=await zip.file('xl/workbook.xml').async('string');
+  if(!workbook.includes('CARGOS NUEVOS 2026'))throw Error('HOJA_2026_NO_IDENTIFICADA');
+  const info=extractBook(xml);
+  const ref='A1:K'+info.rows;
+  if(!table.includes('name="TablaConsolidada"')||!table.includes('ref="'+ref+'"'))
+    throw Error('TABLA_MAESTRA_NO_COINCIDE');
+  return {zip,xml,table,...info};
+}
+function cell(column,row,value){
+  const r=column+row,v=String(value??'').trim();
+  if(!v)return '<c r="'+r+'" s="2"/>';
+  if(['B','C','G'].includes(column)&&/^\d+$/.test(v))return '<c r="'+r+'" s="3"><v>'+Number(v)+'</v></c>';
+  const text=column==='A'?v.replace(/\//g,'-'):v;
+  return '<c r="'+r+'" s="2" t="inlineStr"><is><t xml:space="preserve">'+escapeXml(text)+'</t></is></c>';
+}
+export async function appendMasterCargo(bytes,target,cargo,rows){
+  const info=await inspectMaster(bytes,target);
+  if(info.cargos.includes(cargo))return {alreadyExists:true,cargo,rowsAdded:0,originalCount:info.counts[cargo],
+    bytes:null,sha256:null,lastCargo:info.lastCargo};
+  if(info.lastCargo!==cargo-1)throw Error('CARGO_NO_CORRELATIVO: siguiente '+(info.lastCargo+1));
+  if(!Array.isArray(rows)||!rows.length||rows.length>15000||info.rows+rows.length>1048576)
+    throw Error('FILAS_CARGO_INVALIDAS');
+  if(rows.some(r=>!Array.isArray(r)||r.length!==11||Number(r[1])!==cargo))
+    throw Error('DATOS_CARGO_NO_COINCIDEN');
+  const append=rows.map((data,index)=>{
+    const line=info.rows+1+index;
+    return '<row r="'+line+'" spans="1:11">'+[...'ABCDEFGHIJK']
+      .map((col,i)=>cell(col,line,data[i])).join('')+'</row>';
+  }).join('');
+  const after=info.rows+rows.length;
+  const oldRef='A1:K'+info.rows,newRef='A1:K'+after;
+  let patched=info.xml.replace('<dimension ref="'+oldRef+'"/>','<dimension ref="'+newRef+'"/>');
+  if(patched===info.xml)throw Error('DIMENSION_NO_ACTUALIZADA');
+  if(patched.split('</sheetData>').length!==2)throw Error('HOJA_MAESTRA_INESPERADA');
+  patched=patched.replace('</sheetData>',append+'</sheetData>');
+  patched=patched.replaceAll('ref="'+oldRef+'"','ref="'+newRef+'"');
+  const table=info.table.replaceAll('ref="'+oldRef+'"','ref="'+newRef+'"');
+  if(table===info.table)throw Error('FILTRO_MAESTRO_NO_ACTUALIZADO');
+  info.zip.file(SHEET,patched);info.zip.file(TABLE,table);
+  const output=await info.zip.generateAsync({type:'nodebuffer',compression:'DEFLATE',compressionOptions:{level:6}});
+  const check=await inspectMaster(output,target);
+  if(check.rows!==after||check.counts[cargo]!==rows.length)throw Error('VERIFICACION_DE_CARGO_FALLIDA');
+  return {alreadyExists:false,cargo,rowsAdded:rows.length,bytes:output,sha256:digest(output),
+    lastCargo:check.lastCargo,newSize:output.length};
+}
