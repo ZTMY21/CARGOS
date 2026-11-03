@@ -28,7 +28,7 @@ export function parseScanPaste(input){
   return cells;
 }
 export function validateScanRows(input,maxRows=SCAN_LIMIT){
-  if(!Number.isSafeInteger(maxRows)||maxRows<1||maxRows>10000)throw Error('Límite de carga incorrecto.');
+  if(!Number.isSafeInteger(maxRows)||maxRows<1||maxRows>50000)throw Error('Límite de carga incorrecto.');
   if(!Array.isArray(input)||input.length<1||input.length>maxRows)throw Error('El lote debe contener entre 1 y '+maxRows.toLocaleString('es-PE')+' filas.');
   const ready=[],errors=[];
   input.forEach((raw,index)=>{
