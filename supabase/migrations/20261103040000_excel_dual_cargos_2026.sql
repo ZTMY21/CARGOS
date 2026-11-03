@@ -107,3 +107,22 @@ begin
 end;$$;
 revoke all on function public.kardex_excel_finalizar(integer,text,date,integer,jsonb) from public, anon;
 grant execute on function public.kardex_excel_finalizar(integer,text,date,integer,jsonb) to authenticated;
+
+-- Reanuda la indexación si Drive ya contiene el cargo pero falló la última fase.
+create or replace function public.kardex_excel_estado()
+returns jsonb language plpgsql stable security definer set search_path = '' as $$
+declare v_last integer;v_indexed jsonb;
+begin
+  if (select auth.uid()) is null or not private.kardex_has_access(true) then
+    raise exception 'Acceso administrativo obligatorio' using errcode='42501';
+  end if;
+  select greatest(941,coalesce(max(num::integer),941)) into v_last
+    from public.documentos d cross join lateral unnest(d.cargos) c(num)
+    where d.anio_origen=2026 and num ~ '^[0-9]{1,7}$';
+  select coalesce(jsonb_agg(distinct num::integer), '[]'::jsonb) into v_indexed
+    from public.documentos d cross join lateral unnest(d.cargos) c(num)
+    where d.anio_origen=2026 and num ~ '^[0-9]{1,7}$' and num::integer>=942;
+  return jsonb_build_object('indexedLastCargo',v_last,'indexedCargos',v_indexed);
+end;$$;
+revoke all on function public.kardex_excel_estado() from public, anon;
+grant execute on function public.kardex_excel_estado() to authenticated;
