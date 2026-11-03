@@ -9,7 +9,7 @@ const xmlText=s=>String(s||'').replace(/&#(x[0-9a-f]+|\d+);|&(amp|lt|gt|quot|apo
 });
 function attr(source,name){
   const escaped=name.replace(/[:]/g,'\\:');
-  const match=String(source||'').match(new RegExp('(?:^|\\s)'+escaped+'=(["\\\'])([\\s\\S]*?)\\1'));
+  const match=String(source||'').match(new RegExp('(?:^|\\s)'+escaped+'="([^"]*)"'));
   return match?xmlText(match[2]):'';
 }
 function colNumber(letters){
