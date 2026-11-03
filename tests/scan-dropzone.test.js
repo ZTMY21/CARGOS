@@ -153,3 +153,41 @@ test('Resultados aparece automáticamente sin pulsar Validar cuando se elige arc
   assert.equal(doc.getElementById('scanSave').disabled,true);
  });
 });
+
+test('tras confirmar los dos Excel y el índice, se refrescan los KPI sin nueva carga',async()=>{
+ const dom=new JSDOM(html),doc=dom.window.document;
+ const oldDocument=globalThis.document,oldFetch=globalThis.fetch,oldConfirm=globalThis.confirm;
+ let updates=[], refreshed=0;
+ globalThis.document=doc;
+ globalThis.confirm=()=>true;
+ globalThis.fetch=async(url,options={})=>{
+   if(options.method==='GET')return Response.json({
+     original:{lastCargo:941,cargos:[941]},depurado:{lastCargo:941,cargos:[941]},
+     indexedLastCargo:941,indexedCargos:[],writesEnabled:true
+   });
+   const body=JSON.parse(options.body||'{}');
+   updates.push(body.action+':'+(body.target||'index'));
+   return Response.json({verified:true,indexed:true,saved:2});
+ };
+ try{
+  attachScanImport({supabase:{auth:{getSession:async()=>({data:{session:{access_token:'test-only'}}})}},
+    isAdmin:()=>true,appReady:()=>true,isPreview:()=>false,
+    onCompleted:async()=>{refreshed++;}});
+  const ui=attachInterventionExperience({doc});
+  try{
+   const zone=doc.getElementById('ivDropzone');
+   zone.dispatchEvent(setPayload(new dom.window.Event('drop',{bubbles:true,cancelable:true}),
+     'dataTransfer',{files:[exampleFile()]}));
+   await until(()=>doc.getElementById('scanSave').disabled===false);
+   assert.equal(refreshed,0,'selección y vista previa no refrescan métricas');
+   assert.equal(updates.length,0,'vista previa no escribe libros');
+   doc.getElementById('scanSave').click();
+   await until(()=>refreshed===1);
+   assert.deepEqual(updates,['commit:original','commit:depurado','finalize:index']);
+   assert.equal(doc.getElementById('scanSave').disabled,true);
+  }finally{ui.disconnect();}
+ }finally{
+  globalThis.document=oldDocument;globalThis.fetch=oldFetch;
+  globalThis.confirm=oldConfirm;dom.window.close();
+ }
+});
