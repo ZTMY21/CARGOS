@@ -74,14 +74,24 @@ export function createCargoExcelHandler({env=process.env,fetcher=fetch}={}){
       const short=({m,info})=>({name:m.name,lastCargo:info.lastCargo,cargos:info.cargos,
         counts:info.counts,distinctCodes:info.distinctCodes,revision:m.headRevisionId,rows:info.rows});
       if(req.method==='GET'){
+        // Solo consultar identidades de los dos Excel (no descargar 32/64 MB).
+        // La lectura y verificación completa se hace en POST justo antes de escribir.
         const index=await fetcher(env.SUPABASE_URL+'/rest/v1/rpc/kardex_excel_estado',{
           method:'POST',headers:{apikey:env.SUPABASE_ANON_KEY,Authorization:req.headers.authorization,'Content-Type':'application/json'},
-          body:'{}',signal:AbortSignal.timeout(15000),redirect:'error'});
+          body:'{}',signal:AbortSignal.timeout(12000),redirect:'error'});
         if(!index.ok)throw new ArchiveError('INDICE_KARDEX_NO_DISPONIBLE',503);
         const current=await index.json();
-        const [original,depurado]=await Promise.all([read('original'),read('depurado')]);
-        return output(res,200,{ready:true,year:2026,original:short(original),depurado:short(depurado),
-          indexedCargos:current.indexedCargos||[],indexedLastCargo:current.indexedLastCargo??941,
+        const [a,b]=await Promise.all([meta('original'),meta('depurado')]);
+        const indexedCargos=(current.indexedCargos||[])
+          .map(Number).filter(n=>Number.isSafeInteger(n)&&n>=942);
+        const cargos=[941,...new Set(indexedCargos)].sort((a,b)=>a-b);
+        const indexLast=Number(current.indexedLastCargo)||941;
+        const info=m=>({name:m.name,revision:m.headRevisionId||m.md5Checksum||null,
+          lastCargo:Math.max(941,indexLast),cargos});
+        return output(res,200,{ready:true,year:2026,
+          original:info(a),depurado:info(b),
+          indexedCargos,indexedLastCargo:indexLast,
+          comparison:'indice_de_consulta_con_identidad_drive; se verifican ambas filas originales al confirmar',
           writesEnabled:env.VERCEL_ENV==='production'});
       }
       const body=await jsonInput(req),action=body?.action;

@@ -9,7 +9,21 @@ export function attachScanImport({supabase,isAdmin,appReady,isPreview}){
     progress=byId('scanProgress'),stage=byId('scanStage');
   let plan=null,reviewedSource='',busy=false,generation=0,droppedFile=null;
   const chosenFile=()=>droppedFile||file.files?.[0]||null;
-  const notice=(value,error=false)=>{status.textContent=value;status.style.color=error?'var(--red)':'var(--muted)';};
+  const resultStatus=byId('scanResultStatus');
+  const notice=(value,error=false)=>{
+    status.textContent=value;status.style.color=error?'var(--red)':'var(--muted)';
+    if(resultStatus){
+      resultStatus.hidden=!value;
+      resultStatus.textContent=value;
+      resultStatus.style.color=error?'var(--red)':'var(--muted)';
+    }
+  };
+  const autoValidate=()=>{
+    // La selección NO guarda nada: solo identifica cargos nuevos.
+    Promise.resolve().then(()=>{
+      if(!busy&&chosenFile()&&appReady()&&isAdmin())validate.click();
+    });
+  };
   const progressTo=(percent,label)=>{progress.hidden=false;progress.value=Math.max(0,Math.min(100,percent));stage.textContent=label;};
   const clear=()=>{
     if(busy)return;
@@ -56,6 +70,22 @@ export function attachScanImport({supabase,isAdmin,appReady,isPreview}){
     byId('scanFileName').textContent='Datos pegados';
     return {rows,source:sourceId()};
   };
+  const localPreview=(ready)=>{
+    const found=new Map();
+    for(const item of ready){
+      const cargo=Number(item.cargo);
+      if(item.iso.slice(0,4)!=='2026'||!Number.isSafeInteger(cargo)||cargo<942)continue;
+      const group=found.get(cargo)||{cargo,rows:[],codes:new Set(),
+        missing:{original:true,depurado:true},count:0};
+      group.rows.push(item.values);group.count++;
+      group.codes.add(item.codigo.replace(/[^A-Za-z0-9]/g,'').toUpperCase());
+      found.set(cargo,group);
+    }
+    const cargos=[...found.values()].sort((a,b)=>a.cargo-b.cargo)
+      .map(group=>({...group,codes:group.codes.size}));
+    return {cargos,newRows:cargos.reduce((n,g)=>n+g.count,0),
+      ignoredRows:ready.length-cargos.reduce((n,g)=>n+g.count,0),invalid:[]};
+  };
   const showPlan=(current)=>{
     summary.hidden=false;
     byId('scanTotal').textContent=String(current.newRows+current.ignoredRows);
@@ -92,7 +122,8 @@ export function attachScanImport({supabase,isAdmin,appReady,isPreview}){
     droppedFile=null;
     paste.value='';clear();
     byId('scanFileName').textContent=chosenFile()?.name||'Selecciona un Excel';
-    notice('Archivo listo. El aplicativo leerá solo los cargos que faltan.');
+    notice('Archivo recibido. Buscando cargos nuevos…');
+    autoValidate();
   });
   byId('ivDropzone')?.addEventListener('scan:file-dropped',event=>{
     if(busy)return notice('Finaliza la validación actual antes de cambiar de archivo.',true);
@@ -102,54 +133,81 @@ export function attachScanImport({supabase,isAdmin,appReady,isPreview}){
     file.value='';paste.value='';
     droppedFile=selected;clear();
     byId('scanFileName').textContent=selected.name;
-    notice('Excel recibido. Pulsa «Validar y previsualizar» para ver los cargos nuevos.');
+    notice('Excel recibido. Buscando cargos nuevos…');
     event.detail.accepted=true;
+    autoValidate();
   });
   validate.addEventListener('click',async()=>{
     if(busy)return;
     clear();
-    if(!appReady()||!isAdmin())return notice('Acceso reservado a administradores.',true);
+    summary.hidden=false;
+    sample.textContent='Analizando el Excel para encontrar los cargos posteriores al 941…';
+    if(!appReady()||!isAdmin())
+      return notice('Necesitas iniciar sesión como administrador para validar el archivo.',true);
     const epoch=generation;busy=true;validate.disabled=true;file.disabled=true;
+    let previewShown=false;
     try{
-      progressTo(2,'Consultando los dos Excel maestros de Google Drive…');
-      const masters=await api(null,'GET');
+      // Leer PRIMERO el archivo elegido: no bloquear Resultados por los Excel
+      // maestros de Drive (que pesan 32 y 64 MB).
+      progressTo(8,'Leyendo el Excel seleccionado (solo cargos nuevos)…');
+      const source=await getInput(941),rows=source.rows;
       if(generation!==epoch)return;
-      const baseline=Math.min(masters.original.lastCargo,masters.depurado.lastCargo,masters.indexedLastCargo??941);
-      const source=await getInput(baseline),rows=source.rows;
-      if(generation!==epoch)return;
-      progressTo(50,'Validando '+rows.length.toLocaleString('es-PE')+' filas candidatas…');
+      progressTo(45,'Se encontraron '+rows.length.toLocaleString('es-PE')+' filas candidatas.');
       if(rows.length===0){
-        plan={cargos:[],newRows:0,ignoredRows:0,invalid:[]};
-        showPlan(plan);progressTo(100,'Sin cargos nuevos');
-        return notice('No se encontraron cargos nuevos posteriores al '+baseline+'.');
+        showPlan({cargos:[],newRows:0,ignoredRows:0,invalid:[]});
+        progressTo(100,'Sin cargos posteriores al 941');
+        return notice('No se detectaron cargos posteriores al 941 en el archivo. No se guardó nada.');
       }
       const checked=validateScanRows(rows,SCAN_FILE_ROWS);
       if(checked.errors.length){
-        const message=checked.errors.slice(0,3).map(x=>'Fila '+x.line+': '+x.reason).join(' | ');
-        progressTo(100,'Corrige las filas indicadas');
-        return notice(checked.errors.length+' filas con errores. '+message,true);
+        byId('scanTotal').textContent=String(rows.length);
+        byId('scanValid').textContent=String(checked.ready.length);
+        byId('scanErrors').textContent=String(checked.errors.length);
+        byId('scanDuplicates').textContent='0';byId('scanCrossCargo').textContent='0';
+        sample.replaceChildren();
+        const list=document.createElement('div');
+        list.textContent=checked.errors.slice(0,5).map(e=>'Fila '+e.line+': '+e.reason).join(' | ');
+        sample.append(list);
+        progressTo(100,'Datos del Excel por corregir');
+        return notice(checked.errors.length+' filas con errores. No se modificó ningún Excel.',true);
       }
+      const provisional=localPreview(checked.ready);
+      showPlan(provisional);
+      previewShown=true;
+      progressTo(60,'Cargos detectados: '+provisional.cargos.map(g=>g.cargo).join(', ')+'.');
+      notice(provisional.cargos.length+' cargos detectados provisionalmente. Verificando permisos e índice antes de confirmar…');
+      // Validación remota ligera: únicamente IDs de los dos Excel y el índice
+      // de los cargos; el contenido completo se verifica al confirmar.
+      const masters=await api(null,'GET');
+      if(generation!==epoch)return;
+      progressTo(85,'Contrastando cargos contra los dos históricos…');
       const proposed=planCargoImport(checked.ready,masters);
       if(proposed.invalid.length){
         const first=proposed.invalid[0];
         progressTo(100,'Revisión requerida');
-        return notice('Cargo incorrecto en fila '+first.line+': '+first.reason,true);
+        return notice('Fila '+first.line+': '+first.reason+' No se guardó nada.',true);
       }
-      if(proposed.cargos.some(c=>c.count>15000)){
-        progressTo(100,'Dividir el cargo');
-        return notice('Un cargo tiene más de 15.000 filas nuevas. Divide esa carga antes de confirmarla.',true);
+      if(proposed.cargos.some(g=>g.count>15000)){
+        progressTo(100,'Revisión requerida');
+        return notice('Un cargo supera 15.000 filas nuevas. Divide el archivo por cargos.',true);
       }
       plan=proposed;showPlan(plan);
       reviewedSource=source.source;
-      save.dataset.valid=plan.cargos.length>0&&!isPreview()?'1':'';
-      save.disabled=plan.cargos.length===0||isPreview();
-      progressTo(100,'Validación completa');
+      save.dataset.valid=plan.cargos.length>0&&!isPreview()&&masters.writesEnabled?'1':'';
+      save.disabled=plan.cargos.length===0||isPreview()||!masters.writesEnabled;
+      progressTo(100,'Validación terminada');
       notice(plan.cargos.length+' cargos nuevos encontrados · '+plan.newRows.toLocaleString('es-PE')+
         ' filas · '+plan.ignoredRows+' existentes omitidas. '+
-        (isPreview()?'Simulación sin escritura.':plan.cargos.length?'Listo para confirmar.':'No hay cambios.'));
+        (isPreview()?'Vista de prueba; sin escritura.':
+          !masters.writesEnabled?'No se permite confirmar en este entorno.':
+          plan.cargos.length?'Puedes revisar y pulsar Confirmar carga.':'No hay cargos nuevos.'));
     }catch(error){
-      plan=null;save.dataset.valid='';save.disabled=true;progressTo(0,'Validación interrumpida');
-      notice(error?.message||'Error al leer o validar el Excel.',true);
+      plan=null;reviewedSource='';save.dataset.valid='';save.disabled=true;
+      progressTo(100,previewShown?'Verificación pendiente':'No se pudo leer o validar el Excel');
+      if(!previewShown&&sample.textContent.startsWith('Analizando'))sample.textContent='No fue posible leer el archivo.';
+      notice((previewShown?'Los cargos visibles son preliminares; no están autorizados para guardar. ':
+        'No se pudo generar el resultado. ')+(error?.message||'Error al validar')+
+        ' No se modificó ninguno de los dos Excel.',true);
     }finally{busy=false;file.disabled=false;validate.disabled=false;}
   });
   save.addEventListener('click',async()=>{
