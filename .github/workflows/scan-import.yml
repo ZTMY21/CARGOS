@@ -5,6 +5,12 @@ on:
       - 'src/scan-rows.js'
       - 'src/scan-import-ui.js'
       - 'src/scan-workbook.js'
+      - 'src/scan-cargo-plan.js'
+      - 'src/scan-zip-reader.js'
+      - 'api/cargo-excel.js'
+      - 'server/cargo-excel-book.js'
+      - 'tests/scan-cargo-dual.test.js'
+      - 'supabase/migrations/20261103040000_excel_dual_cargos_2026.sql'
       - 'src/box-scanner.js'
       - 'src/box-scanner-ui.js'
       - 'src/box-conditioning-ui.js'
@@ -58,7 +64,9 @@ jobs:
       - name: Verificar persistencia de sesión en búsquedas
         run: node --test --test-force-exit --test-name-pattern="session persists beyond one hour" tests/app.test.js
       - name: Probar módulos afectados y navegación del Kárdex
-        run: node --test tests/box-scanner.test.js tests/im-requests.test.js tests/im-shipped-summary.test.js tests/scan-import.test.js tests/scan-workbook.test.js tests/box-conditioning.test.js tests/intervention-visual.test.js tests/intervention-premium.test.js tests/box-separation.test.js tests/box-sheet-sync.test.js tests/box-sheets-api.test.js tests/pickup-mail.test.js tests/pickup-mail-ui.test.js tests/pickup-mail-visibility.test.js tests/pickup-mail-demo.test.js
+        run: node --test tests/box-scanner.test.js tests/im-requests.test.js tests/im-shipped-summary.test.js tests/scan-import.test.js tests/scan-workbook.test.js tests/scan-cargo-dual.test.js tests/box-conditioning.test.js tests/intervention-visual.test.js tests/intervention-premium.test.js tests/box-separation.test.js tests/box-sheet-sync.test.js tests/box-sheets-api.test.js tests/pickup-mail.test.js tests/pickup-mail-ui.test.js tests/pickup-mail-visibility.test.js tests/pickup-mail-demo.test.js
+      - name: Verificar sintaxis del backend dual
+        run: node --check api/cargo-excel.js && node --check server/cargo-excel-book.js && node --check src/scan-zip-reader.js
       - name: Compilar aplicativo con configuración pública ficticia
         env:
           SUPABASE_URL: https://example.supabase.co
