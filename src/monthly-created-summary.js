@@ -32,9 +32,11 @@ export function summarizeCreatedCargos(docs,now=new Date()){
       ||asYear(String(doc.fechaOrigen??'').slice(0,4));
     if(sourceYear===null)continue;
     const sourceDate=validIsoDate(doc.fechaOrigen);
-    // La fecha del cargo en Google Sheets (fechaOrigen) manda siempre:
-    // nunca contar una importación como creación de un cargo de este mes.
-    const date=sourceDate;
+    // En la carga Drive-first el KPI de incorporaciones utiliza fechaRegistro
+    // (cuando quedó indexado); el vencimiento y la antigüedad utilizan fechaOrigen.
+    // Para el histórico y el origen Google Sheets se mantiene la fecha del cargo.
+    const date=String(doc.claveOrigen||'').startsWith('excel-drive|')
+      ?validIsoDate(doc.fechaRegistro)||sourceDate:sourceDate;
     if(!yearSets.has(sourceYear))yearSets.set(sourceYear,new Set());
     for(const value of doc.cargos||[]){
       const code=cargoCode(value);
