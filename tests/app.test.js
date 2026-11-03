@@ -90,7 +90,7 @@ async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recov
   Object.assign(context,{
     // Los módulos de interfaz externos no forman parte del test de autenticación.
     attachScanImport:()=>{},attachPickupMail:()=>({}),attachBoxConditioning:()=>({}),
-    attachBoxScanSheets:()=>({scan:()=>{}}),attachBoxScanner:()=>({}),
+    attachBoxScanSheets:()=>({scan:()=>{}}),attachBoxScanner:()=>({activate:()=>{},deactivate:()=>{},reset:()=>{}}),
     attachInterventionExperience:()=>{},
     createClient:(url,key,options)=>{state.authOptions=options?.auth;return client;},KardexRepository:FakeRepository,reqFromDb,docFromDb,reqEstado,docEstado,fmtDate,escapeHtml,invoiceSearchPresentation,buildWorkbook:async(...args)=>{state.exportCalls.push(args);return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},buildCargoWorkbook:async(cargo)=>{state.guestExport=cargo;return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},buildExistenciasReport:async(...args)=>{state.reportArgs=args;return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},serializeExistenciasReport:async()=>{state.serializedReport=true;return new Uint8Array([1]);},parseWorkbook,highlightMatch,normalizeSearch,filterDocuments,filterRequirements,assignedBoxCode,cargoYear,invoiceLocation,locationLabel,groupsForCodes,
     __SUPABASE_URL__:'https://example.supabase.co',__SUPABASE_ANON_KEY__:'sb_publishable_test',confirm:()=>true,alert:()=>{}});
