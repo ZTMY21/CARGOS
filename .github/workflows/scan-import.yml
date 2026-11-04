@@ -43,6 +43,7 @@ on:
       - 'supabase/migrations/20261101195000_box_conditioning.sql'
       - 'api/scan-ingest.js'
       - 'src/app.js'
+      - 'tests/retired-cargos-google-sheet.test.js'
       - 'src/search.js'
       - 'supabase/migrations/20261103064000_existencias_un_anio_por_cargo.sql'
       - 'tests/app.test.js'
@@ -74,7 +75,7 @@ jobs:
       - name: Verificar año único de Existencias y filtro real de cargos
         run: node --test --test-force-exit --test-name-pattern="Existencias muestra 2026|filtro de año de Existencias|clicking the annual cargo count" tests/app.test.js
       - name: Probar módulos afectados y navegación del Kárdex
-        run: node --test tests/box-scanner.test.js tests/im-requests.test.js tests/im-shipped-summary.test.js tests/scan-import.test.js tests/scan-workbook.test.js tests/scan-cargo-dual.test.js tests/cargo-excel-recovery.test.js tests/scan-dropzone.test.js tests/monthly-created-summary.test.js tests/cargo-expiry.test.js tests/excel-import-commit-safety.test.js tests/box-conditioning.test.js tests/intervention-visual.test.js tests/intervention-premium.test.js tests/box-separation.test.js tests/box-sheet-sync.test.js tests/box-sheets-api.test.js tests/pickup-mail.test.js tests/pickup-mail-ui.test.js tests/pickup-mail-visibility.test.js tests/pickup-mail-demo.test.js
+        run: node --test tests/box-scanner.test.js tests/im-requests.test.js tests/im-shipped-summary.test.js tests/scan-import.test.js tests/scan-workbook.test.js tests/scan-cargo-dual.test.js tests/cargo-excel-recovery.test.js tests/retired-cargos-google-sheet.test.js tests/scan-dropzone.test.js tests/monthly-created-summary.test.js tests/cargo-expiry.test.js tests/excel-import-commit-safety.test.js tests/box-conditioning.test.js tests/intervention-visual.test.js tests/intervention-premium.test.js tests/box-separation.test.js tests/box-sheet-sync.test.js tests/box-sheets-api.test.js tests/pickup-mail.test.js tests/pickup-mail-ui.test.js tests/pickup-mail-visibility.test.js tests/pickup-mail-demo.test.js
       - name: Verificar sintaxis del backend dual
         run: node --check api/cargo-excel.js && node --check server/cargo-excel-book.js && node --check src/scan-zip-reader.js
       - name: Compilar aplicativo con configuración pública ficticia
