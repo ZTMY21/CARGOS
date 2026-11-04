@@ -673,8 +673,7 @@
       <span class="admin-requests-top-label">Solicitudes de Cuentas Adm.</span>
       <span id="topAdminRequestsCount" class="admin-requests-top-count" aria-hidden="true">—</span>
     </button>
-    <button id="btnRefreshNewCargos" type="button" class="secondary connection-action" hidden title="Volver a consultar los cargos nuevos que ya recibió Supabase">↻ Refrescar cargos nuevos</button>
-    <button id="btnToggleGoogleSync" type="button" class="secondary connection-action" disabled>Pausar sincronización</button>
+    <button id="btnRefreshNewCargos" type="button" class="secondary connection-action" hidden title="Actualizar cargos y reportes desde Supabase">↻ Actualizar datos</button>
     <button id="btnSignOut" class="secondary connection-action signout-action" hidden>Salir</button>
   </div>
   <section id="googleSyncPanel" hidden class="sync-panel" aria-labelledby="googleSyncTitle">
@@ -695,12 +694,6 @@
         aria-selected="false" aria-controls="grp-correos" tabindex="-1">Avisos de recojo</button>
     </nav>
     <div id="googleSyncContent">
-    <div class="sync-status-row">
-      <span id="googleSyncBadge" class="sync-status-pill" data-status="loading">
-        <span aria-hidden="true">●</span> <span id="googleSyncBadgeText">Consultando</span>
-      </span>
-      <span>Estado de sincronización</span>
-    </div>
     <div class="monthly-panel-title">
       <div>
         <h2 id="googleSyncTitle">Actividad de cargos de este mes</h2>
@@ -734,18 +727,7 @@
         <button id="btnRequestedIMDetail" type="button" class="monthly-created-detail-button" aria-haspopup="dialog" aria-controls="requestedIMSheet">Ver detalle <span aria-hidden="true">↗</span></button>
       </article>
     </div>
-    <!-- Los identificadores originales permanecen ocultos para preservar el chequeo de sincronización existente. -->
-    <div class="sync-legacy-data" hidden aria-hidden="true">
-      <span id="googleSyncRegistered"></span>
-      <span id="googleSyncPending"></span>
-      <span id="googleSyncConflicts"></span>
-    </div>
     <div class="sync-panel-footer">
-      <div class="sync-panel-info">
-        <p id="googleSyncLastReview" hidden>Última revisión: Consultando…</p>
-        <p id="googleSyncDetails" hidden>Último procesamiento: Consultando…</p>
-        <p id="googleSyncStatus" aria-live="polite">Consultando estado de sincronización…</p>
-      </div>
       <div class="sync-panel-actions">
         <div class="google-excel-links" aria-label="Enlaces y reporte de cargos">
           <button id="btnExportar" class="excel-link-button" type="button" hidden>Reporte de Existencias</button>
