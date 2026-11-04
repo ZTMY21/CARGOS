@@ -847,8 +847,10 @@
 
   <!-- ================= REQUERIMIENTOS ================= -->
   <details class="group" id="grp-requerimientos" open>
-    <summary><span class="stitle">Requerimientos (Ingresos de Cajas)<small>Solicitud → Recepción → Completado</small></span><span class="chev">▶</span></summary>
+    <summary><span class="stitle">Requerimientos<small>Solicitud, recepción y devolución de cajas</small></span><span class="chev">▶</span></summary>
     <div class="group-body">
+      <div id="req4Workspace"></div>
+      <div id="reqLegacyForm" hidden>
       <h3 id="reqFormTitle">Nuevo Requerimiento</h3>
       <p class="desc">Para "Cajas nuevas para acondicionar", cuando la cantidad de cajas solicitadas se termine de usar (asignadas a documentos), el requerimiento pasa solo a Completado. Para "Préstamo de Cajas", pasa a Prestado al recibirlo y a Devuelto cuando registras su Fecha de Devolución. Para el resto, pasa a Completado en cuanto registras la Fecha de Recepción.</p>
       <div class="editing-banner" id="reqEditingBanner">Editando requerimiento <b id="reqEditingNumero"></b>.</div>
@@ -877,6 +879,7 @@
         <button id="btnGuardarReq">Guardar requerimiento</button>
         <button class="secondary" id="btnCancelarReq" style="display:none">Cancelar edición</button>
         <span class="msg" id="msgReq"></span>
+      </div>
       </div>
 
       <div class="filters quick-requirements">

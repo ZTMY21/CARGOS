@@ -61,6 +61,7 @@ export function monthsBetween(a, b) {
     + (b.getDate() >= a.getDate() ? 0 : -1);
 }
 export function computeReqEstado(r, docs = []) {
+  if (r.estadoV4) return r.estadoV4;
   if (r.tipo === REQ_TYPES[0]) {
     if (!r.fechaRecepcion) return 'Solicitado';
     const usadas = docs.filter(d => d.cajaAsignada === r.id).length;

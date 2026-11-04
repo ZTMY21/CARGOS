@@ -18,8 +18,10 @@ import { summarizeShippedBoxes } from './im-shipped-summary.js';
 import { renderImBarChart } from './im-bar-chart.js';
 import { cargoExpiryGroups, formatCargoDuration } from './cargo-expiry.js';
 import { requestedIMBoxes, countRequestedCargos, summarizePreparedIm } from './im-requests.js';
+import { requestCards, setupRequirements } from './requirements-ui.js';
 
 const configuration = { url: __SUPABASE_URL__, key: __SUPABASE_ANON_KEY__ };
+const isolatedRequirements = typeof __REQ4_ISOLATED__ !== 'undefined' && __REQ4_ISOLATED__;
 // Capture recovery mode before the client consumes the email callback fragment.
 let passwordRecovery = new URLSearchParams(window.location.hash.slice(1)).get('type') === 'recovery';
 let passwordRecoveryCompleted = false;
@@ -41,6 +43,13 @@ let dataReady = false, realtimeChannel = null, refreshTimer = null, refreshPromi
 let refreshRequested = false;
 let authGeneration = 0, currentUserId = null;
 let pendingReqId = null, pendingDocId = null;
+let requestTracking = null;
+const requestUI = setupRequirements(document.getElementById('req4Workspace'), {
+  repository,
+  context: () => ({allowed:appReady && isAdmin && (!isPreview || isolatedRequirements),
+    id:currentUserId, name:document.getElementById('sessionUser').textContent}),
+  refresh: refreshData
+});
 let queryResults = null, queryError = '', searchEpoch = 0, searchController = null;
 
 const previousCargoCache=new Map(),previousCargoPending=new Map();
@@ -309,6 +318,13 @@ function setAvailability() {
   const total=queryResults?.total??lastFiltered.length;
   document.getElementById('btnPaginaAnterior').disabled=!appReady||mutationBusy||currentPage===0;
   document.getElementById('btnPaginaSiguiente').disabled=!appReady||mutationBusy||total<=(currentPage+1)*PAGE_SIZE;
+  requestUI.update(reqs,isAdmin ? requestTracking : null);
+  if (isolatedRequirements) {
+    document.getElementById('btnRefreshNewCargos').hidden = true;
+    for (const id of ['btnOpenIronMountainExcel','btnOpenIronMountainHistorical','preparedImOpenExcel']) {
+      document.getElementById(id).hidden = true;
+    }
+  }
 }
 function readableError(error) {
   const authErrors = {
@@ -340,6 +356,9 @@ async function refreshData() {
         continue;
       }
       await loadReqs(snapshot);
+      const detail = isAdmin ? await repository.requestTracking().catch(() => null) : null;
+      if (generation !== authGeneration || !currentUserId) continue;
+      requestTracking = detail;
       const previousDocs = queryResults ? new Map(docs.map(d=>[d.id,d])) : null;
       await loadDocs(snapshot);
       // Mantener actualizada una búsqueda ya aplicada cuando se sincroniza su envío.
@@ -432,7 +451,7 @@ function updateReqCondFields(){
 document.getElementById('rq_tipo').addEventListener('change', updateReqCondFields);
 
 function reqBadgeClass(estado){
-  return {'Solicitado':'b-solicitado','Recibido':'b-recibido','Completado':'b-completado','Prestado':'b-prestado','Devuelto':'b-completado'}[estado]||'';
+  return {'Solicitado':'b-solicitado','Confirmado':'b-solicitado','Recibido parcialmente':'b-prestado','Recibido':'b-recibido','Completado':'b-completado','Prestado':'b-prestado','Devuelto':'b-completado'}[estado]||'';
 }
 
 async function loadReqs(snapshot){
@@ -463,7 +482,7 @@ function renderReqs(){
         <td><span class="badge ${reqBadgeClass(r.estado)}">${r.estado}</span></td>
         <td>${escapeHtml(r.usuario||'')}</td>
         <td>
-          ${isAdmin ? `<button class="link" data-edit="${r.id}">Editar</button>
+          ${isAdmin && r.estadoV4 ? `<button class="link" data-track="${r.id}">Ver detalle</button>` : isAdmin && !isPreview ? `<button class="link" data-edit="${r.id}">Editar</button>
           <button class="danger" data-id="${r.id}">Eliminar</button>` : 'Solo consulta'}
         </td>
       </tr>`;
@@ -484,11 +503,15 @@ function renderReqs(){
   tbody.querySelectorAll('button.link[data-edit]').forEach(btn=>{
     btn.addEventListener('click', ()=> cargarReqParaEditar(btn.dataset.edit));
   });
+  tbody.querySelectorAll('button[data-track]').forEach(btn=>{
+    btn.addEventListener('click', () => requestUI.show(btn.dataset.track));
+  });
 }
 
 function cargarReqParaEditar(id){
   const r = reqs.find(x=>x.id===id);
   if(!r) return;
+  document.getElementById('reqLegacyForm').hidden = false;
   editingReqId = id;
   editingReqVersion = r.updatedAt;
   document.getElementById('rq_tipo').value = r.tipo;
@@ -514,6 +537,7 @@ function cancelarEdicionReq(){
   document.getElementById('reqEditingBanner').style.display = 'none';
   document.getElementById('btnGuardarReq').textContent = 'Guardar requerimiento';
   document.getElementById('btnCancelarReq').style.display = 'none';
+  document.getElementById('reqLegacyForm').hidden = true;
   limpiarFormReq();
 }
 function limpiarFormReq(){
@@ -954,6 +978,8 @@ function renderDocs(){
         <div class="pct-txt">Sin fecha de envío · todavía pendientes de Iron Mountain</div>
       </div>
     </div>
+    ${isAdmin ? requestCards(reqs,requestTracking) : ''}
+    ${isolatedRequirements ? '<p class="expiry-note">Intervención 4 · Base aislada de pruebas con una muestra de registros reales. Consolidación en Excel pendiente.</p>' : ''}
     ${expiryGroups.unknown.length ? `<p class="expiry-note">${fmtNum(cargosDe(expiryGroups.unknown))} cargos de 2025/2026 sin fecha válida para calcular el vencimiento; no se incluyen en estas alertas.</p>` : ''}
     <section class="year-section periodo-box" aria-labelledby="year-summary-heading">
       <h3 class="year-heading" id="year-summary-heading">Cargos por Año</h3>
@@ -1338,6 +1364,8 @@ function openCargoExpiry(group) {
   sheet.querySelector('.expiry-table-wrap').scrollTop = 0;
 }
 document.getElementById('resumenTablas').addEventListener('click', event => {
+  const requestCard = event.target.closest('button[data-req-card]');
+  if (requestCard) { requestUI.showCard(requestCard.dataset.reqCard); return; }
   const button = event.target.closest('button[data-expiry]');
   if (button) openCargoExpiry(button.dataset.expiry);
   if(event.target.closest('button[data-prepared-im]')) openPreparedIm();
@@ -1449,6 +1477,7 @@ document.getElementById('f_sustentoImagen').addEventListener('change', (ev)=>{
 
 // Every write targets Supabase; the in-memory arrays only render confirmed records.
 document.getElementById('btnGuardarReq').addEventListener('click', async ev => {
+  if (!editingReqId || isPreview) return;
   const usuario = document.getElementById('rq_usuario').value.trim();
   const fechaSolicitud = document.getElementById('rq_fechaSolicitud').value;
   const tipo = document.getElementById('rq_tipo').value;

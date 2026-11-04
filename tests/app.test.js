@@ -16,6 +16,7 @@ import {summarizeShippedBoxes} from '../src/im-shipped-summary.js';
 import {summarizeCreatedCargos} from '../src/monthly-created-summary.js';
 import {renderImBarChart} from '../src/im-bar-chart.js';
 import {renderCargoLineChart} from '../src/cargo-line-chart.js';
+import {requestCards,setupRequirements} from '../src/requirements-ui.js';
 
 const flush=()=>new Promise(resolve=>setTimeout(resolve,20));
 const reqRow={id:randomUUID(),numero:'REQ-00001',tipo:'Cajas nuevas para acondicionar',fecha_solicitud:'2026-10-01',cantidad_cajas:2,numeros_cargo:'',fecha_recepcion:'2026-10-02',fecha_devolucion:null,usuario:'Juan',updated_at:'2026-10-13T00:00:00.123456Z'};
@@ -51,6 +52,7 @@ async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recov
       signOut:async()=>{state.signOuts++;state.session=null;state.authCallback('SIGNED_OUT',null);return {error:null};}}
   };
   class FakeRepository {
+    async requestTracking(){return {cajas:[],movimientos:[]};}
     async reportDocs(rows,year=null){state.reportRequestedYear=year;return rows.filter(d=>year===null||cargoYear(d)===String(year));}
     async fetchDoc(id){state.fetchedId=id;return docFromDb({...state.docs.find(d=>d.id===id),facturas:'F-001, F-002, F-003, F-004'});}
     async access(){state.loadingDuringAccess={loading:!dom.window.document.getElementById('sessionLoading').hidden,login:!dom.window.document.getElementById('authOverlay').hidden};return {allowed,is_admin:isAdmin};}
@@ -89,6 +91,7 @@ async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recov
   context.Date=class extends Date {constructor(...args){super(...(args.length?args:[state.now]));}static now(){return state.now;}};
   Object.assign(context,{cargoTotalsByYear,uniqueCargoDocuments,isSentIm,usesHistoricalImDecision,historicalShipmentDetails,HISTORICAL_IM_NOTE,cargoExpiryGroups,formatCargoDuration,limaDate,requestedIMBoxes,countRequestedCargos,summarizePreparedIm,summarizeShippedBoxes,summarizeCreatedCargos,renderImBarChart,renderCargoLineChart});
   Object.assign(context,{
+    requestCards,setupRequirements,
     // Los módulos de interfaz externos no forman parte del test de autenticación.
     attachScanImport:()=>{},attachPickupMail:()=>null,attachBoxConditioning:()=>null,
     attachBoxScanSheets:()=>null,attachBoxScanner:()=>({activate:()=>{},deactivate:()=>{},reset:()=>{}}),
@@ -199,14 +202,14 @@ test('connected screen preserves conditional fields, live indicators, search and
   const a=await app();
   try {
     assert.equal(a.node('authOverlay').hidden,true);
-    assert.equal(a.node('rq_wrap_cantidad').hidden,false);
-    assert.equal(a.node('rq_wrap_cargos').hidden,true);
-    assert.equal(a.node('rq_wrap_devolucion').hidden,true);
-    a.node('rq_tipo').value='Préstamo de Cajas (búsqueda de documentos)';
-    a.node('rq_tipo').dispatchEvent(new a.dom.window.Event('change'));
-    assert.equal(a.node('rq_wrap_cantidad').hidden,true);
-    assert.equal(a.node('rq_wrap_cargos').hidden,false);
-    assert.equal(a.node('rq_wrap_devolucion').hidden,false);
+    assert.equal(a.node('req4QtyWrap').hidden,false);
+    assert.equal(a.node('req4Loan').hidden,true);
+    assert.equal(a.node('req4ReceiptWrap').hidden,false);
+    a.node('req4Kind').value='prestamo';
+    a.node('req4Kind').dispatchEvent(new a.dom.window.Event('change'));
+    assert.equal(a.node('req4QtyWrap').hidden,true);
+    assert.equal(a.node('req4Loan').hidden,false);
+    assert.equal(a.node('req4ReceiptWrap').hidden,true);
     assert.ok(a.node('resumenTablas').textContent.includes('30 folios'));
     a.node('buscar').value='F-001';a.node('btnBuscar').click();
     assert.ok(a.node('tbody').textContent.includes('SA-00001'));

@@ -8,7 +8,8 @@ export function reqFromDb(row) {
     id: row.id, numero: row.numero, tipo: row.tipo, fechaSolicitud: row.fecha_solicitud,
     cantidadCajas: row.cantidad_cajas ?? '', numerosCargo: row.numeros_cargo || '',
     fechaRecepcion: row.fecha_recepcion || '', fechaDevolucion: row.fecha_devolucion || '',
-    usuario: row.usuario, updatedAt: row.updated_at
+    usuario: row.usuario, updatedAt: row.updated_at,
+    estadoV4: row.estado_v4, confirmadoV4: row.confirmado_v4, recibidoV4: row.recibido_v4 ?? 0
   };
 }
 export function docFromDb(row) {
@@ -70,6 +71,11 @@ export class KardexRepository {
   constructor(client) { this.client = client; }
   async snapshot() { return checked(await this.client.rpc('kardex_snapshot')); }
   async access() { return checked(await this.client.rpc('kardex_access')); }
+  async requestBoxes(query) { return checked(await this.client.rpc('kardex_req4_buscar',{p_query:query})); }
+  async requestTracking() { return checked(await this.client.rpc('kardex_req4_detalle')); }
+  async requestAction(id, action, data) {
+    return reqFromDb(checked(await this.client.rpc('kardex_req4_accion',{p_id:id,p_accion:action,p_datos:data})));
+  }
   async preparedImDetails() { return checked(await this.client.rpc('kardex_prepared_im_detail')); }
   async requestedIMDetails() { return checked(await this.client.rpc('kardex_requested_im_detail')); }
   async shippedIMBoxesMonthly() { return checked(await this.client.rpc('kardex_im_boxes_sent_monthly')); }
