@@ -159,7 +159,8 @@ test('préstamos solo permite solicitar una caja con envío confirmado y sin pr�
   'F001-000001':[{tipo:'documento',estado:'Identificación pendiente',cargos:['900'],solicitable:false}],
   'T1234567890':[{clave:'1234567890',codigo:'T1234567890',estado:'Caja preparada para envío',cargos:['901'],solicitable:false}],
   'T1234567891':[{clave:'1234567891',codigo:'T1234567891',estado:'Enviado a Iron Mountain',cargos:['902'],solicitable:true}],
-  'T1234567892':[{clave:'1234567892',codigo:'T1234567892',estado:'Enviado a Iron Mountain',cargos:['903'],prestamo:'REQ-0001',solicitable:false}]
+  'T1234567892':[{clave:'1234567892',codigo:'T1234567892',estado:'Enviado a Iron Mountain',cargos:['903'],prestamo:'REQ-0001',solicitable:false}],
+  'T1234567893':[{clave:'1234567893',codigo:'T1234567893',estado:'Caja solicitada',cargos:['904'],solicitable:false}]
  }});
  try {
   const search=async query=>{
@@ -181,6 +182,10 @@ test('préstamos solo permite solicitar una caja con envío confirmado y sin pr�
   const borrowed=await search('T1234567892');
   assert.match(borrowed.textContent,/Préstamo activo/);
   assert.equal(borrowed.querySelector('[data-req-select]'),null);
+  const returnPending=await search('T1234567893');
+  assert.match(returnPending.textContent,/Por solicitud en la hoja de envíos/);
+  assert.match(returnPending.textContent,/Sin préstamo activo · Pendiente de reenvío/);
+  assert.equal(returnPending.querySelector('[data-req-select]'),null);
   const empty=await search('sin coincidencias');
   assert.match(empty.textContent,/No hubo coincidencias en los datos disponibles de la Preview/);
  } finally { a.close(); }

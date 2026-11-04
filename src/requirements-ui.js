@@ -77,6 +77,7 @@ export function setupRequirements(root, {repository, context, refresh, isPreview
   function renderSelection() {
     find('Selected').innerHTML = selected.size ? `<ul>${[...selected.values()].map(box => `<li>
       <strong>${html(box.codigo)}</strong> · cargos ${html(box.cargos.join(', '))}
+      ${!canRequest(box) ? ' · No disponible para préstamo' : ''}
       <button class="link" data-req-remove="${html(box.clave)}" type="button">Retirar</button>
     </li>`).join('')}</ul>` : '<p>Agrega las cajas que deseas solicitar.</p>';
   }
@@ -103,12 +104,17 @@ export function setupRequirements(root, {repository, context, refresh, isPreview
       const found = await repository.requestBoxes(value);
       if (epoch !== searchEpoch || !allowed()) return;
       results = found;
+      for (const box of found) {
+        if (selected.has(box.clave)) selected.set(box.clave,box);
+      }
+      renderSelection();
       container.innerHTML = found.length ? `<ul>${found.map((box,index) => `<li>
-        <strong>${html(box.codigo || (box.tipo === 'documento' ? 'Documento encontrado sin caja física registrada' : 'Cargo encontrado sin caja física registrada'))}</strong> · ${html(box.estado)}
+        <strong>${html(box.codigo || (box.tipo === 'documento' ? 'Documento encontrado sin caja física registrada' : 'Cargo encontrado sin caja física registrada'))}</strong> · ${html(box.estado === 'Caja solicitada' ? 'Por solicitud en la hoja de envíos' : box.estado)}
         ${box.ubicacion ? ` · ${html(box.ubicacion)}` : ''} · cargos ${html((box.cargos || []).join(', '))}
         ${box.prestamo ? ` · Préstamo activo ${html(box.prestamo)}`
           : canRequest(box) ? `<button type="button" class="link" data-req-select="${index}">Solicitar</button>`
-            : box.clave ? ' · Solicitud disponible cuando se confirme el envío a Iron Mountain' : ''}
+            : box.estado === 'Caja solicitada' ? ' · Sin préstamo activo · Pendiente de reenvío a Iron Mountain'
+              : box.clave ? ' · Solicitud disponible cuando se confirme el envío a Iron Mountain' : ''}
       </li>`).join('')}</ul>` : `<p>${isPreview
         ? 'No hubo coincidencias en los datos disponibles de la Preview. Prueba con el código completo.'
         : 'No se encontró ese cargo, documento o código de caja.'}</p>`;
@@ -143,6 +149,15 @@ export function setupRequirements(root, {repository, context, refresh, isPreview
       void refresh().catch(() => { status.textContent += ' Actualiza para consultar el registro.'; });
       return saved;
     } catch(error) {
+      if (actor !== context().id) return null;
+      if (error.hint === 'req4_envio_pendiente' && selected.has(error.details)) {
+        const box = selected.get(error.details);
+        selected.set(box.clave,{...box,solicitable:false});
+        const index = results.findIndex(result=>result.clave===box.clave);
+        find('Results').querySelector(`[data-req-select="${index}"]`)?.remove();
+        results = results.map(result=>result.clave===box.clave ? {...result,solicitable:false} : result);
+        renderSelection();
+      }
       status.textContent = error.message;
       return null;
     } finally { busy = false; }
@@ -153,6 +168,10 @@ export function setupRequirements(root, {repository, context, refresh, isPreview
     const status = find('Status');
     const count = Number(qty.value);
     if (loan && selected.size === 0) { status.textContent = 'Agrega al menos una caja.'; return; }
+    if (loan && [...selected.values()].some(box=>!canRequest(box))) {
+      status.textContent = 'Retira las cajas no disponibles o vuelve a buscarlas para actualizar su estado.';
+      return;
+    }
     if (!loan && (!Number.isInteger(count) || count < 1 || count > 100)) {
       status.textContent = 'Ingresa entre 1 y 100 cajas enteras.'; return;
     }
