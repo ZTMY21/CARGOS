@@ -20,22 +20,17 @@ function detailsList(rows) {
 
 export function requestCards(rows, tracking) {
   const supplies = rows.filter(row => row.estadoV4 && row.tipo === REQ_TYPES[0]);
-  const loans = rows.filter(row => row.estadoV4 && row.tipo === REQ_TYPES[1]);
   const supplyPending = supplies.reduce((total, row) => total + Number(row.cantidadCajas) - row.recibidoV4, 0);
   const loanPending = new Set(tracking?.cajas.filter(box => !box.devolucion).map(box => box.clave)).size;
-  return [['nuevas','Cajas para acondicionar',tracking ? supplyPending : '—',supplies],
-          ['prestamo','Préstamos de cajas',tracking ? loanPending : '—',loans]]
-      .map(([kind,title,total,records]) => {
-        const last=records.at(-1);
-        return `<section class="kpi kpi-color req4-card">
+  return [['nuevas','Cajas para acondicionar',tracking ? supplyPending : '—'],
+          ['prestamo','Préstamos de cajas',tracking ? loanPending : '—']]
+      .map(([kind,title,total]) => `<section class="kpi kpi-color">
           <div class="expiry-card-heading">
             <div class="l">${title}</div>
             <button type="button" class="expiry-detail-button" data-req-card="${kind}" aria-label="Ver detalle de ${title}" aria-haspopup="dialog" aria-controls="req4Dialog">Ver detalle</button>
           </div>
           <div class="n">${total}</div>
-          ${last ? `<p>${fmtDate(last.fechaSolicitud)} · ${html(receptionStatus(last))} · ${last.recibidoV4}/${Number(last.cantidadCajas)} recibidas</p>` : ''}
-        </section>`;
-      }).join('');
+        </section>`).join('');
 }
 
 export function setupRequirements(root, {repository, context, refresh, isPreview = false}) {
@@ -291,7 +286,7 @@ export function setupRequirements(root, {repository, context, refresh, isPreview
       const list = rows.filter(row=>row.estadoV4 && row.tipo===REQ_TYPES[key==='nuevas'?0:1]);
       find('DialogTitle').textContent = key==='nuevas' ? 'Cajas para acondicionar' : 'Préstamos de cajas';
       delete find('DialogBody').dataset.row;
-      find('DialogBody').innerHTML = list.length ? `<ul>${detailsList(list)}</ul>` : '<p>Sin requerimientos registrados.</p>';
+      find('DialogBody').innerHTML = list.length ? `<ul class="req4-detail-list">${detailsList(list)}</ul>` : '<p>Sin requerimientos registrados.</p>';
       find('DialogStatus').textContent = '';
       if (!dialog.open) dialog.showModal();
     }

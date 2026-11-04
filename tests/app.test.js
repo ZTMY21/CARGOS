@@ -22,14 +22,14 @@ const flush=()=>new Promise(resolve=>setTimeout(resolve,20));
 const reqRow={id:randomUUID(),numero:'REQ-00001',tipo:'Cajas nuevas para acondicionar',fecha_solicitud:'2026-10-01',cantidad_cajas:2,numeros_cargo:'',fecha_recepcion:'2026-10-02',fecha_devolucion:null,usuario:'Juan',updated_at:'2026-10-13T00:00:00.123456Z'};
 const docRow={id:randomUUID(),kardex:'SA-00001',fecha_registro:'2026-10-13',tipo_doc:'Facturas-Guia',periodo:'2026-01-01',ubicacion:'Santa Anita',folios:30,cargos:['C001'],caja_asignada:reqRow.id,f_envio:null,sustento:'',sustento_imagen:'',usuario:'Juan',facturas:'F-001',obs:'',updated_at:'2026-10-13T00:00:00.123456Z'};
 
-async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recovery=false,adminLink='',loginError=null,isolatedPreview=false,annualReference=null,loanMatches={},enableSearch=false,username='',previousMapping={},initialDocs=[docRow],now=Date.now()}={}) {
+async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recovery=false,adminLink='',loginError=null,isolatedPreview=false,annualReference=null,loanMatches={},enableSearch=false,username='',previousMapping={},initialDocs=[docRow],initialReqs=[reqRow],now=Date.now()}={}) {
   const html=await readFile(new URL('../index.html',import.meta.url),'utf8');
   const source=(await readFile(new URL('../src/app.js',import.meta.url),'utf8')).replace(/^import .*;\n/gm,'');
   const dom=new JSDOM(html,{url:'https://kardex.example.test'+adminLink+(recovery?'#type=recovery':''),runScripts:'outside-only'});
   dom.window.HTMLElement.prototype.scrollIntoView=()=>{};
   dom.window.HTMLDialogElement.prototype.showModal=function(){this.open=true;};
   dom.window.HTMLDialogElement.prototype.close=function(){if(this.open){this.open=false;this.dispatchEvent(new dom.window.Event('close'));}};
-  const state={reqs:[structuredClone(reqRow)],docs:structuredClone(initialDocs),updates:[],snapshots:0,events:[],status:null,authCallback:null};
+  const state={reqs:structuredClone(initialReqs),docs:structuredClone(initialDocs),updates:[],snapshots:0,events:[],status:null,authCallback:null};
   state.session=signedIn?{user:{id:'owner',email:'owner@example.test',user_metadata:username?{kardex_username:username}:{}}}:null;
   state.syncRow={enabled:true,status:'Revisión completada: 276 cargos ya registrados. 1480 filas pendientes.',
     last_checked_at:'2026-10-17T03:09:17Z',
@@ -151,6 +151,30 @@ test('la Preview alinea las tres tarjetas y distingue los conteos anuales de la 
   assert.match(a.node('imYearSummaryGrid').textContent,/2026\s+2\s+cargos/);
   assert.equal(a.node('yearSummaryGrid').querySelector('[data-cargo-year]'),null);
   assert.match(summary.textContent,/Existencias contiene una muestra de pruebas/);
+ } finally { a.close(); }
+});
+
+test('la Preview muestra la fecha, el estado y las recepciones de ambas tarjetas solo en Ver detalle',async()=>{
+ const supply={...reqRow,fecha_solicitud:'2026-11-04',fecha_recepcion:null,cantidad_cajas:100,estado_v4:'Solicitado',recibido_v4:0};
+ const loan={...supply,id:randomUUID(),numero:'REQ-00002',tipo:'Préstamo de Cajas (búsqueda de documentos)',cantidad_cajas:1};
+ const a=await app({isolatedPreview:true,initialReqs:[supply,loan]});
+ try {
+  const dialog=a.node('req4Dialog');
+  for(const [kind,title,detail] of [
+   ['nuevas','Cajas para acondicionar',/REQ-00001\s+· 04\/11\/2026 · Pendiente de recepción\s+· 0 de 100 cajas recibidas/],
+   ['prestamo','Préstamos de cajas',/REQ-00002\s+· 04\/11\/2026 · Solicitado\s+· 0 de 1 cajas recibidas/]
+  ]) {
+   const button=a.node('resumenTablas').querySelector(`[data-req-card="${kind}"]`);
+   const card=button.closest('.kpi');
+   assert.equal(card.querySelector('.l').textContent,title);
+   assert.equal(card.querySelector('.expiry-card-heading + .n'),card.lastElementChild);
+   assert.doesNotMatch(card.textContent,/04\/11\/2026|recepción|Solicitado|recibidas/);
+   button.click();
+   assert.equal(dialog.open,true);
+   assert.equal(a.node('req4DialogTitle').textContent,title);
+   assert.match(a.node('req4DialogBody').textContent,detail);
+   dialog.querySelector('[data-req-close]').click();
+  }
  } finally { a.close(); }
 });
 
