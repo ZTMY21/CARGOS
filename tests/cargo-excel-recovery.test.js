@@ -47,6 +47,24 @@ test('orphan latest cargo is replaced, not appended, while previous cargos and t
   assert.ok(check.table.includes('ref="A1:K6"'));
 });
 
+test('same number of rows: replaces 944 data without changing table dimension',async()=>{
+  const input=await fixture([[942,'ANTERIOR-942'],[943,'ANTERIOR-943'],
+    [944,'EQUIVOCADO-1'],[944,'EQUIVOCADO-2'],[944,'EQUIVOCADO-3']]);
+  const before=await inspectMaster(input,'depurado');
+  const output=await replaceLastMasterCargo(input,'depurado',944,replacement);
+  const after=await inspectMaster(output.bytes,'depurado');
+  assert.equal(output.replaced,true);
+  assert.equal(output.previousRows,3);
+  assert.equal(after.counts[944],3);
+  assert.equal(after.rows,before.rows);
+  assert.equal(after.lastCargo,944);
+  assert.equal(after.table,before.table);
+  assert.ok(after.xml.includes('CORREGIDO-1'));
+  assert.ok(after.xml.includes('CORREGIDO-3'));
+  assert.ok(!after.xml.includes('EQUIVOCADO-1'));
+  assert.ok(after.xml.includes('ANTERIOR-943'));
+});
+
 test('the reconciliation refuses replacing earlier cargos or a mixed tail',async()=>{
   const input=await fixture([[942,'EXISTENTE'],[943,'EXISTENTE'],
     [944,'MALO'],[944,'MALO']]);
