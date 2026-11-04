@@ -234,7 +234,13 @@ export function createCargoExcelHandler({env=process.env,fetcher=fetch}={}){
         detail:'Los dos Excel se verificaron y el índice del Kárdex fue actualizado.'});
     }catch(error){
       const known=error instanceof ArchiveError;
-      if(!known)console.error(JSON.stringify({event:'cargo_excel_error',code:'EXCEL_DUAL_UNAVAILABLE'}));
+      // Log only stable symbolic internal error codes, never invoice data or
+      // provider response bodies. Keep a useful diagnostic for future failures.
+      if(!known){
+        const reason=typeof error?.message==='string'&&/^[A-Z][A-Z0-9_]{4,80}$/.test(error.message)
+          ?error.message:'UNEXPECTED_INTERNAL_FAILURE';
+        console.error(JSON.stringify({event:'cargo_excel_error',code:'EXCEL_DUAL_UNAVAILABLE',reason}));
+      }
       return output(res,known?error.status:503,{error:known?error.code:'EXCEL_DUAL_UNAVAILABLE',
         message:known&&error.code==='ESCRITURA_PENDIENTE_DE_VERIFICACION'
           ?'El intento pudo haberse guardado. Vuelve a validar ambos Excel antes de reintentar; nunca repitas a ciegas.':null});

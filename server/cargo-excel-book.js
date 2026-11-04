@@ -158,7 +158,10 @@ export async function replaceLastMasterCargo(bytes,target,cargo,rows){
     throw Error('DIMENSION_NO_ACTUALIZADA');
   patched=patched.replaceAll('ref="'+oldRef+'"','ref="'+newRef+'"');
   const table=info.table.replaceAll('ref="'+oldRef+'"','ref="'+newRef+'"');
-  if(table===info.table||!table.includes('ref="'+newRef+'"'))
+  // The range is supposed to stay identical when old and corrected cargos
+  // contain the same number of rows (e.g. 944: 432 -> 432).
+  // inspectMaster below validates that the table actually matches the sheet.
+  if(!table.includes('ref="'+newRef+'"'))
     throw Error('FILTRO_MAESTRO_NO_ACTUALIZADO');
   info.zip.file(SHEET,patched);info.zip.file(TABLE,table);
   const output=await info.zip.generateAsync({
