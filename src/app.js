@@ -27,7 +27,6 @@ const supabase = configuration.url && configuration.key ? createClient(configura
   auth: {persistSession:true, autoRefreshToken:true, detectSessionInUrl:true}
 }) : null;
 const repository = supabase ? new KardexRepository(supabase) : null;
-let googleSyncEnabled=true;
 let activeWorkspaceTab='resumen';
 let boxScannerController=null;
 let boxConditioningController=null;
@@ -345,7 +344,6 @@ async function refreshData() {
       populateYearOptions();
       renderReqs(); renderDocs();
       if(isAdmin) {
-        void refreshGoogleSync();
         if (document.getElementById('preparedImSheet').open) void reloadPreparedImDetail();
         if(appReady) {
           void reloadPreparedImSummary();
@@ -1706,7 +1704,7 @@ async function handleSession(session) {
       void reloadPreparedImSummary();
       void reloadRequestedIM();
       void reloadShippedBoxesSummary();
-      refreshGoogleSync();void refreshAdminRequests();
+      void refreshAdminRequests();
       clearInterval(adminRequestsTimer);
       adminRequestsTimer=setInterval(()=>{
         if(appReady && isAdmin && currentUserId && !document.hidden)void refreshAdminRequests();
@@ -1813,14 +1811,13 @@ document.getElementById('btnRefreshNewCargos').addEventListener('click',async ev
     if(repository.search && (filters.query||filters.state||filters.type||filters.location||filters.year||filters.invoiceExact))
       await fetchSearchResults();
     const current=cargoTotals2026().total;
-    await refreshGoogleSync();
     setStatus(current===previous
-      ? `Cargos verificados: ${fmtNum(current)} de 2026. Si falta una factura, revisa el resultado de envío en Google Sheets.`
+      ? `Cargos verificados en la base de datos: ${fmtNum(current)} de 2026.`
       : `Cargos 2026 actualizados: ${fmtNum(previous)} → ${fmtNum(current)}.`, 'online');
   } catch(error) {
     setStatus('No se pudo refrescar: '+readableError(error),'error');
   } finally {
-    button.textContent='↻ Refrescar cargos nuevos';
+    button.textContent='↻ Actualizar datos';
     button.disabled=false;
   }
 });
@@ -2007,76 +2004,8 @@ document.getElementById('adminRequestsList').addEventListener('click',async even
   finally{button.disabled=false;}
 });
 
-function syncMetric(value) {
-  // Missing readings are unknown, not zero; do not hardcode dashboard totals.
-  if(value === null || value === undefined || value === '') return '—';
-  const parsed=Number(value);
-  return Number.isFinite(parsed) && parsed>=0 ? parsed.toLocaleString('es-PE') : '—';
-}
-async function refreshGoogleSync(){
-  if(!appReady||!isAdmin)return;
-  const button=document.getElementById('btnToggleGoogleSync');
-  button.disabled=true;
-  try{
-    const {data,error}=await supabase.from('kardex_google_sync').select().eq('id',true).single();
-    if(error)throw error;
-    // El informe de resguardos requiere permiso de administrador. Un
-    // problema en esa consulta no debe ocultar el estado de sincronización.
-    const protection=await repository.cargoSafetyStatus().catch(()=>null);
-    googleSyncEnabled=!!data.enabled;
-    button.textContent=data.enabled?'Pausar sincronización':'Activar sincronización';
-    const badge=document.getElementById('googleSyncBadge');
-    badge.dataset.status=data.enabled?'active':'paused';
-    document.getElementById('googleSyncBadgeText').textContent=data.enabled?'ACTIVA':'PAUSADA';
-
-    const result=data.last_result||{};
-    const onEditMode=result.mode==='onedit';
-    if(onEditMode) {
-      const altas=!!data.enabled && result.verified===true;
-      const bajas=altas && result.delete_verified===true;
-      badge.dataset.status=!data.enabled?'paused':bajas?'active':'loading';
-      document.getElementById('googleSyncBadgeText').textContent=!data.enabled?'PAUSADA':bajas?'ALTAS Y BAJAS ACTIVAS':altas?'BAJAS POR ACTIVAR':'POR ACTIVAR';
-    }
-    const conteo2026=cargoTotals2026();
-    const groups=syncMetric(onEditMode?conteo2026.total:result.groups);
-    const pending=syncMetric(result.pending_rows);
-    const conflicts=syncMetric(result.conflictos);
-    document.getElementById('googleSyncRegistered').textContent=groups;
-    document.getElementById('googleSyncPending').textContent=pending;
-    document.getElementById('googleSyncConflicts').textContent=conflicts;
-    const checkedAt=data.last_checked_at ? new Date(data.last_checked_at) : null;
-    const last=checkedAt && Number.isFinite(checkedAt.getTime())
-      ? checkedAt.toLocaleString('es-PE',{timeZone:'America/Lima'})
-      : 'Pendiente';
-    document.getElementById('googleSyncLastReview').textContent=onEditMode
-      ? (result.verified?'Último cargo recibido: '+last+' (Lima)':'Aguardando primera edición autorizada en Apps Script')
-      : 'Última revisión: '+last+' (Lima)';
-    document.getElementById('googleSyncStatus').textContent=onEditMode && !!data.enabled && (result.verified!==true || result.delete_verified!==true)
-      ? 'La sincronización está activada, pero aún falta verificar las altas y/o el archivado de bajas con una operación real. Revisa las fechas y resultados en INSTRUCCIONES D2 y D7 del Google Sheets y las ejecuciones de Apps Script.'
-      : data.status||'Sin estado informado';
-    const safetyDetail=protection
-      ? ' Seguridad: '+syncMetric(protection.resguardos)+' versiones protegidas; '+
-        syncMetric(protection.cargos_archivados)+' cargos archivados; '+
-        syncMetric(protection.bajas_por_revisar)+' bajas por revisar. Las bajas detectadas se conservan hasta validación administrativa.'
-      : ' Seguridad: consulta de resguardos pendiente.';
-    document.getElementById('googleSyncDetails').textContent=(onEditMode
-      ? `Cargos de 2026: ${fmtNum(conteo2026.historicos)} del Excel base + ${fmtNum(conteo2026.nuevos)} incorporados desde Google Sheets = ${groups} cargos únicos. Los errores se registran en las columnas técnicas ocultas de la hoja.`
-      : `Último procesamiento: ${groups} cargos revisados; ${syncMetric(result.cargos_nuevos)} nuevos; ${syncMetric(result.cargos_actualizados)} actualizados; ${pending} filas pendientes; ${conflicts} conflictos.`)
-      +safetyDetail;
-    if(protection && Number(protection.bajas_por_revisar)>0){
-      badge.dataset.status='loading';
-      document.getElementById('googleSyncBadgeText').textContent='BAJAS POR REVISAR';
-    }
-  }catch(error){
-    document.getElementById('googleSyncBadge').dataset.status='error';
-    document.getElementById('googleSyncBadgeText').textContent='SIN CONEXIÓN';
-    document.getElementById('googleSyncStatus').textContent='No se pudo consultar el estado: '+readableError(error);
-  }
-  finally{button.disabled=!appReady||!isAdmin;}
-}
 setInterval(()=>{
   if(!document.hidden) {
-    refreshGoogleSync();
     if(appReady && isAdmin && currentUserId && !mutationBusy){
       void reloadPreparedImSummary();
       void reloadRequestedIM();
@@ -2096,7 +2025,6 @@ setInterval(()=>{
 },300000);
 document.addEventListener('visibilitychange',()=>{
   if(document.hidden)return;
-  void refreshGoogleSync();
   // Una pestaña que estuvo en segundo plano debe traer el Kardex y
   // recalcular cargos vencidos, preparados y envíos al volver a abrirse.
   if(appReady&&currentUserId&&!mutationBusy)scheduleRefresh();
@@ -2104,15 +2032,6 @@ document.addEventListener('visibilitychange',()=>{
 window.addEventListener('focus',()=>{
   if(appReady&&currentUserId&&!document.hidden&&!mutationBusy)scheduleRefresh();
 });
-document.getElementById('btnToggleGoogleSync').addEventListener('click',async ev=>{
-  if(!appReady||!isAdmin||isPreview)return;
-  ev.currentTarget.disabled=true;
-  try{
-    const {error}=await supabase.from('kardex_google_sync').update({enabled:!googleSyncEnabled}).eq('id',true);
-    if(error)throw error;await refreshGoogleSync();
-  }catch(error){document.getElementById('googleSyncStatus').textContent=readableError(error);ev.currentTarget.disabled=false;}
-});
-
 // Carga guiada desde Excel a la hoja original; el endpoint valida permisos y evita escrituras en Preview.
 attachScanImport({
   supabase,isAdmin:()=>isAdmin,appReady:()=>appReady,isPreview:()=>isPreview,

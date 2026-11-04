@@ -1,0 +1,33 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFile} from 'node:fs/promises';
+
+const html=await readFile(new URL('../index.html',import.meta.url),'utf8');
+const app=await readFile(new URL('../src/app.js',import.meta.url),'utf8');
+
+test('cargos antiguos: se retiran controles y consultas de sincronización de la app',()=>{
+  for(const id of [
+    'btnToggleGoogleSync','googleSyncBadge','googleSyncBadgeText',
+    'googleSyncRegistered','googleSyncPending','googleSyncConflicts',
+    'googleSyncStatus','googleSyncDetails','googleSyncLastReview',
+    'btnOpenGoogleExcel'
+  ])assert.doesNotMatch(html,new RegExp('id="'+id+'"'));
+  assert.doesNotMatch(app,/refreshGoogleSync|kardex_google_sync|btnToggleGoogleSync|googleSyncEnabled/);
+  assert.doesNotMatch(html,/Estado de sincronización|Pausar sincronización/);
+  assert.doesNotMatch(html,/18TbKWiVUWKfkJOXvR0kGEMb5eVKTDCfoXAUtD5rCxts/);
+  assert.match(html,/Actualizar datos/);
+});
+
+test('se conservan carga por Excel, indicadores, navegación e Iron Mountain',()=>{
+  for(const id of [
+    'googleSyncPanel','workspaceTabs','googleSyncContent',
+    'monthlyCargosCreated','monthlyCargosShipped','monthlyCargosRequested',
+    'btnMonthlyCreatedDetail','btnExportar','scanFile','scanValidate','scanSave',
+    'btnOpenIronMountainExcel','btnOpenIronMountainHistorical'
+  ])assert.match(html,new RegExp('id="'+id+'"'));
+  assert.match(html,/1aWqIoj5UXAeyKhNN1paoYnTa4jdfN8LhDEcdH_lQ4mk/);
+  assert.match(app,/reloadPreparedImSummary/);
+  assert.match(app,/reloadShippedBoxesSummary/);
+  assert.match(app,/attachScanImport/);
+  assert.match(app,/async function refreshData/);
+});
