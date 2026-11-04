@@ -1703,7 +1703,14 @@ test('regularización histórica en Existencias para administrador e invitado',a
       const cells=[...a.node('tbody').querySelectorAll('tr td')].map(td=>td.textContent.trim());
       assert.ok(cells.includes('15/05/2023'), JSON.stringify(cells));
       assert.ok(cells.includes('No disponible'));
-      assert.deepEqual([...a.node('tbody').querySelectorAll('.b-historico')].map(x=>x.textContent),['Caja histórica','Histórico']);
+      assert.deepEqual([...a.node('tbody').querySelectorAll('.b-historico')].map(x=>x.textContent),['Caja histórica','Histórico Iron Mountain']);
+      const historicalBadge=a.node('tbody').querySelector('summary.b-historico');
+      assert.deepEqual([...historicalBadge.children].map(x=>x.textContent),['Histórico','Iron Mountain']);
+      historicalBadge.click();
+      assert.equal(historicalBadge.parentElement.open,true);
+      const summary=a.node('resumenTablas');
+      assert.equal(summary.querySelector('.kpi-summary-sent .pct-txt').textContent,'50%');
+      assert.equal(summary.querySelector('.kpi-summary-process .pct-txt').textContent,'0% · Incluidos en pendientes');
       assert.deepEqual([...a.node('tbody').querySelectorAll('.historical-im-missing')].map(x=>x.textContent),['15/11/2023','No identificado']);
       assert.equal(a.node('historicalApproximateHead').textContent,'Fecha de envío aproximada');
       assert.match(a.node('tbody').textContent,/relación original se extravió/);

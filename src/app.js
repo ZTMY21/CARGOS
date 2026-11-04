@@ -854,7 +854,6 @@ function renderDocs(){
   const grupoEnviado = summaryDocs.filter(d=>isSentIm(d.estado));
   const grupoProceso = summaryDocs.filter(d=>d.estado==='En Proceso de Acondicionamiento');
   const grupoPendiente = summaryDocs.filter(d=>!isSentIm(d.estado));
-  const grupoHistorico = grupoEnviado.filter(d=>d.estado==='Histórico');
   const cargosEnviados = cargosDe(grupoEnviado);
   const cargosEnProceso = cargosDe(grupoProceso);
   const cargosPendientes = cargosDe(grupoPendiente), foliosPendientes = foliosDe(grupoPendiente);
@@ -902,12 +901,12 @@ function renderDocs(){
       <div class="kpi kpi-color kpi-summary-sent">
         <div class="l">Enviado Iron Mountain</div>
         <div class="n">${fmtNum(cargosEnviados)}</div>
-        ${grupoHistorico.length ? `<div class="pct-txt">${fmtNum(cargosDe(grupoHistorico))} históricos regularizados</div>` : ''}
+        <div class="pct-txt">${pct(cargosEnviados,totalCargos)}</div>
       </div>
       <div class="kpi kpi-color kpi-summary-process">
         <div class="l">En Proceso de Acondicionamiento</div>
         <div class="n">${fmtNum(cargosEnProceso)}</div>
-        <div class="pct-txt">Incluidos en pendientes</div>
+        <div class="pct-txt">${pct(cargosEnProceso,totalCargos)} · Incluidos en pendientes</div>
       </div>
       <div class="kpi kpi-color kpi-summary-pending">
         <div class="l">Pendiente de Envío a IM</div>
@@ -1052,8 +1051,11 @@ function renderDocs(){
         <td>${historical && !shipment.box ? '<span class="badge b-historico">Caja histórica</span>' : highlightMatch(cajaTxt,search)}</td>
         ${showHistoricalDate ? `<td>${historical ? `<span class="historical-im-missing">${fmtDate(shipment.approximateDate)||'No disponible'}</span>` : ''}</td>` : ''}
         <td>${fmtDate(fechaEnvioTxt)||(historical?'No disponible':'')}</td>
-        <td${historical ? ' class="historical-im-state"' : ''}><span class="badge ${docBadgeClass(d.estado)}">${escapeHtml(estadoTxt)}</span>
-          ${historical ? `<details class="historical-im-note"><summary>Iron Mountain</summary><p>${HISTORICAL_IM_NOTE}</p></details>` : ''}
+        <td${historical ? ' class="historical-im-state"' : ''}>
+          ${historical ? `<details class="historical-im-note">
+            <summary class="badge b-historico"><span>${escapeHtml(estadoTxt)}</span> <span class="historical-im-destination">Iron Mountain</span></summary>
+            <p>${HISTORICAL_IM_NOTE}</p>
+          </details>` : `<span class="badge ${docBadgeClass(d.estado)}">${escapeHtml(estadoTxt)}</span>`}
           ${!isSentIm(d.estado) && d.imHistoricalDecision==='revision' ? '<div class="historical-im-note">Envío histórico en revisión</div>' : ''}
         </td>
         <td class="previous-cargo-cell" data-previous-cargo-id="${escapeHtml(d.id)}" data-matched-invoice-codes="${escapeHtml(matchedInvoiceCodes.join(','))}">${previousCargoHtml}</td>
