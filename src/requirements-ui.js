@@ -38,7 +38,7 @@ export function requestCards(rows, tracking) {
       }).join('');
 }
 
-export function setupRequirements(root, {repository, context, refresh}) {
+export function setupRequirements(root, {repository, context, refresh, isPreview = false}) {
   const selected = new Map();
   let rows = [], tracking = null, viewer = null, busy = false, searchEpoch = 0;
   let pending = null, redrawAfterRefresh = null;
@@ -95,18 +95,21 @@ export function setupRequirements(root, {repository, context, refresh}) {
     const value = find('Query').value.trim();
     const epoch = ++searchEpoch;
     const container = find('Results');
-    if (!value) { container.textContent = 'Escribe un código o un número de cargo.'; return; }
-    container.textContent = 'Buscando cajas…';
+    if (!value) { container.textContent = 'Escribe un cargo, factura, guía, boleta o código de caja.'; return; }
+    results = [];
+    container.textContent = 'Buscando documentos y cajas…';
     try {
       const found = await repository.requestBoxes(value);
       if (epoch !== searchEpoch || !allowed()) return;
       results = found;
       container.innerHTML = found.length ? `<ul>${found.map((box,index) => `<li>
-        <strong>${html(box.codigo || 'Caja sin código físico')}</strong> · ${html(box.estado)}
+        <strong>${html(box.codigo || (box.tipo === 'documento' ? 'Documento encontrado sin caja física registrada' : 'Cargo encontrado sin caja física registrada'))}</strong> · ${html(box.estado)}
         ${box.ubicacion ? ` · ${html(box.ubicacion)}` : ''} · cargos ${html((box.cargos || []).join(', '))}
         ${box.prestamo ? ` · Préstamo activo ${html(box.prestamo)}`
           : box.clave ? `<button type="button" class="link" data-req-select="${index}">Solicitar</button>` : ''}
-      </li>`).join('')}</ul>` : '<p>No se encontraron cajas para esa búsqueda.</p>';
+      </li>`).join('')}</ul>` : `<p>${isPreview
+        ? 'No hubo coincidencias en los datos disponibles de la Preview. Prueba con el código completo.'
+        : 'No se encontró ese cargo, documento o código de caja.'}</p>`;
     } catch (error) {
       if (epoch === searchEpoch) container.textContent = error.message;
     }

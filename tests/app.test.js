@@ -22,7 +22,7 @@ const flush=()=>new Promise(resolve=>setTimeout(resolve,20));
 const reqRow={id:randomUUID(),numero:'REQ-00001',tipo:'Cajas nuevas para acondicionar',fecha_solicitud:'2026-10-01',cantidad_cajas:2,numeros_cargo:'',fecha_recepcion:'2026-10-02',fecha_devolucion:null,usuario:'Juan',updated_at:'2026-10-13T00:00:00.123456Z'};
 const docRow={id:randomUUID(),kardex:'SA-00001',fecha_registro:'2026-10-13',tipo_doc:'Facturas-Guia',periodo:'2026-01-01',ubicacion:'Santa Anita',folios:30,cargos:['C001'],caja_asignada:reqRow.id,f_envio:null,sustento:'',sustento_imagen:'',usuario:'Juan',facturas:'F-001',obs:'',updated_at:'2026-10-13T00:00:00.123456Z'};
 
-async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recovery=false,adminLink='',loginError=null,isolatedPreview=false,annualReference=null,enableSearch=false,username='',previousMapping={},initialDocs=[docRow],now=Date.now()}={}) {
+async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recovery=false,adminLink='',loginError=null,isolatedPreview=false,annualReference=null,loanMatches={},enableSearch=false,username='',previousMapping={},initialDocs=[docRow],now=Date.now()}={}) {
   const html=await readFile(new URL('../index.html',import.meta.url),'utf8');
   const source=(await readFile(new URL('../src/app.js',import.meta.url),'utf8')).replace(/^import .*;\n/gm,'');
   const dom=new JSDOM(html,{url:'https://kardex.example.test'+adminLink+(recovery?'#type=recovery':''),runScripts:'outside-only'});
@@ -52,6 +52,7 @@ async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recov
       signOut:async()=>{state.signOuts++;state.session=null;state.authCallback('SIGNED_OUT',null);return {error:null};}}
   };
   class FakeRepository {
+    async requestBoxes(query){return structuredClone(loanMatches[query]||[]);}
     async requestTracking(){return {cajas:[],movimientos:[]};}
     async reportDocs(rows,year=null){state.reportRequestedYear=year;return rows.filter(d=>year===null||cargoYear(d)===String(year));}
     async fetchDoc(id){state.fetchedId=id;return docFromDb({...state.docs.find(d=>d.id===id),facturas:'F-001, F-002, F-003, F-004'});}
@@ -150,6 +151,30 @@ test('la Preview alinea las tres tarjetas y distingue los conteos anuales de la 
   assert.match(a.node('imYearSummaryGrid').textContent,/2026\s+2\s+cargos/);
   assert.equal(a.node('yearSummaryGrid').querySelector('[data-cargo-year]'),null);
   assert.match(summary.textContent,/Existencias contiene una muestra de pruebas/);
+ } finally { a.close(); }
+});
+
+test('préstamos distingue un documento sin caja, una caja física y una búsqueda sin coincidencias',async()=>{
+ const a=await app({isolatedPreview:true,loanMatches:{
+  'F001-000001':[{tipo:'documento',estado:'Identificación pendiente',cargos:['900']}],
+  'T1234567890':[{clave:'1234567890',codigo:'T1234567890',estado:'Caja preparada para envío',cargos:['901']}]
+ }});
+ try {
+  const search=async query=>{
+   a.node('req4Query').value=query;
+   a.node('req4Search').click();
+   await flush();
+   return a.node('req4Results');
+  };
+  const noBox=await search('F001-000001');
+  assert.match(noBox.textContent,/Documento encontrado sin caja física registrada/);
+  assert.match(noBox.textContent,/900/);
+  assert.equal(noBox.querySelector('[data-req-select]'),null);
+  const box=await search('T1234567890');
+  assert.match(box.textContent,/T1234567890/);
+  assert.equal(box.querySelector('[data-req-select]').textContent,'Solicitar');
+  const empty=await search('sin coincidencias');
+  assert.match(empty.textContent,/No hubo coincidencias en los datos disponibles de la Preview/);
  } finally { a.close(); }
 });
 

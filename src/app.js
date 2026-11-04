@@ -48,7 +48,7 @@ let pendingReqId = null, pendingDocId = null;
 let requestTracking = null;
 let annualReference = null;
 const requestUI = setupRequirements(document.getElementById('req4Workspace'), {
-  repository,
+  repository, isPreview: isolatedRequirements,
   context: () => ({allowed:appReady && isAdmin && (!isPreview || isolatedRequirements),
     id:currentUserId, name:document.getElementById('sessionUser').textContent}),
   refresh: refreshData
