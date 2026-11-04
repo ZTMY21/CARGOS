@@ -1710,12 +1710,16 @@ test('regularización histórica en Existencias para administrador e invitado',a
       assert.equal(historicalBadge.parentElement.open,true);
       const summary=a.node('resumenTablas');
       assert.equal(summary.querySelector('.kpi-summary-sent .pct-txt').textContent,'50%');
-      assert.equal(summary.querySelector('.kpi-summary-process .pct-txt').textContent,'0% · Incluidos en pendientes');
+      assert.equal(summary.querySelector('.kpi-summary-process .pct-txt').textContent,'0%');
       assert.deepEqual([...a.node('tbody').querySelectorAll('.historical-im-missing')].map(x=>x.textContent),['15/11/2023','No identificado']);
       assert.equal(a.node('historicalApproximateHead').textContent,'Fecha de envío aproximada');
       assert.match(a.node('tbody').textContent,/relación original se extravió/);
       assert.doesNotMatch(a.node('tbody').textContent,/ESTIMADA/);
       assert.equal(a.node('tbody').querySelectorAll('button[data-edit]').length,Number(isAdmin));
+      a.node('btnLimpiarFiltros').click();
+      const stateCells=[...a.node('docsTable').querySelectorAll('.shipment-state')];
+      assert.deepEqual(stateCells.map(cell=>cell.tagName),['TH','TD','TD']);
+      for(const cell of stateCells)assert.equal(a.dom.window.getComputedStyle(cell).textAlign,'center');
     }finally{a.close();}
   }
 });

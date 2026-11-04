@@ -906,7 +906,7 @@ function renderDocs(){
       <div class="kpi kpi-color kpi-summary-process">
         <div class="l">En Proceso de Acondicionamiento</div>
         <div class="n">${fmtNum(cargosEnProceso)}</div>
-        <div class="pct-txt">${pct(cargosEnProceso,totalCargos)} · Incluidos en pendientes</div>
+        <div class="pct-txt">${pct(cargosEnProceso,totalCargos)}</div>
       </div>
       <div class="kpi kpi-color kpi-summary-pending">
         <div class="l">Pendiente de Envío a IM</div>
@@ -1051,7 +1051,7 @@ function renderDocs(){
         <td>${historical && !shipment.box ? '<span class="badge b-historico">Caja histórica</span>' : highlightMatch(cajaTxt,search)}</td>
         ${showHistoricalDate ? `<td>${historical ? `<span class="historical-im-missing">${fmtDate(shipment.approximateDate)||'No disponible'}</span>` : ''}</td>` : ''}
         <td>${fmtDate(fechaEnvioTxt)||(historical?'No disponible':'')}</td>
-        <td${historical ? ' class="historical-im-state"' : ''}>
+        <td class="shipment-state">
           ${historical ? `<details class="historical-im-note">
             <summary class="badge b-historico"><span>${escapeHtml(estadoTxt)}</span> <span class="historical-im-destination">Iron Mountain</span></summary>
             <p>${HISTORICAL_IM_NOTE}</p>
