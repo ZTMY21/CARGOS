@@ -1,5 +1,6 @@
 import { computeReqEstado, computeDocEstado, escapeHtml } from './rules.js';
 import { normalizeCargoIM } from './im-requests.js';
+import { cargoYear } from './cargo-year.js';
 
 export function normalizeSearch(value = '') {
   return String(value ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g,'')
@@ -94,12 +95,9 @@ export function filterDocuments(documents, requirements, filters, now=new Date()
     (d.cargos||[]).some(c=>normalizeCargoIM(c)===cargoCanonical));
   return documents.map(d=>({...d,...computeDocEstado(d,now)})).filter(d=>{
     const fields=[d.kardex,...(d.cargos||[]),d.facturas,reqs.get(d.cajaAsignada),d.sustento,d.obs,d.usuario,d.tipoDoc,d.hojaOrigen].map(normalizeSearch);
-    const periodYear=d.periodo?.slice(0,4);
     const year=filters.year||'';
-    // Un mismo cargo se asigna a un único año en el selector.
-    // El año de origen tiene prioridad; si falta, usar el período contable,
-    // y como último recurso la fecha original. Coincide con cargoYear().
-    const canonicalYear=String(d.anioOrigen||periodYear||d.fechaOrigen?.slice(0,4)||'');
+    // Año de realización coherente con el panel: fecha original válida primero.
+    const canonicalYear=cargoYear(d);
     const selectedYear=year.startsWith('origen:')?year.slice(7):year;
     const matchesYear=!year || (year==='sin-periodo' && !d.periodo)
       || (/^\d{4}$/.test(selectedYear) && canonicalYear===selectedYear);

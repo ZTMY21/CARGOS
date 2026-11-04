@@ -11,6 +11,7 @@ import { buildCargoWorkbook, buildExistenciasReport, serializeExistenciasReport,
 import { highlightMatch, normalizeSearch, filterDocuments, filterRequirements, invoiceSearchPresentation, assignedBoxCode } from './search.js';
 import './connection.css';
 import { cargoYear, locationLabel, groupsForCodes } from './cargo-details.js';
+import { cargoTotalsByYear } from './cargo-year.js';
 import { summarizeCreatedCargos } from './monthly-created-summary.js';
 import { renderCargoLineChart } from './cargo-line-chart.js';
 import { summarizeShippedBoxes } from './im-shipped-summary.js';
@@ -627,7 +628,7 @@ function renderMonthlyCreatedDetail(){
     label.textContent=`Cargos registrados de 2020 a ${lastYear}`;
     value.textContent=fmtNum(data.annualTotal);
     heading.textContent=`Evolución histórica · 2020–${lastYear}`;
-    explanation.textContent='Cada punto muestra el total de cargos únicos por año de cargo. Los cargos sin fecha de mes válida siguen contándose en su año, igual que en el resumen anual.';
+    explanation.textContent='Cada punto muestra el total contabilizado en el año de realización. Los registros históricos se conservan individualmente; las facturas repetidas de un cargo actual no duplican el conteo.';
   } else {
     categories=months;
     lines=data.comparison
@@ -843,7 +844,10 @@ function renderDocs(){
   const cargosDe = arr => arr.reduce((s,d)=> s + (d.cargos||[]).length, 0);
   const foliosDe = arr => arr.reduce((s,d)=> s + (parseInt(d.folios,10)||0), 0);
 
-  const totalCargos = cargosDe(enriched);
+  // El total superior se obtiene del mismo conteo que los años, sin perder
+  // registros históricos ni contar facturas repetidas del cargo actual.
+  const cargosPorAnio = cargoTotalsByYear(enriched);
+  const totalCargos = [...cargosPorAnio.values()].reduce((sum,n)=>sum+n,0);
   const totalFolios = foliosDe(enriched);
   const grupoEnviado = enriched.filter(d=>d.estado==='Enviado a Iron Mountain');
   const grupoProceso = enriched.filter(d=>d.estado==='En Proceso de Acondicionamiento');
@@ -865,16 +869,6 @@ function renderDocs(){
 
   const pct = (n, base) => base > 0 ? Math.round((n/base)*100) + '%' : '0%';
 
-  // Historical Excel rows use anioOrigen rather than periodo; current 2026
-  // rows are kept up to date in documentos by Google Sheets synchronization.
-  const cargosPorAnio = new Map();
-  enriched.forEach(d=>{
-    const cantidad = (d.cargos||[]).length;
-    if(!cantidad) return;
-    const anioOrigen = cargoYear(d);
-    const anio = /^\d{4}$/.test(anioOrigen) ? anioOrigen : 'Sin año';
-    cargosPorAnio.set(anio, (cargosPorAnio.get(anio)||0) + cantidad);
-  });
   // Mismos envíos confirmados que el KPI superior "Enviado Iron Mountain".
   // El agrupador es el año del cargo, no la fecha de su envío.
   const aniosEnviados=Array.from({length:7},(_,i)=>String(2020+i));
@@ -890,8 +884,6 @@ function renderDocs(){
       <span class="year-value">${fmtNum(enviadosPorAnio.get(anio))} <span class="year-unit">cargos</span></span>
     </div>`
   ).join('');
-  const conteo2026=cargoTotals2026();
-  if(cargosPorAnio.has('2026')) cargosPorAnio.set('2026',conteo2026.total);
   const aniosOrdenados = [...cargosPorAnio.keys()].sort((a,b)=>
     a==='Sin año' ? 1 : b==='Sin año' ? -1 : Number(a)-Number(b));
   const porPeriodoHtml = aniosOrdenados.length

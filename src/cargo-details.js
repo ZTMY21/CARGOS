@@ -1,8 +1,6 @@
 import { normalizeSearch } from './search.js';
 
-export function cargoYear(doc) {
-  return String(doc.anioOrigen || doc.periodo?.slice(0,4) || doc.fechaOrigen?.slice(0,4) || 'Sin dato');
-}
+export { cargoYear } from './cargo-year.js';
 
 // Original Excel rows may be objects or compressed arrays with a column dictionary.
 export async function sourceRecords(origin = {}) {

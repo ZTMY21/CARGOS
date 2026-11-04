@@ -1,5 +1,6 @@
 // Resumen de cargos realizados. La clasificación por mes usa la fecha original
 // de cada cargo; los importados antiguos sin fecha no se consideran altas del mes.
+import { cargoYear, cargoTotalsByYear } from './cargo-year.js';
 function asYear(value){
   const year=Number(value);
   return Number.isInteger(year) && year>=2020 && year<=9999 ? year : null;
@@ -25,24 +26,27 @@ export function summarizeCreatedCargos(docs,now=new Date()){
   }).formatToParts(now);
   const part=key=>Number(todayParts.find(p=>p.type===key)?.value);
   const currentYear=part('year'),currentMonth=part('month');
-  const yearSets=new Map();
-  const canonical=new Map();
+  const yearCounts=cargoTotalsByYear(docs);
+  const canonical=new Map(),historicalDated=[];
   for(const doc of docs||[]){
-    const sourceYear=asYear(doc.anioOrigen)||asYear(String(doc.periodo??'').slice(0,4))
-      ||asYear(String(doc.fechaOrigen??'').slice(0,4));
+    const sourceYear=asYear(cargoYear(doc));
     if(sourceYear===null)continue;
     const sourceDate=validIsoDate(doc.fechaOrigen);
     // En la carga Drive-first el KPI de incorporaciones utiliza fechaRegistro
     // (cuando quedó indexado); el vencimiento y la antigüedad utilizan fechaOrigen.
     // Para el histórico y el origen Google Sheets se mantiene la fecha del cargo.
+    const registered=validIsoDate(doc.fechaRegistro);
     const date=String(doc.claveOrigen||'').startsWith('excel-drive|')
-      ?validIsoDate(doc.fechaRegistro)||sourceDate:sourceDate;
-    if(!yearSets.has(sourceYear))yearSets.set(sourceYear,new Set());
+      && registered?.slice(0,4)===String(sourceYear) ? registered : sourceDate;
     for(const value of doc.cargos||[]){
       const code=cargoCode(value);
       if(!code)continue;
+      // Hasta 2025 no fusionar dos Kardex históricos con códigos similares.
+      if(sourceYear<2026){
+        historicalDated.push({year:sourceYear,date});
+        continue;
+      }
       const key=sourceYear+':'+code;
-      yearSets.get(sourceYear).add(key);
       const previous=canonical.get(key);
       if(!previous || (date&&(!previous.date||date<previous.date)))
         canonical.set(key,{year:sourceYear,date});
@@ -60,7 +64,7 @@ export function summarizeCreatedCargos(docs,now=new Date()){
     ));
   }
   let yearDated=0;
-  for(const item of canonical.values()){
+  for(const item of [...historicalDated,...canonical.values()]){
     if(!item.date || Number(item.date.slice(0,4))!==item.year)continue;
     const month=Number(item.date.slice(5,7));
     if(month<1||month>12 || (item.year===currentYear && month>currentMonth))continue;
@@ -71,9 +75,9 @@ export function summarizeCreatedCargos(docs,now=new Date()){
     }
   }
   const annual=Array.from({length:Math.max(0,currentYear-2020+1)},(_,i)=>({
-    year:2020+i,count:yearSets.get(2020+i)?.size||0
+    year:2020+i,count:yearCounts.get(String(2020+i))||0
   }));
-  const annualCurrent=yearSets.get(currentYear)?.size||0;
+  const annualCurrent=yearCounts.get(String(currentYear))||0;
   return {
     currentYear,currentMonth,currentCount:monthly.at(-1)?.count||0,
     monthly,annual,comparison:Array.from(monthlyByYear,([year,values])=>({year,values})),monthlyTotal:yearDated,

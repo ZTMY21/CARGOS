@@ -1,5 +1,6 @@
 import { safeImage } from './rules.js';
 import { cargoLocations } from './cargo-details.js';
+import { cargoYear } from './cargo-year.js';
 
 const nullable = value => value === '' || value === undefined ? null : value;
 export function reqFromDb(row) {
@@ -93,7 +94,7 @@ export class KardexRepository {
     });
   }
   async reportDocs(snapshotDocs,year=null) {
-    const selected=snapshotDocs.filter(d=>year===null || String(d.anioOrigen||d.periodo?.slice(0,4)||d.fechaOrigen?.slice(0,4))===String(year));
+    const selected=snapshotDocs.filter(d=>year===null || cargoYear(d)===String(year));
     const rows=checked(await this.client.rpc('kardex_existencias_export_meta'));
     const byId=new Map(rows.map(row=>[row.id,row]));
     return selected.map(doc=>{
@@ -105,7 +106,7 @@ export class KardexRepository {
   }
   async *reportOriginalRows(year,sourceDocs) {
     const relevant=sourceDocs
-      .filter(d=>String(d.anioOrigen||d.periodo?.slice(0,4)||d.fechaOrigen?.slice(0,4))===String(year))
+      .filter(d=>cargoYear(d)===String(year))
       .sort((a,b)=>String(a.cargos?.[0]||'').localeCompare(String(b.cargos?.[0]||''),'es',{numeric:true})
         ||String(a.kardex).localeCompare(String(b.kardex),'es',{numeric:true}));
     // Cada bloque solo consulta el origen de los documentos del año: no
@@ -123,7 +124,9 @@ export class KardexRepository {
         if(!origin.registros_gzip_base64 && !(origin.registros||[]).length &&
             origin.google_sheet_file && (doc.cargos||[]).length){
           const result=await this.client.rpc('kardex_detalle_original_exportar',{
-            p_anio:Number(year),p_cargo:String(doc.cargos[0])
+            // La hoja de procedencia puede ser 2026 aunque el cargo sea de 2025.
+            p_anio:Number(String(doc.hojaOrigen||'').match(/20\d{2}/)?.[0]||doc.anioOrigen||year),
+            p_cargo:String(doc.cargos[0])
           });
           if(result.error)throw result.error;
           if(Array.isArray(result.data)&&result.data.length){

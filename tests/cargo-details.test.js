@@ -15,7 +15,8 @@ test('groups use exact document codes, retain multiple groups and groups above 1
  assert.deepEqual(groupsForCodes(locations,['GR-001']),['14']);
  assert.deepEqual(groupsForCodes(locations,['BV001']),[]);
  assert.deepEqual(groupsForCodes(locations,['F-00']),[]);
- assert.equal(cargoYear({anioOrigen:2024,fechaOrigen:'2023-01-01'}),'2024');
+ assert.equal(cargoYear({anioOrigen:2024,fechaOrigen:'2023-01-01'}),'2023');
+ assert.equal(cargoYear({anioOrigen:2024,fechaOrigen:null}),'2024');
  assert.equal(cargoYear({periodo:'2026-10-01'}),'2026');
  const updated=await cargoLocations({...origin,grupos_por_codigo:{f001:['19']}});
  assert.deepEqual(updated.f001,['19']);

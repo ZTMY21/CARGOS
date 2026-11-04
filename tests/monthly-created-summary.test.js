@@ -89,3 +89,26 @@ test('los Excel confirmados en noviembre aumentan cargos incorporados del mes y 
  // La antigüedad del 942 seguirá desde 31/10; el mes de ingreso es 03/11.
  assert.equal(documents[1].fechaOrigen,'2026-10-31');
 });
+
+test('los 32 cargos de diciembre 2025 se contabilizan en 2025 aunque provengan de hoja 2026',()=>{
+ const historical=Array.from({length:32},(_,i)=>row(String(705+i),
+   i===31?'2025-12-31':'2025-12-30',{claveOrigen:'historico|CARGOS NUEVOS 2026'}));
+ const docs=[...historical,row('800','2026-03-03')];
+ const s=summarizeCreatedCargos(docs,nov);
+ assert.equal(s.annual.find(x=>x.year===2025).count,32);
+ assert.equal(s.annual.find(x=>x.year===2026).count,1);
+ assert.equal(s.annualTotal,33);
+ assert.equal(s.monthlyTotal,1);
+ assert.equal(s.comparison.find(x=>x.year===2025).values[11],32);
+});
+test('en el histórico 2024 0028 y 28 son registros distintos y ambos suman al total',()=>{
+ const docs=[
+  {anioOrigen:2024,fechaOrigen:'2024-08-04',cargos:['0028']},
+  {anioOrigen:2024,fechaOrigen:'2024-05-07',cargos:['28']}
+ ];
+ const s=summarizeCreatedCargos(docs,nov);
+ assert.equal(s.annual.find(x=>x.year===2024).count,2);
+ assert.equal(s.annualTotal,2);
+ assert.equal(s.comparison.find(x=>x.year===2024).values[4],1);
+ assert.equal(s.comparison.find(x=>x.year===2024).values[7],1);
+});
