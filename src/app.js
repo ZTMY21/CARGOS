@@ -855,7 +855,6 @@ function renderDocs(){
   const grupoProceso = summaryDocs.filter(d=>d.estado==='En Proceso de Acondicionamiento');
   const grupoPendiente = summaryDocs.filter(d=>!isSentIm(d.estado));
   const grupoHistorico = grupoEnviado.filter(d=>d.estado==='Histórico');
-  const historicosEnRevision = grupoPendiente.filter(d=>usesHistoricalImDecision(d)&&d.imHistoricalDecision==='revision');
   const cargosEnviados = cargosDe(grupoEnviado);
   const cargosEnProceso = cargosDe(grupoProceso);
   const cargosPendientes = cargosDe(grupoPendiente), foliosPendientes = foliosDe(grupoPendiente);
@@ -903,17 +902,17 @@ function renderDocs(){
       <div class="kpi kpi-color kpi-summary-sent">
         <div class="l">Enviado Iron Mountain</div>
         <div class="n">${fmtNum(cargosEnviados)}</div>
-        <div class="pct-txt">${pct(cargosEnviados,totalCargos)}${grupoHistorico.length ? ` · ${fmtNum(cargosDe(grupoHistorico))} históricos regularizados` : ''}</div>
+        ${grupoHistorico.length ? `<div class="pct-txt">${fmtNum(cargosDe(grupoHistorico))} históricos regularizados</div>` : ''}
       </div>
       <div class="kpi kpi-color kpi-summary-process">
         <div class="l">En Proceso de Acondicionamiento</div>
         <div class="n">${fmtNum(cargosEnProceso)}</div>
-        <div class="pct-txt">${pct(cargosEnProceso,totalCargos)} · Incluidos en pendientes</div>
+        <div class="pct-txt">Incluidos en pendientes</div>
       </div>
       <div class="kpi kpi-color kpi-summary-pending">
         <div class="l">Pendiente de Envío a IM</div>
         <div class="n">${fmtNum(cargosPendientes)}<span class="folios-inline"> (${fmtNum(foliosPendientes)} folios)</span></div>
-        <div class="pct-txt">${pct(cargosPendientes,totalCargos)}${historicosEnRevision.length ? ` · ${fmtNum(cargosDe(historicosEnRevision))} históricos en revisión` : ''}</div>
+        <div class="pct-txt">${pct(cargosPendientes,totalCargos)}</div>
       </div>
     </div>
     <div class="resumen-titulo-alerta">Cargos de 2025 y 2026 pendientes de envío · Plazo de 6 meses</div>
@@ -1053,7 +1052,7 @@ function renderDocs(){
         <td>${historical && !shipment.box ? '<span class="badge b-historico">Caja histórica</span>' : highlightMatch(cajaTxt,search)}</td>
         ${showHistoricalDate ? `<td>${historical ? `<span class="historical-im-missing">${fmtDate(shipment.approximateDate)||'No disponible'}</span>` : ''}</td>` : ''}
         <td>${fmtDate(fechaEnvioTxt)||(historical?'No disponible':'')}</td>
-        <td><span class="badge ${docBadgeClass(d.estado)}">${escapeHtml(estadoTxt)}</span>
+        <td${historical ? ' class="historical-im-state"' : ''}><span class="badge ${docBadgeClass(d.estado)}">${escapeHtml(estadoTxt)}</span>
           ${historical ? `<details class="historical-im-note"><summary>Iron Mountain</summary><p>${HISTORICAL_IM_NOTE}</p></details>` : ''}
           ${!isSentIm(d.estado) && d.imHistoricalDecision==='revision' ? '<div class="historical-im-note">Envío histórico en revisión</div>' : ''}
         </td>

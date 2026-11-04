@@ -197,8 +197,14 @@
   .b-enviado{background:var(--green-bg);color:var(--green);}
   .b-historico{background:#7C3AED;color:#fff;}
   .historical-im-missing{color:#B91C1C;font-weight:600;white-space:nowrap;}
-  .historical-im-note{font-size:.8rem;margin-top:.35rem;min-width:9rem;}
-  .historical-im-note p{margin:.25rem 0;min-width:15rem;}
+  .historical-im-state{text-align:center;}
+  .historical-im-note{margin-top:3px;}
+  #docsTable .historical-im-note > summary{
+    display:block;padding:0;background:transparent;color:var(--muted);
+    font-size:11px;font-weight:500;line-height:1.25;
+  }
+  #docsTable .historical-im-note > summary:hover{text-decoration:underline;}
+  .historical-im-note p{margin:.35rem auto 0;max-width:15rem;white-space:normal;}
   .b-caja-solicitada{background:#e0f5ff;color:#0877a8;border:1px solid #94dafa;}
   .alerta-neg{color:var(--red);font-weight:700;}
   .alerta-warn{color:var(--yellow);font-weight:700;}
