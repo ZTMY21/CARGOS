@@ -41,7 +41,7 @@ export function requestCards(rows, tracking) {
 export function setupRequirements(root, {repository, context, refresh}) {
   const selected = new Map();
   let rows = [], tracking = null, viewer = null, busy = false, searchEpoch = 0;
-  let pending = null;
+  let pending = null, redrawAfterRefresh = null;
   root.innerHTML = `
     <h3>Nuevo requerimiento</h3>
     <form id="req4Form">
@@ -119,14 +119,23 @@ export function setupRequirements(root, {repository, context, refresh}) {
   async function write(action,data,status) {
     if (!allowed() || busy) return null;
     busy = true;
+    const actor = context().id;
     status.textContent = 'Guardando…';
     const signature = JSON.stringify([action,data]);
     if (pending?.signature !== signature) pending = {signature,id:crypto.randomUUID()};
     try {
       const saved = await repository.requestAction(pending.id, action, data);
+      if (actor !== context().id) return null;
       pending = null;
       status.textContent = `${saved.numero} guardado en el aplicativo. Consolidación en Excel pendiente.`;
-      try { await refresh(); } catch { status.textContent += ' Actualiza para consultar el registro.'; }
+      rows = [...rows.filter(row=>row.id!==saved.id),saved];
+      if (data.caja && tracking) {
+        const field = action === 'recibir_caja' ? 'recepcion' : 'devolucion';
+        tracking = {...tracking,cajas:tracking.cajas.map(box=>box.requerimiento===saved.id && box.codigo===data.caja
+          ? {...box,[field]:data.fecha} : box)};
+      }
+      if (action !== 'crear') redrawAfterRefresh = saved.id;
+      void refresh().catch(() => { status.textContent += ' Actualiza para consultar el registro.'; });
       return saved;
     } catch(error) {
       status.textContent = error.message;
@@ -228,6 +237,7 @@ export function setupRequirements(root, {repository, context, refresh}) {
         viewer = current.id;
         searchEpoch++;
         pending = null;
+        redrawAfterRefresh = null;
         selected.clear();
         find('Results').textContent = '';
         find('Query').value = '';
@@ -238,6 +248,15 @@ export function setupRequirements(root, {repository, context, refresh}) {
       }
       rows = records;
       tracking = detail;
+      if (redrawAfterRefresh && detail && dialog.open && find('DialogBody').dataset.row === redrawAfterRefresh) {
+        const row = rows.find(item=>item.id===redrawAfterRefresh);
+        const date = find('MoveDate')?.value;
+        const count = find('MoveQty')?.value;
+        redrawAfterRefresh = null;
+        show(row);
+        if (date && find('MoveDate')) find('MoveDate').value = date;
+        if (count && find('MoveQty')) find('MoveQty').value = count;
+      }
       form.hidden = !current.allowed;
       find('Date').value = limaDate();
       find('User').value = current.name || '';

@@ -350,14 +350,15 @@ async function refreshData() {
     do {
       refreshRequested = false;
       const generation = authGeneration;
-      const snapshot = await repository.snapshot();
+      const [snapshot, detail] = await Promise.all([
+        repository.snapshot(),
+        isAdmin ? repository.requestTracking().catch(() => null) : null
+      ]);
       if (generation !== authGeneration || !currentUserId) {
         if (currentUserId) refreshRequested = true;
         continue;
       }
       await loadReqs(snapshot);
-      const detail = isAdmin ? await repository.requestTracking().catch(() => null) : null;
-      if (generation !== authGeneration || !currentUserId) continue;
       requestTracking = detail;
       const previousDocs = queryResults ? new Map(docs.map(d=>[d.id,d])) : null;
       await loadDocs(snapshot);
