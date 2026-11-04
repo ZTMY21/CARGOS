@@ -1723,3 +1723,30 @@ test('regularización histórica en Existencias para administrador e invitado',a
     }finally{a.close();}
   }
 });
+
+test('la sincronización sustituye la caja y fecha históricas en una búsqueda abierta',async()=>{
+  const row={...docRow,cargos:['4123'],facturas:'01-0FF01-0217573',
+    fecha_origen:'2023-05-15',anio_origen:2023,im_historical_decision:'historico'};
+  const a=await app({enableSearch:true,initialDocs:[row]});
+  try{
+    a.node('buscar').value='217573';
+    a.node('btnBuscar').click();
+    await flush();
+    assert.ok(a.node('historicalApproximateHead'));
+    const notify=a.state.events.find(x=>x.filter.table==='kardex_eventos').callback;
+    Object.assign(a.state.docs[0],{im_historical_decision:null,im_live_codigo_caja:'T1234567890'});
+    notify();
+    await new Promise(resolve=>setTimeout(resolve,260));
+    assert.match(a.node('tbody').textContent,/T1234567890/);
+    assert.match(a.node('tbody').textContent,/Caja preparada para envío/);
+    assert.doesNotMatch(a.node('tbody').textContent,/Caja histórica|15\/11\/2023/);
+    assert.equal(a.node('historicalApproximateHead'),null);
+
+    Object.assign(a.state.docs[0],{im_live_fecha_envio:'2026-11-03',im_live_responsable_entrega:'Responsable actual'});
+    notify();
+    await new Promise(resolve=>setTimeout(resolve,260));
+    assert.equal(a.node('tbody').querySelector('.shipment-state .badge').textContent,'Enviado');
+    assert.match(a.node('tbody').textContent,/03\/11\/2026/);
+    assert.match(a.node('tbody').textContent,/Responsable actual/);
+  }finally{a.close();}
+});

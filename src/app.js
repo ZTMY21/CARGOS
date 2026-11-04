@@ -340,7 +340,22 @@ async function refreshData() {
         continue;
       }
       await loadReqs(snapshot);
+      const previousDocs = queryResults ? new Map(docs.map(d=>[d.id,d])) : null;
       await loadDocs(snapshot);
+      // Mantener actualizada una búsqueda ya aplicada cuando se sincroniza su envío.
+      if (previousDocs && docs.some(d=>{
+        const previous = previousDocs.get(d.id);
+        return previous && (d.imHistoricalDecision !== previous.imHistoricalDecision
+          || d.imLiveCodigoCaja !== previous.imLiveCodigoCaja
+          || d.imLiveFechaEnvio !== previous.imLiveFechaEnvio
+          || d.imLiveClasificacion !== previous.imLiveClasificacion);
+      })) {
+        await fetchSearchResults(false);
+        if (generation !== authGeneration || !currentUserId) {
+          if (currentUserId) refreshRequested = true;
+          continue;
+        }
+      }
       clearPreviousCargoCache();
       populateYearOptions();
       renderReqs(); renderDocs();
@@ -1009,8 +1024,9 @@ function renderDocs(){
       const cajaTxt = (shipment ? shipment.box : assignedBoxCode(d,reqs)) || (historical ? 'Caja histórica' : '—');
       const fechaEnvioTxt = shipment ? shipment.realDate : d.imLiveCodigoCaja ? d.imLiveFechaEnvio
         : d.imConfirmado ? d.imFechaEnvio : d.fEnvio;
-      const responsableOrigen = shipment ? shipment.responsible : d.imConfirmado ? d.imResponsable
-        : d.imPreparado && d.imResponsablePreparacion ? d.imResponsablePreparacion : d.usuario;
+      const responsableOrigen = (d.imLiveFechaEnvio && d.imLiveResponsableEntrega) ||
+        (shipment ? shipment.responsible : d.imConfirmado ? d.imResponsable
+        : d.imPreparado && d.imResponsablePreparacion ? d.imResponsablePreparacion : d.usuario);
       const responsableTxt = !String(responsableOrigen||'').trim() || /^importaci[oó]n excel$/i.test(String(responsableOrigen).trim())
         ? (historical ? 'No identificado' : 'Sin Responsable') : responsableOrigen;
       const estadoTxt = historical ? 'Histórico'
