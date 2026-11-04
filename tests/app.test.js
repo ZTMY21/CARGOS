@@ -22,7 +22,7 @@ const flush=()=>new Promise(resolve=>setTimeout(resolve,20));
 const reqRow={id:randomUUID(),numero:'REQ-00001',tipo:'Cajas nuevas para acondicionar',fecha_solicitud:'2026-10-01',cantidad_cajas:2,numeros_cargo:'',fecha_recepcion:'2026-10-02',fecha_devolucion:null,usuario:'Juan',updated_at:'2026-10-13T00:00:00.123456Z'};
 const docRow={id:randomUUID(),kardex:'SA-00001',fecha_registro:'2026-10-13',tipo_doc:'Facturas-Guia',periodo:'2026-01-01',ubicacion:'Santa Anita',folios:30,cargos:['C001'],caja_asignada:reqRow.id,f_envio:null,sustento:'',sustento_imagen:'',usuario:'Juan',facturas:'F-001',obs:'',updated_at:'2026-10-13T00:00:00.123456Z'};
 
-async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recovery=false,adminLink='',loginError=null,enableSearch=false,username='',previousMapping={},initialDocs=[docRow],now=Date.now()}={}) {
+async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recovery=false,adminLink='',loginError=null,isolatedPreview=false,enableSearch=false,username='',previousMapping={},initialDocs=[docRow],now=Date.now()}={}) {
   const html=await readFile(new URL('../index.html',import.meta.url),'utf8');
   const source=(await readFile(new URL('../src/app.js',import.meta.url),'utf8')).replace(/^import .*;\n/gm,'');
   const dom=new JSDOM(html,{url:'https://kardex.example.test'+adminLink+(recovery?'#type=recovery':''),runScripts:'outside-only'});
@@ -44,7 +44,7 @@ async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recov
     rpc:async()=>({data:[],error:null}),
     auth:{getSession:async()=>({data:{session:state.session},error:null}),
       onAuthStateChange:callback=>{state.authCallback=callback;},
-      signInWithPassword:async input=>{state.authCalls.push(['login',input]);if(loginError)return {error:loginError};state.session={user:{id:'owner',email:input.email}};state.authCallback('SIGNED_IN',state.session);return {error:null};},
+      signInWithPassword:async input=>{state.authCalls.push(['login',input]);if(loginError)return {error:loginError};state.session={user:{id:'owner',email:input.email}};state.authCallback('SIGNED_IN',state.session);return {data:{session:state.session},error:null};},
       signUp:async input=>{state.authCalls.push(['signup',input]);return {error:null};},
       signInWithOtp:async input=>{state.authCalls.push(['link',input]);return {error:null};},
       resetPasswordForEmail:async(email,options)=>{state.authCalls.push(['recovery',email,options]);return {error:null};},
@@ -97,7 +97,7 @@ async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recov
     attachBoxScanSheets:()=>null,attachBoxScanner:()=>({activate:()=>{},deactivate:()=>{},reset:()=>{}}),
     attachInterventionExperience:()=>{},
     createClient:(url,key,options)=>{state.authOptions=options?.auth;return client;},KardexRepository:FakeRepository,reqFromDb,docFromDb,reqEstado,docEstado,fmtDate,escapeHtml,invoiceSearchPresentation,buildWorkbook:async(...args)=>{state.exportCalls.push(args);return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},buildCargoWorkbook:async(cargo)=>{state.guestExport=cargo;return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},buildExistenciasReport:async(...args)=>{state.reportArgs=args;return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},serializeExistenciasReport:async()=>{state.serializedReport=true;return new Uint8Array([1]);},parseWorkbook,highlightMatch,normalizeSearch,filterDocuments,filterRequirements,assignedBoxCode,cargoYear,invoiceLocation,locationLabel,groupsForCodes,
-    __SUPABASE_URL__:'https://example.supabase.co',__SUPABASE_ANON_KEY__:'sb_publishable_test',confirm:()=>true,alert:()=>{}});
+    __SUPABASE_URL__:'https://example.supabase.co',__SUPABASE_ANON_KEY__:'sb_publishable_test',__REQ4_ISOLATED__:isolatedPreview,confirm:()=>true,alert:()=>{}});
   await vm.runInContext(`(async()=>{${source}})()`,context);
   const node=id=>dom.window.document.getElementById(id);
   return {dom,state,node,close(){dom.window.close();}};
@@ -116,6 +116,22 @@ test('blank login page hides the entire Kardex until successful authentication a
   a.node('btnSignOut').click();await flush();
   assert.equal(a.node('appShell').hidden,true);assert.equal(a.node('authOverlay').hidden,false);
  }finally{a.close();}
+});
+
+test('la Preview identifica el acceso de prueba y abre la sesión al pegar la contraseña con espacios',async()=>{
+ const a=await app({signedIn:false,isolatedPreview:true});
+ try {
+  assert.equal(a.node('authTitle').textContent,'Iniciar sesión en la Preview');
+  assert.match(a.node('authDescription').textContent,/intervencion4@kardex\.test/);
+  a.node('authEmail').value='intervencion4@kardex.test';
+  a.node('authPassword').value='  clave-temporal  ';
+  a.node('authForm').dispatchEvent(new a.dom.window.Event('submit',{cancelable:true}));
+  await flush();
+  assert.equal(a.state.authCalls[0][1].password,'clave-temporal');
+  assert.equal(a.state.snapshots,1);
+  assert.equal(a.node('appShell').hidden,false);
+  assert.equal(a.node('authMessage').textContent,'');
+ } finally { a.close(); }
 });
 
 test('el nombre de usuario se muestra en el encabezado sin alterar permisos',async()=>{

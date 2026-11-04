@@ -22,9 +22,11 @@ import { requestCards, setupRequirements } from './requirements-ui.js';
 
 const configuration = { url: __SUPABASE_URL__, key: __SUPABASE_ANON_KEY__ };
 const isolatedRequirements = typeof __REQ4_ISOLATED__ !== 'undefined' && __REQ4_ISOLATED__;
+const previewLoginEmail = 'intervencion4@kardex.test';
 // Capture recovery mode before the client consumes the email callback fragment.
 let passwordRecovery = new URLSearchParams(window.location.hash.slice(1)).get('type') === 'recovery';
 let passwordRecoveryCompleted = false;
+let passwordSignInPending = false;
 // El JWT de Supabase vence periódicamente, pero su renovación NO debe cerrar la sesión.
 const supabase = configuration.url && configuration.key ? createClient(configuration.url, configuration.key, {
   auth: {persistSession:true, autoRefreshToken:true, detectSessionInUrl:true}
@@ -1675,15 +1677,20 @@ function clearCompletedPasswordRecoveryLink() {
   }
 }
 function showRecoveryForm(recovering) {
-  document.getElementById('btnRegister').hidden=recovering;
+  document.getElementById('btnRegister').hidden=recovering || isolatedRequirements;
   document.getElementById('authForm').hidden = recovering;
   document.getElementById('resetPasswordForm').hidden = !recovering;
-  document.getElementById('btnForgotPassword').hidden = recovering;
-  document.getElementById('btnMagicLink').hidden = recovering;
-  document.getElementById('authTitle').textContent = recovering ? 'Crear nueva contraseña' : 'Iniciar sesión';
-  document.getElementById('authDescription').textContent = recovering
-    ? 'Elige una nueva contraseña de al menos 8 caracteres para volver al Kardex.'
+  document.getElementById('btnForgotPassword').hidden = recovering || isolatedRequirements;
+  document.getElementById('btnMagicLink').hidden = recovering || isolatedRequirements;
+  const title = document.getElementById('authTitle');
+  const description = document.getElementById('authDescription');
+  title.textContent = recovering ? 'Crear nueva contraseña' : 'Iniciar sesión';
+  description.textContent = recovering ? 'Elige una nueva contraseña de al menos 8 caracteres para volver al Kardex.'
     : 'Ingresa a Kardex Digital con tu correo electrónico y contraseña.';
+  if (isolatedRequirements && !recovering) {
+    title.textContent = 'Iniciar sesión en la Preview';
+    description.textContent = `Usa el correo de prueba ${previewLoginEmail} y su contraseña temporal.`;
+  }
 }
 async function handleSession(session) {
   const generation = ++authGeneration;
@@ -1785,18 +1792,30 @@ async function handleSession(session) {
 }
 document.getElementById('authForm').addEventListener('submit', async ev => {
   ev.preventDefault();
-  if (!supabase) return;
+  if (!supabase || passwordSignInPending) return;
+  passwordSignInPending = true;
   const button = document.getElementById('btnLogin'); button.disabled = true;
+  const passwordField = document.getElementById('authPassword');
   message('authMessage','Validando cuenta…');
   try {
-    const {error} = await supabase.auth.signInWithPassword({
-      email:document.getElementById('authEmail').value.trim().toLowerCase(), password:document.getElementById('authPassword').value
+    const {data,error} = await supabase.auth.signInWithPassword({
+      email:document.getElementById('authEmail').value.trim().toLowerCase(),
+      password:isolatedRequirements ? passwordField.value.trim() : passwordField.value
     });
-    document.getElementById('authPassword').value = '';
     if (error) throw error;
+    if (!data?.session) throw new Error('No se pudo iniciar la sesión. Vuelve a intentarlo.');
     message('authMessage','Cargando tu aplicativo…');
-  } catch (error) { message('authMessage',readableError(error),true); }
-  finally { button.disabled = false; }
+    await handleSession(data.session);
+  } catch (error) {
+    const reason = isolatedRequirements && error?.code === 'invalid_credentials'
+      ? `Revisa el correo de prueba ${previewLoginEmail} y la contraseña temporal de la Preview.`
+      : readableError(error);
+    message('authMessage',reason,true);
+  } finally {
+    passwordField.value = '';
+    passwordSignInPending = false;
+    button.disabled = false;
+  }
 });
 document.getElementById('btnMagicLink').addEventListener('click', async ev => {
   const email = document.getElementById('authEmail').value.trim().toLowerCase();
@@ -1900,7 +1919,7 @@ if (!supabase) {
     // Un token renovado no equivale a volver a iniciar sesión: se conserva la pantalla
     // y la búsqueda en curso. Evita reconsultas y cierres aparentes al volver a la pestaña.
     if (event === 'TOKEN_REFRESHED' && currentUserId === session?.user?.id) return;
-    if (event === 'SIGNED_IN' && appReady && currentUserId === session?.user?.id && !passwordRecovery) return;
+    if (event === 'SIGNED_IN' && (passwordSignInPending || (appReady && currentUserId === session?.user?.id && !passwordRecovery))) return;
     setTimeout(()=>handleSession(session),0);
   });
   try {
