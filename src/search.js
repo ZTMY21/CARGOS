@@ -1,4 +1,4 @@
-import { computeReqEstado, computeDocEstado, escapeHtml } from './rules.js';
+import { computeReqEstado, computeDocEstado, usesHistoricalImDecision, historicalShipmentDetails, isSentIm, escapeHtml } from './rules.js';
 import { normalizeCargoIM } from './im-requests.js';
 import { cargoYear } from './cargo-year.js';
 
@@ -57,6 +57,8 @@ export function invoiceSearchPresentation(doc, query = '') {
 // Busca exclusivamente la caja visible en Existencias, sin confundir su UUID interno
 // con el codigo fisico registrado en Iron Mountain o el numero de requerimiento.
 export function assignedBoxCode(doc, requirements = new Map()) {
+  if (usesHistoricalImDecision(doc) && isSentIm(computeDocEstado(doc).estado))
+    return historicalShipmentDetails(doc).box || '';
   const requestNumber = requirements instanceof Map
     ? requirements.get(doc.cajaAsignada)
     : requirements.find(r => r.id === doc.cajaAsignada)?.numero;
@@ -110,10 +112,12 @@ export function filterDocuments(documents, requirements, filters, now=new Date()
         ? (d.cargos||[]).some(c=>!cargoQuery || (hasExactCargo
           ? normalizeCargoIM(c)===cargoCanonical : normalizeSearch(c).includes(cargoQuery)))
         : terms.every(t=>fields.some(field=>field.includes(t)));
+    const location=d.estado==='Histórico' || (usesHistoricalImDecision(d)&&isSentIm(d.estado))
+      ? 'Iron Mountain' : d.ubicacion;
     return matchesInvoice && matchesCargo
       && (!filters.state||d.estado===filters.state)
       && (cargoOnly || boxOnly || !filters.type || d.tipoDoc===filters.type)
-      && (!filters.location||d.ubicacion===filters.location||(filters.location==='sin-dato'&&!d.ubicacion))
+      && (!filters.location||location===filters.location||(filters.location==='sin-dato'&&!location))
       && matchesYear;
   });
 }

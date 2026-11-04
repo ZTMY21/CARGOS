@@ -4,11 +4,12 @@ import {readFile} from 'node:fs/promises';
 import vm from 'node:vm';
 import {randomUUID} from 'node:crypto';
 import {JSDOM} from 'jsdom';
-import {computeReqEstado as reqEstado,computeDocEstado as docEstado,fmtDate,escapeHtml,limaDate} from '../src/rules.js';
+import {computeReqEstado as reqEstado,computeDocEstado as docEstado,fmtDate,escapeHtml,limaDate,isSentIm,usesHistoricalImDecision,historicalShipmentDetails,HISTORICAL_IM_NOTE} from '../src/rules.js';
 import {reqFromDb,docFromDb,KardexRepository} from '../src/repository.js';
 import {buildWorkbook,parseWorkbook} from '../src/excel.js';
 import {highlightMatch,normalizeSearch,filterDocuments,filterRequirements,invoiceSearchPresentation,assignedBoxCode} from '../src/search.js';
 import {cargoYear,invoiceLocation,locationLabel,groupsForCodes} from '../src/cargo-details.js';
+import {cargoTotalsByYear,uniqueCargoDocuments} from '../src/cargo-year.js';
 import {cargoExpiryGroups,formatCargoDuration} from '../src/cargo-expiry.js';
 import {requestedIMBoxes,countRequestedCargos,summarizePreparedIm} from '../src/im-requests.js';
 import {summarizeShippedBoxes} from '../src/im-shipped-summary.js';
@@ -20,14 +21,14 @@ const flush=()=>new Promise(resolve=>setTimeout(resolve,20));
 const reqRow={id:randomUUID(),numero:'REQ-00001',tipo:'Cajas nuevas para acondicionar',fecha_solicitud:'2026-10-01',cantidad_cajas:2,numeros_cargo:'',fecha_recepcion:'2026-10-02',fecha_devolucion:null,usuario:'Juan',updated_at:'2026-10-13T00:00:00.123456Z'};
 const docRow={id:randomUUID(),kardex:'SA-00001',fecha_registro:'2026-10-13',tipo_doc:'Facturas-Guia',periodo:'2026-01-01',ubicacion:'Santa Anita',folios:30,cargos:['C001'],caja_asignada:reqRow.id,f_envio:null,sustento:'',sustento_imagen:'',usuario:'Juan',facturas:'F-001',obs:'',updated_at:'2026-10-13T00:00:00.123456Z'};
 
-async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recovery=false,adminLink='',loginError=null,enableSearch=false,username='',previousMapping={},now=Date.now()}={}) {
+async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recovery=false,adminLink='',loginError=null,enableSearch=false,username='',previousMapping={},initialDocs=[docRow],now=Date.now()}={}) {
   const html=await readFile(new URL('../index.html',import.meta.url),'utf8');
   const source=(await readFile(new URL('../src/app.js',import.meta.url),'utf8')).replace(/^import .*;\n/gm,'');
   const dom=new JSDOM(html,{url:'https://kardex.example.test'+adminLink+(recovery?'#type=recovery':''),runScripts:'outside-only'});
   dom.window.HTMLElement.prototype.scrollIntoView=()=>{};
   dom.window.HTMLDialogElement.prototype.showModal=function(){this.open=true;};
   dom.window.HTMLDialogElement.prototype.close=function(){if(this.open){this.open=false;this.dispatchEvent(new dom.window.Event('close'));}};
-  const state={reqs:[structuredClone(reqRow)],docs:[structuredClone(docRow)],updates:[],snapshots:0,events:[],status:null,authCallback:null};
+  const state={reqs:[structuredClone(reqRow)],docs:structuredClone(initialDocs),updates:[],snapshots:0,events:[],status:null,authCallback:null};
   state.session=signedIn?{user:{id:'owner',email:'owner@example.test',user_metadata:username?{kardex_username:username}:{}}}:null;
   state.syncRow={enabled:true,status:'Revisión completada: 276 cargos ya registrados. 1480 filas pendientes.',
     last_checked_at:'2026-10-17T03:09:17Z',
@@ -86,11 +87,11 @@ async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recov
   state.intervals=[];
   context.setInterval=(callback,delay)=>{state.intervals.push({callback,delay});return scheduleInterval(callback,delay);};
   context.Date=class extends Date {constructor(...args){super(...(args.length?args:[state.now]));}static now(){return state.now;}};
-  Object.assign(context,{cargoExpiryGroups,formatCargoDuration,limaDate,requestedIMBoxes,countRequestedCargos,summarizePreparedIm,summarizeShippedBoxes,summarizeCreatedCargos,renderImBarChart,renderCargoLineChart});
+  Object.assign(context,{cargoTotalsByYear,uniqueCargoDocuments,isSentIm,usesHistoricalImDecision,historicalShipmentDetails,HISTORICAL_IM_NOTE,cargoExpiryGroups,formatCargoDuration,limaDate,requestedIMBoxes,countRequestedCargos,summarizePreparedIm,summarizeShippedBoxes,summarizeCreatedCargos,renderImBarChart,renderCargoLineChart});
   Object.assign(context,{
     // Los módulos de interfaz externos no forman parte del test de autenticación.
-    attachScanImport:()=>{},attachPickupMail:()=>({}),attachBoxConditioning:()=>({}),
-    attachBoxScanSheets:()=>({scan:()=>{}}),attachBoxScanner:()=>({activate:()=>{},deactivate:()=>{},reset:()=>{}}),
+    attachScanImport:()=>{},attachPickupMail:()=>null,attachBoxConditioning:()=>null,
+    attachBoxScanSheets:()=>null,attachBoxScanner:()=>({activate:()=>{},deactivate:()=>{},reset:()=>{}}),
     attachInterventionExperience:()=>{},
     createClient:(url,key,options)=>{state.authOptions=options?.auth;return client;},KardexRepository:FakeRepository,reqFromDb,docFromDb,reqEstado,docEstado,fmtDate,escapeHtml,invoiceSearchPresentation,buildWorkbook:async(...args)=>{state.exportCalls.push(args);return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},buildCargoWorkbook:async(cargo)=>{state.guestExport=cargo;return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},buildExistenciasReport:async(...args)=>{state.reportArgs=args;return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},serializeExistenciasReport:async()=>{state.serializedReport=true;return new Uint8Array([1]);},parseWorkbook,highlightMatch,normalizeSearch,filterDocuments,filterRequirements,assignedBoxCode,cargoYear,invoiceLocation,locationLabel,groupsForCodes,
     __SUPABASE_URL__:'https://example.supabase.co',__SUPABASE_ANON_KEY__:'sb_publishable_test',confirm:()=>true,alert:()=>{}});
@@ -1683,4 +1684,31 @@ test('gráficos IM muestran el histórico de cajas por mes y año al abrir detal
   a.node('imShippedYearSelect').dispatchEvent(new a.dom.window.Event('change'));
   assert.equal(a.node('imShippedTotalValue').textContent,'441');
  }finally{a.close();}
+});
+
+
+test('regularización histórica en Existencias para administrador e invitado',async()=>{
+  for(const isAdmin of [true,false]){
+    const a=await app({isAdmin,enableSearch:true,initialDocs:[
+        {...docRow,id:randomUUID(),cargos:['A123'],facturas:'01-0FF01-0217573',
+          fecha_origen:'2023-05-15',anio_origen:2023,im_historical_decision:'historico'},
+        {...docRow,id:randomUUID(),cargos:['A124'],fecha_origen:'2023-11-10',
+          im_live_codigo_caja:'T1234567890',im_live_clasificacion:'Por solicitud',im_historical_decision:'revision'},
+    ]});
+    try{
+      a.node('buscar').value='217573';
+      a.node('filtroEstado').value='Histórico';
+      a.node('btnBuscar').click();
+      await flush();
+      const cells=[...a.node('tbody').querySelectorAll('tr td')].map(td=>td.textContent.trim());
+      assert.ok(cells.includes('15/05/2023'), JSON.stringify(cells));
+      assert.ok(cells.includes('No disponible'));
+      assert.deepEqual([...a.node('tbody').querySelectorAll('.b-historico')].map(x=>x.textContent),['Caja histórica','Histórico']);
+      assert.deepEqual([...a.node('tbody').querySelectorAll('.historical-im-missing')].map(x=>x.textContent),['15/11/2023','No identificado']);
+      assert.equal(a.node('historicalApproximateHead').textContent,'Fecha de envío aproximada');
+      assert.match(a.node('tbody').textContent,/relación original se extravió/);
+      assert.doesNotMatch(a.node('tbody').textContent,/ESTIMADA/);
+      assert.equal(a.node('tbody').querySelectorAll('button[data-edit]').length,Number(isAdmin));
+    }finally{a.close();}
+  }
 });

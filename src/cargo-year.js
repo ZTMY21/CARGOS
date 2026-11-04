@@ -17,20 +17,30 @@ const code=value=>String(value??'').trim().replace(/\.0+$/,'')
 // históricos hasta 2025: cada registro original cuenta, incluso 0028 y 28;
 // desde 2026: una factura adicional de un cargo no se cuenta dos veces.
 export function cargoTotalsByYear(docs) {
-  const counts=new Map(),seenCurrent=new Set();
-  for(const doc of docs||[]){
+  const counts=new Map();
+  for(const doc of uniqueCargoDocuments(docs || [])){
     const value=cargoYear(doc);
     const year=/^\d{4}$/.test(value)?value:'Sin año';
-    for(const raw of doc.cargos||[]){
-      const normalized=code(raw);
-      if(!normalized)continue;
-      if(/^\d{4}$/.test(year) && Number(year)>=2026){
-        const key=year+':'+normalized;
-        if(seenCurrent.has(key))continue;
-        seenCurrent.add(key);
-      }
-      counts.set(year,(counts.get(year)||0)+1);
-    }
+    counts.set(year,(counts.get(year)||0)+doc.cargos.length);
   }
   return counts;
+}
+
+// Place the authoritative entry first before calling this function. Preserve
+// distinct historical rows and only deduplicate repeated cargos from 2026 onward.
+export function uniqueCargoDocuments(docs) {
+  const seen = new Set();
+  return docs.flatMap(doc => {
+    const year = cargoYear(doc);
+    const cargos = (doc.cargos || []).filter(raw => {
+      const normalized = code(raw);
+      if (!normalized) return false;
+      if (!/^\d{4}$/.test(year) || Number(year) < 2026) return true;
+      const key = year + ':' + normalized;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+    return cargos.length ? [{ ...doc, cargos }] : [];
+  });
 }

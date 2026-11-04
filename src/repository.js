@@ -24,6 +24,8 @@ export function docFromDb(row) {
     imLiveCodigoCaja: row.im_live_codigo_caja || '',
     imLiveClasificacion: row.im_live_clasificacion || '',
     imLiveFechaEnvio: row.im_live_fecha_envio || '',
+    imLiveResponsableEntrega: row.im_live_responsable_entrega || '',
+    imHistoricalDecision: row.im_historical_decision || '',
     facturas: row.facturas || '', obs: row.obs || '', updatedAt: row.updated_at,
     facturasEncontradas: row.facturas_encontradas || [], cantidadFacturas: row.cantidad_facturas,
     ubicacionesCodigo: row.ubicaciones_codigo, errorUbicacion: row.error_ubicacion,

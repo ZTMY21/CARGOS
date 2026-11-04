@@ -1,3 +1,44 @@
+import { cargoYear } from './cargo-year.js';
+
+export const HISTORICAL_IM_NOTE = 'Envío histórico a Iron Mountain cuya relación original se extravió. La fecha aproximada es una referencia calculada y no acredita la fecha real del traslado.';
+
+export function validDate(value) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value || '')) return null;
+  const date = new Date(value + 'T00:00:00Z');
+  return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value ? value : null;
+}
+
+export function addMonths(iso, months) {
+  const [year, month, day] = iso.split('-').map(Number);
+  const lastDay = new Date(Date.UTC(year, month + months, 0)).getUTCDate();
+  return new Date(Date.UTC(year, month - 1 + months, Math.min(day, lastDay))).toISOString().slice(0, 10);
+}
+
+export function documentedImShipment(doc) {
+  return !!(doc.imLiveFechaEnvio || doc.imConfirmado ||
+    (doc.fEnvio && (doc.sustento || doc.sustentoImagen || doc.tieneSustentoImagen)));
+}
+
+export function usesHistoricalImDecision(doc) {
+  const year = Number(cargoYear(doc));
+  return !!doc.imHistoricalDecision && year >= 2020 && year <= 2024;
+}
+
+export function isSentIm(estado) {
+  return estado === 'Enviado a Iron Mountain' || estado === 'Histórico';
+}
+
+export function historicalShipmentDetails(doc) {
+  const cargoDate = validDate(doc.fechaOrigen);
+  return {
+    cargoDate,
+    approximateDate: cargoDate ? addMonths(cargoDate, 6) : null,
+    realDate: doc.imLiveFechaEnvio || doc.imFechaEnvio || doc.fEnvio,
+    box: (doc.imLiveFechaEnvio && doc.imLiveCodigoCaja) || doc.imCodigoCaja,
+    responsible: (doc.imLiveFechaEnvio && doc.imLiveResponsableEntrega) || doc.imResponsable
+  };
+}
+
 export const REQ_TYPES = [
   'Cajas nuevas para acondicionar',
   'Préstamo de Cajas (búsqueda de documentos)',
@@ -42,8 +83,12 @@ export function computeDocEstado(d, now = new Date()) {
     else if (/por\s+solicitud/i.test(String(d.imLiveClasificacion||''))) estado = 'Caja solicitada';
     else estado = 'Caja preparada para envío';
   }
+  if (usesHistoricalImDecision(d)) {
+    if (documentedImShipment(d)) estado = 'Enviado a Iron Mountain';
+    else if (d.imHistoricalDecision === 'historico') estado = 'Histórico';
+  }
   const today = new Date(`${limaDate(now)}T00:00:00`);
-  const antiguedad = d.periodo && estado !== 'Enviado a Iron Mountain'
+  const antiguedad = d.periodo && !isSentIm(estado)
     ? monthsBetween(new Date(`${d.periodo}T00:00:00`), today) : '-';
   return { estado, antiguedad };
 }

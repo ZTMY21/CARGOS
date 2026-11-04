@@ -1,5 +1,5 @@
 import ExcelJS from 'exceljs';
-import {computeDocEstado, fmtDate, limaDate, monthsBetween} from './rules.js';
+import {computeDocEstado, fmtDate, limaDate, monthsBetween, isSentIm, historicalShipmentDetails, usesHistoricalImDecision} from './rules.js';
 import {cargoYear} from './cargo-details.js';
 import {cargoExpiryGroups} from './cargo-expiry.js';
 
@@ -22,7 +22,7 @@ function cargoGroups(docs){
   for(const doc of docs)for(const [index,cargo] of (doc.cargos||[]).entries()){
     if(!code(cargo))continue;
     const year=cargoYear(doc);
-    const key=year==='2026'?year+':'+code(cargo)
+    const key=Number(year)>=2026?year+':'+code(cargo)
       :year+':'+code(cargo)+'|'+(doc.id||doc.kardex)+'|'+index;
     if(!groups.has(key))groups.set(key,{cargo,entries:[]});
     groups.get(key).entries.push(doc);
@@ -37,14 +37,15 @@ function allSourceCargos(docs){
 }
 function selected(docs,now){
   return [...cargoGroups(docs)].map(([key,{cargo,entries}])=>({
-    key,cargo,doc:entries.find(d=>computeDocEstado(d,now).estado==='Enviado a Iron Mountain')||entries[0]
+    key,cargo,doc:entries.find(d=>isSentIm(computeDocEstado(d,now).estado))||entries[0]
   })).sort((a,b)=>b.key.localeCompare(a.key,'es',{numeric:true}));
 }
 function status(doc,now){
-  return computeDocEstado(doc,now).estado==='Enviado a Iron Mountain'?'Enviado':'Pendiente de Envío';
+  const {estado}=computeDocEstado(doc,now);
+  return estado==='Histórico' ? estado : isSentIm(estado) ? 'Enviado' : 'Pendiente de Envío';
 }
 function location(doc,now){
-  return status(doc,now)==='Enviado'||/^(?:Iron Mountain|Aeromontain)$/i.test(doc.ubicacion||'')
+  return isSentIm(computeDocEstado(doc,now).estado)||/^(?:Iron Mountain|Aeromontain)$/i.test(doc.ubicacion||'')
     ?'Iron Mountain':'Santa Anita';
 }
 function age(doc,now){
@@ -77,13 +78,14 @@ function rowStyle(row,columns){
   for(let i=1;i<=columns;i++)style(row.getCell(i));
 }
 function cargoValues(item,now,reqNumbers){
-  const {doc,cargo}=item,sent=status(doc,now)==='Enviado';
-  const delivery=doc.imLiveFechaEnvio?doc.imLiveResponsableEntrega:doc.imResponsable;
+  const {doc,cargo}=item,sent=isSentIm(computeDocEstado(doc,now).estado);
+  const shipment=sent && usesHistoricalImDecision(doc) ? historicalShipmentDetails(doc) : null;
+  const delivery=shipment ? shipment.responsible : doc.imLiveFechaEnvio?doc.imLiveResponsableEntrega:doc.imResponsable;
   return [doc.kardex,fmtDate(doc.fechaOrigen||doc.fechaRegistro),doc.tipoDoc||'',
     fmtDate(doc.periodo),location(doc,now),Number(doc.folios)||0,
     Number(doc.cantidadRegistros??doc.datosOrigen?.cantidad_registros??doc.cantidadFacturas)||0,
     Number(doc.cantidadFacturas)||0,cargo,reqNumbers.get(doc.cajaAsignada)||'',
-    fmtDate(sent?(doc.imLiveFechaEnvio||doc.imFechaEnvio||doc.fEnvio):''),'',
+    fmtDate(shipment ? shipment.realDate : sent ? doc.imLiveFechaEnvio||doc.imFechaEnvio||doc.fEnvio : ''),'',
     status(doc,now),age(doc,now),sent?delivery||'':'',''];
 }
 function addCargoSheet(workbook,items,now,reqNumbers){
@@ -140,11 +142,11 @@ export function buildExistenciasReport(docs,now=new Date(),reqs=[]){
   wb._existenciasDocs=docs;
   wb._existenciasYears=years;
   redHeader(sheet,6,['Total Cargos','Enviado a Iron Mountain',
-    'En Proceso de Acondicionamiento','Pendientes de Envío IM']);
+    'En Proceso de Acondicionamiento (incluidos en pendientes)','Pendientes de Envío IM']);
   sheet.getRow(6).height=34;
-  const sent=items.filter(item=>computeDocEstado(item.doc,now).estado==='Enviado a Iron Mountain');
+  const sent=items.filter(item=>isSentIm(computeDocEstado(item.doc,now).estado));
   const process=items.filter(item=>computeDocEstado(item.doc,now).estado==='En Proceso de Acondicionamiento');
-  const pending=items.filter(item=>!sent.includes(item)&&!process.includes(item));
+  const pending=items.filter(item=>!isSentIm(computeDocEstado(item.doc,now).estado));
   [items,sent,process,pending].forEach((group,i)=>{
     const col='BCDE'[i];const value=sheet.getCell(col+'7');value.value=display(group);style(value);
     value.font={name:'Arial',size:12,bold:true,color:{argb:DARK}};
@@ -158,7 +160,7 @@ export function buildExistenciasReport(docs,now=new Date(),reqs=[]){
   sheet.getRow(12).height=24;
   // Coincide con las tarjetas del aplicativo: Nº cargos por documento de 2025/2026
   // aún sin envío, no porcentaje sobre el Kardex general ni sobre otras épocas.
-  const expiry=cargoExpiryGroups(docs,now);
+  const expiry=cargoExpiryGroups(items.map(({doc,cargo})=>({...doc,cargos:[cargo]})),now);
   const countCargos=group=>group.reduce((n,d)=>n+(d.cargos||[]).length,0);
   const countFolios=group=>group.reduce((n,d)=>n+(Number(d.folios)||0),0);
   const upcomingCount=countCargos(expiry.upcoming),overdueCount=countCargos(expiry.overdue);

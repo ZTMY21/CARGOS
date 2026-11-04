@@ -5,13 +5,13 @@ import {attachPickupMail} from './pickup-mail-ui.js';
 import {attachScanImport} from './scan-import-ui.js';
 import {attachInterventionExperience} from './intervention-experience.js';
 import { createClient } from '@supabase/supabase-js';
-import { computeReqEstado as reqEstado, computeDocEstado as docEstado, fmtDate, escapeHtml, limaDate } from './rules.js';
+import { computeReqEstado as reqEstado, computeDocEstado as docEstado, fmtDate, escapeHtml, limaDate, isSentIm, usesHistoricalImDecision, historicalShipmentDetails, HISTORICAL_IM_NOTE } from './rules.js';
 import { KardexRepository, reqFromDb, docFromDb } from './repository.js';
 import { buildCargoWorkbook, buildExistenciasReport, serializeExistenciasReport, parseWorkbook } from './excel-api.js';
 import { highlightMatch, normalizeSearch, filterDocuments, filterRequirements, invoiceSearchPresentation, assignedBoxCode } from './search.js';
 import './connection.css';
 import { cargoYear, locationLabel, groupsForCodes } from './cargo-details.js';
-import { cargoTotalsByYear } from './cargo-year.js';
+import { cargoTotalsByYear, uniqueCargoDocuments } from './cargo-year.js';
 import { summarizeCreatedCargos } from './monthly-created-summary.js';
 import { renderCargoLineChart } from './cargo-line-chart.js';
 import { summarizeShippedBoxes } from './im-shipped-summary.js';
@@ -513,7 +513,7 @@ document.getElementById('btnCancelarReq').addEventListener('click', cancelarEdic
 
 // ================= DOCUMENTOS =================
 function docBadgeClass(estado){
-  return {'Pendiente de Envío':'b-pendiente','En Proceso de Acondicionamiento':'b-proceso','Enviado a Iron Mountain':'b-enviado','Caja solicitada':'b-caja-solicitada','Caja preparada para envío':'b-proceso'}[estado]||'';
+  return {'Pendiente de Envío':'b-pendiente','En Proceso de Acondicionamiento':'b-proceso','Enviado a Iron Mountain':'b-enviado','Histórico':'b-historico','Caja solicitada':'b-caja-solicitada','Caja preparada para envío':'b-proceso'}[estado]||'';
 }
 
 function populateCajaAsignadaOptions(currentValue){
@@ -840,6 +840,8 @@ function renderDocs(){
   const filters=appliedFilters;
   const search=filters.query;
   const enriched = docs.map(d => ({...d, ...computeDocEstado(d)}));
+  const ranked = [...enriched].sort((a,b)=>Number(isSentIm(b.estado))-Number(isSentIm(a.estado)));
+  const summaryDocs = uniqueCargoDocuments(ranked);
 
   const cargosDe = arr => arr.reduce((s,d)=> s + (d.cargos||[]).length, 0);
   const foliosDe = arr => arr.reduce((s,d)=> s + (parseInt(d.folios,10)||0), 0);
@@ -849,14 +851,16 @@ function renderDocs(){
   const cargosPorAnio = cargoTotalsByYear(enriched);
   const totalCargos = [...cargosPorAnio.values()].reduce((sum,n)=>sum+n,0);
   const totalFolios = foliosDe(enriched);
-  const grupoEnviado = enriched.filter(d=>d.estado==='Enviado a Iron Mountain');
-  const grupoProceso = enriched.filter(d=>d.estado==='En Proceso de Acondicionamiento');
-  const grupoPendiente = enriched.filter(d=>d.estado==='Pendiente de Envío');
+  const grupoEnviado = summaryDocs.filter(d=>isSentIm(d.estado));
+  const grupoProceso = summaryDocs.filter(d=>d.estado==='En Proceso de Acondicionamiento');
+  const grupoPendiente = summaryDocs.filter(d=>!isSentIm(d.estado));
+  const grupoHistorico = grupoEnviado.filter(d=>d.estado==='Histórico');
+  const historicosEnRevision = grupoPendiente.filter(d=>usesHistoricalImDecision(d)&&d.imHistoricalDecision==='revision');
   const cargosEnviados = cargosDe(grupoEnviado);
   const cargosEnProceso = cargosDe(grupoProceso);
   const cargosPendientes = cargosDe(grupoPendiente), foliosPendientes = foliosDe(grupoPendiente);
 
-  expiryGroups = cargoExpiryGroups(docs, new Date());
+  expiryGroups = cargoExpiryGroups(summaryDocs, new Date());
   const grupoPorVencer = expiryGroups.upcoming;
   const grupoVencidos = expiryGroups.overdue;
   const cargosPorVencer = cargosDe(grupoPorVencer), foliosPorVencer = foliosDe(grupoPorVencer);
@@ -869,19 +873,13 @@ function renderDocs(){
 
   const pct = (n, base) => base > 0 ? Math.round((n/base)*100) + '%' : '0%';
 
-  // Mismos envíos confirmados que el KPI superior "Enviado Iron Mountain".
-  // El agrupador es el año del cargo, no la fecha de su envío.
-  const aniosEnviados=Array.from({length:7},(_,i)=>String(2020+i));
-  const enviadosPorAnio=new Map(aniosEnviados.map(anio=>[anio,0]));
-  for(const doc of grupoEnviado) {
-    const year=cargoYear(doc);
-    if(enviadosPorAnio.has(year))
-      enviadosPorAnio.set(year,enviadosPorAnio.get(year)+(doc.cargos||[]).length);
-  }
+  // Esta tabla agrupa por año del cargo. Los gráficos de cajas usan fechas efectivas.
+  const enviadosPorAnio = cargoTotalsByYear(grupoEnviado);
+  const aniosEnviados = [...new Set([...Array.from({length:7},(_,i)=>String(2020+i)), ...enviadosPorAnio.keys()])].sort();
   const enviadosPorAnioHtml=aniosEnviados.map(anio=>
     `<div class="periodo-fila ${anio==='2026'?'year-current':''}">
-      <span class="year-label">${anio}</span>
-      <span class="year-value">${fmtNum(enviadosPorAnio.get(anio))} <span class="year-unit">cargos</span></span>
+      <span class="year-label">${escapeHtml(anio)}</span>
+      <span class="year-value">${fmtNum(enviadosPorAnio.get(anio)||0)} <span class="year-unit">cargos</span></span>
     </div>`
   ).join('');
   const aniosOrdenados = [...cargosPorAnio.keys()].sort((a,b)=>
@@ -905,17 +903,17 @@ function renderDocs(){
       <div class="kpi kpi-color kpi-summary-sent">
         <div class="l">Enviado Iron Mountain</div>
         <div class="n">${fmtNum(cargosEnviados)}</div>
-        <div class="pct-txt">${pct(cargosEnviados,totalCargos)}</div>
+        <div class="pct-txt">${pct(cargosEnviados,totalCargos)}${grupoHistorico.length ? ` · ${fmtNum(cargosDe(grupoHistorico))} históricos regularizados` : ''}</div>
       </div>
       <div class="kpi kpi-color kpi-summary-process">
         <div class="l">En Proceso de Acondicionamiento</div>
         <div class="n">${fmtNum(cargosEnProceso)}</div>
-        <div class="pct-txt">${pct(cargosEnProceso,totalCargos)}</div>
+        <div class="pct-txt">${pct(cargosEnProceso,totalCargos)} · Incluidos en pendientes</div>
       </div>
       <div class="kpi kpi-color kpi-summary-pending">
         <div class="l">Pendiente de Envío a IM</div>
         <div class="n">${fmtNum(cargosPendientes)}<span class="folios-inline"> (${fmtNum(foliosPendientes)} folios)</span></div>
-        <div class="pct-txt">${pct(cargosPendientes,totalCargos)}</div>
+        <div class="pct-txt">${pct(cargosPendientes,totalCargos)}${historicosEnRevision.length ? ` · ${fmtNum(cargosDe(historicosEnRevision))} históricos en revisión` : ''}</div>
       </div>
     </div>
     <div class="resumen-titulo-alerta">Cargos de 2025 y 2026 pendientes de envío · Plazo de 6 meses</div>
@@ -949,7 +947,7 @@ function renderDocs(){
       <div class="year-grid" id="yearSummaryGrid" aria-live="polite">${porPeriodoHtml}</div>
     </section>
     <section class="year-section periodo-box im-year-section" aria-labelledby="im-year-summary-heading">
-      <h3 class="year-heading" id="im-year-summary-heading">Cargos Enviados a Iron Mountain por Año</h3>
+      <h3 class="year-heading" id="im-year-summary-heading">Cargos Enviados a Iron Mountain por Año del Cargo</h3>
       <div class="year-grid" id="imYearSummaryGrid" aria-live="polite">${enviadosPorAnioHtml}</div>
     </section>
   `;
@@ -992,21 +990,35 @@ function renderDocs(){
   document.getElementById('paginaActual').textContent=`Página ${currentPage+1} de ${Math.max(1,Math.ceil(total/PAGE_SIZE))}`;
   if(!queryResults)filtered=filtered.slice(currentPage*PAGE_SIZE,(currentPage+1)*PAGE_SIZE);
 
+  const showHistoricalDate = filtered.some(d=>d.estado==='Histórico');
+  const approximateHead = document.getElementById('historicalApproximateHead');
+  if(showHistoricalDate && !approximateHead){
+    const head = document.createElement('th');
+    head.id = 'historicalApproximateHead';
+    head.textContent = 'Fecha de envío aproximada';
+    tableHead.insertBefore(head,document.getElementById('realShipmentDateHead'));
+  } else if(!showHistoricalDate) approximateHead?.remove();
+  document.getElementById('cargoDateHead').textContent = showHistoricalDate ? 'Fecha del cargo / registro' : 'Fecha Reg.';
+  document.getElementById('realShipmentDateHead').textContent = showHistoricalDate ? 'Fecha real de envío' : 'F. Envío';
   const tbody = document.getElementById('tbody');
   if(filtered.length === 0){
-    tbody.innerHTML = `<tr><td colspan="${showLocationColumn?13:12}" class="empty">${escapeHtml(queryError||'Sin registros que coincidan con la consulta actual.')}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="${12+Number(showLocationColumn)+Number(showHistoricalDate)}" class="empty">${escapeHtml(queryError||'Sin registros que coincidan con la consulta actual.')}</td></tr>`;
   } else {
     tbody.innerHTML = filtered.map(d=>{
-      const cajaTxt = d.imLiveCodigoCaja || assignedBoxCode(d,reqs) || '—';
-      const fechaEnvioTxt = d.imLiveCodigoCaja ? d.imLiveFechaEnvio
+      const historical = d.estado==='Histórico';
+      const reviewedShipment = usesHistoricalImDecision(d) && isSentIm(d.estado);
+      const shipment = reviewedShipment ? historicalShipmentDetails(d) : null;
+      const cajaTxt = (shipment ? shipment.box : assignedBoxCode(d,reqs)) || (historical ? 'Caja histórica' : '—');
+      const fechaEnvioTxt = shipment ? shipment.realDate : d.imLiveCodigoCaja ? d.imLiveFechaEnvio
         : d.imConfirmado ? d.imFechaEnvio : d.fEnvio;
-      const responsableOrigen = d.imConfirmado ? d.imResponsable
+      const responsableOrigen = shipment ? shipment.responsible : d.imConfirmado ? d.imResponsable
         : d.imPreparado && d.imResponsablePreparacion ? d.imResponsablePreparacion : d.usuario;
       const responsableTxt = !String(responsableOrigen||'').trim() || /^importaci[oó]n excel$/i.test(String(responsableOrigen).trim())
-        ? 'Sin Responsable' : responsableOrigen;
-      const estadoTxt = d.estado==='Caja solicitada' ? 'Caja solicitada'
+        ? (historical ? 'No identificado' : 'Sin Responsable') : responsableOrigen;
+      const estadoTxt = historical ? 'Histórico'
+        : d.estado==='Caja solicitada' ? 'Caja solicitada'
         : d.estado==='Caja preparada para envío' ? 'Caja preparada para envío'
-        : d.imLiveFechaEnvio || d.imConfirmado ? 'Enviado'
+        : reviewedShipment || d.imLiveFechaEnvio || d.imConfirmado ? 'Enviado'
         : d.imPreparado ? d.estado+' · Caja preparada' : d.estado;
       const invoiceView=['solo-cargos','solo-cajas'].includes(filters.type)
         ? {...invoiceSearchPresentation(d,''),kind:'cargo',codes:[]}
@@ -1032,17 +1044,21 @@ function renderDocs(){
           : `<span class="invoice-count">${fmtNum(invoiceView.total)} códigos en este registro</span>`;
       return `<tr>
         <td>${highlightMatch(d.kardex,search)}</td>
-        <td>${fmtDate(d.fechaRegistro)}</td>
+        <td>${historical ? fmtDate(shipment.cargoDate)||'No disponible' : fmtDate(d.fechaRegistro)}</td>
         <td>${escapeHtml(d.tipoDoc||'')}</td>
         <td>${escapeHtml(cargoYear(d))}</td>
         ${showLocationColumn ? `<td>${escapeHtml(groupLocation)}</td>` : ''}
         <td>${highlightMatch((d.cargos||[]).join(', ')||'Sin cargo asignado',search)}</td>
         <td class="invoice-results">${invoiceCell}</td>
-        <td>${highlightMatch(cajaTxt,search)}</td>
-        <td>${fmtDate(fechaEnvioTxt)}</td>
-        <td><span class="badge ${docBadgeClass(d.estado)}">${escapeHtml(estadoTxt)}</span></td>
+        <td>${historical && !shipment.box ? '<span class="badge b-historico">Caja histórica</span>' : highlightMatch(cajaTxt,search)}</td>
+        ${showHistoricalDate ? `<td>${historical ? `<span class="historical-im-missing">${fmtDate(shipment.approximateDate)||'No disponible'}</span>` : ''}</td>` : ''}
+        <td>${fmtDate(fechaEnvioTxt)||(historical?'No disponible':'')}</td>
+        <td><span class="badge ${docBadgeClass(d.estado)}">${escapeHtml(estadoTxt)}</span>
+          ${historical ? `<details class="historical-im-note"><summary>Iron Mountain</summary><p>${HISTORICAL_IM_NOTE}</p></details>` : ''}
+          ${!isSentIm(d.estado) && d.imHistoricalDecision==='revision' ? '<div class="historical-im-note">Envío histórico en revisión</div>' : ''}
+        </td>
         <td class="previous-cargo-cell" data-previous-cargo-id="${escapeHtml(d.id)}" data-matched-invoice-codes="${escapeHtml(matchedInvoiceCodes.join(','))}">${previousCargoHtml}</td>
-        <td>${highlightMatch(responsableTxt||'',search)}</td>
+        <td>${historical && responsableTxt==='No identificado' ? '<span class="historical-im-missing">No identificado</span>' : highlightMatch(responsableTxt||'',search)}</td>
         <td>
           <button class="secondary" data-export-cargo="${d.id}" ${!d.cargos?.length?'disabled title="Este registro no tiene cargo asignado"':''}>Exportar este cargo</button>
           ${isAdmin ? `<button class="link" data-edit="${d.id}">Editar</button>

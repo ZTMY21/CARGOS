@@ -157,3 +157,24 @@ test('exportación ordena Cargo ascendente y Grupo 1, 2, 3 sin alterar el orden 
     ['10','1','10G1A'],['10','1','10G1B'],['10','2','10G2'],
     ['10','3','10G3A'],['10','3','10G3B']]);
 });
+
+
+test('el reporte incluye históricos como enviados y conserva las fechas efectivas',()=>{
+  const historical={...base,id:'historical',kardex:'SA-00002',cargos:['0028'],
+    fechaOrigen:'2024-05-31',imHistoricalDecision:'historico'};
+  const verified={...base,id:'verified',kardex:'SA-00003',cargos:['28'],
+    fechaOrigen:'2024-05-31',imHistoricalDecision:'confirmado_documental',
+    imConfirmado:true,imFechaEnvio:'2024-12-03',imResponsable:'Responsable documentado',
+    imLiveCodigoCaja:'T1234567890',imLiveClasificacion:'Por solicitud'};
+  const prepared={...base,imLiveCodigoCaja:'T2222222222'};
+  const wb=buildExistenciasReport([historical,verified,prepared],now);
+  const summary=wb.getWorksheet('Resumen'), cargos=wb.getWorksheet('Cargos');
+  assert.match(summary.getCell('B7').value,/^3 /);
+  assert.match(summary.getCell('C7').value,/^2 /);
+  assert.match(summary.getCell('E7').value,/^1 /);
+  assert.equal(cargos.getCell('K3').value,'');
+  assert.equal(cargos.getCell('M3').value,'Histórico');
+  assert.equal(cargos.getCell('E3').value,'Iron Mountain');
+  assert.equal(cargos.getCell('K4').value,'03/12/2024');
+  assert.equal(cargos.getCell('O4').value,'Responsable documentado');
+});

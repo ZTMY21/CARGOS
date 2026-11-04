@@ -1,17 +1,7 @@
-import { computeDocEstado, limaDate } from './rules.js';
+import { computeDocEstado, limaDate, validDate, addMonths, isSentIm } from './rules.js';
 import { cargoYear } from './cargo-details.js';
 
 const DAY = 86400000;
-function validDate(value) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value || '')) return null;
-  const date = new Date(`${value}T00:00:00Z`);
-  return Number.isFinite(date.getTime()) && date.toISOString().slice(0,10) === value ? value : null;
-}
-function addMonths(iso, months) {
-  const [year, month, day] = iso.split('-').map(Number);
-  const lastDay = new Date(Date.UTC(year, month - 1 + months + 1, 0)).getUTCDate();
-  return new Date(Date.UTC(year, month - 1 + months, Math.min(day, lastDay))).toISOString().slice(0,10);
-}
 function duration(start, end) {
   const [sy, sm] = start.split('-').map(Number);
   const [ey, em] = end.split('-').map(Number);
@@ -34,7 +24,7 @@ export function cargoExpiryGroups(docs, now = new Date()) {
     const year = cargoYear(doc);
     if (!['2025', '2026'].includes(year) || !doc.cargos?.length) continue;
     const { estado } = computeDocEstado(doc, now);
-    if (estado === 'Enviado a Iron Mountain') continue;
+    if (isSentIm(estado)) continue;
     const baseDate = validDate(doc.periodo) || validDate(doc.fechaOrigen);
     if (!baseDate || baseDate > today) {
       groups.unknown.push(doc);

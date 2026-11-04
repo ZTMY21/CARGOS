@@ -195,6 +195,10 @@
   .b-pendiente{background:var(--red-bg);color:var(--red);}
   .b-proceso{background:var(--yellow-bg);color:var(--yellow);}
   .b-enviado{background:var(--green-bg);color:var(--green);}
+  .b-historico{background:#7C3AED;color:#fff;}
+  .historical-im-missing{color:#B91C1C;font-weight:600;white-space:nowrap;}
+  .historical-im-note{font-size:.8rem;margin-top:.35rem;min-width:9rem;}
+  .historical-im-note p{margin:.25rem 0;min-width:15rem;}
   .b-caja-solicitada{background:#e0f5ff;color:#0877a8;border:1px solid #94dafa;}
   .alerta-neg{color:var(--red);font-weight:700;}
   .alerta-warn{color:var(--yellow);font-weight:700;}
@@ -1160,6 +1164,7 @@
           <option value="">Todos los estados</option>
           <option value="Pendiente de Envío">Pendiente de envío</option>
           <option value="Enviado a Iron Mountain">Enviado</option>
+          <option value="Histórico">Histórico</option>
           <option value="En Proceso de Acondicionamiento">En proceso de acondicionamiento</option>
         </select>
         <select id="filtroTipo" aria-label="Filtrar por tipo de documento">
@@ -1182,8 +1187,8 @@
       <div class="table-wrap" id="docsTableScroll">
         <table id="docsTable">
           <thead><tr>
-            <th>Kardex</th><th>Fecha Reg.</th><th>Tipo Doc.</th><th>Período</th>
-            <th>Cargos</th><th>Facturas</th><th>Caja Asignada</th><th>F. Envío</th><th>Estado</th><th>Cargo anterior</th><th>Responsable</th><th></th>
+            <th>Kardex</th><th id="cargoDateHead">Fecha Reg.</th><th>Tipo Doc.</th><th>Período</th>
+            <th>Cargos</th><th>Facturas</th><th>Caja Asignada</th><th id="realShipmentDateHead">F. Envío</th><th>Estado</th><th>Cargo anterior</th><th>Responsable</th><th></th>
           </tr></thead>
           <tbody id="tbody"><tr><td colspan="12" class="loading">Cargando registros…</td></tr></tbody>
         </table>
