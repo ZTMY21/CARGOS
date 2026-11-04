@@ -110,3 +110,66 @@ export async function appendMasterCargo(bytes,target,cargo,rows){
   return {alreadyExists:false,cargo,rowsAdded:rows.length,bytes:output,sha256:digest(output),
     lastCargo:check.lastCargo,newSize:output.length};
 }
+
+
+/**
+ * Reconcile an orphaned latest cargo: it is still present in this Excel master
+ * but absent from the already-validated database index. Never replace history.
+ * The caller must authorize an administrator, verify DB lastCargo=cargo-1,
+ * hold the per-master lease, and back up the exact current Drive revision.
+ */
+export async function replaceLastMasterCargo(bytes,target,cargo,rows){
+  const info=await inspectMaster(bytes,target);
+  if(info.lastCargo!==cargo||!info.cargos.includes(cargo))
+    throw Error('CORRECCION_SOLO_ULTIMO_CARGO');
+  const oldCount=info.counts[cargo];
+  if(!Number.isSafeInteger(oldCount)||oldCount<1)
+    throw Error('CARGO_ANTERIOR_INCONSISTENTE');
+  if(!Array.isArray(rows)||!rows.length||rows.length>15000||
+     info.rows-oldCount+rows.length>1048576)
+    throw Error('FILAS_CARGO_INVALIDAS');
+  if(rows.some(r=>!Array.isArray(r)||r.length!==11||Number(r[1])!==cargo))
+    throw Error('DATOS_CARGO_NO_COINCIDEN');
+
+  // Only a contiguous tail containing this same cargo can be replaced.
+  const first=info.rows-oldCount+1;
+  const start=info.xml.indexOf('<row r="'+first+'"');
+  const end=info.xml.indexOf('</sheetData>',start);
+  if(start<0||end<0)throw Error('TRAMO_CARGO_NO_IDENTIFICADO');
+  const oldTail=info.xml.slice(start,end);
+  const existing=[...oldTail.matchAll(/<row\b[^>]*\br="(\d+)"[^>]*>([\s\S]*?)<\/row>/g)];
+  if(existing.length!==oldCount)throw Error('TRAMO_CARGO_INCOMPLETO');
+  for(let i=0;i<existing.length;i++){
+    const num=Number(existing[i][1]);
+    const recorded=existing[i][2].match(/<c\s+[^>]*r="B\d+"[^>]*><v>(\d+)<\/v><\/c>/)?.[1];
+    if(num!==first+i||Number(recorded)!==cargo)
+      throw Error('OTROS_CARGOS_MEZCLADOS_EN_TRAMO');
+  }
+
+  const append=rows.map((data,index)=>{
+    const line=first+index;
+    return '<row r="'+line+'" spans="1:11">'+[...'ABCDEFGHIJK']
+      .map((col,i)=>cell(col,line,data[i])).join('')+'</row>';
+  }).join('');
+  const last=first+rows.length-1;
+  const oldRef='A1:K'+info.rows,newRef='A1:K'+last;
+  let patched=info.xml.slice(0,start)+append+info.xml.slice(end);
+  if(!patched.includes('<dimension ref="'+oldRef+'"/>'))
+    throw Error('DIMENSION_NO_ACTUALIZADA');
+  patched=patched.replaceAll('ref="'+oldRef+'"','ref="'+newRef+'"');
+  const table=info.table.replaceAll('ref="'+oldRef+'"','ref="'+newRef+'"');
+  if(table===info.table||!table.includes('ref="'+newRef+'"'))
+    throw Error('FILTRO_MAESTRO_NO_ACTUALIZADO');
+  info.zip.file(SHEET,patched);info.zip.file(TABLE,table);
+  const output=await info.zip.generateAsync({
+    type:'nodebuffer',compression:'DEFLATE',compressionOptions:{level:6}
+  });
+  const check=await inspectMaster(output,target);
+  if(check.rows!==last||check.lastCargo!==cargo||
+     check.counts[cargo]!==rows.length||
+     info.cargos.some(n=>n!==cargo&&check.counts[n]!==info.counts[n]))
+    throw Error('VERIFICACION_DE_CORRECCION_FALLIDA');
+  return {alreadyExists:false,replaced:true,cargo,rowsAdded:rows.length,
+    previousRows:oldCount,bytes:output,sha256:digest(output),
+    lastCargo:check.lastCargo,newSize:output.length};
+}
