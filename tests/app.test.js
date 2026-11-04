@@ -154,10 +154,12 @@ test('la Preview alinea las tres tarjetas y distingue los conteos anuales de la 
  } finally { a.close(); }
 });
 
-test('préstamos distingue un documento sin caja, una caja física y una búsqueda sin coincidencias',async()=>{
+test('préstamos solo permite solicitar una caja con envío confirmado y sin préstamo activo',async()=>{
  const a=await app({isolatedPreview:true,loanMatches:{
-  'F001-000001':[{tipo:'documento',estado:'Identificación pendiente',cargos:['900']}],
-  'T1234567890':[{clave:'1234567890',codigo:'T1234567890',estado:'Caja preparada para envío',cargos:['901']}]
+  'F001-000001':[{tipo:'documento',estado:'Identificación pendiente',cargos:['900'],solicitable:false}],
+  'T1234567890':[{clave:'1234567890',codigo:'T1234567890',estado:'Caja preparada para envío',cargos:['901'],solicitable:false}],
+  'T1234567891':[{clave:'1234567891',codigo:'T1234567891',estado:'Enviado a Iron Mountain',cargos:['902'],solicitable:true}],
+  'T1234567892':[{clave:'1234567892',codigo:'T1234567892',estado:'Enviado a Iron Mountain',cargos:['903'],prestamo:'REQ-0001',solicitable:false}]
  }});
  try {
   const search=async query=>{
@@ -170,9 +172,15 @@ test('préstamos distingue un documento sin caja, una caja física y una búsque
   assert.match(noBox.textContent,/Documento encontrado sin caja física registrada/);
   assert.match(noBox.textContent,/900/);
   assert.equal(noBox.querySelector('[data-req-select]'),null);
-  const box=await search('T1234567890');
-  assert.match(box.textContent,/T1234567890/);
-  assert.equal(box.querySelector('[data-req-select]').textContent,'Solicitar');
+  const pending=await search('T1234567890');
+  assert.match(pending.textContent,/Solicitud disponible cuando se confirme el envío/);
+  assert.equal(pending.querySelector('[data-req-select]'),null);
+  const sent=await search('T1234567891');
+  assert.match(sent.textContent,/Enviado a Iron Mountain/);
+  assert.equal(sent.querySelector('[data-req-select]').textContent,'Solicitar');
+  const borrowed=await search('T1234567892');
+  assert.match(borrowed.textContent,/Préstamo activo/);
+  assert.equal(borrowed.querySelector('[data-req-select]'),null);
   const empty=await search('sin coincidencias');
   assert.match(empty.textContent,/No hubo coincidencias en los datos disponibles de la Preview/);
  } finally { a.close(); }

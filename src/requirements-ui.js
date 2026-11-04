@@ -72,6 +72,7 @@ export function setupRequirements(root, {repository, context, refresh, isPreview
   const form = find('Form'), kind = find('Kind'), qty = find('Qty'), dialog = find('Dialog');
   root.ownerDocument.body.append(dialog);
   let results = [];
+  const canRequest = box => !!box?.clave && box.solicitable === true && !box.prestamo;
 
   function renderSelection() {
     find('Selected').innerHTML = selected.size ? `<ul>${[...selected.values()].map(box => `<li>
@@ -106,7 +107,8 @@ export function setupRequirements(root, {repository, context, refresh, isPreview
         <strong>${html(box.codigo || (box.tipo === 'documento' ? 'Documento encontrado sin caja física registrada' : 'Cargo encontrado sin caja física registrada'))}</strong> · ${html(box.estado)}
         ${box.ubicacion ? ` · ${html(box.ubicacion)}` : ''} · cargos ${html((box.cargos || []).join(', '))}
         ${box.prestamo ? ` · Préstamo activo ${html(box.prestamo)}`
-          : box.clave ? `<button type="button" class="link" data-req-select="${index}">Solicitar</button>` : ''}
+          : canRequest(box) ? `<button type="button" class="link" data-req-select="${index}">Solicitar</button>`
+            : box.clave ? ' · Solicitud disponible cuando se confirme el envío a Iron Mountain' : ''}
       </li>`).join('')}</ul>` : `<p>${isPreview
         ? 'No hubo coincidencias en los datos disponibles de la Preview. Prueba con el código completo.'
         : 'No se encontró ese cargo, documento o código de caja.'}</p>`;
@@ -203,7 +205,7 @@ export function setupRequirements(root, {repository, context, refresh, isPreview
     if ('reqClose' in d) dialog.close();
     if ('reqSelect' in d) {
       const box = results[Number(d.reqSelect)];
-      if (box?.clave && !selected.has(box.clave) && window.confirm(`¿Deseas solicitar esta caja?\nCódigo de caja: ${box.codigo}`)) {
+      if (canRequest(box) && !selected.has(box.clave) && window.confirm(`¿Deseas solicitar esta caja?\nCódigo de caja: ${box.codigo}`)) {
         selected.set(box.clave,box);
         renderSelection();
       }
