@@ -22,7 +22,7 @@ const flush=()=>new Promise(resolve=>setTimeout(resolve,20));
 const reqRow={id:randomUUID(),numero:'REQ-00001',tipo:'Cajas nuevas para acondicionar',fecha_solicitud:'2026-10-01',cantidad_cajas:2,numeros_cargo:'',fecha_recepcion:'2026-10-02',fecha_devolucion:null,usuario:'Juan',updated_at:'2026-10-13T00:00:00.123456Z'};
 const docRow={id:randomUUID(),kardex:'SA-00001',fecha_registro:'2026-10-13',tipo_doc:'Facturas-Guia',periodo:'2026-01-01',ubicacion:'Santa Anita',folios:30,cargos:['C001'],caja_asignada:reqRow.id,f_envio:null,sustento:'',sustento_imagen:'',usuario:'Juan',facturas:'F-001',obs:'',updated_at:'2026-10-13T00:00:00.123456Z'};
 
-async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recovery=false,adminLink='',loginError=null,isolatedPreview=false,enableSearch=false,username='',previousMapping={},initialDocs=[docRow],now=Date.now()}={}) {
+async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recovery=false,adminLink='',loginError=null,isolatedPreview=false,annualReference=null,enableSearch=false,username='',previousMapping={},initialDocs=[docRow],now=Date.now()}={}) {
   const html=await readFile(new URL('../index.html',import.meta.url),'utf8');
   const source=(await readFile(new URL('../src/app.js',import.meta.url),'utf8')).replace(/^import .*;\n/gm,'');
   const dom=new JSDOM(html,{url:'https://kardex.example.test'+adminLink+(recovery?'#type=recovery':''),runScripts:'outside-only'});
@@ -66,7 +66,7 @@ async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recov
     async requestAdminAccess(){state.adminApplications=(state.adminApplications||0)+1;return {estado:'pendiente'};}
     async pendingAdminRequests(){if(state.adminRequestsError)throw new Error('Sin conexión');return state.adminPendingRequests||[];}
     async reviewAdminRequest(id,approved){(state.adminDecisions??=[]).push({id,approved});state.adminPendingRequests=(state.adminPendingRequests||[]).filter(req=>req.id!==id);return {estado:approved?'aprobado':'rechazado'};}
-    async snapshot(){state.snapshots++;return structuredClone({requerimientos:state.reqs,documentos:state.docs});}
+    async snapshot(){state.snapshots++;return structuredClone({requerimientos:state.reqs,documentos:state.docs,resumen_anual_referencia:annualReference});}
     async saveDoc(data,editing){
       state.updates.push({data,editing});if(failSave)throw new Error('Servidor no disponible');
       if(editing){const existing=state.docs.find(r=>r.id===editing.id);if(existing.updated_at!==editing.updatedAt)throw new Error('Otro usuario modificó el registro');}
@@ -131,6 +131,25 @@ test('la Preview identifica el acceso de prueba y abre la sesión al pegar la co
   assert.equal(a.state.snapshots,1);
   assert.equal(a.node('appShell').hidden,false);
   assert.equal(a.node('authMessage').textContent,'');
+ } finally { a.close(); }
+});
+
+test('la Preview alinea las tres tarjetas y distingue los conteos anuales de la muestra',async()=>{
+ const a=await app({isolatedPreview:true,annualReference:{fecha:'2026-11-04',anios:[
+  {anio:2023,total:42,enviados:40},{anio:2026,total:31,enviados:2}
+ ]}});
+ try {
+  const summary=a.node('resumenTablas');
+  const cards=summary.querySelectorAll('.prepared-row > .kpi');
+  assert.equal(cards.length,3);
+  assert.equal(cards[0].classList.contains('kpi-summary-prepared'),true);
+  assert.equal(cards[1].querySelector('[data-req-card]').dataset.reqCard,'nuevas');
+  assert.equal(cards[2].querySelector('[data-req-card]').dataset.reqCard,'prestamo');
+  assert.doesNotMatch(summary.textContent,/cajas pendientes de recepción|cajas pendientes de devolución o cierre/i);
+  assert.match(a.node('yearSummaryGrid').textContent,/2023\s+42\s+cargos/);
+  assert.match(a.node('imYearSummaryGrid').textContent,/2026\s+2\s+cargos/);
+  assert.equal(a.node('yearSummaryGrid').querySelector('[data-cargo-year]'),null);
+  assert.match(summary.textContent,/Existencias contiene una muestra de pruebas/);
  } finally { a.close(); }
 });
 

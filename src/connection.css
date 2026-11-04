@@ -175,14 +175,6 @@ mark{background:var(--yellow-bg);color:var(--navy-dark);font-weight:700;border-r
 #registerOverlay .register-primary:hover{background:#bd241b}
 #registerOverlay #btnBackLogin{margin-top:13px}
 #registerOverlay .password-toggle{font-size:17px}
-.req4-cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fit,minmax(min(100%,235px),1fr));
-  gap: 12px;
-  margin: 12px 0;
-}
-.req4-card { text-align: center; background: #edf7f1; padding: 14px; }
-.req4-card + .req4-card { background: #eef4fb; }
 .req4-card p { margin: 4px 0 8px; }
 #req4Workspace { margin-bottom: 16px; }
 #req4Loan { margin-top: 12px; }

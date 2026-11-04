@@ -46,6 +46,7 @@ let refreshRequested = false;
 let authGeneration = 0, currentUserId = null;
 let pendingReqId = null, pendingDocId = null;
 let requestTracking = null;
+let annualReference = null;
 const requestUI = setupRequirements(document.getElementById('req4Workspace'), {
   repository,
   context: () => ({allowed:appReady && isAdmin && (!isPreview || isolatedRequirements),
@@ -362,6 +363,7 @@ async function refreshData() {
       }
       await loadReqs(snapshot);
       requestTracking = detail;
+      annualReference = isolatedRequirements && isAdmin ? snapshot.resumen_anual_referencia ?? null : null;
       const previousDocs = queryResults ? new Map(docs.map(d=>[d.id,d])) : null;
       await loadDocs(snapshot);
       // Mantener actualizada una búsqueda ya aplicada cuando se sincroniza su envío.
@@ -914,24 +916,32 @@ function renderDocs(){
   const pct = (n, base) => base > 0 ? Math.round((n/base)*100) + '%' : '0%';
 
   // Esta tabla agrupa por año del cargo. Los gráficos de cajas usan fechas efectivas.
-  const enviadosPorAnio = cargoTotalsByYear(grupoEnviado);
-  const aniosEnviados = [...new Set([...Array.from({length:7},(_,i)=>String(2020+i)), ...enviadosPorAnio.keys()])].sort();
+  const referenceYears = annualReference?.anios ?? [];
+  const annualCounts = isolatedRequirements
+    ? new Map(referenceYears.map(row=>[String(row.anio),row.total])) : cargosPorAnio;
+  const enviadosPorAnio = isolatedRequirements
+    ? new Map(referenceYears.map(row=>[String(row.anio),row.enviados])) : cargoTotalsByYear(grupoEnviado);
+  const aniosEnviados = isolatedRequirements ? [...enviadosPorAnio.keys()].sort()
+    : [...new Set([...Array.from({length:7},(_,i)=>String(2020+i)), ...enviadosPorAnio.keys()])].sort();
+  const annualEmpty = isolatedRequirements
+    ? '<div class="year-empty">Conteo anual de referencia no disponible.</div>'
+    : '<div class="year-empty">Sin cargos registrados</div>';
   const enviadosPorAnioHtml=aniosEnviados.map(anio=>
     `<div class="periodo-fila ${anio==='2026'?'year-current':''}">
       <span class="year-label">${escapeHtml(anio)}</span>
       <span class="year-value">${fmtNum(enviadosPorAnio.get(anio)||0)} <span class="year-unit">cargos</span></span>
     </div>`
-  ).join('');
-  const aniosOrdenados = [...cargosPorAnio.keys()].sort((a,b)=>
+  ).join('') || annualEmpty;
+  const aniosOrdenados = [...annualCounts.keys()].sort((a,b)=>
     a==='Sin año' ? 1 : b==='Sin año' ? -1 : Number(a)-Number(b));
   const porPeriodoHtml = aniosOrdenados.length
     ? aniosOrdenados.map(a=>`<div class="periodo-fila ${a==='2026'?'year-current':''}">
          <span class="year-label">${escapeHtml(a)}</span>
-         ${/^202[1-6]$/.test(a)
-           ? `<button type="button" class="year-value cargo-year-button" data-cargo-year="${a}" aria-label="Ver ${fmtNum(cargosPorAnio.get(a))} cargos de ${a}">${fmtNum(cargosPorAnio.get(a))} <span class="year-unit">cargos</span></button>`
-           : `<span class="year-value">${fmtNum(cargosPorAnio.get(a))} <span class="year-unit">cargos</span></span>`}
+         ${!isolatedRequirements && /^202[1-6]$/.test(a)
+           ? `<button type="button" class="year-value cargo-year-button" data-cargo-year="${a}" aria-label="Ver ${fmtNum(annualCounts.get(a))} cargos de ${a}">${fmtNum(annualCounts.get(a))} <span class="year-unit">cargos</span></button>`
+           : `<span class="year-value">${fmtNum(annualCounts.get(a))} <span class="year-unit">cargos</span></span>`}
        </div>`).join('')
-    : '<div class="year-empty">Sin cargos registrados</div>';
+    : annualEmpty;
 
   document.getElementById('resumenTablas').innerHTML = `
     <div class="kpis" aria-label="Estado de todos los cargos">
@@ -971,7 +981,7 @@ function renderDocs(){
         </div>
       </div>
     </div>
-    <div class="prepared-row">
+    <div class="prepared-row${isAdmin ? ' with-request-cards' : ''}">
       <div class="kpi kpi-color kpi-summary-prepared" aria-label="Cajas preparadas para envío a Iron Mountain">
         <div class="expiry-card-heading">
           <div class="l">Caja preparada para envío</div>
@@ -980,12 +990,13 @@ function renderDocs(){
         <div class="n" id="preparedImSummaryMetric">${cajasPreparadas == null?'—':fmtNum(cajasPreparadas)}<span class="folios-inline"> (${cargosPreparados == null?'—':fmtNum(cargosPreparados)} cargos)</span></div>
         <div class="pct-txt">Sin fecha de envío · todavía pendientes de Iron Mountain</div>
       </div>
+      ${isAdmin ? requestCards(reqs,requestTracking) : ''}
     </div>
-    ${isAdmin ? requestCards(reqs,requestTracking) : ''}
     ${isolatedRequirements ? '<p class="expiry-note">Intervención 4 · Base aislada de pruebas con una muestra de registros reales. Consolidación en Excel pendiente.</p>' : ''}
     ${expiryGroups.unknown.length ? `<p class="expiry-note">${fmtNum(cargosDe(expiryGroups.unknown))} cargos de 2025/2026 sin fecha válida para calcular el vencimiento; no se incluyen en estas alertas.</p>` : ''}
     <section class="year-section periodo-box" aria-labelledby="year-summary-heading">
       <h3 class="year-heading" id="year-summary-heading">Cargos por Año</h3>
+      ${isolatedRequirements && annualReference ? `<p class="expiry-note">Conteos de referencia del Kárdex al ${fmtDate(annualReference.fecha)}. Existencias contiene una muestra de pruebas.</p>` : ''}
       <div class="year-grid" id="yearSummaryGrid" aria-live="polite">${porPeriodoHtml}</div>
     </section>
     <section class="year-section periodo-box im-year-section" aria-labelledby="im-year-summary-heading">
