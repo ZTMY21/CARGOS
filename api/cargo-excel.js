@@ -2,7 +2,7 @@ import {createHash,createHmac,timingSafeEqual} from 'node:crypto';
 import {ArchiveError,configuration} from '../server/archive/security.js';
 import {authorize} from '../server/archive/repository.js';
 import {DriveClient} from '../server/archive/drive-client.js';
-import {MASTERS,inspectMaster,appendMasterCargo,cargoFingerprint} from '../server/cargo-excel-book.js';
+import {MASTERS,inspectMaster,appendMasterCargo,replaceLastMasterCargo,cargoFingerprint} from '../server/cargo-excel-book.js';
 import {validateScanRows,normalizeInvoice} from '../src/scan-rows.js';
 
 // Un archivo de entrada de 500 MB NUNCA se envía a Vercel: solo llegan las filas nuevas.
@@ -150,18 +150,28 @@ export function createCargoExcelHandler({env=process.env,fetcher=fetch}={}){
         try{
         const current=await read(target);
         const before=current.info;
+        // The database may have rolled back the last cargo while this Drive
+        // master still contains its old rows. Reconcile that tail only; never
+        // overwrite a confirmed cargo or anything preceding the latest one.
+        let replacePending=false;
         if(before.cargos.includes(cargo)){
-          if(before.counts[cargo]!==rows.length||before.distinctCodes[cargo]!==codes||before.fingerprints[cargo]!==cargoFingerprint(rows))
-            throw new ArchiveError('CONFLICTO_CARGO_EXISTENTE_EN_MAESTRO',409);
-          await verifiedReceipt(target,cargo,rows.length,codes,cargoFingerprint(rows),current.m);
-          return output(res,200,{target,cargo,verified:true,alreadyPresent:true,saved:0});
-        }
-        if(before.lastCargo!==cargo-1)
+          const same=before.counts[cargo]===rows.length&&
+            before.distinctCodes[cargo]===codes&&
+            before.fingerprints[cargo]===cargoFingerprint(rows);
+          if(same){
+            await verifiedReceipt(target,cargo,rows.length,codes,cargoFingerprint(rows),current.m);
+            return output(res,200,{target,cargo,verified:true,alreadyPresent:true,saved:0});
+          }
+          if(before.lastCargo!==cargo||Number(indexState.indexedLastCargo)!==cargo-1)
+            throw new ArchiveError('CARGO_YA_CONFIRMADO_O_NO_ES_ULTIMO',409);
+          replacePending=true;
+        }else if(before.lastCargo!==cargo-1){
           throw new ArchiveError('CORRELATIVO_DESCONTINUADO_SIGUIENTE_'+(before.lastCargo+1),409);
+        }
         // Verifica el respaldo del libro antes de sobrescribirlo.
         const backupsId=await client.folder('backups');
         const day=new Date().toISOString().slice(0,10);
-        const backupName='PREVIO_FACTURAS_'+target+'_'+day+'_'+MASTERS[target].name;
+        const backupName='PREVIO_FACTURAS_'+target+'_'+day+'_'+(current.m.md5Checksum||'').slice(0,12)+'_'+MASTERS[target].name;
         const q='name = '+String.fromCharCode(39)+backupName+String.fromCharCode(39)+
           ' and '+String.fromCharCode(39)+backupsId+String.fromCharCode(39)+' in parents and trashed = false';
         const found=await(await client.request(prefix+'?q='+encodeURIComponent(q)+'&fields=files(id,name,size,parents)&pageSize=10')).json();
@@ -170,7 +180,9 @@ export function createCargoExcelHandler({env=process.env,fetcher=fetch}={}){
             {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:backupName,parents:[backupsId]})})).json();
           if(!copied.id||Number(copied.size)<100000)throw new ArchiveError('RESPALDO_PREVIO_NO_CONFIRMADO',503);
         }
-        const updated=await appendMasterCargo(current.buf,target,cargo,rows);
+        const updated=replacePending
+          ?await replaceLastMasterCargo(current.buf,target,cargo,rows)
+          :await appendMasterCargo(current.buf,target,cargo,rows);
         if(!updated.bytes||updated.rowsAdded!==rows.length)throw new ArchiveError('ERROR_AL_GENERAR_EXCEL',503);
         // Evitar sobrescribir modificaciones realizadas entre la descarga y la escritura.
         const again=await meta(target);
@@ -184,7 +196,7 @@ export function createCargoExcelHandler({env=process.env,fetcher=fetch}={}){
         if(Number(after.size)!==updated.newSize||after.md5Checksum!==hex(updated.bytes))
           throw new ArchiveError('ESCRITURA_PENDIENTE_DE_VERIFICACION',503);
         await verifiedReceipt(target,cargo,rows.length,codes,cargoFingerprint(rows),after);
-        return output(res,200,{target,cargo,verified:true,alreadyPresent:false,saved:rows.length,
+        return output(res,200,{target,cargo,verified:true,alreadyPresent:false,replaced:replacePending,saved:rows.length,
           revision:after.headRevisionId});
         }finally{
           try{await leaseReq('kardex_excel_liberar_lease',{p_destino:target,p_token:lease});}
