@@ -1,5 +1,6 @@
 import {DriveClient} from '../server/archive/drive-client.js';
 import {ArchiveError, configuration} from '../server/archive/security.js';
+import {syncIronMountainHistory} from '../server/im-history-sync.js';
 import {authorize} from '../server/archive/repository.js';
 import {
   readMasterRows, IM_MASTER_FILE_ID, IM_MASTER_PARENT_ID
@@ -68,6 +69,15 @@ export function createImMasterHandler({env=process.env, fetcher=fetch}={}) {
       const result = await response.json().catch(()=>null);
       if (!response.ok) throw new ArchiveError('IM_MASTER_DB_SYNC_REJECTED',409);
       if (!result?.verificado) throw new ArchiveError('IM_MASTER_NOT_VERIFIED',503);
+      let history;
+      try {
+        history=await syncIronMountainHistory({
+          env,fetcher,client,bearer:req.headers.authorization,masterRows:rows
+        });
+      } catch {
+        history={status:'PENDIENTE',pending:true,
+          message:'El Maestro está sincronizado, pero el histórico no se pudo verificar. Se reintentará.'};
+      }
       return json(res,200,{
         ok:true,source:'Excel Maestro de Iron Mountain',
         boxes:rows.length,
@@ -75,6 +85,7 @@ export function createImMasterHandler({env=process.env, fetcher=fetch}={}) {
         pending:rows.filter(row=>!row.envio).length,
         requestedPending:rows.filter(row=>!row.envio&&/por\s+solicitud/i.test(row.clasificacion)).length,
         revision:after.modifiedTime,
+        history,
         result
       });
     } catch (error) {
