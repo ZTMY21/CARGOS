@@ -882,7 +882,7 @@ function renderMonthlyCargoStats(){
   document.getElementById('monthlyCargosRequested').textContent=
     requestedIMLoaded && !requestedIMError ? fmtNum(requestedIMData.length):'—';
   document.getElementById('requestedIMNote').textContent=requestedDemo?'Datos de ejemplo · No son registros reales':
-    requestedIMError?'No se pudo actualizar desde Google Sheets':
+    requestedIMError?'No se pudo actualizar desde el Excel Maestro':
       requestedIMLoaded ? fmtNum(countRequestedCargos(requestedIMData))+' cargos'
         :'Consultando cajas y cargos pendientes…';
 }
@@ -1192,8 +1192,8 @@ function renderPreparedImDetail() {
   document.getElementById('preparedImList').innerHTML=rows.length?rows.map(b=>{
     const row=Number(b.sheet_row);
     const url=Number.isSafeInteger(row)&&row>=2?
-      `https://docs.google.com/spreadsheets/d/1aWqIoj5UXAeyKhNN1paoYnTa4jdfN8LhDEcdH_lQ4mk/edit#gid=434059467&range=A${row}:J${row}`:
-      'https://docs.google.com/spreadsheets/d/1aWqIoj5UXAeyKhNN1paoYnTa4jdfN8LhDEcdH_lQ4mk/edit';
+      `https://drive.google.com/file/d/14tW2-XqukNYozn4P67A7lrhjFfPveAmv/view?usp=drivesdk`:
+      'https://drive.google.com/file/d/14tW2-XqukNYozn4P67A7lrhjFfPveAmv/view?usp=drivesdk';
     return `<article class="prepared-im-box">
       <div class="prepared-im-head">
         <div><strong>Caja ${escapeHtml(b.codigo_caja||'Sin código')}</strong>
@@ -1224,6 +1224,7 @@ async function reloadPreparedImSummary() {
   if(!appReady || !isAdmin)return;
   const epoch=++preparedImSummaryEpoch, generation=authGeneration;
   try {
+    try { await repository.syncIMMaster(); } catch(error) { /* Conservar el último corte confirmado. */ }
     const rows=await repository.preparedImDetails();
     if(epoch!==preparedImSummaryEpoch || generation!==authGeneration || !appReady || !isAdmin)return;
     preparedImSummary=summarizePreparedIm(Array.isArray(rows)?rows:[]);
@@ -1295,14 +1296,17 @@ async function reloadRequestedIM(){
       {codigo_caja:'T990000001',codigo_cargo:'0933',clasificacion_caja:'Por solicitud'},
       {codigo_caja:'TD990000001',codigo_cargo:'0934',clasificacion_caja:'Por solicitud'},
       {codigo_caja:'P990000002',codigo_cargo:'0935',clasificacion_caja:'Por solicitud'}
-    ]:await repository.requestedIMDetails();
+    ]:(await (async()=>{
+      try { await repository.syncIMMaster(); } catch(error) { /* Se consulta el último corte confirmado. */ }
+      return repository.requestedIMDetails();
+    })());
     if(epoch!==requestedIMFetchEpoch||!isAdmin)return;
     requestedIMData=requestedIMBoxes(requestedIMRows,docs);
     requestedIMLoaded=true;
   }catch(error){
     if(epoch!==requestedIMFetchEpoch)return;
     requestedIMRows=[];requestedIMData=[];requestedIMLoaded=false;
-    requestedIMError='Se necesita activar la actualización de Supabase y Apps Script para la nueva columna.';
+    requestedIMError='No se pudo consultar la relación de cajas por solicitud del Excel Maestro.';
   }
   renderMonthlyCargoStats();
   if(document.getElementById('requestedIMSheet').open)renderRequestedIM();
