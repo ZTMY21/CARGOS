@@ -473,7 +473,7 @@ function renderReqs(){
   const type=supply ? 'Cajas nuevas para acondicionar' : 'Préstamo de Cajas (búsqueda de documentos)';
   const records=reqs.filter(row=>row.tipo===type);
   const filtered=filterRequirements(records,docs,query);
-  document.getElementById('req4HistoryTitle').textContent=supply ? 'Seguimiento de cajas nuevas' : 'Seguimiento de solicitudes AIM';
+  document.getElementById('req4HistoryTitle').textContent=supply ? 'Seguimiento de cajas nuevas' : 'Seguimiento de solicitudes a IM';
   document.getElementById('req4HistoryBoxes').textContent=supply ? 'Cajas' : 'Cajas solicitadas';
   document.getElementById('conteoReq').textContent=`${filtered.length} de ${records.length} requerimientos`;
   const enriched = filtered.map(r => ({...r, estado: computeReqEstado(r), usadas: cajasUsadas(r.id)}));
