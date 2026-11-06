@@ -68,16 +68,16 @@ export function attachBoxConditioning({supabase,repository,isAdmin,appReady,isPr
  const requestSheet=sheetRequest||(async(action,box)=>{
    const {data,error}=await supabase.auth.getSession();
    if(error||!data?.session?.access_token)throw Error('Inicia sesión para guardar en Google Drive.');
-   const response=await fetch('/api/box-sheets',{
+   const response=await fetch('/api/box-excel',{
      method:'POST',credentials:'same-origin',
      headers:{'Content-Type':'application/json',Authorization:'Bearer '+data.session.access_token},
      body:JSON.stringify({action,code:box})
    });
    const result=await response.json().catch(()=>({}));
-   if(!response.ok||result.googleVerified!==true){
+   if(!response.ok||result.verified!==true){
      throw Error(result.error==='IM_SOURCE_CONFLICT'?
-       'La caja ya existe con cargos o clasificación diferentes. Revisa CARGOS ENVIADOS.':
-       'Google Sheets no confirmó el registro. No repitas sin revisar primero la hoja.');
+       'La caja ya existe en el Excel Maestro con cargos o clasificación diferentes. Revisa CARGOS ENVIADOS.':
+       'El Excel Maestro no confirmó el registro. Revisa la única hoja antes de reintentar.');
    }
    return result;
  });
@@ -90,12 +90,12 @@ export function attachBoxConditioning({supabase,repository,isAdmin,appReady,isPr
    try{
      const result=await enqueue('sync',box);
      driveStatus.textContent=result.sourceSynced
-       ?'Google Sheets actualizado: CONTROL DE CAJAS y CARGOS ENVIADOS.'
-       :'Google Sheets actualizado: CONTROL DE CAJAS.';
+       ?'Excel Maestro actualizado: CARGOS ENVIADOS.'
+       :'Acondicionamiento registrado en Kárdex. Se reflejará en el Excel Maestro al estar lista la caja.';
      retry.disabled=true;
      return true;
    }catch{
-     driveStatus.textContent='Guardado en Kárdex; Google Sheets pendiente. Revisa la hoja y usa Reintentar Drive.';
+     driveStatus.textContent='Guardado en Kárdex; Excel Maestro pendiente. Verifica el archivo y usa Reintentar.';
      retry.disabled=false;
      return false;
    }
@@ -167,14 +167,14 @@ export function attachBoxConditioning({supabase,repository,isAdmin,appReady,isPr
   if(!active||!admin()||!scan?.ok)return;
   if(busy){renderStatus('Termina el registro actual antes de acondicionar otra caja.');return;}
   if(!isPreview()){
-    driveStatus.textContent='Guardando lectura en Google Sheets…';
+    driveStatus.textContent='Verificando lectura en el aplicativo…';
     void enqueue('scan',scan.original).then(()=>{
-      if(selected===scan.normalized)driveStatus.textContent='Lectura registrada en Google Drive.';
+      if(selected===scan.normalized)driveStatus.textContent='Lectura verificada. El Excel Maestro no cambia hasta finalizar la preparación.';
     }).catch(()=>{
       if(selected===scan.normalized)driveStatus.textContent=
-        'Lectura pendiente en Google Sheets. Revisa la conexión y vuelve a escanear.';
+        'No se pudo verificar la lectura. Revisa la conexión antes de continuar.';
     });
-  }else{driveStatus.textContent='Vista previa: no se modifica Google Sheets.';}
+  }else{driveStatus.textContent='Vista previa: no se modifica el Excel Maestro.';}
   selected=scan.normalized;
   code.value=scan.original;
   originKnown=Boolean(found?.found);
@@ -241,7 +241,7 @@ export function attachBoxConditioning({supabase,repository,isAdmin,appReady,isPr
     sourceRows=[];sourceLoaded=false;entries=new Map();selected='';originKnown=false;
     code.value='';cargos.value='';issue.value='';scanInput.value='';
     scanNotice.textContent='Sin lecturas de acondicionamiento';
-    renderStatus('');driveStatus.textContent='Destino: Google Sheets del Drive';retry.disabled=true;renderSelected();
+    renderStatus('');driveStatus.textContent='Destino: Excel Maestro de Iron Mountain';retry.disabled=true;renderSelected();
   }
  };
 }
