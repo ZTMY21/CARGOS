@@ -22,14 +22,14 @@ const flush=()=>new Promise(resolve=>setTimeout(resolve,20));
 const reqRow={id:randomUUID(),numero:'REQ-00001',tipo:'Cajas nuevas para acondicionar',fecha_solicitud:'2026-10-01',cantidad_cajas:2,numeros_cargo:'',fecha_recepcion:'2026-10-02',fecha_devolucion:null,usuario:'Juan',updated_at:'2026-10-13T00:00:00.123456Z'};
 const docRow={id:randomUUID(),kardex:'SA-00001',fecha_registro:'2026-10-13',tipo_doc:'Facturas-Guia',periodo:'2026-01-01',ubicacion:'Santa Anita',folios:30,cargos:['C001'],caja_asignada:reqRow.id,f_envio:null,sustento:'',sustento_imagen:'',usuario:'Juan',facturas:'F-001',obs:'',updated_at:'2026-10-13T00:00:00.123456Z'};
 
-async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recovery=false,adminLink='',loginError=null,isolatedPreview=false,annualReference=null,loanMatches={},requestAction=null,enableSearch=false,username='',previousMapping={},initialDocs=[docRow],initialReqs=[reqRow],now=Date.now()}={}) {
+async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recovery=false,adminLink='',loginError=null,isolatedPreview=false,annualReference=null,loanMatches={},requestAction=null,enableSearch=false,username='',previousMapping={},initialDocs=[docRow],initialReqs=[reqRow],initialTracking=null,now=Date.now()}={}) {
   const html=await readFile(new URL('../index.html',import.meta.url),'utf8');
   const source=(await readFile(new URL('../src/app.js',import.meta.url),'utf8')).replace(/^import .*;\n/gm,'');
   const dom=new JSDOM(html,{url:'https://kardex.example.test'+adminLink+(recovery?'#type=recovery':''),runScripts:'outside-only'});
   dom.window.HTMLElement.prototype.scrollIntoView=()=>{};
   dom.window.HTMLDialogElement.prototype.showModal=function(){this.open=true;};
   dom.window.HTMLDialogElement.prototype.close=function(){if(this.open){this.open=false;this.dispatchEvent(new dom.window.Event('close'));}};
-  const state={reqs:structuredClone(initialReqs),docs:structuredClone(initialDocs),updates:[],snapshots:0,events:[],status:null,authCallback:null};
+  const state={reqs:structuredClone(initialReqs),docs:structuredClone(initialDocs),tracking:structuredClone(initialTracking),updates:[],snapshots:0,events:[],status:null,authCallback:null};
   state.session=signedIn?{user:{id:'owner',email:'owner@example.test',user_metadata:username?{kardex_username:username}:{}}}:null;
   state.syncRow={enabled:true,status:'Revisión completada: 276 cargos ya registrados. 1480 filas pendientes.',
     last_checked_at:'2026-10-17T03:09:17Z',
@@ -162,8 +162,8 @@ test('la Preview muestra los datos de las solicitudes de ambas tarjetas solo en 
  try {
   const dialog=a.node('req4Dialog');
   for(const [kind,title,detail] of [
-   ['nuevas','Cajas para acondicionar',/REQ-00001\s+· 04\/11\/2026 · Pendiente de recepción\s+· 100 cajas solicitadas/],
-   ['prestamo','Solicitudes a IM',/REQ-00002\s+· 04\/11\/2026 · Solicitado\s+· 1 caja solicitada/]
+   ['nuevas','Cajas para acondicionar',/REQ-00001\s+Solicitado el 04\/11\/2026\s+Pendiente de recepción\s+100 cajas/],
+   ['prestamo','Solicitudes a IM',/REQ-00002\s+Solicitado el 04\/11\/2026\s+Solicitado\s+1 caja/]
   ]) {
    const button=a.node('resumenTablas').querySelector(`[data-req-card="${kind}"]`);
    const card=button.closest('.kpi');
@@ -282,6 +282,66 @@ test('las pestañas crean solicitudes a IM y cajas nuevas, y sus detalles permit
   assert.equal(a.node('req4Submit').textContent,'Solicitar');
   assert.equal(calls.length,2);
  } finally { a.close(); }
+});
+
+test('las cajas recibidas bloquean otras solicitudes hasta su envío completo y el detalle refleja el cambio',async()=>{
+ const row={...reqRow,cantidad_cajas:100,estado_v4:'Recibido',recibido_v4:100};
+ const balance={bloqueado:true,solicitadas:100,enviadas:0,pendientes:100,solicitudes:[{id:row.id,solicitadas:100,enviadas:0,pendientes:100}]};
+ let calls=0;
+ const a=await app({isolatedPreview:true,initialReqs:[row],initialTracking:{cajas:[],movimientos:[],suministro:balance},
+  requestAction:async(id,action,data,state)=>{
+   calls++;
+   const saved={...row,id,numero:'REQ-00002',cantidad_cajas:data.cantidad,fecha_recepcion:null,estado_v4:'Solicitado',recibido_v4:0};
+   state.reqs.push(saved);
+   return reqFromDb(saved);
+  }});
+ try {
+  a.node('workspaceTabRequerimientos').click();
+  assert.equal(a.node('req4SupplyLock').hidden,false);
+  assert.match(a.node('req4SupplyLock').textContent,/No se pueden solicitar más cajas a Iron Mountain/);
+  assert.equal(a.node('req4Submit').disabled,true);
+  for(const quantity of [1,2,100]) {
+   a.node('req4Qty').value=String(quantity);
+   a.node('req4Form').dispatchEvent(new a.dom.window.Event('submit',{cancelable:true}));
+  }
+  await flush();assert.equal(calls,0);
+  a.node('req4TabPrestamo').click();
+  assert.equal(a.node('req4Submit').disabled,false,'El bloqueo de suministros no afecta las solicitudes a IM');
+  a.node('req4TabNuevas').click();
+  a.state.tracking.suministro={...balance,enviadas:99,pendientes:1,solicitudes:[{id:row.id,solicitadas:100,enviadas:99,pendientes:1}]};
+  a.node('btnReconnect').click();await flush();
+  assert.equal(a.node('req4Submit').disabled,true);
+  a.state.tracking.suministro={...balance,bloqueado:false,enviadas:100,pendientes:0,solicitudes:[{id:row.id,solicitadas:100,enviadas:100,pendientes:0}]};
+  a.node('btnReconnect').click();await flush();
+  assert.equal(a.node('req4SupplyLock').hidden,true);
+  assert.equal(a.node('req4Submit').disabled,false);
+  a.node('resumenTablas').querySelector('[data-req-card="nuevas"]').click();
+  assert.match(a.node('req4DialogBody').textContent,/Enviado a IM/);
+  assert.equal(a.node('req4DialogBody').querySelectorAll('.req4-request-row').length,1);
+  a.node('req4DialogBody').querySelector('[data-req-open]').click();
+  assert.equal(a.node('req4DialogBody').querySelector('input,button'),null);
+  a.node('req4Dialog').querySelector('[data-req-close]').click();
+  a.node('req4Qty').value='1';
+  a.node('req4Form').dispatchEvent(new a.dom.window.Event('submit',{cancelable:true}));await flush();
+  assert.equal(calls,1);
+  assert.equal(a.node('req4Submit').disabled,true,'Un saldo anterior no permite repetir la solicitud recién creada');
+ } finally {a.close();}
+});
+
+test('una solicitud concurrente rechazada por el servidor muestra el aviso y actualiza el bloqueo',async()=>{
+ const a=await app({isolatedPreview:true,initialReqs:[],initialTracking:{cajas:[],movimientos:[],suministro:{pendientes:0,solicitudes:[]}},
+  requestAction:async(id,action,data,state)=>{
+   state.reqs=[{...reqRow,estado_v4:'Solicitado',cantidad_cajas:100}];
+   state.tracking.suministro={pendientes:100,solicitudes:[{id:reqRow.id,solicitadas:100,enviadas:0,pendientes:100}]};
+   throw {message:'No se pueden solicitar más cajas a Iron Mountain',hint:'req4_suministro_pendiente'};
+  }});
+ try {
+  a.node('req4Qty').value='1';
+  a.node('req4Form').dispatchEvent(new a.dom.window.Event('submit',{cancelable:true}));await flush();
+  assert.match(a.node('req4Status').textContent,/No se pueden solicitar más cajas a Iron Mountain/);
+  assert.equal(a.node('req4SupplyLock').hidden,false);
+  assert.equal(a.node('req4Submit').disabled,true);
+ } finally {a.close();}
 });
 
 test('el nombre de usuario se muestra en el encabezado sin alterar permisos',async()=>{

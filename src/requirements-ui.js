@@ -2,6 +2,16 @@ import { escapeHtml as html, fmtDate, limaDate, REQ_TYPES } from './rules.js';
 
 const kinds = {nuevas: 'Cajas nuevas', prestamo: 'Solicitudes a IM'};
 const steps = {nuevas: ['Cantidad', 'Solicitar'], prestamo: ['Buscar', 'Seleccionar', 'Solicitar']};
+const supplyBlockedMessage = 'No se pueden solicitar más cajas a Iron Mountain';
+
+function supplyAvailability(rows, tracking) {
+  const supplies = rows.filter(row => row.tipo === REQ_TYPES[0]);
+  const confirmed = tracking?.suministro;
+  const known = new Set(confirmed?.solicitudes?.map(row => row.id));
+  const missing = supplies.filter(row => !known.has(row.id)).reduce((total,row) => total + Number(row.cantidadCajas),0);
+  const pending = Number(confirmed?.pendientes || 0) + missing;
+  return {pending, blocked: !tracking || pending > 0, verified: !!tracking};
+}
 
 function receptionStatus(row) {
   if (row.fechaRecepcion && row.tipo === REQ_TYPES[0]) return `Recibido — ${fmtDate(row.fechaRecepcion)}`;
@@ -9,10 +19,20 @@ function receptionStatus(row) {
   return row.tipo === REQ_TYPES[0] ? 'Pendiente de recepción' : row.estadoV4;
 }
 
-function detailsList(rows) {
-  return rows.map(row => `<li><button class="link" type="button" data-req-open="${html(row.id)}">${html(row.numero)}</button>
-    · ${fmtDate(row.fechaSolicitud)} · ${html(receptionStatus(row))}
-    · ${Number(row.cantidadCajas)} ${Number(row.cantidadCajas) === 1 ? 'caja solicitada' : 'cajas solicitadas'}</li>`).join('');
+function detailsList(rows, tracking, supply) {
+  return rows.map(row => {
+    const shipped = tracking?.suministro?.solicitudes?.find(item => item.id === row.id);
+    const complete = supply ? shipped?.pendientes === 0 : row.estadoV4 === 'Devuelto' || !!row.fechaDevolucion;
+    const state = supply && complete ? 'Enviado a IM' : receptionStatus(row);
+    const tone = complete ? 'is-complete' : supply || row.estadoV4 === 'Solicitado' ? 'is-pending' : 'is-active';
+    return `<article class="req4-request-row" role="listitem">
+      <strong>${html(row.numero)}</strong>
+      <span class="req4-request-date">Solicitado el ${fmtDate(row.fechaSolicitud)}</span>
+      <span class="req4-request-badge ${tone}">${html(state)}</span>
+      <span class="req4-request-quantity"><strong>${Number(row.cantidadCajas)}</strong> ${Number(row.cantidadCajas) === 1 ? 'caja' : 'cajas'}</span>
+      <button class="secondary" type="button" data-req-open="${html(row.id)}" aria-label="Ver solicitud ${html(row.numero)}">Ver solicitud</button>
+    </article>`;
+  }).join('');
 }
 
 function procedure(kind, current = 0) {
@@ -22,8 +42,7 @@ function procedure(kind, current = 0) {
 }
 
 export function requestCards(rows, tracking) {
-  const supplies = rows.filter(row => row.estadoV4 && row.tipo === REQ_TYPES[0]);
-  const supplyPending = supplies.reduce((total, row) => total + Number(row.cantidadCajas) - row.recibidoV4, 0);
+  const supplyPending = supplyAvailability(rows,tracking).pending;
   const loanPending = new Set(tracking?.cajas.filter(box => !box.devolucion).map(box => box.clave)).size;
   return [['nuevas','Cajas para acondicionar',tracking ? supplyPending : '—'],
           ['prestamo',kinds.prestamo,tracking ? loanPending : '—']]
@@ -40,6 +59,8 @@ export function setupRequirements(root, {repository, context, refresh, onKindCha
   const selected = new Map();
   let rows = [], tracking = null, viewer = null, busy = false, searchEpoch = 0;
   let pending = null;
+  let supplyRejected = false;
+  let cardView = null;
   root.innerHTML = `
     <p class="req4-intro">Solicita cajas y consulta su seguimiento.</p>
     <div class="req4-tabs" role="tablist" aria-label="Tipo de requerimiento">
@@ -56,6 +77,7 @@ export function setupRequirements(root, {repository, context, refresh, onKindCha
         <label class="field">Solicitante<input id="req4User" readonly></label>
       </div>
       <section id="req4Supply" role="tabpanel" aria-labelledby="req4TabNuevas">
+        <div id="req4SupplyLock" class="req4-supply-lock" role="alert" hidden></div>
         <label class="field" id="req4QtyWrap">Cantidad de cajas<input id="req4Qty" type="number" min="1" max="100" step="1" aria-describedby="req4QtyHelp" required></label>
         <p id="req4QtyHelp" class="req4-help">Máximo 100 cajas por solicitud.</p>
         <p id="req4ReceiptWrap" class="req4-note">La confirmación y recepción corresponden a Control de cajas.</p>
@@ -76,7 +98,7 @@ export function setupRequirements(root, {repository, context, refresh, onKindCha
       <p id="req4Status" class="req4-status" role="status"></p>
     </form>
     <dialog class="expiry-sheet req4-dialog" id="req4Dialog" aria-labelledby="req4DialogTitle">
-      <div class="req4-dialog-head"><h2 id="req4DialogTitle"></h2><button class="secondary" data-req-close type="button">Cerrar</button></div>
+      <div class="req4-dialog-head"><div class="req4-dialog-heading"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M3 7h18M4 3h16l2 4v3H2V7l2-4Z"/><path d="M4 10v11h16V10M9 14h6"/></svg><div><h2 id="req4DialogTitle"></h2><p id="req4DialogIntro" class="req4-help"></p></div></div><button class="secondary" data-req-close type="button">Cerrar</button></div>
       <div id="req4DialogBody"></div><p id="req4DialogStatus" role="status"></p>
     </dialog>`;
   const find = id => root.ownerDocument.getElementById(`req4${id}`);
@@ -85,6 +107,19 @@ export function setupRequirements(root, {repository, context, refresh, onKindCha
   root.ownerDocument.body.append(dialog);
   let results = [];
   const canRequest = box => !!box?.clave && box.solicitable === true && !box.prestamo;
+
+  function renderAvailability() {
+    const supply = kind.value === 'nuevas';
+    const availability = supplyAvailability(rows,tracking);
+    const blocked = supply && (availability.blocked || supplyRejected);
+    const notice = find('SupplyLock');
+    notice.hidden = !blocked;
+    notice.innerHTML = availability.verified || supplyRejected
+      ? `<strong>${supplyBlockedMessage}</strong><p>Completa el envío a IM de las cajas pendientes para solicitar más.${availability.pending ? ` Quedan ${availability.pending} cajas pendientes.` : ''}</p>`
+      : '<strong>Verificando el envío de las cajas.</strong><p>Actualiza los datos si no se completa la consulta.</p>';
+    qty.disabled = !supply || blocked || busy;
+    find('Submit').disabled = !allowed() || busy || blocked;
+  }
 
   function renderSelection() {
     find('Selected').innerHTML = selected.size ? `<ul class="req4-box-list">${[...selected.values()].map(box => `<li>
@@ -111,6 +146,7 @@ export function setupRequirements(root, {repository, context, refresh, onKindCha
     }
     qty.disabled = loan;
     qty.required = !loan;
+    renderAvailability();
   }
   function selectKind(value, focus = false) {
     if (busy) return;
@@ -188,11 +224,17 @@ export function setupRequirements(root, {repository, context, refresh, onKindCha
       pending = null;
       status.textContent = `${saved.numero} guardado en el aplicativo. Consolidación en Excel pendiente.`;
       rows = [...rows.filter(row=>row.id!==saved.id),saved];
+      renderAvailability();
       await refresh().catch(() => { status.textContent += ' Actualiza para consultar el registro.'; });
       if (actor !== context().id) return null;
       return saved;
     } catch(error) {
       if (actor !== context().id) return null;
+      if (error.hint === 'req4_suministro_pendiente') {
+        supplyRejected = true;
+        renderAvailability();
+        await refresh().catch(() => {});
+      }
       if (error.hint === 'req4_envio_pendiente' && selected.has(error.details)) {
         const box = selected.get(error.details);
         selected.set(box.clave,{...box,solicitable:false});
@@ -206,7 +248,7 @@ export function setupRequirements(root, {repository, context, refresh, onKindCha
     } finally {
       busy = false;
       form.removeAttribute('aria-busy');
-      find('Submit').disabled = !allowed();
+      renderAvailability();
       root.querySelectorAll('[data-req-kind]').forEach(tab => { tab.disabled = !allowed(); });
     }
   }
@@ -216,6 +258,11 @@ export function setupRequirements(root, {repository, context, refresh, onKindCha
     const loan = kind.value === 'prestamo';
     const status = find('Status');
     const count = Number(qty.value);
+    if (!loan && (supplyAvailability(rows,tracking).blocked || supplyRejected)) {
+      status.textContent = supplyBlockedMessage;
+      renderAvailability();
+      return;
+    }
     if (loan && selected.size === 0) { status.textContent = 'Agrega al menos una caja.'; return; }
     if (loan && [...selected.values()].some(box=>!canRequest(box))) {
       status.textContent = 'Retira las cajas no disponibles o vuelve a buscarlas para actualizar su estado.';
@@ -239,12 +286,38 @@ export function setupRequirements(root, {repository, context, refresh, onKindCha
     }
   });
 
+  function showCards(key) {
+    if (!allowed()) return;
+    const supply = key === 'nuevas';
+    const list = rows.filter(row=>row.tipo===REQ_TYPES[supply ? 0 : 1]);
+    const total = list.reduce((sum,row)=>sum + Number(row.cantidadCajas),0);
+    const active = list.filter(row=>supply
+      ? tracking?.suministro?.solicitudes?.find(item=>item.id===row.id)?.pendientes !== 0
+      : row.estadoV4 !== 'Devuelto' && !row.fechaDevolucion).length;
+    const activeLabels = supply ? ['solicitud pendiente','solicitudes pendientes'] : ['solicitud activa','solicitudes activas'];
+    find('DialogTitle').textContent = supply ? 'Cajas para acondicionar' : kinds.prestamo;
+    find('DialogIntro').textContent = supply ? 'Solicitudes de cajas nuevas' : 'Consulta las cajas solicitadas a Iron Mountain.';
+    find('DialogBody').innerHTML = `
+      <div class="req4-request-summary">
+        <div><strong>${total}</strong><span>${total === 1 ? 'caja solicitada' : 'cajas solicitadas'}</span></div>
+        <div><strong>${active}</strong><span>${activeLabels[active === 1 ? 0 : 1]}</span></div>
+      </div>
+      ${list.length ? `<div class="req4-request-list" role="list">${detailsList(list,tracking,supply)}</div>` : '<p class="req4-empty">Sin requerimientos registrados.</p>'}
+      ${supply && supplyAvailability(rows,tracking).blocked ? `<div class="req4-supply-lock"><strong>${supplyBlockedMessage}</strong><p>Disponible cuando se complete el envío a IM de las cajas pendientes.</p></div>` : ''}`;
+    delete find('DialogBody').dataset.row;
+    cardView = key;
+    find('DialogStatus').textContent = '';
+    if (!dialog.open) dialog.showModal();
+  }
+
   function show(row) {
     if (!allowed() || !row) return;
     const boxes = tracking?.cajas.filter(box=>box.requerimiento===row.id) || [];
     const supply = row.tipo === REQ_TYPES[0];
     const key = supply ? 'nuevas' : 'prestamo';
+    cardView = null;
     find('DialogTitle').textContent = row.numero;
+    find('DialogIntro').textContent = 'Consulta de la solicitud';
     find('DialogBody').innerHTML = `${procedure(key,steps[key].length - 1)}
       <p><strong>${html(kinds[key])}</strong> · ${html(row.estadoV4)}</p>
       <dl class="prepared-im-fields">
@@ -295,6 +368,8 @@ export function setupRequirements(root, {repository, context, refresh, onKindCha
         viewer = current.id;
         searchEpoch++;
         pending = null;
+        supplyRejected = false;
+        cardView = null;
         selected.clear();
         find('Results').textContent = '';
         find('Query').value = '';
@@ -308,20 +383,17 @@ export function setupRequirements(root, {repository, context, refresh, onKindCha
       }
       rows = records;
       tracking = detail;
-      if (dialog.open && find('DialogBody').dataset.row) show(rows.find(row=>row.id===find('DialogBody').dataset.row));
+      if (detail?.suministro) supplyRejected = false;
+      if (dialog.open) {
+        if (cardView) showCards(cardView);
+        else if (find('DialogBody').dataset.row) show(rows.find(row=>row.id===find('DialogBody').dataset.row));
+      }
       form.hidden = !current.allowed;
       find('Date').value = limaDate();
       find('User').value = current.name || '';
+      renderAvailability();
     },
     show(id) { show(rows.find(row=>row.id===id)); },
-    showCard(key) {
-      if (!allowed()) return;
-      const list = rows.filter(row=>row.estadoV4 && row.tipo===REQ_TYPES[key==='nuevas'?0:1]);
-      find('DialogTitle').textContent = key==='nuevas' ? 'Cajas para acondicionar' : kinds.prestamo;
-      delete find('DialogBody').dataset.row;
-      find('DialogBody').innerHTML = list.length ? `<ul class="req4-detail-list">${detailsList(list)}</ul>` : '<p>Sin requerimientos registrados.</p>';
-      find('DialogStatus').textContent = '';
-      if (!dialog.open) dialog.showModal();
-    }
+    showCard: showCards
   };
 }
