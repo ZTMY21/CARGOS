@@ -1,6 +1,7 @@
 import { escapeHtml as html, fmtDate, limaDate, REQ_TYPES } from './rules.js';
 
-const kinds = {nuevas: REQ_TYPES[0], prestamo: 'Préstamo de cajas (búsqueda de documentos)'};
+const kinds = {nuevas: 'Cajas nuevas', prestamo: 'Solicitud AIM'};
+const steps = {nuevas: ['Solicitud', 'Recepción', 'Completado'], prestamo: ['Buscar', 'Solicitar', 'Recibir', 'Devolver']};
 const movements = {
   crear:'Solicitud registrada', confirmar:'Confirmación del proveedor', recibir:'Recepción de cajas',
   recibir_caja:'Caja recibida', devolver_caja:'Caja devuelta'
@@ -18,12 +19,18 @@ function detailsList(rows) {
     · ${row.recibidoV4} de ${Number(row.cantidadCajas)} cajas recibidas</li>`).join('');
 }
 
+function procedure(kind, current = 0) {
+  return `<ol class="req4-steps" aria-label="Etapas del procedimiento">${steps[kind].map((label,index) =>
+    `<li${index === current ? ' aria-current="step"' : ''} class="${index < current ? 'is-complete' : ''}"><span>${index + 1}</span>${label}</li>`
+  ).join('')}</ol>`;
+}
+
 export function requestCards(rows, tracking) {
   const supplies = rows.filter(row => row.estadoV4 && row.tipo === REQ_TYPES[0]);
   const supplyPending = supplies.reduce((total, row) => total + Number(row.cantidadCajas) - row.recibidoV4, 0);
   const loanPending = new Set(tracking?.cajas.filter(box => !box.devolucion).map(box => box.clave)).size;
   return [['nuevas','Cajas para acondicionar',tracking ? supplyPending : '—'],
-          ['prestamo','Préstamos de cajas',tracking ? loanPending : '—']]
+          ['prestamo','Solicitud AIM',tracking ? loanPending : '—']]
       .map(([kind,title,total]) => `<section class="kpi kpi-color">
           <div class="expiry-card-heading">
             <div class="l">${title}</div>
@@ -33,30 +40,44 @@ export function requestCards(rows, tracking) {
         </section>`).join('');
 }
 
-export function setupRequirements(root, {repository, context, refresh, isPreview = false}) {
+export function setupRequirements(root, {repository, context, refresh, onKindChange = () => {}, isPreview = false}) {
   const selected = new Map();
   let rows = [], tracking = null, viewer = null, busy = false, searchEpoch = 0;
   let pending = null, redrawAfterRefresh = null;
   root.innerHTML = `
-    <h3>Nuevo requerimiento</h3>
-    <form id="req4Form">
-      <div class="grid">
-        <label class="field">Tipo de requerimiento<select id="req4Kind">
-          <option value="nuevas">${kinds.nuevas}</option><option value="prestamo">${kinds.prestamo}</option>
-        </select></label>
+    <p class="req4-intro">Solicita cajas y consulta su seguimiento.</p>
+    <div class="req4-tabs" role="tablist" aria-label="Tipo de requerimiento">
+      <button id="req4TabNuevas" type="button" role="tab" aria-selected="true" aria-controls="req4Supply" data-req-kind="nuevas">${kinds.nuevas}</button>
+      <button id="req4TabPrestamo" type="button" role="tab" aria-selected="false" aria-controls="req4Loan" tabindex="-1" data-req-kind="prestamo">${kinds.prestamo}</button>
+    </div>
+    <div id="req4Steps">${procedure('nuevas')}</div>
+    <form id="req4Form" class="req4-form">
+      <input id="req4Kind" type="hidden" value="nuevas">
+      <h3 id="req4FormTitle">Solicitar cajas nuevas</h3>
+      <p id="req4FormHelp" class="req4-help">Para acondicionar nuevos cargos.</p>
+      <div class="grid req4-meta">
         <label class="field">Fecha de solicitud<input id="req4Date" type="date" readonly></label>
-        <label class="field">Usuario solicitante<input id="req4User" readonly></label>
-        <label class="field" id="req4QtyWrap">Cantidad de cajas<input id="req4Qty" type="number" min="1" max="100" step="1" required></label>
-        <label class="field" id="req4ReceiptWrap">Fecha de recepción<input type="date" readonly></label>
+        <label class="field">Solicitante<input id="req4User" readonly></label>
       </div>
-      <section id="req4Loan" hidden>
-        <label class="field">Buscar por cargo, factura, guía, boleta o código de caja<input id="req4Query" type="search" maxlength="120"></label>
-        <button id="req4Search" type="button" class="secondary">Buscar</button>
+      <section id="req4Supply" role="tabpanel" aria-labelledby="req4TabNuevas">
+        <label class="field" id="req4QtyWrap">Cantidad de cajas<input id="req4Qty" type="number" min="1" max="100" step="1" aria-describedby="req4QtyHelp" required></label>
+        <p id="req4QtyHelp" class="req4-help">Máximo 100 cajas por solicitud.</p>
+        <p id="req4ReceiptWrap" class="req4-note">La recepción se registra en «Ver detalle» cuando lleguen las cajas.</p>
+      </section>
+      <section id="req4Loan" role="tabpanel" aria-labelledby="req4TabPrestamo" hidden>
+        <div class="req4-search">
+          <label class="field">Cargo, factura, guía, boleta o código de caja<input id="req4Query" type="search" maxlength="120" placeholder="Escribe el documento o código de caja" aria-describedby="req4LoanHelp"></label>
+          <button id="req4Search" type="button">Buscar</button>
+        </div>
+        <p id="req4LoanHelp" class="req4-note">Solicitud a Iron Mountain. Selecciona cajas con envío confirmado y sin una solicitud activa.</p>
         <div id="req4Results" aria-live="polite"></div>
         <h4>Cajas seleccionadas</h4><div id="req4Selected" aria-live="polite"></div>
       </section>
-      <div class="actions"><button type="submit">Guardar requerimiento</button>
-        <span id="req4Status" role="status"></span></div>
+      <div class="req4-form-footer">
+        <span id="req4SelectionCount" class="req4-help" hidden></span>
+        <button id="req4Submit" type="submit">Guardar requerimiento</button>
+      </div>
+      <p id="req4Status" class="req4-status" role="status"></p>
     </form>
     <dialog class="expiry-sheet req4-dialog" id="req4Dialog" aria-labelledby="req4DialogTitle">
       <div class="req4-dialog-head"><h2 id="req4DialogTitle"></h2><button class="secondary" data-req-close type="button">Cerrar</button></div>
@@ -70,20 +91,47 @@ export function setupRequirements(root, {repository, context, refresh, isPreview
   const canRequest = box => !!box?.clave && box.solicitable === true && !box.prestamo;
 
   function renderSelection() {
-    find('Selected').innerHTML = selected.size ? `<ul>${[...selected.values()].map(box => `<li>
-      <strong>${html(box.codigo)}</strong> · cargos ${html(box.cargos.join(', '))}
-      ${!canRequest(box) ? ' · No disponible para préstamo' : ''}
-      <button class="link" data-req-remove="${html(box.clave)}" type="button">Retirar</button>
-    </li>`).join('')}</ul>` : '<p>Agrega las cajas que deseas solicitar.</p>';
+    find('Selected').innerHTML = selected.size ? `<ul class="req4-box-list">${[...selected.values()].map(box => `<li>
+      <div><strong>${html(box.codigo)}</strong><span class="req4-box-meta">Cargos ${html(box.cargos.join(', '))}</span>
+      ${!canRequest(box) ? '<span class="req4-unavailable">No disponible para solicitud AIM</span>' : ''}</div>
+      <button class="link" data-req-remove="${html(box.clave)}" type="button" aria-label="Retirar caja ${html(box.codigo)}">Retirar</button>
+    </li>`).join('')}</ul>` : '<p class="req4-empty">Agrega las cajas que deseas solicitar.</p>';
+    find('SelectionCount').textContent = `${selected.size} ${selected.size === 1 ? 'caja seleccionada' : 'cajas seleccionadas'}`;
   }
   function changeKind() {
     const loan = kind.value === 'prestamo';
     find('Loan').hidden = !loan;
+    find('Supply').hidden = loan;
     find('QtyWrap').hidden = find('ReceiptWrap').hidden = loan;
+    find('SelectionCount').hidden = !loan;
+    find('FormTitle').textContent = loan ? 'Solicitud AIM' : 'Solicitar cajas nuevas';
+    find('FormHelp').textContent = loan ? 'Busca el documento que necesitas consultar en Iron Mountain.' : 'Para acondicionar nuevos cargos.';
+    find('Steps').innerHTML = procedure(kind.value);
+    for (const tab of root.querySelectorAll('[data-req-kind]')) {
+      const active = tab.dataset.reqKind === kind.value;
+      tab.setAttribute('aria-selected',String(active));
+      tab.tabIndex = active ? 0 : -1;
+    }
     qty.disabled = loan;
     qty.required = !loan;
   }
-  kind.addEventListener('change',changeKind);
+  function selectKind(value, focus = false) {
+    if (busy) return;
+    kind.value = value;
+    find('Status').textContent = '';
+    changeKind();
+    onKindChange(value);
+    if (focus) root.querySelector(`[data-req-kind="${value}"]`).focus();
+  }
+  kind.addEventListener('change',() => selectKind(kind.value));
+  root.querySelector('[role="tablist"]').addEventListener('keydown',event => {
+    if (!event.target.matches('[data-req-kind]')) return;
+    let next;
+    if (event.key === 'Home') next = 'nuevas';
+    else if (event.key === 'End') next = 'prestamo';
+    else if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') next = kind.value === 'nuevas' ? 'prestamo' : 'nuevas';
+    if (next) { event.preventDefault(); selectKind(next,true); }
+  });
   changeKind();
   renderSelection();
 
@@ -103,13 +151,15 @@ export function setupRequirements(root, {repository, context, refresh, isPreview
         if (selected.has(box.clave)) selected.set(box.clave,box);
       }
       renderSelection();
-      container.innerHTML = found.length ? `<ul>${found.map((box,index) => `<li>
-        <strong>${html(box.codigo || (box.tipo === 'documento' ? 'Documento encontrado sin caja física registrada' : 'Cargo encontrado sin caja física registrada'))}</strong> · ${html(box.estado === 'Caja solicitada' ? 'Por solicitud en la hoja de envíos' : box.estado)}
-        ${box.ubicacion ? ` · ${html(box.ubicacion)}` : ''} · cargos ${html((box.cargos || []).join(', '))}
-        ${box.prestamo ? ` · Préstamo activo ${html(box.prestamo)}`
-          : canRequest(box) ? `<button type="button" class="link" data-req-select="${index}">Solicitar</button>`
-            : box.estado === 'Caja solicitada' ? ' · Sin préstamo activo · Pendiente de reenvío a Iron Mountain'
-              : box.clave ? ' · Solicitud disponible cuando se confirme el envío a Iron Mountain' : ''}
+      container.innerHTML = found.length ? `<ul class="req4-box-list">${found.map((box,index) => `<li>
+        <div><strong>${html(box.codigo || (box.tipo === 'documento' ? 'Documento encontrado sin caja física registrada' : 'Cargo encontrado sin caja física registrada'))}</strong>
+          <span class="req4-box-meta">Cargos ${html((box.cargos || []).join(', '))}${box.ubicacion ? ` · ${html(box.ubicacion)}` : ''}</span>
+          <span class="req4-box-state ${canRequest(box) ? 'is-available' : ''}">${html(box.estado === 'Caja solicitada' ? 'Por solicitud en la hoja de envíos' : box.estado)}</span>
+          ${box.prestamo ? `<span class="req4-unavailable">Solicitud AIM activa ${html(box.prestamo)}</span>`
+            : box.estado === 'Caja solicitada' ? '<span class="req4-unavailable">Sin préstamo activo · Pendiente de reenvío a Iron Mountain</span>'
+              : box.clave && !canRequest(box) ? '<span class="req4-unavailable">Solicitud disponible cuando se confirme el envío a Iron Mountain</span>' : ''}
+        </div>
+        ${canRequest(box) ? `<button type="button" class="link" data-req-select="${index}"${selected.has(box.clave) ? ' disabled' : ''}>${selected.has(box.clave) ? 'Agregada' : 'Agregar'}</button>` : ''}
       </li>`).join('')}</ul>` : `<p>${isPreview
         ? 'No hubo coincidencias en los datos disponibles de la Preview. Prueba con el código completo.'
         : 'No se encontró ese cargo, documento o código de caja.'}</p>`;
@@ -125,6 +175,9 @@ export function setupRequirements(root, {repository, context, refresh, isPreview
   async function write(action,data,status) {
     if (!allowed() || busy) return null;
     busy = true;
+    form.setAttribute('aria-busy','true');
+    find('Submit').disabled = true;
+    root.querySelectorAll('[data-req-kind]').forEach(tab => { tab.disabled = true; });
     const actor = context().id;
     status.textContent = 'Guardando…';
     const signature = JSON.stringify([action,data]);
@@ -141,7 +194,8 @@ export function setupRequirements(root, {repository, context, refresh, isPreview
           ? {...box,[field]:data.fecha} : box)};
       }
       if (action !== 'crear') redrawAfterRefresh = saved.id;
-      void refresh().catch(() => { status.textContent += ' Actualiza para consultar el registro.'; });
+      await refresh().catch(() => { status.textContent += ' Actualiza para consultar el registro.'; });
+      if (actor !== context().id) return null;
       return saved;
     } catch(error) {
       if (actor !== context().id) return null;
@@ -155,10 +209,16 @@ export function setupRequirements(root, {repository, context, refresh, isPreview
       }
       status.textContent = error.message;
       return null;
-    } finally { busy = false; }
+    } finally {
+      busy = false;
+      form.removeAttribute('aria-busy');
+      find('Submit').disabled = !allowed();
+      root.querySelectorAll('[data-req-kind]').forEach(tab => { tab.disabled = !allowed(); });
+    }
   }
   form.addEventListener('submit',async event => {
     event.preventDefault();
+    if (busy || !allowed()) return;
     const loan = kind.value === 'prestamo';
     const status = find('Status');
     const count = Number(qty.value);
@@ -173,9 +233,14 @@ export function setupRequirements(root, {repository, context, refresh, isPreview
     const data = loan ? {tipo:'prestamo',cajas:[...selected.values()].map(box=>box.codigo)}
       : {tipo:'nuevas',cantidad:count};
     if (await write('crear',data,status)) {
-      qty.value = '';
-      selected.clear();
-      renderSelection();
+      if (loan) {
+        searchEpoch++;
+        selected.clear();
+        results = [];
+        find('Results').textContent = '';
+        find('Query').value = '';
+        renderSelection();
+      } else qty.value = '';
     }
   });
 
@@ -186,7 +251,10 @@ export function setupRequirements(root, {repository, context, refresh, isPreview
     const supply = row.tipo === REQ_TYPES[0];
     const pendingBoxes = Number(row.cantidadCajas) - row.recibidoV4;
     find('DialogTitle').textContent = row.numero;
-    find('DialogBody').innerHTML = `<p><strong>${html(row.tipo)}</strong> · ${html(row.estadoV4)}</p>
+    const stage = supply ? row.fechaRecepcion ? 2 : row.recibidoV4 > 0 || row.confirmadoV4 ? 1 : 0
+      : row.fechaDevolucion ? 3 : row.recibidoV4 > 0 ? 2 : 1;
+    find('DialogBody').innerHTML = `${procedure(supply ? 'nuevas' : 'prestamo',stage)}
+      <p><strong>${html(supply ? kinds.nuevas : kinds.prestamo)}</strong> · ${html(row.estadoV4)}</p>
       <p>${fmtDate(row.fechaSolicitud)} · ${html(row.usuario)} · ${row.recibidoV4} de ${Number(row.cantidadCajas)} cajas recibidas</p>
       ${row.fechaRecepcion ? `<p>Fecha de recepción ${fmtDate(row.fechaRecepcion)}</p>` : ''}
       ${row.confirmadoV4 ? `<p>Confirmación del proveedor ${fmtDate(row.confirmadoV4)}</p>` : ''}
@@ -216,15 +284,25 @@ export function setupRequirements(root, {repository, context, refresh, isPreview
     const button = event.target.closest('button');
     if (!button || !allowed()) return;
     const d = button.dataset;
-    if ('reqClose' in d) dialog.close();
+    if ('reqClose' in d) { dialog.close(); return; }
+    if (busy) return;
+    if ('reqKind' in d) { selectKind(d.reqKind); return; }
     if ('reqSelect' in d) {
       const box = results[Number(d.reqSelect)];
-      if (canRequest(box) && !selected.has(box.clave) && window.confirm(`¿Deseas solicitar esta caja?\nCódigo de caja: ${box.codigo}`)) {
+      if (canRequest(box) && !selected.has(box.clave)) {
         selected.set(box.clave,box);
+        button.textContent = 'Agregada';
+        button.disabled = true;
         renderSelection();
       }
     }
-    if ('reqRemove' in d) { selected.delete(d.reqRemove); renderSelection(); }
+    if ('reqRemove' in d) {
+      selected.delete(d.reqRemove);
+      const index = results.findIndex(box => box.clave === d.reqRemove);
+      const add = find('Results').querySelector(`[data-req-select="${index}"]`);
+      if (add) { add.textContent = 'Agregar'; add.disabled = false; }
+      renderSelection();
+    }
     if ('reqOpen' in d) show(rows.find(row=>row.id===d.reqOpen));
     const row = rows.find(item=>item.id===find('DialogBody').dataset.row);
     if (!row) return;
@@ -250,9 +328,11 @@ export function setupRequirements(root, {repository, context, refresh, isPreview
   dialog.addEventListener('click',handleClick);
 
   return {
+    get kind() { return kind.value; },
     update(records,detail) {
       const current = context();
       if (viewer !== current.id) {
+        const resetKind = kind.value !== 'nuevas';
         viewer = current.id;
         searchEpoch++;
         pending = null;
@@ -262,6 +342,9 @@ export function setupRequirements(root, {repository, context, refresh, isPreview
         find('Query').value = '';
         find('Status').textContent = '';
         qty.value = '';
+        kind.value = 'nuevas';
+        changeKind();
+        if (resetKind) onKindChange('nuevas');
         dialog.close();
         renderSelection();
       }
@@ -284,7 +367,7 @@ export function setupRequirements(root, {repository, context, refresh, isPreview
     showCard(key) {
       if (!allowed()) return;
       const list = rows.filter(row=>row.estadoV4 && row.tipo===REQ_TYPES[key==='nuevas'?0:1]);
-      find('DialogTitle').textContent = key==='nuevas' ? 'Cajas para acondicionar' : 'Préstamos de cajas';
+      find('DialogTitle').textContent = key==='nuevas' ? 'Cajas para acondicionar' : kinds.prestamo;
       delete find('DialogBody').dataset.row;
       find('DialogBody').innerHTML = list.length ? `<ul class="req4-detail-list">${detailsList(list)}</ul>` : '<p>Sin requerimientos registrados.</p>';
       find('DialogStatus').textContent = '';

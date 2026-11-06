@@ -22,7 +22,7 @@ const flush=()=>new Promise(resolve=>setTimeout(resolve,20));
 const reqRow={id:randomUUID(),numero:'REQ-00001',tipo:'Cajas nuevas para acondicionar',fecha_solicitud:'2026-10-01',cantidad_cajas:2,numeros_cargo:'',fecha_recepcion:'2026-10-02',fecha_devolucion:null,usuario:'Juan',updated_at:'2026-10-13T00:00:00.123456Z'};
 const docRow={id:randomUUID(),kardex:'SA-00001',fecha_registro:'2026-10-13',tipo_doc:'Facturas-Guia',periodo:'2026-01-01',ubicacion:'Santa Anita',folios:30,cargos:['C001'],caja_asignada:reqRow.id,f_envio:null,sustento:'',sustento_imagen:'',usuario:'Juan',facturas:'F-001',obs:'',updated_at:'2026-10-13T00:00:00.123456Z'};
 
-async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recovery=false,adminLink='',loginError=null,isolatedPreview=false,annualReference=null,loanMatches={},enableSearch=false,username='',previousMapping={},initialDocs=[docRow],initialReqs=[reqRow],now=Date.now()}={}) {
+async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recovery=false,adminLink='',loginError=null,isolatedPreview=false,annualReference=null,loanMatches={},requestAction=null,enableSearch=false,username='',previousMapping={},initialDocs=[docRow],initialReqs=[reqRow],now=Date.now()}={}) {
   const html=await readFile(new URL('../index.html',import.meta.url),'utf8');
   const source=(await readFile(new URL('../src/app.js',import.meta.url),'utf8')).replace(/^import .*;\n/gm,'');
   const dom=new JSDOM(html,{url:'https://kardex.example.test'+adminLink+(recovery?'#type=recovery':''),runScripts:'outside-only'});
@@ -53,7 +53,8 @@ async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recov
   };
   class FakeRepository {
     async requestBoxes(query){return structuredClone(loanMatches[query]||[]);}
-    async requestTracking(){return {cajas:[],movimientos:[]};}
+    async requestTracking(){return structuredClone(state.tracking || {cajas:[],movimientos:[]});}
+    async requestAction(id,action,data){return requestAction(id,action,data,state);}
     async reportDocs(rows,year=null){state.reportRequestedYear=year;return rows.filter(d=>year===null||cargoYear(d)===String(year));}
     async fetchDoc(id){state.fetchedId=id;return docFromDb({...state.docs.find(d=>d.id===id),facturas:'F-001, F-002, F-003, F-004'});}
     async access(){state.loadingDuringAccess={loading:!dom.window.document.getElementById('sessionLoading').hidden,login:!dom.window.document.getElementById('authOverlay').hidden};return {allowed,is_admin:isAdmin};}
@@ -162,7 +163,7 @@ test('la Preview muestra la fecha, el estado y las recepciones de ambas tarjetas
   const dialog=a.node('req4Dialog');
   for(const [kind,title,detail] of [
    ['nuevas','Cajas para acondicionar',/REQ-00001\s+· 04\/11\/2026 · Pendiente de recepción\s+· 0 de 100 cajas recibidas/],
-   ['prestamo','Préstamos de cajas',/REQ-00002\s+· 04\/11\/2026 · Solicitado\s+· 0 de 1 cajas recibidas/]
+   ['prestamo','Solicitud AIM',/REQ-00002\s+· 04\/11\/2026 · Solicitado\s+· 0 de 1 cajas recibidas/]
   ]) {
    const button=a.node('resumenTablas').querySelector(`[data-req-card="${kind}"]`);
    const card=button.closest('.kpi');
@@ -202,9 +203,9 @@ test('préstamos solo permite solicitar una caja con envío confirmado y sin pr�
   assert.equal(pending.querySelector('[data-req-select]'),null);
   const sent=await search('T1234567891');
   assert.match(sent.textContent,/Enviado a Iron Mountain/);
-  assert.equal(sent.querySelector('[data-req-select]').textContent,'Solicitar');
+  assert.equal(sent.querySelector('[data-req-select]').textContent,'Agregar');
   const borrowed=await search('T1234567892');
-  assert.match(borrowed.textContent,/Préstamo activo/);
+  assert.match(borrowed.textContent,/Solicitud AIM activa/);
   assert.equal(borrowed.querySelector('[data-req-select]'),null);
   const returnPending=await search('T1234567893');
   assert.match(returnPending.textContent,/Por solicitud en la hoja de envíos/);
@@ -212,6 +213,87 @@ test('préstamos solo permite solicitar una caja con envío confirmado y sin pr�
   assert.equal(returnPending.querySelector('[data-req-select]'),null);
   const empty=await search('sin coincidencias');
   assert.match(empty.textContent,/No hubo coincidencias en los datos disponibles de la Preview/);
+ } finally { a.close(); }
+});
+
+test('las pestañas registran cajas nuevas y solicitudes AIM con seguimiento independiente hasta recibir y devolver',async()=>{
+ const box={clave:'2032192124',codigo:'T2032192124',estado:'Enviado a Iron Mountain',cargos:['3365A','3366A'],solicitable:true};
+ const calls=[];
+ const a=await app({isolatedPreview:true,username:'Juan Alexis',initialReqs:[],loanMatches:{'3365A':[box]},
+  requestAction:async(id,action,data,state)=>{
+   calls.push({id,action,data});
+   let saved;
+   if(action==='crear') {
+    const supply=data.tipo==='nuevas';
+    saved={...reqRow,id,numero:supply?'REQ-00010':'REQ-00011',tipo:supply?reqRow.tipo:'Préstamo de Cajas (búsqueda de documentos)',
+     fecha_solicitud:limaDate(),cantidad_cajas:supply?20:1,fecha_recepcion:null,estado_v4:'Solicitado',recibido_v4:0,usuario:'Juan Alexis'};
+    state.reqs.push(saved);
+    if(!supply) state.tracking={cajas:[{...box,requerimiento:id,recepcion:null,devolucion:null}],movimientos:[]};
+   } else {
+    saved=state.reqs.find(row=>row.id===data.requerimiento);
+    if(action==='recibir') Object.assign(saved,{estado_v4:'Recibido',recibido_v4:20,fecha_recepcion:data.fecha});
+    if(action==='recibir_caja') {
+     Object.assign(saved,{estado_v4:'Prestado',recibido_v4:1,fecha_recepcion:data.fecha});
+     state.tracking.cajas[0].recepcion=data.fecha;
+    }
+    if(action==='devolver_caja') {
+     Object.assign(saved,{estado_v4:'Devuelto',fecha_devolucion:data.fecha});
+     state.tracking.cajas[0].devolucion=data.fecha;
+    }
+   }
+   return reqFromDb(saved);
+  }});
+ const submit=async()=>{
+  a.node('req4Form').dispatchEvent(new a.dom.window.Event('submit',{cancelable:true}));
+  await flush();
+ };
+ try {
+  a.node('workspaceTabRequerimientos').click();
+  a.node('req4Qty').value='101';await submit();
+  assert.equal(calls.length,0);
+  assert.match(a.node('req4Status').textContent,/entre 1 y 100/);
+  a.node('req4Qty').value='20';await submit();
+  assert.deepEqual(calls[0].data,{tipo:'nuevas',cantidad:20});
+  assert.match(a.node('tbodyReq').textContent,/REQ-00010\s+20\s+Pendiente de recepción/);
+  assert.equal(a.node('req4Qty').value,'');
+  a.node('tbodyReq').querySelector('[data-track]').click();
+  assert.equal(a.node('req4Dialog').open,true);
+  a.node('req4MoveQty').value='20';
+  a.node('req4Dialog').querySelector('[data-req-action="recibir"]').click();await flush();
+  assert.match(a.node('tbodyReq').textContent,/Recibido/);
+  assert.equal(a.node('req4DialogBody').querySelector('[aria-current="step"]').textContent,'3Completado');
+  a.node('req4Dialog').querySelector('[data-req-close]').click();
+  a.node('req4Qty').value='12';
+  a.node('req4TabPrestamo').click();
+  assert.equal(a.node('req4TabPrestamo').textContent,'Solicitud AIM');
+  assert.equal(a.node('req4TabPrestamo').getAttribute('aria-selected'),'true');
+  assert.equal(a.node('req4Supply').hidden,true);
+  assert.equal(a.node('req4Loan').hidden,false);
+  assert.equal(a.node('req4Qty').disabled,true);
+  assert.doesNotMatch(a.node('tbodyReq').textContent,/REQ-00010/);
+  a.node('req4Query').value='3365A';a.node('req4Search').click();await flush();
+  a.node('req4Results').querySelector('[data-req-select]').click();
+  assert.equal(a.node('req4SelectionCount').textContent,'1 caja seleccionada');
+  a.node('req4TabNuevas').click();
+  assert.equal(a.node('req4Qty').value,'12');
+  assert.match(a.node('tbodyReq').textContent,/REQ-00010/);
+  a.node('req4TabNuevas').dispatchEvent(new a.dom.window.KeyboardEvent('keydown',{key:'End',bubbles:true}));
+  assert.equal(a.dom.window.document.activeElement,a.node('req4TabPrestamo'));
+  assert.equal(a.node('req4SelectionCount').textContent,'1 caja seleccionada');
+  await submit();
+  assert.deepEqual(calls[2].data,{tipo:'prestamo',cajas:['T2032192124']});
+  assert.match(a.node('tbodyReq').textContent,/REQ-00011\s+T2032192124\s+Solicitado/);
+  assert.doesNotMatch(a.node('tbodyReq').textContent,/REQ-00010/);
+  assert.equal(a.node('req4SelectionCount').textContent,'0 cajas seleccionadas');
+  assert.equal(a.node('req4Results').textContent,'');
+  assert.equal(a.node('req4Qty').value,'12');
+  a.node('tbodyReq').querySelector('[data-track]').click();
+  assert.match(a.node('req4DialogBody').textContent,/Solicitud AIM/);
+  a.node('req4Dialog').querySelector('[data-req-action="recibir_caja"]').click();await flush();
+  assert.match(a.node('tbodyReq').textContent,/Prestado/);
+  a.node('req4Dialog').querySelector('[data-req-action="devolver_caja"]').click();await flush();
+  assert.match(a.node('tbodyReq').textContent,/Devuelto/);
+  assert.equal(a.node('req4DialogBody').querySelector('[aria-current="step"]').textContent,'4Devolver');
  } finally { a.close(); }
 });
 

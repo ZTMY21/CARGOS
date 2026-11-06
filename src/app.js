@@ -51,7 +51,11 @@ const requestUI = setupRequirements(document.getElementById('req4Workspace'), {
   repository, isPreview: isolatedRequirements,
   context: () => ({allowed:appReady && isAdmin && (!isPreview || isolatedRequirements),
     id:currentUserId, name:document.getElementById('sessionUser').textContent}),
-  refresh: refreshData
+  refresh: refreshData,
+  onKindChange: () => {
+    document.getElementById('buscarReq').value = '';
+    renderReqs();
+  }
 });
 let queryResults = null, queryError = '', searchEpoch = 0, searchController = null;
 
@@ -465,26 +469,28 @@ async function loadReqs(snapshot){
 }
 function renderReqs(){
   const query=document.getElementById('buscarReq').value;
-  const filtered=filterRequirements(reqs,docs,query);
-  document.getElementById('conteoReq').textContent=`${filtered.length} de ${reqs.length} requerimientos`;
+  const supply=requestUI.kind==='nuevas';
+  const type=supply ? 'Cajas nuevas para acondicionar' : 'Préstamo de Cajas (búsqueda de documentos)';
+  const records=reqs.filter(row=>row.tipo===type);
+  const filtered=filterRequirements(records,docs,query);
+  document.getElementById('req4HistoryTitle').textContent=supply ? 'Seguimiento de cajas nuevas' : 'Seguimiento de solicitudes AIM';
+  document.getElementById('req4HistoryBoxes').textContent=supply ? 'Cajas' : 'Cajas solicitadas';
+  document.getElementById('conteoReq').textContent=`${filtered.length} de ${records.length} requerimientos`;
   const enriched = filtered.map(r => ({...r, estado: computeReqEstado(r), usadas: cajasUsadas(r.id)}));
   const tbody = document.getElementById('tbodyReq');
   if(enriched.length === 0){
-    tbody.innerHTML = `<tr><td colspan="10" class="empty">Sin requerimientos registrados.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="5" class="empty">${query ? 'No se encontraron requerimientos para esa búsqueda.' : 'Sin requerimientos registrados en este apartado.'}</td></tr>`;
   } else {
     tbody.innerHTML = enriched.sort((a,b)=>b.numero.localeCompare(a.numero)).map(r=>{
       const esCajasNuevas = r.tipo === 'Cajas nuevas para acondicionar';
-      const cantCargosTxt = esCajasNuevas ? (r.cantidadCajas||'') : (r.numerosCargo||'');
-      const usadasTxt = esCajasNuevas ? (r.usadas + (r.cantidadCajas?(' / '+r.cantidadCajas):'')) : '—';
+      const boxes=requestTracking?.cajas.filter(box=>box.requerimiento===r.id) || [];
+      const boxText=esCajasNuevas ? String(r.cantidadCajas||'—')
+        : boxes.length ? boxes.map(box=>box.codigo).join(', ') : `${r.cantidadCajas || '—'} cajas`;
+      const status=esCajasNuevas && r.estado==='Solicitado' ? 'Pendiente de recepción' : r.estado;
       return `<tr>
         <td>${highlightMatch(r.numero,query)}</td>
-        <td>${escapeHtml(r.tipo)}</td>
-        <td>${fmtDate(r.fechaSolicitud)}</td>
-        <td>${escapeHtml(cantCargosTxt)}</td>
-        <td>${fmtDate(r.fechaRecepcion)}</td>
-        <td>${fmtDate(r.fechaDevolucion)}</td>
-        <td>${usadasTxt}</td>
-        <td><span class="badge ${reqBadgeClass(r.estado)}">${r.estado}</span></td>
+        <td>${escapeHtml(boxText)}</td>
+        <td><span class="badge ${reqBadgeClass(r.estado)}">${escapeHtml(status)}</span></td>
         <td>${escapeHtml(r.usuario||'')}</td>
         <td>
           ${isAdmin && r.estadoV4 ? `<button class="link" data-track="${r.id}">Ver detalle</button>` : isAdmin && !isPreview ? `<button class="link" data-edit="${r.id}">Editar</button>
