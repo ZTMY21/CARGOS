@@ -23,7 +23,7 @@ export function attachBoxScanSheets({supabase,isAdmin,appReady,isPreview,request
    const job=queue.catch(()=>{}).then(()=>send(scan.original));
    queue=job;
    void job.then(()=>{
-    status.textContent='Lectura confirmada; el Excel Maestro se actualiza al finalizar la preparación.';
+    status.textContent='Lectura registrada y confirmada; el Excel Maestro se actualiza al finalizar la preparación.';
    }).catch(()=>{
     status.textContent='Lectura no confirmada. Verifica la conexión antes de reintentar.';
    });
