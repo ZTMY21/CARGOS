@@ -76,6 +76,27 @@ export class KardexRepository {
   async requestAction(id, action, data) {
     return reqFromDb(checked(await this.client.rpc('kardex_req4_accion',{p_id:id,p_accion:action,p_datos:data})));
   }
+  async syncIMMaster({force=false}={}) {
+    if (this._imMasterPromise) return this._imMasterPromise;
+    if (!force && this._imMasterAttemptAt && Date.now()-this._imMasterAttemptAt<120000)
+      return null;
+    this._imMasterAttemptAt=Date.now();
+    this._imMasterPromise=(async()=>{
+      const {data,error}=await this.client.auth.getSession();
+      if (error || !data?.session?.access_token) throw Error('IM_MASTER_LOGIN_REQUIRED');
+      const response=await fetch('/api/im-master',{
+        method:'POST',credentials:'same-origin',
+        headers:{'Content-Type':'application/json',Authorization:'Bearer '+data.session.access_token},
+        body:JSON.stringify({action:'refresh'})
+      });
+      const result=await response.json().catch(()=>null);
+      if (!response.ok || result?.ok!==true) throw Error(result?.error||'IM_MASTER_SYNC_UNAVAILABLE');
+      this._imMasterLastResult=result;
+      return result;
+    })();
+    try { return await this._imMasterPromise; }
+    finally { this._imMasterPromise=null; }
+  }
   async preparedImDetails() { return checked(await this.client.rpc('kardex_prepared_im_detail')); }
   async requestedIMDetails() { return checked(await this.client.rpc('kardex_requested_im_detail')); }
   async shippedIMBoxesMonthly() { return checked(await this.client.rpc('kardex_im_boxes_sent_monthly')); }
