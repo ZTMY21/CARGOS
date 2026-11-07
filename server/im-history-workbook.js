@@ -43,21 +43,39 @@ const cell=(name,row,style,value,numeric=false)=>numeric?
   '<c r="'+name+row+'" s="'+style+'" t="inlineStr"><is><t>'+xmlEscape(value)+'</t></is></c>';
 const newRow=(row,number,item)=>[
   cell('A',row,9,number,true),
-  cell('B',row,11,serial(item.preparacion),true),
+  cell('B',row,33,serial(item.preparacion),true),
   cell('C',row,9,item.responsable),
   cell('D',row,9,item.caja),
   cell('E',row,9,item.celda),
-  cell('F',row,11,serial(item.envio),true),
+  cell('F',row,33,serial(item.envio),true),
   cell('G',row,9,item.entrega||''),
   cell('H',row,9,item.recibe||''),
   cell('I',row,9,item.placa||'')
 ];
 
+
+// Las facturas antiguas usan separadores distintos y, a veces, un (A) final.
+// El cotejo es por CONJUNTO de cargos, no por su posición ni por ceros iniciales.
+export function normalizedCargoSet(value){
+  const raw=norm(valueText(value)).replace(/[–—]/g,'-');
+  const suffix=raw.match(/\(\s*([A-Z])\s*\)\s*$/);
+  const content=suffix?raw.slice(0,suffix.index).trim():raw;
+  const parts=content.split(/[\s,;/\-]+/).filter(Boolean);
+  if(!parts.length)return '';
+  const result=[];
+  for(const part of parts){
+    const match=part.match(/^0*(\d{1,7})([A-Z]?)$/);
+    if(!match)return '';
+    result.push(String(Number(match[1]))+(match[2]||suffix?.[1]||''));
+  }
+  return [...new Set(result)].sort().join('|');
+}
+
 function extractHistory(sheet){
   const header=Array.from({length:9},(_,i)=>norm(valueText(sheet.getRow(1).getCell(i+1).value)));
   if(!header[3].includes('CODIGO DE BARRAS')||!header[4].includes('CARGOS')||
      !header[5].includes('FECHA DE ENVIO'))throw Error('IM_HISTORY_HEADERS_CHANGED');
-  const existing=new Set();
+  const byBox=new Map();
   let lastOccupied=1,maxNumber=0;
   for(let r=2;r<=sheet.rowCount;r++){
     const row=sheet.getRow(r);
@@ -66,11 +84,25 @@ function extractHistory(sheet){
     lastOccupied=r;
     const number=Number(row.getCell(1).value);
     if(Number.isFinite(number))maxNumber=Math.max(maxNumber,number);
-    let sent='';
-    try{sent=dateISO(row.getCell(6).value);}catch{/* Registro histórico antiguo incompleto. */}
-    if(sent)existing.add(key+'|'+sent);
+    let envio='';
+    try{envio=dateISO(row.getCell(6).value);}catch{/* Fecha antigua no verificada. */}
+    const entry={row:r,cargos:normalizedCargoSet(row.getCell(5).value),envio};
+    if(!byBox.has(key))byBox.set(key,[]);
+    byBox.get(key).push(entry);
   }
-  return {existing,lastOccupied,maxNumber};
+  return {byBox,lastOccupied,maxNumber};
+}
+
+// Actualiza exclusivamente la celda F de una fila ya identificada.
+// El estilo 33 del libro aprobado es fecha en negro (11 está en rojo y exige revisión).
+function updateExistingDate(xml,entry){
+  const rowPattern=new RegExp('(<row\\s[^>]*\\br="'+entry.row+'"[^>]*>)([\\s\\S]*?)(<\\/row>)');
+  const found=xml.match(rowPattern);
+  if(!found)throw Error('IM_HISTORY_RESHIP_ROW_MISSING');
+  const cellPattern=new RegExp('<c\\b[^>]*\\br="F'+entry.row+'"[^>]*(?:\\/>|>[\\s\\S]*?<\\/c>)');
+  if(!cellPattern.test(found[2]))throw Error('IM_HISTORY_RESHIP_DATE_CELL_MISSING');
+  const onlyF=found[2].replace(cellPattern,cell('F',entry.row,33,serial(entry.envio),true));
+  return xml.replace(rowPattern,found[1]+onlyF+found[3]);
 }
 
 export async function mergeIronMountainHistory(historyBytes,masterRows){
@@ -81,26 +113,61 @@ export async function mergeIronMountainHistory(historyBytes,masterRows){
   if(workbook.worksheets[0]?.name!=='REGISTRO'||!workbook.getWorksheet('REGISTRO'))
     throw Error('IM_HISTORY_SHEET_NOT_FOUND');
   const sheet=workbook.getWorksheet('REGISTRO');
-  const {existing,lastOccupied,maxNumber}=extractHistory(sheet);
-  const pending=[],seen=new Set(existing),sent=masterRows.filter(row=>row.envio);
-  for(const row of sent){
-    const key=boxKey(row.caja)+'|'+dateISO(row.envio);
-    if(!boxKey(row.caja)||!row.preparacion||!row.responsable||!row.celda)
-      throw Error('IM_HISTORY_INCOMPLETE_SHIPMENT');
-    if(seen.has(key))continue;
-    seen.add(key);
-    pending.push(row);
-  }
-  if(!pending.length)return {changed:false,bytes:historyBytes,added:0,alreadyRegistered:sent.length,
-    totalSent:sent.length,entries:[]};
-  if(pending.length>500)throw Error('IM_HISTORY_TOO_MANY_WRITES');
-  if(lastOccupied+pending.length>50000)throw Error('IM_HISTORY_CAPACITY_EXCEEDED');
+  const {byBox,lastOccupied,maxNumber}=extractHistory(sheet);
+  const pending=[],updates=[],reviews=[],entries=[];
+  const processed=new Set();
+  let alreadyRegistered=0;
+  const sent=masterRows.filter(row=>row.envio);
+  for(const item of sent){
+    const key=boxKey(item.caja),newDate=dateISO(item.envio);
+    const cargos=normalizedCargoSet((item.cargos||[]).join('-')||item.celda);
+    const classification=norm(item.clasificacion);
+    if(!key||!cargos||!newDate)throw Error('IM_HISTORY_INCOMPLETE_SHIPMENT');
+    if(processed.has(key))throw Error('IM_HISTORY_DUPLICATED_MASTER_BOX');
+    processed.add(key);
+    const historical=byBox.get(key)||[];
+    const exact=historical.filter(row=>row.cargos && row.cargos===cargos);
+    const requested=/\bPOR SOLICITUD\b/.test(classification);
+    const newBox=/\bCAJAS? NUEVAS?\b/.test(classification);
 
+    if(requested){
+      // Los reenvíos nunca crean filas: código y todos los cargos deben coincidir.
+      if(exact.length!==1){
+        reviews.push({caja:item.caja,motivo:exact.length?'COINCIDENCIA_AMBIGUA':
+          historical.length?'CARGOS_NO_COINCIDEN':'CAJA_NO_ENCONTRADA'});
+        continue;
+      }
+      if(exact[0].envio===newDate){alreadyRegistered++;continue;}
+      updates.push({row:exact[0].row,caja:item.caja,envio:newDate,
+        previous:exact[0].envio,cargos});
+      continue;
+    }
+    if(newBox){
+      if(historical.length){
+        if(exact.length===1&&exact[0].envio===newDate){alreadyRegistered++;continue;}
+        reviews.push({caja:item.caja,motivo:'CAJA_YA_EXISTE_EN_HISTORICO'});
+        continue;
+      }
+      if(!item.preparacion||!item.responsable||!item.celda)
+        throw Error('IM_HISTORY_INCOMPLETE_SHIPMENT');
+      pending.push(item);
+      continue;
+    }
+    reviews.push({caja:item.caja,motivo:'CLASIFICACION_PENDIENTE_DE_REVISION'});
+  }
+  if(pending.length+updates.length>500)throw Error('IM_HISTORY_TOO_MANY_WRITES');
+  if(lastOccupied+pending.length>50000)throw Error('IM_HISTORY_CAPACITY_EXCEEDED');
+  if(!pending.length&&!updates.length)return {
+    changed:false,bytes:historyBytes,added:0,updated:0,alreadyRegistered,
+    totalSent:sent.length,reviewRequired:reviews.length,reviews,entries:[],updatedEntries:[]
+  };
+
+  // Escribir solo sheet1.xml conserva las otras hojas, estilos, fórmulas y relaciones.
   const zip=await JSZip.loadAsync(historyBytes);
   const file=zip.file('xl/worksheets/sheet1.xml');
   if(!file)throw Error('IM_HISTORY_WORKSHEET_MISSING');
-  let xml=await file.async('string'), addOutside='';
-  const entries=[];
+  let xml=await file.async('string'),addOutside='';
+  for(const item of updates)xml=updateExistingDate(xml,item);
   for(const [i,item] of pending.entries()){
     const row=lastOccupied+i+1;
     const number=maxNumber+i+1;
@@ -139,6 +206,16 @@ export async function mergeIronMountainHistory(historyBytes,masterRows){
        dateISO(sh.getRow(entry.row).getCell(6).value)!==entry.fecha_envio)
       throw Error('IM_HISTORY_READBACK_FAILED');
   }
-  return {changed:true,bytes,added:entries.length,alreadyRegistered:sent.length-entries.length,
-    totalSent:sent.length,entries};
+  for(const entry of updates){
+    const before=sheet.getRow(entry.row),after=sh.getRow(entry.row);
+    if(dateISO(after.getCell(6).value)!==entry.envio)
+      throw Error('IM_HISTORY_RESHIP_READBACK_FAILED');
+    for(const col of [1,2,3,4,5,7,8,9]){
+      if(valueText(after.getCell(col).value)!==valueText(before.getCell(col).value))
+        throw Error('IM_HISTORY_RESHIP_UNEXPECTED_CHANGE');
+    }
+  }
+  return {changed:true,bytes,added:entries.length,updated:updates.length,
+    alreadyRegistered,totalSent:sent.length,reviewRequired:reviews.length,
+    reviews,entries,updatedEntries:updates};
 }
