@@ -13,7 +13,7 @@ test('la intervención conserva cuatro formularios y sus identificadores origina
  }
  const selectors={
   'grp-escaneos':['scanFile','scanPaste','scanValidate','scanSave','scanSummary','scanSample','scanReceipt'],
-  'grp-cajas':['boxScanInput','boxScanSubmit','boxScanRefresh','boxScanClear','boxScanResult','boxScanHistory','boxSheetsStatus'],
+  'grp-cajas':['boxScanInput','boxScanSubmit','boxReceptionSave','boxReceptionConfirm','boxScanClear','boxScanResult','boxScanHistory','boxSheetsStatus'],
   'grp-acondicionamiento':['conditionScanInput','conditionStart','conditionObserve','conditionResolve','conditionFinish','conditionRetryDrive','conditionSheetsStatus'],
   'grp-correos':['pickupPrepare','pickupReload','pickupMailBatches','pickupPreviewDetails','pickupMailPreview','pickupSample','pickupSaveConfig']
  };

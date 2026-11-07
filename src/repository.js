@@ -6,6 +6,7 @@ const nullable = value => value === '' || value === undefined ? null : value;
 export function reqFromDb(row) {
   return {
     id: row.id, numero: row.numero, tipo: row.tipo, fechaSolicitud: row.fecha_solicitud,
+    createdAt: row.created_at, owner: row.solicitante_v4,
     cantidadCajas: row.cantidad_cajas ?? '', numerosCargo: row.numeros_cargo || '',
     fechaRecepcion: row.fecha_recepcion || '', fechaDevolucion: row.fecha_devolucion || '',
     usuario: row.usuario, updatedAt: row.updated_at,
@@ -75,6 +76,22 @@ export class KardexRepository {
   async requestTracking() { return checked(await this.client.rpc('kardex_req4_detalle')); }
   async requestAction(id, action, data) {
     return reqFromDb(checked(await this.client.rpc('kardex_req4_accion',{p_id:id,p_accion:action,p_datos:data})));
+  }
+  async reception(action='estado',id=null,code=null) {
+    return checked(await this.client.rpc('kardex_recepcion_operacion',{p_accion:action,p_id:id,p_codigo:code}));
+  }
+  async receptionExcel(action,id,code) {
+    const {session}=checked(await this.client.auth.getSession());
+    if (!session) throw Error('Inicia sesión para operar la recepción.');
+    const response=await fetch('/api/box-reception',{
+      method:'POST',credentials:'same-origin',
+      headers:{Authorization:'Bearer '+session.access_token,'Content-Type':'application/json'},
+      body:JSON.stringify({action,id,code})
+    });
+    if (response.ok && action==='descargar') return response.blob();
+    const result=await response.json().catch(()=>null);
+    if (!response.ok || !result) throw Error(result?.error||'No se pudo verificar el Excel de prueba. Reintenta.');
+    return result;
   }
   async syncIMMaster({force=false}={}) {
     if (this._imMasterPromise) return this._imMasterPromise;

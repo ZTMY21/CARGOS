@@ -31,7 +31,10 @@ export function validateInput(value){
   const identity=[v.documentId,v.sourceKey,v.sourceVersion,v.sha256,v.category];if(v.importId)identity.push(v.importId);v.key=sha256(JSON.stringify(identity));
   return v;
 }
+export const isReceptionPreviewBranch = env => env.VERCEL_GIT_COMMIT_REF==='preview/recepcion-cajas-im';
 export function configuration(env=process.env){
+  if(isReceptionPreviewBranch(env))
+    return {enabled:false,reasons:['RECEPCION_PREVIEW_AISLADA'],mode:'pending-activation',sourceMutationsEnabled:false};
   const project=new URL(env.SUPABASE_URL||'https://unconfigured.invalid').hostname.split('.')[0];
   const reasons=[];
   if(env.KARDEX_DRIVE_ENABLED!=='true')reasons.push('NOT_ENABLED');

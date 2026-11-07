@@ -61,7 +61,8 @@ export function createImMasterHandler({env=process.env, fetcher=fetch}={}) {
           ok:true,preview:true,source:'Excel Maestro de Iron Mountain',
           boxes:rows.length,
           sent:rows.filter(row=>row.envio).length,
-          pending:rows.filter(row=>!row.envio).length,
+          received:rows.filter(row=>row.receivedOnly).length,
+        pending:rows.filter(row=>!row.envio&&!row.receivedOnly).length,
           revision:after.modifiedTime,
           history:{status:'PREVIEW_SIN_ESCRITURA',verified:false,pending:false},
           message:'Preview en solo lectura: sin cambios en Maestro, Supabase ni Histórico IM.'
@@ -76,7 +77,7 @@ export function createImMasterHandler({env=process.env, fetcher=fetch}={}) {
           'Content-Type':'application/json',
           Prefer:'return=representation',
         },
-        body:JSON.stringify({p_file_id:IM_MASTER_FILE_ID,p_rows:rows}),
+        body:JSON.stringify({p_file_id:IM_MASTER_FILE_ID,p_rows:rows.filter(row=>!row.receivedOnly)}),
         signal:AbortSignal.timeout(20000),redirect:'error'
       });
       const result = await response.json().catch(()=>null);
@@ -95,7 +96,8 @@ export function createImMasterHandler({env=process.env, fetcher=fetch}={}) {
         ok:true,source:'Excel Maestro de Iron Mountain',
         boxes:rows.length,
         sent:rows.filter(row=>row.envio).length,
-        pending:rows.filter(row=>!row.envio).length,
+        received:rows.filter(row=>row.receivedOnly).length,
+        pending:rows.filter(row=>!row.envio&&!row.receivedOnly).length,
         requestedPending:rows.filter(row=>!row.envio&&/por\s+solicitud/i.test(row.clasificacion)).length,
         revision:after.modifiedTime,
         history,

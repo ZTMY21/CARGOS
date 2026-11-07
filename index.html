@@ -891,7 +891,7 @@
       <div class="table-wrap">
         <table>
           <thead><tr>
-            <th>Solicitud</th><th id="req4HistoryBoxes">Cajas</th><th>Estado</th><th>Solicitante</th><th>Acción</th>
+            <th>Solicitud</th><th id="req4HistoryBoxes">Cajas</th><th id="req4HistoryDate" hidden>Fecha de solicitud</th><th>Estado</th><th>Solicitante</th><th>Acción</th>
           </tr></thead>
           <tbody id="tbodyReq"><tr><td colspan="5" class="loading">Cargando…</td></tr></tbody>
         </table>
@@ -1053,11 +1053,14 @@
       <div class="iv-dual-layout iv-scanner-layout">
         <section class="iv-panel iv-scanner-panel">
           <div class="iv-panel-head"><h3 class="iv-panel-title">Escanear código</h3><span class="iv-state-chip"><svg class="iv-icon" aria-hidden="true"><use href="#iv-scan"></use></svg> <span id="boxScannerStatus" role="status">Sin lecturas</span></span></div>
-          <p class="iv-panel-hint">La consulta se realiza automáticamente al recibir el código completo. No necesitas presionar Enter.</p>
+          <p class="iv-panel-hint" id="boxScanHint">La consulta se realiza automáticamente al recibir el código completo. No necesitas presionar Enter.</p>
           <div class="iv-scanner-visual" id="ivScannerVisual" aria-hidden="true">
             <div class="iv-barcode"></div><div class="iv-laser"></div>
             <span id="ivScannerCaption">ESPERANDO UN CÓDIGO DE CAJA</span>
           </div>
+          <label id="boxReceptionModeLabel" class="reception-mode" hidden>
+            <input id="boxReceptionMode" type="checkbox" disabled> Activar recepción automática de cajas nuevas
+          </label>
           <div class="iv-field-row">
             <label class="iv-input-icon" for="boxScanInput"><svg class="iv-icon" aria-hidden="true"><use href="#iv-scan"></use></svg></label>
             <input type="text" id="boxScanInput" autocomplete="off" autocapitalize="characters" spellcheck="false"
@@ -1065,14 +1068,21 @@
           </div>
           <div class="actions intervention-actions iv-buttons">
             <button id="boxScanSubmit" type="button" class="iv-main-action"><svg class="iv-icon" aria-hidden="true"><use href="#iv-scan"></use></svg> Consultar caja</button>
-            <button id="boxScanRefresh" type="button" class="secondary"><svg class="iv-icon" aria-hidden="true"><use href="#iv-refresh"></use></svg> Actualizar</button>
+            <button id="boxReceptionSave" data-reception-action type="button" class="secondary" disabled>Guardar avance parcial</button>
             <button id="boxScanClear" type="button" class="secondary">Limpiar</button>
           </div>
+          <section id="boxReceptionProgress" class="reception-progress" aria-label="Progreso de recepción" hidden>
+            <div><strong id="boxReceptionCount">0/0 cajas recepcionadas</strong><span id="boxReceptionBadge"></span></div>
+            <progress id="boxReceptionBar" max="100" value="0" aria-label="Cajas escaneadas"></progress>
+            <button id="boxReceptionConfirm" data-reception-action type="button" disabled>Confirmar recepción completa</button>
+            <p id="boxReceptionPending" class="iv-panel-hint"></p>
+            <button id="boxReceptionDownload" data-reception-action type="button" class="link">Descargar Maestro de prueba</button>
+          </section>
           <div class="iv-scanner-meta">
             <div class="iv-device-status"><svg class="iv-icon" aria-hidden="true"><use href="#iv-scan"></use></svg> <span id="boxScannerModel" hidden></span><span>Lecturas únicas: <strong id="boxScanCount">0</strong></span></div>
           </div>
           <p id="boxScanFeedback" class="iv-status-line" aria-live="polite"></p>
-          <p id="boxSheetsStatus" class="iv-source-line" aria-live="polite">Destino: Google Sheets del Drive · CONTROL DE CAJAS</p>
+          <p id="boxSheetsStatus" class="iv-source-line" aria-live="polite">Consulta documental de cajas</p>
           <p id="boxScannerSource" class="iv-status-line" hidden></p>
         </section>
         <section class="iv-panel iv-scanner-results">
@@ -1080,8 +1090,9 @@
           <div id="ivBoxEmpty" class="iv-empty iv-box-empty"><div class="iv-empty-icon"><svg class="iv-icon" aria-hidden="true"><use href="#iv-box"></use></svg></div><strong>Esperando lectura</strong><span>Al escanear aparecerán aquí el código, cargos y clasificación.</span></div>
           <div id="boxScanResult" class="iv-box-results" role="status" aria-live="polite"></div>
           <p class="iv-panel-hint iv-muted-note">Una caja no encontrada entre pendientes debe verificarse antes de tratarla como nueva.</p>
+          <div id="boxReceptionCard" class="reception-card" hidden></div>
           <div class="iv-history">
-            <h4 class="iv-subtitle">Historial de la sesión</h4>
+            <h4 class="iv-subtitle" id="boxScanHistoryTitle">Historial de la sesión</h4>
             <ol id="boxScanHistory" class="prepared-im-list" aria-label="Historial de códigos de cajas leídos"></ol>
           </div>
         </section>
@@ -1152,7 +1163,7 @@
           <button id="conditionFinish" class="iv-green-action" type="button" disabled><svg class="iv-icon" aria-hidden="true"><use href="#iv-check"></use></svg> Marcar lista para recojo</button>
         </div>
         <p id="conditionMessage" class="hint" aria-live="polite"></p>
-        <p id="conditionSheetsStatus" class="hint" role="status" aria-live="polite">Destino: Google Sheets del Drive · CONTROL DE CAJAS</p>
+        <p id="conditionSheetsStatus" class="hint" role="status" aria-live="polite">Consulta documental de cajas</p>
         <p class="hint">Los registros de preparación se actualizan en el Google Sheets original. No se marca una caja como enviada por escanearla.</p>
         <button id="conditionRetryDrive" class="secondary" type="button" disabled>Reintentar sincronización con Drive</button>
         <div class="filters">

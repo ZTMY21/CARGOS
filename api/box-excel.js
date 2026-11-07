@@ -104,7 +104,7 @@ export function createBoxExcelHandler({env=process.env,fetcher=fetch}={}){
            proof.md5Checksum!==hash)throw new ArchiveError('IM_MASTER_WRITE_NOT_VERIFIED',503);
       }
       const verified=await rpc(fetcher,env,token,'kardex_im_master_sync',{
-        p_file_id:IM_MASTER_FILE_ID,p_rows:updated.rows
+        p_file_id:IM_MASTER_FILE_ID,p_rows:updated.rows.filter(row=>!row.receivedOnly)
       });
       if(verified?.verificado!==true)throw new ArchiveError('IM_MASTER_DB_NOT_VERIFIED',503);
       return answer(res,200,{verified:true,sourceSynced:true,

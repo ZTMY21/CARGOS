@@ -5,7 +5,7 @@ export default defineConfig(({ mode }) => {
   const url = env.SUPABASE_URL || '';
   const key = env.SUPABASE_ANON_KEY || '';
   const isolated = env.KARDEX_REQ4_PREVIEW_PROJECT || '';
-  if ((isolated || process.env.VERCEL_GIT_COMMIT_REF === 'preview/intervencion-4-requerimientos')
+  if ((isolated || ['preview/intervencion-4-requerimientos','preview/recepcion-cajas-im'].includes(process.env.VERCEL_GIT_COMMIT_REF))
       && (isolated !== 'qpbzfzcobkkfnoioqytb' || url !== `https://${isolated}.supabase.co`)) {
     throw new Error('La Preview de Requerimientos requiere el proyecto de pruebas aislado.');
   }
@@ -26,7 +26,10 @@ export default defineConfig(({ mode }) => {
     define: {
       __SUPABASE_URL__: JSON.stringify(url),
       __SUPABASE_ANON_KEY__: JSON.stringify(key),
-      __REQ4_ISOLATED__: JSON.stringify(Boolean(isolated))
+      __REQ4_ISOLATED__: JSON.stringify(Boolean(isolated)),
+      __RECEPTION_OVERVIEW__: JSON.stringify(process.env.VERCEL_ENV === 'production' && !isolated),
+      __RECEPTION_PREVIEW__: JSON.stringify(process.env.VERCEL_GIT_COMMIT_REF === 'preview/recepcion-cajas-im' &&
+        isolated === 'qpbzfzcobkkfnoioqytb' && url === 'https://qpbzfzcobkkfnoioqytb.supabase.co')
     },
     build: { sourcemap: false, rolldownOptions: { input: { app: 'index.html' } } }
   };
