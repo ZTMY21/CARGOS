@@ -54,6 +54,10 @@ test('registra una caja confirmada, conserva la otra hoja y respeta columnas',as
   assert.equal(sh.getCell('G3').value,'ENCARGADO');
   assert.equal(sh.getCell('H3').value,'IRON MOUNTAIN');
   assert.equal(sh.getCell('I3').value,'ABC-123');
+  const zip=await JSZip.loadAsync(result.bytes);
+  const sheetXml=await zip.file('xl/worksheets/sheet1.xml').async('string');
+  assert.match(sheetXml,/<c r="B3" s="33">/,'fecha de preparación confirmada en negro');
+  assert.match(sheetXml,/<c r="F3" s="33">/,'fecha de envío confirmada en negro');
   const again=await mergeIronMountainHistory(result.bytes,[
     box('T2044202150','2026-11-05'),box('T2044202151','')
   ]);
@@ -81,6 +85,9 @@ test('reenvío por solicitud modifica solo fecha F y no agrega un nuevo correlat
       before.getWorksheet('REGISTRO').getRow(2).getCell(col).value);
   }
   assert.equal(after.getWorksheet('REGISTRO').getRow(3).getCell(4).value,null);
+  const zip=await JSZip.loadAsync(first.bytes);
+  const sheetXml=await zip.file('xl/worksheets/sheet1.xml').async('string');
+  assert.match(sheetXml,/<c r="F2" s="33">/,'reenvío verificado deja la fecha en negro');
   const again=await mergeIronMountainHistory(first.bytes,data);
   assert.equal(again.changed,false);
   assert.equal(again.updated,0);
