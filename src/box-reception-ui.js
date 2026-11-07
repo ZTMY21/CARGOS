@@ -11,7 +11,7 @@ export function attachBoxReception({repository,refresh}) {
   const mode = el('boxReceptionMode'), input = el('boxScanInput'), progress = el('boxReceptionProgress');
   const save = el('boxReceptionSave'), confirm = el('boxReceptionConfirm'), download = el('boxReceptionDownload');
   const card = el('boxReceptionCard'), history = el('boxScanHistory'), feedback = el('boxScanFeedback');
-  let active=false, state=null, epoch=0, running=0, job=Promise.resolve(), poll=null, documentMode=false;
+  let active=false, state=null, epoch=0, version=0, running=0, job=Promise.resolve(), poll=null, documentMode=false;
   const notify = (message,error=false) => {
     feedback.textContent=message;
     feedback.style.color=error?'var(--red)':'var(--muted)';
@@ -55,11 +55,11 @@ export function attachBoxReception({repository,refresh}) {
       (complete?'Confirmada':row.guardado?'Guardada en Maestro':'Pendiente de consolidar')+'</span></li>').join('');
   };
   const load = async () => {
-    const call=epoch;
+    const call=epoch, revision=version;
     if (running||!active) return;
     try {
       const data=await repository.reception();
-      if (!active||epoch!==call||running) return;
+      if (!active||epoch!==call||revision!==version||running) return;
       if (state?.id!==data?.id) mode.checked=false;
       state=data;render();
     } catch {
@@ -69,7 +69,7 @@ export function attachBoxReception({repository,refresh}) {
   const enqueue = (operation,success) => {
     const call=epoch, id=state?.id;
     if (!id||!active) return;
-    running++;render();
+    version++;running++;render();
     job=job.then(async()=>{
       try {
         if (epoch!==call) return;

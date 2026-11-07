@@ -57,6 +57,7 @@ export async function readMasterRows(bytes,{minimumBoxes=49}={}) {
       !headers[5].includes('CLASIFICACION') || !headers[6].includes('FECHA DE ENVIO'))
     throw Error('IM_MASTER_HEADERS_CHANGED');
   const output = [], seen = new Set();
+  let withCargos = 0;
   if (sheet.rowCount > 15000) throw Error('IM_MASTER_TOO_LARGE');
   for (let r = 2; r <= sheet.rowCount; r++) {
     const row = sheet.getRow(r);
@@ -82,7 +83,7 @@ export async function readMasterRows(bytes,{minimumBoxes=49}={}) {
       placa: text(row.getCell(10).value),
       ...(receivedOnly ? {receivedOnly:true} : {}),
     });
-    if (output.length > MAX_BOXES) throw Error('IM_MASTER_TOO_MANY_BOXES');
+    if (!receivedOnly && ++withCargos > MAX_BOXES) throw Error('IM_MASTER_TOO_MANY_BOXES');
   }
   if (output.length < minimumBoxes) throw Error('IM_MASTER_SUSPICIOUSLY_EMPTY');
   return output;

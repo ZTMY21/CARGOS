@@ -156,7 +156,7 @@ export function attachBoxScanner({repository,isAdmin,appReady,reception=null,onS
       if (!canScan() || !typed || input.value!==typed) return;
       if (reception?.armed()) reception.scan();
       else if (parseBoxScan(input.value).ok) process();
-    },SCAN_IDLE_MS);
+    },reception?.armed()?250:SCAN_IDLE_MS);
   });
   if('hid' in navigator&&typeof navigator.hid.addEventListener==='function'){
     navigator.hid.addEventListener('connect',event=>{

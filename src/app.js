@@ -323,7 +323,7 @@ function setAvailability() {
     ? 'Consulta, búsqueda, exportación e importación de documentos'
     : 'Consulta, búsqueda y exportación de documentos';
 
-  document.querySelectorAll('.group button').forEach(b => b.disabled = !appReady || mutationBusy);
+  document.querySelectorAll('.group button:not([data-reception-action])').forEach(b => b.disabled = !appReady || mutationBusy);
   document.getElementById('scanSave').disabled = !appReady || !isAdmin || isPreview || mutationBusy || document.getElementById('scanSave').dataset.valid!=='1';
   ['btnExportar','btnReset','btnImportar','btnGuardar','btnGuardarReq'].forEach(id => document.getElementById(id).disabled = !appReady || !isAdmin || mutationBusy || (isPreview && id!=='btnExportar'));
   const total=queryResults?.total??lastFiltered.length;

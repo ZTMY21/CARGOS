@@ -1068,15 +1068,15 @@
           </div>
           <div class="actions intervention-actions iv-buttons">
             <button id="boxScanSubmit" type="button" class="iv-main-action"><svg class="iv-icon" aria-hidden="true"><use href="#iv-scan"></use></svg> Consultar caja</button>
-            <button id="boxReceptionSave" type="button" class="secondary" disabled>Guardar avance parcial</button>
+            <button id="boxReceptionSave" data-reception-action type="button" class="secondary" disabled>Guardar avance parcial</button>
             <button id="boxScanClear" type="button" class="secondary">Limpiar</button>
           </div>
           <section id="boxReceptionProgress" class="reception-progress" aria-label="Progreso de recepción" hidden>
             <div><strong id="boxReceptionCount">0/0 cajas recepcionadas</strong><span id="boxReceptionBadge"></span></div>
             <progress id="boxReceptionBar" max="100" value="0" aria-label="Cajas escaneadas"></progress>
-            <button id="boxReceptionConfirm" type="button" disabled>Confirmar recepción completa</button>
+            <button id="boxReceptionConfirm" data-reception-action type="button" disabled>Confirmar recepción completa</button>
             <p id="boxReceptionPending" class="iv-panel-hint"></p>
-            <button id="boxReceptionDownload" type="button" class="link">Descargar Maestro de prueba</button>
+            <button id="boxReceptionDownload" data-reception-action type="button" class="link">Descargar Maestro de prueba</button>
           </section>
           <div class="iv-scanner-meta">
             <div class="iv-device-status"><svg class="iv-icon" aria-hidden="true"><use href="#iv-scan"></use></svg> <span id="boxScannerModel" hidden></span><span>Lecturas únicas: <strong id="boxScanCount">0</strong></span></div>

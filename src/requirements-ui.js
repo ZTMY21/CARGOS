@@ -300,12 +300,14 @@ export function setupRequirements(root, {repository, context, refresh, onKindCha
         title:labels[event.tipo][0],description:event.datos.cantidad+' de '+total+' cajas verificadas',
         stamp:event.registrado,tone:event.tipo==='recepcion_completa'?'complete':'pending',label:labels[event.tipo][1]
       }))];
+    const lastPartial=movements.filter(event=>event.tipo==='recepcion_parcial').at(-1);
     const tone=receipt?.confirmada?'complete':'pending';
     return `<article class="req-reception-detail">
       <div class="req-reception-info" data-state="${tone}">
         <div><strong>${html(status)}: ${read ? read+'/'+total+' cajas recepcionadas' : total+' cajas'}</strong>
           <span>${html(row.numero)} · ${html(row.usuario)} · Solicitada el ${html(receptionTime(row.createdAt||receipt?.creada))}</span></div>
-        <span>Acondicionadas: ${Number(receipt?.acondicionadas||0)}/${total}</span>
+        <div><span>Acondicionadas: ${Number(receipt?.acondicionadas||0)}/${total}</span>
+          ${lastPartial?`<span>Último guardado parcial: ${html(receptionTime(lastPartial.registrado))}</span>`:''}</div>
       </div>
       <progress class="req-reception-progress" data-state="${read===total?'complete':'pending'}" value="${read}" max="${total}" aria-label="Progreso de recepción de ${html(row.numero)}"></progress>
       <h3 class="req4-history-heading">Historial de movimientos</h3>
