@@ -1,5 +1,5 @@
 import { escapeHtml as html, fmtDate, limaDate, REQ_TYPES } from './rules.js';
-import {receptionStatus as receiptStatus,receptionTime} from './box-reception-ui.js';
+import {receptionStatus as receiptStatus,receptionTime,requestReception} from './box-reception-ui.js';
 
 const kinds = {nuevas: 'Cajas nuevas', prestamo: 'Solicitudes a IM'};
 const steps = {nuevas: ['Cantidad', 'Solicitar'], prestamo: ['Buscar', 'Seleccionar', 'Solicitar']};
@@ -56,7 +56,8 @@ export function requestCards(rows, tracking) {
         </section>`).join('');
 }
 
-export function setupRequirements(root, {repository, context, refresh, onKindChange = () => {}, isPreview = false, receptionEnabled = false}) {
+export function setupRequirements(root, {repository, context, refresh, onKindChange = () => {}, isPreview = false, receptionEnabled = false, receptionOverview = false}) {
+  const showReception = receptionEnabled || receptionOverview;
   const selected = new Map();
   let rows = [], tracking = null, viewer = null, busy = false, searchEpoch = 0;
   let pending = null;
@@ -81,7 +82,7 @@ export function setupRequirements(root, {repository, context, refresh, onKindCha
         <div id="req4SupplyLock" class="req4-supply-lock" role="alert" hidden></div>
         <label class="field" id="req4QtyWrap">Cantidad de cajas<input id="req4Qty" type="number" min="1" max="100" step="1" aria-describedby="req4QtyHelp" required></label>
         <p id="req4QtyHelp" class="req4-help">Máximo 100 cajas por solicitud.</p>
-        <p id="req4ReceiptWrap" class="req4-note">La confirmación y recepción corresponden a Control de cajas.</p>
+        <p id="req4ReceiptWrap" class="req4-note">${receptionOverview ? 'El seguimiento está disponible en Control de cajas. El guardado de la recepción está pendiente de conciliación.' : 'La confirmación y recepción corresponden a Control de cajas.'}</p>
       </section>
       <section id="req4Loan" role="tabpanel" aria-labelledby="req4TabPrestamo" hidden>
         <div class="req4-search">
@@ -287,7 +288,8 @@ export function setupRequirements(root, {repository, context, refresh, onKindCha
     }
   });
 
-  function receiptHistory(row,receipt) {
+  function receiptHistory(row) {
+    const receipt=requestReception(row,tracking);
     const total=Number(row.cantidadCajas), read=Number(receipt?.leidas||0), status=receiptStatus(receipt||{});
     const movements=(tracking?.movimientos||[]).filter(item=>item.requerimiento===row.id &&
       ['recepcion_parcial','recepcion_completa'].includes(item.tipo));
@@ -306,7 +308,7 @@ export function setupRequirements(root, {repository, context, refresh, onKindCha
       <div class="req-reception-info" data-state="${tone}">
         <div><strong>${html(status)}: ${read ? read+'/'+total+' cajas recepcionadas' : total+' cajas'}</strong>
           <span>${html(row.numero)} · ${html(row.usuario)} · Solicitada el ${html(receptionTime(row.createdAt||receipt?.creada))}</span></div>
-        <div><span>Acondicionadas: ${Number(receipt?.acondicionadas||0)}/${total}</span>
+        <div><span>Acondicionadas: ${receipt.acondicionadas==null ? 'Por conciliar' : receipt.acondicionadas+'/'+total}</span>
           ${lastPartial?`<span>Último guardado parcial: ${html(receptionTime(lastPartial.registrado))}</span>`:''}</div>
       </div>
       <progress class="req-reception-progress" data-state="${read===total?'complete':'pending'}" value="${read}" max="${total}" aria-label="Progreso de recepción de ${html(row.numero)}"></progress>
@@ -329,16 +331,15 @@ export function setupRequirements(root, {repository, context, refresh, onKindCha
     const activeLabels = supply ? ['solicitud pendiente','solicitudes pendientes'] : ['solicitud activa','solicitudes activas'];
     find('DialogTitle').textContent = supply ? 'Cajas para acondicionar' : kinds.prestamo;
     find('DialogIntro').textContent = supply ? 'Solicitudes de cajas nuevas' : 'Consulta las cajas solicitadas a Iron Mountain.';
-    const receipts=tracking?.suministro?.solicitudes||[];
-    const latest=receipts.at(-1);
+    const latest=supply&&list.length ? requestReception(list.at(-1),tracking) : null;
     find('DialogBody').innerHTML = `
-      <div class="req4-request-summary${supply&&receptionEnabled?' req-reception-summary':''}">
+      <div class="req4-request-summary${supply&&showReception?' req-reception-summary':''}">
         <div><strong>${total}</strong><span>${total === 1 ? 'caja solicitada' : 'cajas solicitadas'}</span></div>
         <div><strong>${active}</strong><span>${activeLabels[active === 1 ? 0 : 1]}</span></div>
-        ${supply&&receptionEnabled?`<div><span>Estado actual</span><strong>${html(latest?receiptStatus(latest):'Sin solicitudes')}</strong></div>`:''}
+        ${supply&&showReception?`<div><span>Estado actual</span><strong>${html(latest?receiptStatus(latest):'Sin solicitudes')}</strong></div>`:''}
       </div>
-      ${list.length ? supply&&receptionEnabled
-        ? [...list].reverse().map(row=>receiptHistory(row,receipts.find(item=>item.id===row.id))).join('')
+      ${list.length ? supply&&showReception
+        ? [...list].reverse().map(row=>receiptHistory(row)).join('')
         : `<div class="req4-request-list" role="list">${detailsList(list,tracking,supply)}</div>`
         : '<p class="req4-empty">Sin requerimientos registrados.</p>'}
       ${supply && supplyAvailability(rows,tracking).blocked ? `<div class="req4-supply-lock"><strong>${supplyBlockedMessage}</strong><p>${receptionEnabled ? 'Las nuevas solicitudes se habilitan al completar el acondicionamiento de las cajas anteriores.' : 'Disponible cuando se complete el envío a IM de las cajas pendientes.'}</p></div>` : ''}`;
@@ -363,7 +364,7 @@ export function setupRequirements(root, {repository, context, refresh, onKindCha
         <div><dt>Solicitante</dt><dd>${html(row.usuario)}</dd></div>
         <div><dt>Cajas solicitadas</dt><dd>${Number(row.cantidadCajas)}</dd></div>
       </dl>
-      ${supply ? receptionEnabled ? receiptHistory(row,tracking?.suministro?.solicitudes?.find(item=>item.id===row.id)) : '' : `<h3 class="req4-history-heading">Cajas de la solicitud</h3>
+      ${supply ? showReception ? receiptHistory(row) : '' : `<h3 class="req4-history-heading">Cajas de la solicitud</h3>
         <ul>${boxes.map(box => `<li><strong>${html(box.codigo)}</strong> · cargos ${html(box.cargos.join(', '))}</li>`).join('')}</ul>`}`;
     find('DialogBody').dataset.row = row.id;
     if (!dialog.open) { find('DialogStatus').textContent = ''; dialog.showModal(); }

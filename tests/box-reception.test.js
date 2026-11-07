@@ -4,6 +4,9 @@ import {readFile} from 'node:fs/promises';
 import {randomUUID} from 'node:crypto';
 import {PGlite} from '@electric-sql/pglite';
 import JSZip from 'jszip';
+import {JSDOM} from 'jsdom';
+import {renderReceptionOverview,requestReception,receptionTime} from '../src/box-reception-ui.js';
+import {REQ_TYPES} from '../src/rules.js';
 import {parseReceptionScan} from '../src/box-scanner.js';
 import {createReceptionFixture,appendReceivedBoxes} from '../server/reception-workbook.js';
 import {appendPreparedBoxToMaster} from '../server/im-master-write.js';
@@ -64,6 +67,31 @@ test('el Maestro recibe exactamente 55 y 45 filas, preserva las partes del libro
   assert.equal(prepared.numero,'901');
   assert.deepEqual(prepared.cargos,['9876540']);
   assert.equal(prepared.envio,'');
+});
+
+test('producción muestra el avance existente sin habilitar acciones de recepción de prueba',async()=>{
+  const markup=await readFile(new URL('../index.html',import.meta.url),'utf8');
+  const dom=new JSDOM(markup);
+  try{
+    const doc=dom.window.document, root=doc.getElementById('grp-cajas');
+    const el=id=>doc.getElementById(id);
+    const row={id:'solicitud',numero:'REQ-00001',tipo:REQ_TYPES[0],cantidadCajas:100,recibidoV4:55};
+    renderReceptionOverview(root,[],true);
+    assert.match(el('boxReceptionCount').textContent,/Sin solicitud activa/);
+    renderReceptionOverview(root,[row],true);
+    assert.match(el('boxReceptionCount').textContent,/55\/100/);
+    assert.equal(el('boxReceptionBar').value,55);
+    assert.equal(el('boxReceptionModeLabel').hidden,true);
+    assert.equal(el('boxReceptionSave').disabled,true);
+    assert.equal(el('boxReceptionConfirm').disabled,true);
+    assert.equal(el('boxReceptionDownload').hidden,true);
+    assert.match(el('boxReceptionPending').textContent,/conciliación/);
+    assert.deepEqual(requestReception(row,{suministro:{solicitudes:[{id:row.id,enviadas:55}]}}),
+      {id:row.id,enviadas:55,confirmada:null,leidas:55});
+    assert.equal(receptionTime('2026-11-07'),'07/11/2026 (Lima)');
+    renderReceptionOverview(root,[row],false);
+    assert.equal(el('boxReceptionProgress').hidden,true);
+  }finally{dom.window.close();}
 });
 
 test('la API de recepción queda cerrada fuera de su rama y ante una base no aislada',async()=>{

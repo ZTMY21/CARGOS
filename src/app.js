@@ -1,5 +1,5 @@
 import {attachBoxScanner} from './box-scanner-ui.js';
-import {attachBoxReception,receptionStatus} from './box-reception-ui.js';
+import {attachBoxReception,receptionStatus,requestReception,renderReceptionOverview} from './box-reception-ui.js';
 import './box-reception.css';
 import {attachBoxScanSheets} from './box-scan-sheet-ui.js';
 import {attachBoxConditioning} from './box-conditioning-ui.js';
@@ -25,6 +25,8 @@ import { requestCards, setupRequirements } from './requirements-ui.js';
 const configuration = { url: __SUPABASE_URL__, key: __SUPABASE_ANON_KEY__ };
 const isolatedRequirements = typeof __REQ4_ISOLATED__ !== 'undefined' && __REQ4_ISOLATED__;
 const receptionPreview = typeof __RECEPTION_PREVIEW__ !== 'undefined' && __RECEPTION_PREVIEW__;
+const receptionOverview = typeof __RECEPTION_OVERVIEW__ !== 'undefined' && __RECEPTION_OVERVIEW__;
+const receptionPresentation = receptionPreview || receptionOverview;
 const previewLoginEmail = receptionPreview ? 'recepcion-preview@kardex.test' : 'intervencion4@kardex.test';
 // Capture recovery mode before the client consumes the email callback fragment.
 let passwordRecovery = new URLSearchParams(window.location.hash.slice(1)).get('type') === 'recovery';
@@ -51,7 +53,7 @@ let pendingReqId = null, pendingDocId = null;
 let requestTracking = null;
 let annualReference = null;
 const requestUI = setupRequirements(document.getElementById('req4Workspace'), {
-  repository, isPreview: isolatedRequirements, receptionEnabled: receptionPreview,
+  repository, isPreview: isolatedRequirements, receptionEnabled: receptionPreview, receptionOverview,
   context: () => ({allowed:appReady && isAdmin && (!isPreview || isolatedRequirements),
     id:currentUserId, name:document.getElementById('sessionUser').textContent}),
   refresh: refreshData,
@@ -330,6 +332,7 @@ function setAvailability() {
   document.getElementById('btnPaginaAnterior').disabled=!appReady||mutationBusy||currentPage===0;
   document.getElementById('btnPaginaSiguiente').disabled=!appReady||mutationBusy||total<=(currentPage+1)*PAGE_SIZE;
   requestUI.update(reqs,isAdmin ? requestTracking : null);
+  if(receptionOverview)renderReceptionOverview(document.getElementById('grp-cajas'),reqs,appReady&&isAdmin);
   if (isolatedRequirements) {
     document.getElementById('btnRefreshNewCargos').hidden = true;
     for (const id of ['btnOpenIronMountainExcel','btnOpenIronMountainHistorical','preparedImOpenExcel']) {
@@ -478,25 +481,25 @@ function renderReqs(){
   const records=reqs.filter(row=>row.tipo===type);
   const filtered=filterRequirements(records,docs,query);
   document.getElementById('req4HistoryTitle').textContent=supply ? 'Seguimiento de cajas nuevas' : 'Seguimiento de solicitudes a IM';
-  document.getElementById('req4HistoryDate').hidden=!receptionPreview;
+  document.getElementById('req4HistoryDate').hidden=!receptionPresentation;
   document.getElementById('req4HistoryBoxes').textContent=supply ? 'Cajas' : 'Cajas solicitadas';
   document.getElementById('conteoReq').textContent=`${filtered.length} de ${records.length} requerimientos`;
   const enriched = filtered.map(r => ({...r, estado: computeReqEstado(r), usadas: cajasUsadas(r.id)}));
   const tbody = document.getElementById('tbodyReq');
   if(enriched.length === 0){
-    tbody.innerHTML = `<tr><td colspan="${receptionPreview?6:5}" class="empty">${query ? 'No se encontraron requerimientos para esa búsqueda.' : 'Sin requerimientos registrados en este apartado.'}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="${receptionPresentation?6:5}" class="empty">${query ? 'No se encontraron requerimientos para esa búsqueda.' : 'Sin requerimientos registrados en este apartado.'}</td></tr>`;
   } else {
     tbody.innerHTML = enriched.sort((a,b)=>b.numero.localeCompare(a.numero)).map(r=>{
       const esCajasNuevas = r.tipo === 'Cajas nuevas para acondicionar';
       const boxes=requestTracking?.cajas.filter(box=>box.requerimiento===r.id) || [];
       const boxText=esCajasNuevas ? String(r.cantidadCajas||'—')
         : boxes.length ? boxes.map(box=>box.codigo).join(', ') : `${r.cantidadCajas || '—'} cajas`;
-      const receipt=receptionPreview && esCajasNuevas && requestTracking?.suministro?.solicitudes?.find(row=>row.id===r.id);
+      const receipt=receptionPresentation && esCajasNuevas && requestReception(r,requestTracking);
       const status=receipt ? receptionStatus(receipt) : esCajasNuevas && r.estado==='Solicitado' ? 'Pendiente de recepción' : r.estado;
       return `<tr>
         <td>${highlightMatch(r.numero,query)}</td>
         <td>${escapeHtml(boxText)}</td>
-        ${receptionPreview?`<td>${fmtDate(r.fechaSolicitud)}</td>`:''}
+        ${receptionPresentation?`<td>${fmtDate(r.fechaSolicitud)}</td>`:''}
         <td><span class="badge ${reqBadgeClass(r.estado)}">${escapeHtml(status)}</span></td>
         <td>${escapeHtml(r.usuario||'')}</td>
         <td>

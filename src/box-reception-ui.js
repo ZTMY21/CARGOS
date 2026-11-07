@@ -1,10 +1,38 @@
 import {parseReceptionScan} from './box-scanner.js';
-import {escapeHtml as html} from './rules.js';
+import {escapeHtml as html,fmtDate,REQ_TYPES} from './rules.js';
 
 const lima = new Intl.DateTimeFormat('es-PE',{timeZone:'America/Lima',dateStyle:'short',timeStyle:'short'});
-export const receptionTime = value => value ? lima.format(new Date(value))+' (Lima)' : '—';
+export const receptionTime = value => /^\d{4}-\d{2}-\d{2}$/.test(value||'') ? fmtDate(value)+' (Lima)' : value ? lima.format(new Date(value))+' (Lima)' : '—';
 export const receptionStatus = state => state.confirmada ? 'Recepción completa' :
   Number(state.leidas??state.lecturas?.length) ? 'Recepción en proceso' : 'Solicitud pendiente';
+
+export function requestReception(row,tracking) {
+  const receipt=tracking?.suministro?.solicitudes?.find(item=>item.id===row.id);
+  const total=Number(row.cantidadCajas);
+  const confirmada=receipt?.confirmada||row.fechaRecepcion||null;
+  const leidas=receipt?.leidas??(row.estadoV4==='Recibido' ? total : row.recibidoV4??0);
+  return {...receipt,confirmada,leidas};
+}
+
+export function renderReceptionOverview(root,rows,visible) {
+  const el=id=>root.querySelector('#'+id);
+  const progress=el('boxReceptionProgress');
+  progress.hidden=!visible;
+  el('boxReceptionDownload').hidden=true;
+  if(!visible)return;
+  const row=[...rows].reverse().find(item=>item.tipo===REQ_TYPES[0] && Number(item.cantidadCajas)>0 &&
+    !item.fechaRecepcion && item.estadoV4!=='Recibido');
+  const receipt=row&&requestReception(row);
+  const bar=el('boxReceptionBar');
+  bar.hidden=!row;
+  bar.max=Number(row?.cantidadCajas)||100;
+  bar.value=receipt?.leidas||0;
+  el('boxReceptionCount').textContent=row
+    ? row.numero+' · '+receipt.leidas+'/'+row.cantidadCajas+' cajas registradas'
+    : 'Sin solicitud activa de cajas nuevas';
+  el('boxReceptionBadge').textContent='Modo consulta';
+  el('boxReceptionPending').textContent='El guardado de recepción está pendiente de la conciliación de cajas existentes con el Maestro de Iron Mountain.';
+}
 
 export function attachBoxReception({repository,refresh}) {
   const el = id => document.getElementById(id);
