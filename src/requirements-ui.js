@@ -297,7 +297,7 @@ export function setupRequirements(root, {repository, context, refresh, onKindCha
     const requestDate=physical ? row.fechaSolicitud : row.createdAt||receipt.creada||row.fechaSolicitud;
     const descriptions={
       recepcion_fisica_informada:event=>['Recepción física informada',event.datos.cantidad+' cajas recibidas','request','Recepción física'],
-      recepcion_conciliada:event=>['Cruce con el Maestro de Iron Mountain',event.datos.cantidad+' códigos de cajas nuevas sin fecha de envío','pending','Conciliación'],
+      recepcion_conciliada:event=>['Cajas recepcionadas',event.datos.cantidad+' cajas con código registrado','pending','Recepcionadas'],
       recepcion_parcial:event=>['Guardado parcial de recepción',event.datos.cantidad+' de '+total+' cajas verificadas','pending','Parcial'],
       recepcion_completa:event=>[physical?'Registro de cajas completo':'Recepción completa',event.datos.cantidad+' de '+total+' cajas verificadas','complete','Completa']
     };
@@ -314,7 +314,7 @@ export function setupRequirements(root, {repository, context, refresh, onKindCha
           <span>${html(row.numero)} · ${html(row.usuario)} · Solicitada el ${html(receptionTime(requestDate))}</span></div>
         <div>${physical
           ? `<span>${physical} recibidas físicamente · ${total-read} pendientes de registrar</span>
-            ${matched ? `<span>${Number(matched.datos.preparadas||0)} con preparación y cargos en el Maestro al momento del cruce</span>` : ''}`
+            ${matched ? `<span>${Number(matched.datos.preparadas||0)} con preparación y cargos registrados en el Maestro</span>` : ''}`
           : `<span>Acondicionadas: ${receipt.acondicionadas==null ? 'Por conciliar' : receipt.acondicionadas+'/'+total}</span>`}
           ${lastPartial?`<span>Último guardado parcial: ${html(receptionTime(lastPartial.registrado))}</span>`:''}</div>
       </div>
