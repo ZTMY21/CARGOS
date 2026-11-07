@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import ExcelJS from 'exceljs';
+import {readFile} from 'node:fs/promises';
 import JSZip from 'jszip';
 import {mergeIronMountainHistory} from '../server/im-history-workbook.js';
 
@@ -147,4 +148,12 @@ test('no altera el archivo cuando falta un dato obligatorio del envío',async()=
     mergeIronMountainHistory(original,[box('T2044202155','2026-11-05',{responsable:''})]),
     /IM_HISTORY_INCOMPLETE_SHIPMENT/
   );
+});
+
+test('la preview consulta el Maestro pero no modifica histórico ni base real',async()=>{
+  const api=await readFile(new URL('../api/im-master.js',import.meta.url),'utf8');
+  const gate=api.indexOf("if (env.VERCEL_ENV !== 'production')");
+  const write=api.indexOf("const response = await fetcher(env.SUPABASE_URL+'/rest/v1/rpc/kardex_im_master_sync'");
+  assert.ok(gate>0 && write>gate,'las escrituras requieren entorno de producción');
+  assert.match(api,/PREVIEW_SIN_ESCRITURA/);
 });
