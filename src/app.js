@@ -990,13 +990,11 @@ function renderDocs(){
     <div class="prepared-row${isAdmin ? ' with-request-cards' : ''}">
       <div class="kpi kpi-color kpi-summary-prepared" aria-label="Cajas preparadas para envío a Iron Mountain">
         <div class="expiry-card-heading">
-          <div class="l">Caja preparada para envío</div>
+          <div class="l">Cajas preparadas para envío</div>
           <button id="btnPreparedImDetail" type="button" class="expiry-detail-button" data-prepared-im="detail" aria-label="Ver detalle de cajas preparadas para envío" aria-haspopup="dialog" aria-controls="preparedImSheet">Ver detalle</button>
         </div>
-        <div class="n" id="preparedImSummaryMetric">${cajasPreparadas == null?'—':fmtNum(cajasPreparadas)}<span class="folios-inline"> (${cargosPreparados == null?'—':fmtNum(cargosPreparados)} cargos)</span></div>
-        <div class="pct-txt">Sin fecha de envío · todavía pendientes de Iron Mountain</div>
-        ${isAdmin ? `<div class="pct-txt" id="imHistorySyncStatus" role="status" aria-live="polite">Histórico de Iron Mountain: listo para verificar</div>
-        <button type="button" class="expiry-detail-button" id="btnSyncImHistory" aria-label="Actualizar Maestro e histórico Iron Mountain">Actualizar Maestro e histórico</button>` : ''}
+        <div class="n" id="preparedImSummaryMetric">${cajasPreparadas == null?'—':fmtNum(cajasPreparadas)}</div>
+        <div class="pct-txt">Sin fecha de envío · Pendientes de envío a Iron Mountain</div>
       </div>
       ${isAdmin ? requestCards(reqs,requestTracking) : ''}
     </div>
@@ -1192,10 +1190,7 @@ function renderPreparedImDetail() {
     `<div><dt>${name}</dt><dd>${String(value||'').trim()
       ?escapeHtml(String(value)):`<span class="prepared-im-empty">${fallback}</span>`}</dd></div>`;
   document.getElementById('preparedImList').innerHTML=rows.length?rows.map(b=>{
-    const row=Number(b.sheet_row);
-    const url=Number.isSafeInteger(row)&&row>=2?
-      `https://drive.google.com/file/d/14tW2-XqukNYozn4P67A7lrhjFfPveAmv/view?usp=drivesdk`:
-      'https://drive.google.com/file/d/14tW2-XqukNYozn4P67A7lrhjFfPveAmv/view?usp=drivesdk';
+    const url='https://drive.google.com/file/d/14tW2-XqukNYozn4P67A7lrhjFfPveAmv/view?usp=drivesdk';
     return `<article class="prepared-im-box">
       <div class="prepared-im-head">
         <div><strong>Caja ${escapeHtml(b.codigo_caja||'Sin código')}</strong>
@@ -1215,57 +1210,20 @@ function renderPreparedImDetail() {
         ${field('Placa de unidad de transporte',b.placa_transporte)}
       </dl>
       <div class="prepared-im-actions">
-        <a class="excel-link-button" href="${url}" target="_blank" rel="noopener noreferrer">Abrir fila ${Number.isSafeInteger(row)&&row>=2?row:'en Excel'} para completar envío</a>
+        <a class="excel-link-button" href="${url}" target="_blank" rel="noopener noreferrer">Abrir Excel Maestro para completar envío</a>
       </div>
     </article>`;
   }).join(''):'<p class="prepared-im-message">No hay cajas preparadas que coincidan con esta búsqueda.</p>';
 }
 // Refresca el KPI usando la misma consulta que alimenta «Ver detalle».
 // Así los envíos con fecha dejan de contarse aunque no aparezcan en el Kardex histórico.
-function showIMHistorySyncState(data,error=null){
-  const output=document.getElementById('imHistorySyncStatus');
-  if(!output)return;
-  if(error){
-    output.textContent='Histórico de Iron Mountain: conexión pendiente. Reintentar.';
-    return;
-  }
-  const history=data?.history||repository?._imMasterLastResult?.history;
-  if(!history){
-    output.textContent='Histórico de Iron Mountain: sin verificación reciente.';
-  }else if(history.status==='SINCRONIZADO'){
-    output.textContent='Histórico actualizado: '+history.added+' cajas incorporadas sin duplicados.';
-  }else if(history.status==='SIN CAMBIOS'){
-    output.textContent='Histórico verificado: '+history.totalSent+' cajas enviadas conciliadas.';
-  }else if(history.status==='BUSY'){
-    output.textContent='Histórico: otra sincronización en curso. Se comprobará de nuevo.';
-  }else{
-    output.textContent='Histórico pendiente de guardado. Utiliza Actualizar Maestro e histórico.';
-  }
-}
-document.addEventListener('click',async event=>{
-  const button=event.target.closest?.('#btnSyncImHistory');
-  if(!button || !appReady || !isAdmin || !repository?.syncIMMaster)return;
-  button.disabled=true;
-  const info=document.getElementById('imHistorySyncStatus');
-  if(info)info.textContent='Consultando Maestro y guardando envíos históricos…';
-  try{
-    const result=await repository.syncIMMaster({force:true});
-    showIMHistorySyncState(result);
-    await reloadPreparedImSummary();
-    await reloadRequestedIM();
-    await reloadShippedBoxesSummary();
-  }catch(error){
-    showIMHistorySyncState(null,error);
-  }finally{button.disabled=false;}
-});
-
 async function reloadPreparedImSummary() {
   if(!appReady || !isAdmin)return;
   const epoch=++preparedImSummaryEpoch, generation=authGeneration;
   try {
-    let syncResult=null;
-    try { syncResult=await repository.syncIMMaster(); showIMHistorySyncState(syncResult); }
-    catch(error) { showIMHistorySyncState(null,error); /* Se conserva el último corte. */ }
+    // La conciliación del Excel Maestro sigue siendo automática durante la sesión administrativa.
+    try { await repository.syncIMMaster(); }
+    catch(error) { /* El KPI utiliza la última lectura disponible sin requerir un botón manual. */ }
     const rows=await repository.preparedImDetails();
     if(epoch!==preparedImSummaryEpoch || generation!==authGeneration || !appReady || !isAdmin)return;
     preparedImSummary=summarizePreparedIm(Array.isArray(rows)?rows:[]);
@@ -1274,9 +1232,7 @@ async function reloadPreparedImSummary() {
     preparedImSummary=null; // No presentar una cantidad anterior como actual.
   }
   const metric=document.getElementById('preparedImSummaryMetric');
-  if(metric)metric.innerHTML=
-    `${preparedImSummary?fmtNum(preparedImSummary.cajas):'—'}`+
-    `<span class="folios-inline"> (${preparedImSummary?fmtNum(preparedImSummary.cargos):'—'} cargos)</span>`;
+  if(metric)metric.textContent=preparedImSummary?fmtNum(preparedImSummary.cajas):'—';
 }
 async function reloadPreparedImDetail() {
   const dialog=document.getElementById('preparedImSheet');
