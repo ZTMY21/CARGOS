@@ -303,14 +303,14 @@ export function setupRequirements(root, {repository, context, refresh, onKindCha
 
   function receiptHistory(row) {
     const {total,saved,partial,complete,requestDate}=receiptProgress(row);
-    const events=[{title:'Solicitud de cajas nuevas',description:total+' cajas solicitadas',stamp:requestDate,tone:'request',label:'Solicitud'}];
+    const events=[{title:'Solicitud de cajas nuevas',description:total+' cajas solicitadas',stamp:requestDate,tone:'request',label:'Solicitud',icon:'iv-box'}];
     if (partial) {
       events.push({title:'Guardado parcial de recepción',description:partial.datos.cantidad+' de '+total+' cajas registradas en el Excel',
-        stamp:partial.tipo==='recepcion_parcial'?partial.registrado:null,tone:'pending',label:'Parcial'});
+        stamp:partial.tipo==='recepcion_parcial'?partial.registrado:null,tone:'pending',label:'Parcial',icon:'iv-box-receive'});
     }
     if (complete) {
       events.push({title:'Recepción completa',description:total+' de '+total+' cajas recepcionadas',
-        stamp:complete.registrado,tone:'complete',label:'Completa'});
+        stamp:complete.registrado,tone:'complete',label:'Completa',icon:'iv-check'});
     }
     const tone=complete?'complete':'pending';
     return `<article class="req-reception-detail">
@@ -322,7 +322,10 @@ export function setupRequirements(root, {repository, context, refresh, onKindCha
       <progress class="req-reception-progress" data-state="${tone}" value="${saved}" max="${total}" aria-label="Cajas registradas en el Excel para ${html(row.numero)}"></progress>
       <h3 class="req4-history-heading">Historial de movimientos</h3>
       <ol class="req-reception-timeline">${events.map(event=>`<li data-state="${event.tone}">
-        <div><strong>${html(event.title)}</strong><span>${html(event.description)}</span></div>
+        <div class="req-reception-event">
+          <svg class="req-reception-event-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><use href="#${event.icon}"></use></svg>
+          <div><strong>${html(event.title)}</strong><span>${html(event.description)}</span></div>
+        </div>
         <span class="req-reception-event-label">${html(event.label)}</span><time>${html(receptionTime(event.stamp))}</time>
       </li>`).join('')}</ol>
     </article>`;

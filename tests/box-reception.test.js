@@ -122,7 +122,9 @@ test('Resumen separa el guardado en Excel de la confirmación completa',()=>{
       return [...document.querySelectorAll('.req-reception-timeline li strong')].map(node=>node.textContent);
     };
     const partial=['Solicitud de cajas nuevas','Guardado parcial de recepción'];
+    const icons=()=>[...document.querySelectorAll('.req-reception-event-icon use')].map(node=>node.getAttribute('href'));
     assert.deepEqual(show(30,30),partial);
+    assert.deepEqual(icons(),['#iv-box','#iv-box-receive']);
     assert.match(document.getElementById('req4DialogBody').textContent,/30 de 100 cajas registradas en el Excel/);
     assert.match(document.getElementById('req4DialogBody').textContent,/70 pendientes de registrar/);
     assert.doesNotMatch(document.getElementById('req4DialogBody').textContent,/Recepción física informada/);
@@ -131,6 +133,7 @@ test('Resumen separa el guardado en Excel de la confirmación completa',()=>{
     assert.deepEqual(show(100,100,[movement('recepcion_parcial',100)]),partial);
     assert.deepEqual(show(100,100,[movement('recepcion_parcial',100),movement('recepcion_completa',100)]),
       [...partial,'Recepción completa']);
+    assert.deepEqual(icons(),['#iv-box','#iv-box-receive','#iv-check']);
   }finally{dom.window.close();}
 });
 
