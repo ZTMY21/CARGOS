@@ -25,7 +25,7 @@ test('se conservan carga por Excel, indicadores, navegación e Iron Mountain',()
     'btnMonthlyCreatedDetail','btnExportar','scanFile','scanValidate','scanSave',
     'btnOpenIronMountainExcel','btnOpenIronMountainHistorical'
   ])assert.match(html,new RegExp('id="'+id+'"'));
-  assert.match(html,/1aWqIoj5UXAeyKhNN1paoYnTa4jdfN8LhDEcdH_lQ4mk/);
+  assert.match(html,/14tW2-XqukNYozn4P67A7lrhjFfPveAmv/);
   assert.match(app,/reloadPreparedImSummary/);
   assert.match(app,/reloadShippedBoxesSummary/);
   assert.match(app,/attachScanImport/);

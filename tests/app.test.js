@@ -660,8 +660,9 @@ test('sync status is inline and the Excel button opens the original file for adm
   assert.equal(a.node('googleSyncDialog'),null);
   assert.equal(a.node('btnOpenGoogleExcel').textContent,'Cargos Actuales');
   assert.equal(a.node('btnOpenIronMountainExcel').textContent,'Cargos Enviados');
-  assert.match(a.node('btnOpenIronMountainExcel').href,/1aWqIoj5UXAeyKhNN1paoYnTa4jdfN8LhDEcdH_lQ4mk/);
-  assert.match(a.node('btnOpenIronMountainHistorical').href,/1ap1GzGd3HBvkV2N7p6dvkFIYwHS_cIqO/);
+  assert.match(a.node('btnOpenIronMountainExcel').href,/14tW2-XqukNYozn4P67A7lrhjFfPveAmv/);
+  assert.match(a.node('preparedImOpenExcel').href,/14tW2-XqukNYozn4P67A7lrhjFfPveAmv/);
+  assert.match(a.node('btnOpenIronMountainHistorical').href,/1YKp7q-CPOHI6R7RwJ-ekgrpb5KEIloP9/);
   assert.equal(a.node('btnOpenIronMountainExcel').target,'_blank');
   assert.match(a.node('btnOpenGoogleExcel').href,/18TbKWiVUWKfkJOXvR0kGEMb5eVKTDCfoXAUtD5rCxts/);
   assert.equal(a.node('btnOpenGoogleExcel').target,'_blank');
@@ -1874,7 +1875,9 @@ test('fecha de envío IM resta caja solicitada y preparada, y suma una caja envi
     a.node('btnReconnect').click();await flush();await flush();
     assert.equal(a.node('monthlyCargosRequested').textContent,'1');
     assert.equal(a.node('requestedIMNote').textContent,'2 cargos');
-    assert.match(a.node('preparedImSummaryMetric').textContent,/1\s*\(2 cargos\)/);
+    assert.equal(a.node('preparedImSummaryMetric').textContent,'1');
+    assert.equal(a.node('btnSyncImHistory'),null);
+    assert.equal(a.node('imHistorySyncStatus'),null);
     assert.equal(a.node('monthlyCargosShipped').textContent,'0');
 
     // La fila ya tiene G: fecha de envío y la RPC deja de listarla como pendiente.
@@ -1884,7 +1887,7 @@ test('fecha de envío IM resta caja solicitada y preparada, y suma una caja envi
     a.node('btnReconnect').click();await flush();await flush();
     assert.equal(a.node('monthlyCargosRequested').textContent,'0');
     assert.equal(a.node('requestedIMNote').textContent,'0 cargos');
-    assert.match(a.node('preparedImSummaryMetric').textContent,/0\s*\(0 cargos\)/);
+    assert.equal(a.node('preparedImSummaryMetric').textContent,'0');
     assert.equal(a.node('monthlyCargosShipped').textContent,'1');
   }finally{a.close();}
 });
