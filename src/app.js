@@ -930,6 +930,14 @@ function renderDocs(){
   const baseAlerta = cargosPorVencer + cargosVencidos;
 
   const pct = (n, base) => base > 0 ? Math.round((n/base)*100) + '%' : '0%';
+  const solicitudCajas = receptionPresentation && isAdmin
+    ? reqs.findLast(row=>row.tipo==='Cajas nuevas para acondicionar' && Number(row.cantidadCajas)>0)
+    : null;
+  const cajasSolicitadas = Number(solicitudCajas?.cantidadCajas)||0;
+  const cajasRegistradas = solicitudCajas
+    ? Number(requestReception(solicitudCajas,requestTracking).guardadas ?? solicitudCajas.recibidoV4)
+    : 0;
+
 
   // Esta tabla agrupa por año del cargo. Los gráficos de cajas usan fechas efectivas.
   const referenceYears = annualReference?.anios ?? [];
@@ -973,8 +981,8 @@ function renderDocs(){
       </div>
       <div class="kpi kpi-color kpi-summary-process">
         <div class="l">En Proceso de Acondicionamiento</div>
-        <div class="n">${fmtNum(cargosEnProceso)}</div>
-        <div class="pct-txt">${pct(cargosEnProceso,totalCargos)}</div>
+        <div class="n">${solicitudCajas ? fmtNum(cajasRegistradas)+'/'+fmtNum(cajasSolicitadas) : fmtNum(cargosEnProceso)}</div>
+        <div class="pct-txt">${solicitudCajas ? pct(Math.max(0,cajasSolicitadas-cajasRegistradas),cajasSolicitadas) : pct(cargosEnProceso,totalCargos)}</div>
       </div>
       <div class="kpi kpi-color kpi-summary-pending">
         <div class="l">Pendiente de Envío a IM</div>
