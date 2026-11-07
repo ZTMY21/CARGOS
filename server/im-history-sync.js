@@ -67,10 +67,18 @@ export async function syncIronMountainHistory({env,fetcher=fetch,client=null,bea
       const verify=await metadata(client);
       if(verify.md5Checksum!==expectedMD5)throw Error('IM_HISTORY_READBACK_UNVERIFIED');
     }
-    result={status:merged.changed?'SINCRONIZADO':'SIN CAMBIOS',
-      added:merged.added,alreadyRegistered:merged.alreadyRegistered,
-      totalSent:merged.totalSent,verified:true,historyFileId:IM_HISTORY_FILE_ID,
-      updatedAt:new Date().toISOString()};
+    const hasReviews=merged.reviewRequired>0;
+    result={
+      status:hasReviews?(merged.changed?'SINCRONIZACION_PARCIAL':'REQUIERE_REVISION'):
+        merged.changed?'SINCRONIZADO':'SIN CAMBIOS',
+      added:merged.added,updated:merged.updated,
+      alreadyRegistered:merged.alreadyRegistered,totalSent:merged.totalSent,
+      reviewRequired:merged.reviewRequired,
+      // Los casos dudosos se registran para revisión, sin tocar sus filas.
+      reviews:(merged.reviews||[]).slice(0,25),
+      verified:!hasReviews,pending:hasReviews,
+      historyFileId:IM_HISTORY_FILE_ID,updatedAt:new Date().toISOString()
+    };
     await guard(fetcher,env,bearer,'release',claim.token,result);
     return result;
   }catch(error){
