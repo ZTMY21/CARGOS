@@ -18,7 +18,7 @@ test('recepción requiere un código completo incluso cuando termina sin Enter',
   for(const code of ['T940021000','94002100','TD94002100011','T94002100-01','A9400210001','S/N']) {
     assert.equal(parseReceptionScan(code).ok,false,code);
   }
-  for(const prefix of ['','T','TD','P']){
+  for(const prefix of ['','T','TD','P','t','td','p']){
     assert.deepEqual(parseReceptionScan(prefix+'9400210001'),{
       ok:true,normalized:'9400210001',original:prefix+'9400210001'
     });
@@ -121,6 +121,7 @@ test('Supabase aplica propiedad, límite, conciliación idempotente y bloqueo ha
     await migration('20261106023211_req4_bloqueo_cajas_pendientes.sql');
     await migration('20261106023558_req4_codigos_suministro.sql');
     await migration('20261107172500_recepcion_cajas.sql');
+    await migration('20261107175000_recepcion_prefijos.sql');
     await actor(owner);
     await db.exec(`
       insert into private.recepcion_maestro_prueba(archivo,secreto_hash,codigos)
@@ -148,7 +149,7 @@ test('Supabase aplica propiedad, límite, conciliación idempotente y bloqueo ha
     assert.equal((await commit('parcial',id,0,{[codes[0].clave]:901})).lecturas[0].correlativo,901);
     await assert.rejects(commit('parcial',id,0,{[codes[0].clave]:901}),/Maestro cambió/);
     assert.equal((await op('estado',id,null)).lecturas.length,1);
-    assert.equal((await op('leer',id,codes[1].codigo)).lecturas.length,2);
+    assert.equal((await op('leer',id,codes[1].codigo.toLowerCase())).lecturas[1].codigo,codes[1].codigo.toLowerCase());
     await assert.rejects(op('leer',id,codes[2].codigo),/cantidad solicitada/);
     const complete=await commit('completa',id,1,{[codes[1].clave]:902});
     assert.ok(complete.confirmada);

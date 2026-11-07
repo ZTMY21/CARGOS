@@ -24,7 +24,9 @@ export function attachBoxReception({repository,refresh}) {
     const full=!!total&&readings.length===total;
     mode.disabled=!total||full||complete;
     if (mode.disabled) mode.checked=false;
-    progress.hidden=card.hidden=!total;
+    progress.hidden=!total;
+    card.hidden=!total||documentMode;
+    card.parentElement.dataset.receptionView=String(!card.hidden);
     save.disabled=running>0||!total||readings.length===saved||complete;
     confirm.disabled=running>0||!full||complete;
     download.disabled=!state||saved===0;
@@ -136,6 +138,7 @@ export function attachBoxReception({repository,refresh}) {
     scan(){
       const parsed=parseReceptionScan(input.value);
       input.value='';input.focus();
+      el('ivScannerCaption').textContent='ESPERANDO UN CÓDIGO DE CAJA';
       if (!parsed.ok) {notify(parsed.reason,true);return;}
       documentMode=false;
       void enqueue(id=>repository.reception('leer',id,parsed.original),next=>next.duplicada ?

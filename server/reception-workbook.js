@@ -33,7 +33,7 @@ export async function appendReceivedBoxes(bytes,readings,options) {
         throw Error('IM_MASTER_RECEIPT_NOT_VERIFIED');
       continue;
     }
-    if (!/^(TD|T|P)?\d{10}$/.test(reading.codigo) || keyOf(reading.codigo)!==reading.clave)
+    if (!/^(TD|T|P)?\d{10}$/i.test(reading.codigo) || keyOf(reading.codigo)!==reading.clave)
       throw Error('IM_MASTER_INVALID_BOX');
     if (existing || Object.hasOwn(added,reading.clave)) throw Error('IM_MASTER_EXISTING_BOX_CONFLICT');
 
