@@ -291,24 +291,31 @@ export function setupRequirements(root, {repository, context, refresh, onKindCha
   function receiptHistory(row) {
     const receipt=requestReception(row,tracking);
     const total=Number(row.cantidadCajas), read=Number(receipt?.leidas||0), status=receiptStatus(receipt||{});
-    const movements=(tracking?.movimientos||[]).filter(item=>item.requerimiento===row.id &&
-      ['recepcion_parcial','recepcion_completa'].includes(item.tipo));
-    const labels={
-      'recepcion_parcial':['Guardado parcial de recepción','Parcial'],
-      'recepcion_completa':['Recepción completa','Completa']
+    const movements=(tracking?.movimientos||[]).filter(item=>item.requerimiento===row.id);
+    const physical=receipt.recepcion_fisica;
+    const matched=movements.find(event=>event.tipo==='recepcion_conciliada');
+    const requestDate=physical ? row.fechaSolicitud : row.createdAt||receipt.creada||row.fechaSolicitud;
+    const descriptions={
+      recepcion_fisica_informada:event=>['Recepción física informada',event.datos.cantidad+' cajas recibidas','request','Recepción física'],
+      recepcion_conciliada:event=>['Cruce con el Maestro de Iron Mountain',event.datos.cantidad+' códigos de cajas nuevas sin fecha de envío','pending','Conciliación'],
+      recepcion_parcial:event=>['Guardado parcial de recepción',event.datos.cantidad+' de '+total+' cajas verificadas','pending','Parcial'],
+      recepcion_completa:event=>[physical?'Registro de cajas completo':'Recepción completa',event.datos.cantidad+' de '+total+' cajas verificadas','complete','Completa']
     };
-    const events=[{title:'Solicitud de cajas nuevas',description:total+' cajas solicitadas',stamp:row.createdAt||receipt?.creada,tone:'request',label:'Solicitud'},
-      ...movements.map(event=>({
-        title:labels[event.tipo][0],description:event.datos.cantidad+' de '+total+' cajas verificadas',
-        stamp:event.registrado,tone:event.tipo==='recepcion_completa'?'complete':'pending',label:labels[event.tipo][1]
-      }))];
+    const events=[{title:'Solicitud de cajas nuevas',description:total+' cajas solicitadas',stamp:requestDate,tone:'request',label:'Solicitud'},
+      ...movements.filter(event=>Object.hasOwn(descriptions,event.tipo)).map(event=>{
+        const [title,description,tone,label]=descriptions[event.tipo](event);
+        return {title,description,tone,label,stamp:event.registrado};
+      })];
     const lastPartial=movements.filter(event=>event.tipo==='recepcion_parcial').at(-1);
     const tone=receipt?.confirmada?'complete':'pending';
     return `<article class="req-reception-detail">
       <div class="req-reception-info" data-state="${tone}">
-        <div><strong>${html(status)}: ${read ? read+'/'+total+' cajas recepcionadas' : total+' cajas'}</strong>
-          <span>${html(row.numero)} · ${html(row.usuario)} · Solicitada el ${html(receptionTime(row.createdAt||receipt?.creada))}</span></div>
-        <div><span>Acondicionadas: ${receipt.acondicionadas==null ? 'Por conciliar' : receipt.acondicionadas+'/'+total}</span>
+        <div><strong>${html(status)}: ${read ? read+'/'+total+(physical?' cajas registradas por código':' cajas recepcionadas') : total+' cajas'}</strong>
+          <span>${html(row.numero)} · ${html(row.usuario)} · Solicitada el ${html(receptionTime(requestDate))}</span></div>
+        <div>${physical
+          ? `<span>${physical} recibidas físicamente · ${total-read} pendientes de registrar</span>
+            ${matched ? `<span>${Number(matched.datos.preparadas||0)} con preparación y cargos en el Maestro al momento del cruce</span>` : ''}`
+          : `<span>Acondicionadas: ${receipt.acondicionadas==null ? 'Por conciliar' : receipt.acondicionadas+'/'+total}</span>`}
           ${lastPartial?`<span>Último guardado parcial: ${html(receptionTime(lastPartial.registrado))}</span>`:''}</div>
       </div>
       <progress class="req-reception-progress" data-state="${read===total?'complete':'pending'}" value="${read}" max="${total}" aria-label="Progreso de recepción de ${html(row.numero)}"></progress>

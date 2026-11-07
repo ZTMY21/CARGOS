@@ -3,15 +3,17 @@ import {escapeHtml as html,fmtDate,REQ_TYPES} from './rules.js';
 
 const lima = new Intl.DateTimeFormat('es-PE',{timeZone:'America/Lima',dateStyle:'short',timeStyle:'short'});
 export const receptionTime = value => /^\d{4}-\d{2}-\d{2}$/.test(value||'') ? fmtDate(value)+' (Lima)' : value ? lima.format(new Date(value))+' (Lima)' : '—';
-export const receptionStatus = state => state.confirmada ? 'Recepción completa' :
-  Number(state.leidas??state.lecturas?.length) ? 'Recepción en proceso' : 'Solicitud pendiente';
+export const receptionStatus = state => state.confirmada ? (state.recepcion_fisica?'Registro de cajas completo':'Recepción completa') :
+  state.recepcion_fisica ? 'Registro de cajas en proceso' :
+    Number(state.leidas??state.lecturas?.length) ? 'Recepción en proceso' : 'Solicitud pendiente';
 
 export function requestReception(row,tracking) {
   const receipt=tracking?.suministro?.solicitudes?.find(item=>item.id===row.id);
   const total=Number(row.cantidadCajas);
   const confirmada=receipt?.confirmada||row.fechaRecepcion||null;
   const leidas=receipt?.leidas??(row.estadoV4==='Recibido' ? total : row.recibidoV4??0);
-  return {...receipt,confirmada,leidas};
+  const fisica=tracking?.movimientos?.find(item=>item.requerimiento===row.id && item.tipo==='recepcion_fisica_informada');
+  return {...receipt,confirmada,leidas,...(fisica?{recepcion_fisica:fisica.datos.cantidad}:{})};
 }
 
 export function renderReceptionOverview(root,rows,visible) {
@@ -49,6 +51,8 @@ export function attachBoxReception({repository,refresh}) {
     const readings=state?.lecturas||[], total=state?.cantidad||0;
     const saved=readings.filter(row=>row.guardado).length;
     const complete=!!state?.confirmada;
+    const physical=state?.recepcion_fisica;
+    const matched=readings.filter(row=>row.origen==='maestro').length;
     const full=!!total&&readings.length===total;
     mode.disabled=!total||full||complete;
     if (mode.disabled) mode.checked=false;
@@ -57,32 +61,37 @@ export function attachBoxReception({repository,refresh}) {
     card.parentElement.dataset.receptionView=String(!card.hidden);
     save.disabled=running>0||!total||readings.length===saved||complete;
     confirm.disabled=running>0||!full||complete;
+    confirm.textContent=physical?'Confirmar registro de todas las cajas':'Confirmar recepción completa';
     download.disabled=!state||saved===0;
-    el('boxReceptionCount').textContent=readings.length+'/'+total+' cajas recepcionadas';
+    el('boxReceptionCount').textContent=readings.length+'/'+total+(physical?' cajas registradas por código':' cajas recepcionadas');
     el('boxReceptionBadge').textContent=state ? receptionStatus(state) : 'Sin solicitud activa';
     progress.dataset.state=full?'complete':'pending';
     const bar=el('boxReceptionBar');
     bar.max=total||100;bar.value=readings.length;
     el('boxReceptionPending').textContent=complete
       ? 'Confirmada el '+receptionTime(state.confirmada)+'. El acondicionamiento se registra por separado.'
-      : saved+' guardadas en el Maestro de prueba · '+(readings.length-saved)+' pendientes de consolidar';
+      : physical
+        ? physical+' recibidas físicamente · '+matched+' conciliadas del Maestro · '+(readings.length-matched)+
+          ' escaneadas aquí · '+(total-readings.length)+' por registrar'
+        : saved+' guardadas en el Maestro de prueba · '+(readings.length-saved)+' pendientes de consolidar';
     el('boxSheetsStatus').textContent=state ? 'Destino: Maestro de prueba · CARGOS ENVIADOS' :
       'Solicita cajas nuevas en Requerimientos para iniciar la recepción.';
     el('boxScanHint').textContent=mode.checked ?
       'Escanea códigos completos de 10 dígitos. Se registran automáticamente con o sin Enter.' :
       'Usa Consultar caja para buscar documentos, o activa la recepción para registrar códigos nuevos.';
+    el('boxScanCountLabel').textContent=physical?'Códigos únicos':'Lecturas únicas';
     el('boxScanCount').textContent=String(readings.length);
     if (!state) {card.replaceChildren();return;}
     const last=readings.at(-1);
     card.innerHTML='<strong>'+html(state.numero)+' · '+total+' cajas nuevas</strong>'+
       '<p>'+html(receptionStatus(state))+' · '+html(state.solicitante)+'</p>'+
-      '<p>Solicitada el '+html(receptionTime(state.creada))+'</p>'+
-      (last?'<p>Último código <strong>'+html(last.codigo)+'</strong> · '+html(receptionTime(last.leido))+'</p>':'');
+      '<p>Solicitada el '+html(receptionTime(physical?state.fecha_solicitud:state.creada))+'</p>'+
+      (last?'<p>'+ (last.origen==='maestro'?'Código conciliado':'Último código') +' <strong>'+html(last.codigo)+'</strong> · '+html(receptionTime(last.leido))+'</p>':'');
     if (documentMode) return;
-    el('boxScanHistoryTitle').textContent='Últimos códigos escaneados';
+    el('boxScanHistoryTitle').textContent=physical?'Códigos registrados':'Últimos códigos escaneados';
     history.innerHTML=[...readings].reverse().map(row=>'<li><strong>'+html(row.codigo)+'</strong><span>'+
       html(receptionTime(row.leido))+'</span><span class="reception-read-state">'+
-      (complete?'Confirmada':row.guardado?'Guardada en Maestro':'Pendiente de consolidar')+'</span></li>').join('');
+      (row.origen==='maestro'?'Conciliada del Maestro':complete?'Confirmada':row.guardado?'Guardada en Maestro':'Pendiente de consolidar')+'</span></li>').join('');
   };
   const load = async () => {
     const call=epoch, revision=version;
@@ -135,7 +144,7 @@ export function attachBoxReception({repository,refresh}) {
   confirm.addEventListener('click',()=>{
     if (confirm.disabled) return;
     void enqueue(id=>repository.receptionExcel('completa',id),next=>
-      'Recepción completa: '+next.cantidad+'/'+next.cantidad+' · '+receptionTime(next.confirmada))?.then(refreshSummary);
+      receptionStatus(next)+': '+next.cantidad+'/'+next.cantidad+' · '+receptionTime(next.confirmada))?.then(refreshSummary);
   });
   download.addEventListener('click',async()=>{
     if (!state) return;

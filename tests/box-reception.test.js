@@ -5,7 +5,7 @@ import {randomUUID} from 'node:crypto';
 import {PGlite} from '@electric-sql/pglite';
 import JSZip from 'jszip';
 import {JSDOM} from 'jsdom';
-import {renderReceptionOverview,requestReception,receptionTime} from '../src/box-reception-ui.js';
+import {renderReceptionOverview,requestReception,receptionTime,receptionStatus} from '../src/box-reception-ui.js';
 import {REQ_TYPES} from '../src/rules.js';
 import {parseReceptionScan} from '../src/box-scanner.js';
 import {createReceptionFixture,appendReceivedBoxes} from '../server/reception-workbook.js';
@@ -89,6 +89,13 @@ test('producción muestra el avance existente sin habilitar acciones de recepci�
     assert.deepEqual(requestReception(row,{suministro:{solicitudes:[{id:row.id,enviadas:55}]}}),
       {id:row.id,enviadas:55,confirmada:null,leidas:55});
     assert.equal(receptionTime('2026-11-07'),'07/11/2026 (Lima)');
+    const matched=requestReception({...row,recibidoV4:30},{movimientos:[
+      {requerimiento:row.id,tipo:'recepcion_fisica_informada',datos:{cantidad:100}}
+    ]});
+    assert.equal(matched.recepcion_fisica,100);
+    assert.equal(matched.leidas,30);
+    assert.equal(receptionStatus(matched),'Registro de cajas en proceso');
+    assert.equal(receptionTime('2026-10-15'),'15/10/2026 (Lima)');
     renderReceptionOverview(root,[row],false);
     assert.equal(el('boxReceptionProgress').hidden,true);
   }finally{dom.window.close();}
@@ -150,6 +157,7 @@ test('Supabase aplica propiedad, límite, conciliación idempotente y bloqueo ha
     await migration('20261106023558_req4_codigos_suministro.sql');
     await migration('20261107172500_recepcion_cajas.sql');
     await migration('20261107175000_recepcion_prefijos.sql');
+    await migration('20261107233000_recepcion_conciliada.sql');
     await actor(owner);
     await db.exec(`
       insert into private.recepcion_maestro_prueba(archivo,secreto_hash,codigos)
