@@ -7,6 +7,7 @@ import JSZip from 'jszip';
 import {JSDOM} from 'jsdom';
 import {renderReceptionOverview,requestReception,receptionTime,receptionStatus} from '../src/box-reception-ui.js';
 import {REQ_TYPES} from '../src/rules.js';
+import {setupRequirements} from '../src/requirements-ui.js';
 import {parseReceptionScan} from '../src/box-scanner.js';
 import {createReceptionFixture,appendReceivedBoxes} from '../server/reception-workbook.js';
 import {appendPreparedBoxToMaster} from '../server/im-master-write.js';
@@ -98,6 +99,38 @@ test('producción muestra el avance existente sin habilitar acciones de recepci�
     assert.equal(receptionTime('2026-10-15'),'15/10/2026 (Lima)');
     renderReceptionOverview(root,[row],false);
     assert.equal(el('boxReceptionProgress').hidden,true);
+  }finally{dom.window.close();}
+});
+
+test('Resumen separa el guardado en Excel de la confirmación completa',()=>{
+  const dom=new JSDOM('<div id="workspace"></div>');
+  try{
+    const {document,HTMLDialogElement}=dom.window;
+    HTMLDialogElement.prototype.close=function(){this.open=false;};
+    HTMLDialogElement.prototype.showModal=function(){this.open=true;};
+    const ui=setupRequirements(document.getElementById('workspace'),{
+      context:()=>({allowed:true,id:'review'}),receptionEnabled:true
+    });
+    const row={id:'req',tipo:REQ_TYPES[0],numero:'REQ-00008',usuario:'Administrador de prueba',
+      fechaSolicitud:'2026-10-15',cantidadCajas:100};
+    const movement=(tipo,cantidad)=>({requerimiento:row.id,tipo,datos:{cantidad},registrado:'2026-11-07T22:00:00Z'});
+    const movements=[movement('recepcion_fisica_informada',100),movement('recepcion_conciliada',30)];
+    const show=(leidas,guardadas,extra=[])=>{
+      ui.update([row],{cajas:[],suministro:{solicitudes:[{id:row.id,leidas,guardadas}]},
+        movimientos:[...movements,...extra]});
+      ui.showCard('nuevas');
+      return [...document.querySelectorAll('.req-reception-timeline li strong')].map(node=>node.textContent);
+    };
+    const partial=['Solicitud de cajas nuevas','Guardado parcial de recepción'];
+    assert.deepEqual(show(30,30),partial);
+    assert.match(document.getElementById('req4DialogBody').textContent,/30 de 100 cajas registradas en el Excel/);
+    assert.match(document.getElementById('req4DialogBody').textContent,/70 pendientes de registrar/);
+    assert.doesNotMatch(document.getElementById('req4DialogBody').textContent,/Recepción física informada/);
+    assert.deepEqual(show(100,30),partial);
+    assert.equal(document.querySelector('.req-reception-progress').value,30);
+    assert.deepEqual(show(100,100,[movement('recepcion_parcial',100)]),partial);
+    assert.deepEqual(show(100,100,[movement('recepcion_parcial',100),movement('recepcion_completa',100)]),
+      [...partial,'Recepción completa']);
   }finally{dom.window.close();}
 });
 

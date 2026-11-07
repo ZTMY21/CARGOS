@@ -1,5 +1,5 @@
 import { escapeHtml as html, fmtDate, limaDate, REQ_TYPES } from './rules.js';
-import {receptionStatus as receiptStatus,receptionTime,requestReception} from './box-reception-ui.js';
+import {receptionTime,requestReception} from './box-reception-ui.js';
 
 const kinds = {nuevas: 'Cajas nuevas', prestamo: 'Solicitudes a IM'};
 const steps = {nuevas: ['Cantidad', 'Solicitar'], prestamo: ['Buscar', 'Seleccionar', 'Solicitar']};
@@ -288,37 +288,38 @@ export function setupRequirements(root, {repository, context, refresh, onKindCha
     }
   });
 
-  function receiptHistory(row) {
+  function receiptProgress(row) {
     const receipt=requestReception(row,tracking);
-    const total=Number(row.cantidadCajas), read=Number(receipt?.leidas||0), status=receiptStatus(receipt||{});
+    const total=Number(row.cantidadCajas);
     const movements=(tracking?.movimientos||[]).filter(item=>item.requerimiento===row.id);
-    const physical=receipt.recepcion_fisica;
-    const matched=movements.find(event=>event.tipo==='recepcion_conciliada');
-    const requestDate=physical ? row.fechaSolicitud : row.createdAt||receipt.creada||row.fechaSolicitud;
-    const descriptions={
-      recepcion_fisica_informada:event=>['Recepción física informada',event.datos.cantidad+' cajas recibidas','request','Recepción física'],
-      recepcion_conciliada:event=>['Cajas recepcionadas',event.datos.cantidad+' cajas con código registrado','pending','Recepcionadas'],
-      recepcion_parcial:event=>['Guardado parcial de recepción',event.datos.cantidad+' de '+total+' cajas verificadas','pending','Parcial'],
-      recepcion_completa:event=>[physical?'Registro de cajas completo':'Recepción completa',event.datos.cantidad+' de '+total+' cajas verificadas','complete','Completa']
-    };
-    const events=[{title:'Solicitud de cajas nuevas',description:total+' cajas solicitadas',stamp:requestDate,tone:'request',label:'Solicitud'},
-      ...movements.filter(event=>Object.hasOwn(descriptions,event.tipo)).map(event=>{
-        const [title,description,tone,label]=descriptions[event.tipo](event);
-        return {title,description,tone,label,stamp:event.registrado};
-      })];
-    const lastPartial=movements.filter(event=>event.tipo==='recepcion_parcial').at(-1);
-    const tone=receipt?.confirmada?'complete':'pending';
+    const partial=movements.findLast(event=>event.tipo==='recepcion_parcial'||event.tipo==='recepcion_conciliada');
+    const confirmation=movements.findLast(event=>event.tipo==='recepcion_completa'&&Number(event.datos.cantidad)===total);
+    const saved=Number(receipt.guardadas??confirmation?.datos.cantidad??partial?.datos.cantidad??row.recibidoV4??0);
+    const complete=saved===total ? confirmation : null;
+    const status=complete ? 'Recepción completa' : saved ? 'Recepción parcial' : 'Solicitud pendiente';
+    const requestDate=receipt.recepcion_fisica ? row.fechaSolicitud : row.createdAt||receipt.creada||row.fechaSolicitud;
+    return {total,saved,partial,complete,status,requestDate};
+  }
+
+  function receiptHistory(row) {
+    const {total,saved,partial,complete,requestDate}=receiptProgress(row);
+    const events=[{title:'Solicitud de cajas nuevas',description:total+' cajas solicitadas',stamp:requestDate,tone:'request',label:'Solicitud'}];
+    if (partial) {
+      events.push({title:'Guardado parcial de recepción',description:partial.datos.cantidad+' de '+total+' cajas registradas en el Excel',
+        stamp:partial.tipo==='recepcion_parcial'?partial.registrado:null,tone:'pending',label:'Parcial'});
+    }
+    if (complete) {
+      events.push({title:'Recepción completa',description:total+' de '+total+' cajas recepcionadas',
+        stamp:complete.registrado,tone:'complete',label:'Completa'});
+    }
+    const tone=complete?'complete':'pending';
     return `<article class="req-reception-detail">
       <div class="req-reception-info" data-state="${tone}">
-        <div><strong>${html(status)}: ${read ? read+'/'+total+(physical?' cajas registradas por código':' cajas recepcionadas') : total+' cajas'}</strong>
+        <div><strong>${saved} de ${total} cajas registradas</strong>
           <span>${html(row.numero)} · ${html(row.usuario)} · Solicitada el ${html(receptionTime(requestDate))}</span></div>
-        <div>${physical
-          ? `<span>${physical} recibidas físicamente · ${total-read} pendientes de registrar</span>
-            ${matched ? `<span>${Number(matched.datos.preparadas||0)} con preparación y cargos registrados en el Maestro</span>` : ''}`
-          : `<span>Acondicionadas: ${receipt.acondicionadas==null ? 'Por conciliar' : receipt.acondicionadas+'/'+total}</span>`}
-          ${lastPartial?`<span>Último guardado parcial: ${html(receptionTime(lastPartial.registrado))}</span>`:''}</div>
+        <span>${total-saved} pendientes de registrar</span>
       </div>
-      <progress class="req-reception-progress" data-state="${read===total?'complete':'pending'}" value="${read}" max="${total}" aria-label="Progreso de recepción de ${html(row.numero)}"></progress>
+      <progress class="req-reception-progress" data-state="${tone}" value="${saved}" max="${total}" aria-label="Cajas registradas en el Excel para ${html(row.numero)}"></progress>
       <h3 class="req4-history-heading">Historial de movimientos</h3>
       <ol class="req-reception-timeline">${events.map(event=>`<li data-state="${event.tone}">
         <div><strong>${html(event.title)}</strong><span>${html(event.description)}</span></div>
@@ -338,12 +339,12 @@ export function setupRequirements(root, {repository, context, refresh, onKindCha
     const activeLabels = supply ? ['solicitud pendiente','solicitudes pendientes'] : ['solicitud activa','solicitudes activas'];
     find('DialogTitle').textContent = supply ? 'Cajas para acondicionar' : kinds.prestamo;
     find('DialogIntro').textContent = supply ? 'Solicitudes de cajas nuevas' : 'Consulta las cajas solicitadas a Iron Mountain.';
-    const latest=supply&&list.length ? requestReception(list.at(-1),tracking) : null;
+    const latest=supply&&list.length ? receiptProgress(list.at(-1)) : null;
     find('DialogBody').innerHTML = `
       <div class="req4-request-summary${supply&&showReception?' req-reception-summary':''}">
         <div><strong>${total}</strong><span>${total === 1 ? 'caja solicitada' : 'cajas solicitadas'}</span></div>
         <div><strong>${active}</strong><span>${activeLabels[active === 1 ? 0 : 1]}</span></div>
-        ${supply&&showReception?`<div><span>Estado actual</span><strong>${html(latest?receiptStatus(latest):'Sin solicitudes')}</strong></div>`:''}
+        ${supply&&showReception?`<div><span>Estado actual</span><strong>${html(latest?.status||'Sin solicitudes')}</strong></div>`:''}
       </div>
       ${list.length ? supply&&showReception
         ? [...list].reverse().map(row=>receiptHistory(row)).join('')
