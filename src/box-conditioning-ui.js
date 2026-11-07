@@ -2,7 +2,7 @@ import {parseBoxScan,findPreparedBox} from './box-scanner.js';
 import {parseCargoCell} from './im-requests.js';
 
 const states={EN_PREPARACION:'En acondicionamiento',OBSERVADA:'Observada',LISTA:'Lista para recojo'};
-export function attachBoxConditioning({supabase,repository,isAdmin,appReady,isPreview,sheetRequest=null}){
+export function attachBoxConditioning({supabase,repository,isAdmin,appReady,isPreview,sheetRequest=null,isolatedReception=false,onChanged=()=>{}}){
  const el=id=>document.getElementById(id);
  const code=el('conditionCode'),classification=el('conditionClass'),cargos=el('conditionCargos'),
    issue=el('conditionIssue'),message=el('conditionMessage'),detail=el('conditionDetail'),
@@ -66,6 +66,12 @@ export function attachBoxConditioning({supabase,repository,isAdmin,appReady,isPr
    },650);
  });
  const requestSheet=sheetRequest||(async(action,box)=>{
+   if(isolatedReception){
+     const state=await repository.reception();
+     const code=parseBoxScan(box).normalized;
+     if(!state?.confirmada||!state.lecturas.some(row=>row.clave===code))throw Error('La caja no pertenece a una recepción confirmada.');
+     return repository.receptionExcel('acondicionar',state.id,code);
+   }
    const {data,error}=await supabase.auth.getSession();
    if(error||!data?.session?.access_token)throw Error('Inicia sesión para guardar en Google Drive.');
    const response=await fetch('/api/box-excel',{
@@ -90,7 +96,7 @@ export function attachBoxConditioning({supabase,repository,isAdmin,appReady,isPr
    try{
      const result=await enqueue('sync',box);
      driveStatus.textContent=result.sourceSynced
-       ?'Excel Maestro actualizado: CARGOS ENVIADOS.'
+       ? (isolatedReception?'Maestro de prueba actualizado: CARGOS ENVIADOS.':'Excel Maestro actualizado: CARGOS ENVIADOS.')
        :'Acondicionamiento registrado en Kárdex. Se reflejará en el Excel Maestro al estar lista la caja.';
      retry.disabled=true;
      return true;
@@ -104,7 +110,7 @@ export function attachBoxConditioning({supabase,repository,isAdmin,appReady,isPr
  const renderStatus=(msg,error=false)=>{message.textContent=msg;message.style.color=error?'var(--red)':'var(--muted)';};
  const setButtons=()=>{
   const item=entries.get(selected);
-  const mutable=admin()&&!isPreview()&&!busy&&!!selected;
+  const mutable=admin()&&(!isPreview()||isolatedReception)&&!busy&&!!selected;
   buttons.iniciar.disabled=!mutable||!!item;
   retry.disabled=!mutable||!item;
   buttons.observar.disabled=!mutable||!item||item.status==='LISTA';
@@ -193,7 +199,7 @@ export function attachBoxConditioning({supabase,repository,isAdmin,appReady,isPr
   renderStatus('');renderSelected();
  };
  const execute=async action=>{
-  if(!admin()||isPreview()||busy||!selected)return;
+  if(!admin()||(isPreview()&&!isolatedReception)||busy||!selected)return;
   const target=selected;
   const payload={p_action:action,p_box:code.value,p_cargos:[],
     p_classification:classification.value,p_observation:issue.value.trim()};
@@ -216,14 +222,15 @@ export function attachBoxConditioning({supabase,repository,isAdmin,appReady,isPr
     renderStatus(action==='finalizar'?'Caja lista para recojo. No se ha registrado su envío a Iron Mountain.':
       action==='iniciar'?'Acondicionamiento iniciado.':
       action==='observar'?'Incidencia registrada.':'Incidencia resuelta.');
-    await syncSheet(data.original_code||code.value);
+    if(!isolatedReception||action==='finalizar')await syncSheet(data.original_code||code.value);
+    if(isolatedReception)await onChanged();
   }catch(e){renderStatus(e?.message||'No se pudo guardar. Revisa el estado de la caja.',true);}
   finally{busy=false;renderSelected();}
  };
  for(const [action,button] of Object.entries(buttons))button.addEventListener('click',()=>{void execute(action);});
  el('conditionReload').addEventListener('click',()=>{void load();});
  retry.addEventListener('click',async()=>{
-   if(!admin()||isPreview()||!selected||busy||!entries.has(selected))return;
+   if(!admin()||(isPreview()&&!isolatedReception)||!selected||busy||!entries.has(selected))return;
    const box=code.value;busy=true;setButtons();
    await syncSheet(box);
    busy=false;setButtons();

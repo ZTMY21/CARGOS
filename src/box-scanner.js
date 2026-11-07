@@ -29,3 +29,13 @@ export function probableRapidScan(intervals=[],characters=0){
   const sorted=[...times].sort((a,b)=>a-b);
   return sorted[Math.floor(sorted.length/2)]<=55 && times.reduce((a,b)=>a+b,0)<=1500;
 }
+
+
+// En recepción, todos los formatos habilitados tienen diez dígitos. Una pausa
+// de lectura no convierte un prefijo truncado de cinco a nueve dígitos en caja.
+export function parseReceptionScan(value) {
+  const code=String(value??'').trim();
+  if (!/^(TD|T|P)?[0-9]{10}$/.test(code))
+    return {ok:false,reason:'Código incompleto o inválido. Se requieren 10 dígitos y un prefijo opcional T, TD o P.'};
+  return {ok:true,original:code,normalized:code.replace(/[^0-9]/g,'')};
+}

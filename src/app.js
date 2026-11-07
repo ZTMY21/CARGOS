@@ -1,4 +1,6 @@
 import {attachBoxScanner} from './box-scanner-ui.js';
+import {attachBoxReception,receptionStatus} from './box-reception-ui.js';
+import './box-reception.css';
 import {attachBoxScanSheets} from './box-scan-sheet-ui.js';
 import {attachBoxConditioning} from './box-conditioning-ui.js';
 import {attachPickupMail} from './pickup-mail-ui.js';
@@ -22,7 +24,8 @@ import { requestCards, setupRequirements } from './requirements-ui.js';
 
 const configuration = { url: __SUPABASE_URL__, key: __SUPABASE_ANON_KEY__ };
 const isolatedRequirements = typeof __REQ4_ISOLATED__ !== 'undefined' && __REQ4_ISOLATED__;
-const previewLoginEmail = 'intervencion4@kardex.test';
+const receptionPreview = typeof __RECEPTION_PREVIEW__ !== 'undefined' && __RECEPTION_PREVIEW__;
+const previewLoginEmail = receptionPreview ? 'recepcion-preview@kardex.test' : 'intervencion4@kardex.test';
 // Capture recovery mode before the client consumes the email callback fragment.
 let passwordRecovery = new URLSearchParams(window.location.hash.slice(1)).get('type') === 'recovery';
 let passwordRecoveryCompleted = false;
@@ -48,7 +51,7 @@ let pendingReqId = null, pendingDocId = null;
 let requestTracking = null;
 let annualReference = null;
 const requestUI = setupRequirements(document.getElementById('req4Workspace'), {
-  repository, isPreview: isolatedRequirements,
+  repository, isPreview: isolatedRequirements, receptionEnabled: receptionPreview,
   context: () => ({allowed:appReady && isAdmin && (!isPreview || isolatedRequirements),
     id:currentUserId, name:document.getElementById('sessionUser').textContent}),
   refresh: refreshData,
@@ -278,6 +281,7 @@ function selectWorkspaceTab(tab,focus=false) {
   if(focus)(document.querySelector(`#workspaceTabs [data-workspace="${tab}"]`)
     || (tab==='solicitudes'?document.getElementById('btnTopAdminRequests'):null))?.focus();
   if(tab==='solicitudes')void refreshAdminRequests();
+  if(receptionPreview && (tab==='resumen'||tab==='requerimientos'))void refreshData().catch(()=>{});
 }
 document.getElementById('btnTopAdminRequests').addEventListener('click',()=>{
   if(!appReady||!isAdmin)return;
@@ -465,7 +469,7 @@ function reqBadgeClass(estado){
 
 async function loadReqs(snapshot){
   const data = snapshot || await repository.snapshot();
-  reqs = data.requerimientos.map(reqFromDb);
+  reqs = data.requerimientos.map(reqFromDb).filter(row=>!receptionPreview || row.tipo!=='Cajas nuevas para acondicionar' || row.owner===currentUserId);
 }
 function renderReqs(){
   const query=document.getElementById('buscarReq').value;
@@ -474,22 +478,25 @@ function renderReqs(){
   const records=reqs.filter(row=>row.tipo===type);
   const filtered=filterRequirements(records,docs,query);
   document.getElementById('req4HistoryTitle').textContent=supply ? 'Seguimiento de cajas nuevas' : 'Seguimiento de solicitudes a IM';
+  document.getElementById('req4HistoryDate').hidden=!receptionPreview;
   document.getElementById('req4HistoryBoxes').textContent=supply ? 'Cajas' : 'Cajas solicitadas';
   document.getElementById('conteoReq').textContent=`${filtered.length} de ${records.length} requerimientos`;
   const enriched = filtered.map(r => ({...r, estado: computeReqEstado(r), usadas: cajasUsadas(r.id)}));
   const tbody = document.getElementById('tbodyReq');
   if(enriched.length === 0){
-    tbody.innerHTML = `<tr><td colspan="5" class="empty">${query ? 'No se encontraron requerimientos para esa búsqueda.' : 'Sin requerimientos registrados en este apartado.'}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="${receptionPreview?6:5}" class="empty">${query ? 'No se encontraron requerimientos para esa búsqueda.' : 'Sin requerimientos registrados en este apartado.'}</td></tr>`;
   } else {
     tbody.innerHTML = enriched.sort((a,b)=>b.numero.localeCompare(a.numero)).map(r=>{
       const esCajasNuevas = r.tipo === 'Cajas nuevas para acondicionar';
       const boxes=requestTracking?.cajas.filter(box=>box.requerimiento===r.id) || [];
       const boxText=esCajasNuevas ? String(r.cantidadCajas||'—')
         : boxes.length ? boxes.map(box=>box.codigo).join(', ') : `${r.cantidadCajas || '—'} cajas`;
-      const status=esCajasNuevas && r.estado==='Solicitado' ? 'Pendiente de recepción' : r.estado;
+      const receipt=receptionPreview && esCajasNuevas && requestTracking?.suministro?.solicitudes?.find(row=>row.id===r.id);
+      const status=receipt ? receptionStatus(receipt) : esCajasNuevas && r.estado==='Solicitado' ? 'Pendiente de recepción' : r.estado;
       return `<tr>
         <td>${highlightMatch(r.numero,query)}</td>
         <td>${escapeHtml(boxText)}</td>
+        ${receptionPreview?`<td>${fmtDate(r.fechaSolicitud)}</td>`:''}
         <td><span class="badge ${reqBadgeClass(r.estado)}">${escapeHtml(status)}</span></td>
         <td>${escapeHtml(r.usuario||'')}</td>
         <td>
@@ -998,7 +1005,7 @@ function renderDocs(){
       </div>
       ${isAdmin ? requestCards(reqs,requestTracking) : ''}
     </div>
-    ${isolatedRequirements ? '<p class="expiry-note">Intervención 4 · Base aislada de pruebas con una muestra de registros reales. Consolidación en Excel pendiente.</p>' : ''}
+    ${receptionPreview ? '<p class="expiry-note">Preview de recepción · solicitudes y códigos de prueba. Los registros de recepción se guardan en el Maestro de prueba.</p>' : isolatedRequirements ? '<p class="expiry-note">Intervención 4 · Base aislada de pruebas con una muestra de registros reales. Consolidación en Excel pendiente.</p>' : ''}
     ${expiryGroups.unknown.length ? `<p class="expiry-note">${fmtNum(cargosDe(expiryGroups.unknown))} cargos de 2025/2026 sin fecha válida para calcular el vencimiento; no se incluyen en estas alertas.</p>` : ''}
     <section class="year-section periodo-box" aria-labelledby="year-summary-heading">
       <h3 class="year-heading" id="year-summary-heading">Cargos por Año</h3>
@@ -1222,7 +1229,7 @@ async function reloadPreparedImSummary() {
   const epoch=++preparedImSummaryEpoch, generation=authGeneration;
   try {
     // La conciliación del Excel Maestro sigue siendo automática durante la sesión administrativa.
-    try { await repository.syncIMMaster(); }
+    try { if(!receptionPreview) await repository.syncIMMaster(); }
     catch(error) { /* El KPI utiliza la última lectura disponible sin requerir un botón manual. */ }
     const rows=await repository.preparedImDetails();
     if(epoch!==preparedImSummaryEpoch || generation!==authGeneration || !appReady || !isAdmin)return;
@@ -1294,7 +1301,7 @@ async function reloadRequestedIM(){
       {codigo_caja:'TD990000001',codigo_cargo:'0934',clasificacion_caja:'Por solicitud'},
       {codigo_caja:'P990000002',codigo_cargo:'0935',clasificacion_caja:'Por solicitud'}
     ]:(await (async()=>{
-      try { await repository.syncIMMaster(); } catch(error) { /* Se consulta el último corte confirmado. */ }
+      try { if(!receptionPreview) await repository.syncIMMaster(); } catch(error) { /* Se consulta el último corte confirmado. */ }
       return repository.requestedIMDetails();
     })());
     if(epoch!==requestedIMFetchEpoch||!isAdmin)return;
@@ -2137,14 +2144,16 @@ pickupMailController=attachPickupMail({
 
 // Fase 2: USB-HID en modo teclado, identificación opcional con consentimiento WebHID y consulta sin escrituras.
 boxConditioningController=attachBoxConditioning({
-  supabase,repository,isAdmin:()=>isAdmin,appReady:()=>appReady,isPreview:()=>isPreview
+  supabase,repository,isAdmin:()=>isAdmin,appReady:()=>appReady,isPreview:()=>isPreview,
+  isolatedReception:receptionPreview,onChanged:refreshData
 });
 boxScanSheetController=attachBoxScanSheets({
   supabase,isAdmin:()=>isAdmin,appReady:()=>appReady,isPreview:()=>isPreview
 });
 boxScannerController=attachBoxScanner({
   repository,isAdmin:()=>isAdmin,appReady:()=>appReady,
-  onScan:event=>boxScanSheetController?.scan(event)
+  reception:receptionPreview ? attachBoxReception({repository,refresh:refreshData}) : null,
+  onScan:event=>{if(!receptionPreview)boxScanSheetController?.scan(event);}
 });
 
 // Capa visual aprobada: sin modificar la lógica, el menú ni otras pantallas.

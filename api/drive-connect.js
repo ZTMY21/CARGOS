@@ -1,5 +1,5 @@
 import {randomBytes,randomUUID,timingSafeEqual,createHash} from 'node:crypto';
-import {ArchiveError,seal,unseal,sha256} from '../server/archive/security.js';
+import {ArchiveError,seal,unseal,sha256,isReceptionPreviewBranch} from '../server/archive/security.js';
 import {runtime} from '../server/archive/runtime.js';
 import {DriveClient} from '../server/archive/drive-client.js';
 export const config={maxDuration:60};
@@ -15,6 +15,7 @@ export function createConnectHandler({env=process.env,fetcher=fetch}={}){return 
  res.setHeader('Cache-Control','private, no-store');res.setHeader('X-Content-Type-Options','nosniff');res.setHeader('Referrer-Policy','no-referrer');
  const clearCookie=()=>res.setHeader('Set-Cookie',`${cookieName}=; Path=/api/drive-connect; HttpOnly; Secure; SameSite=Lax; Max-Age=0`);
  try{
+  if(isReceptionPreviewBranch(env))throw new ArchiveError('RECEPCION_PREVIEW_AISLADA',403);
   if(req.method!=='GET')throw new ArchiveError('METHOD_NOT_ALLOWED',405);
   const action=req.query?.code||req.query?.error?'callback':req.query?.action||'status';
   const configured=Boolean(env.GOOGLE_DRIVE_CLIENT_ID&&env.GOOGLE_DRIVE_CLIENT_SECRET&&env.KARDEX_DRIVE_METADATA_KEY&&env.KARDEX_DRIVE_SESSION_KEY&&env.GOOGLE_DRIVE_REDIRECT_URI);

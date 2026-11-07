@@ -5,7 +5,7 @@ import {parseBoxScan,findPreparedBox} from './box-scanner.js';
 const readerName=name=>/symbol|zebra|motorola|honeywell|datalogic|barcode|scanner|lector|cipherlab|newland|unitech|opticon|socket/i.test(String(name??''));
 const SCAN_IDLE_MS=650; // Lee automáticamente al terminar de recibir caracteres, incluso sin Enter.
 
-export function attachBoxScanner({repository,isAdmin,appReady,onScan=()=>{}}){
+export function attachBoxScanner({repository,isAdmin,appReady,reception=null,onScan=()=>{}}){
   const el=id=>document.getElementById(id);
   const input=el('boxScanInput'),feedback=el('boxScanFeedback'),details=el('boxScanResult'),
     history=el('boxScanHistory'),counter=el('boxScanCount'),device=el('boxScannerModel'),
@@ -44,6 +44,7 @@ export function attachBoxScanner({repository,isAdmin,appReady,onScan=()=>{}}){
     }
   };
   const renderHistory=()=>{
+    if (reception?.showing()) return;
     history.replaceChildren();
     for(const item of [...seen.values()].reverse().slice(0,30)){
       const description=item.original+' · '+item.label+(item.count>1?' ('+item.count+' lecturas)':'');
@@ -55,7 +56,7 @@ export function attachBoxScanner({repository,isAdmin,appReady,onScan=()=>{}}){
     details.replaceChildren();
     line(details,'h3','Caja '+data.original);
     if(!loaded){
-      line(details,'p','No hay datos de cajas disponibles. Pulsa Actualizar.');
+      line(details,'p','No hay datos de cajas disponibles en este momento.');
       return;
     }
     if(!data.found){
@@ -108,22 +109,31 @@ export function attachBoxScanner({repository,isAdmin,appReady,onScan=()=>{}}){
       if(call!==epoch)return;
       rows=[];loaded=false;
       notice('No se pudo consultar las cajas.',true);
-      source.textContent='Intenta Actualizar. Las lecturas no cambian los datos registrados.';
+      source.textContent='Vuelve a consultar. La búsqueda documental no altera la recepción.';
       source.hidden=false;
     }finally{
       loading=false;
     }
   };
-  el('boxScanSubmit').addEventListener('click',process);
-  el('boxScanRefresh').addEventListener('click',()=>{void refresh();});
+  el('boxScanSubmit').addEventListener('click',()=>{
+    if (reception) reception.stop();
+    if (!loaded && !loading) void refresh();
+    process();
+  });
+  el('boxScanRefresh')?.addEventListener('click',()=>{void refresh();});
   el('boxScanClear').addEventListener('click',()=>{
     if(!canScan())return;
-    seen.clear();input.value='';details.replaceChildren();renderHistory();
-    notice('Lecturas limpiadas.');input.focus();
+    clearTimer();input.value='';intervals=[];lastKey=0;
+    notice('Campo de código limpio.');input.focus();
   });
   input.addEventListener('keydown',event=>{
     if(!canScan())return;
-    if(event.key==='Enter'){event.preventDefault();process();return;}
+    if(event.key==='Enter'||(event.key==='Tab'&&reception?.armed()&&input.value)){
+      event.preventDefault();
+      if (reception?.armed()) { clearTimer(); reception.scan(); }
+      else process();
+      return;
+    }
     if(event.key==='Tab'&&parseBoxScan(input.value).ok){
       event.preventDefault();process();return;
     }
@@ -140,10 +150,12 @@ export function attachBoxScanner({repository,isAdmin,appReady,onScan=()=>{}}){
     // Escáneres USB como teclado pueden NO enviar Enter, ni eventos especiales de hardware.
     // Debounce: recibe el código entero y consulta cuando termina de escribir.
     const typed=input.value;
-    if(!parseBoxScan(typed).ok)return;
+    if(!reception?.armed()&&!parseBoxScan(typed).ok)return;
     autoTimer=setTimeout(()=>{
       autoTimer=null;
-      if(canScan()&&input.value===typed&&parseBoxScan(input.value).ok)process();
+      if (!canScan() || !typed || input.value!==typed) return;
+      if (reception?.armed()) reception.scan();
+      else if (parseBoxScan(input.value).ok) process();
     },SCAN_IDLE_MS);
   });
   if('hid' in navigator&&typeof navigator.hid.addEventListener==='function'){
@@ -165,12 +177,13 @@ export function attachBoxScanner({repository,isAdmin,appReady,onScan=()=>{}}){
       enabled=true;
       state.textContent=identified?'Lector conectado':'Sin lecturas';
       if(!loaded&&!loading)void refresh();
+      reception?.activate();
       void observeDevice();
       input.focus();
     },
-    deactivate(){enabled=false;clearTimer();},
+    deactivate(){enabled=false;clearTimer();reception?.deactivate();},
     reset(){
-      enabled=false;epoch++;clearTimer();rows=[];loaded=false;seen.clear();
+      enabled=false;epoch++;clearTimer();rows=[];loaded=false;seen.clear();reception?.reset();
       intervals=[];lastKey=0;identified=null;
       input.value='';details.replaceChildren();history.replaceChildren();
       counter.textContent='0';

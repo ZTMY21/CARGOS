@@ -46,7 +46,7 @@ function parseCargos(value) {
   if (!cargos.length || cargos.length > 60) throw Error('IM_MASTER_CARGOS_LIMIT');
   return cargos;
 }
-export async function readMasterRows(bytes) {
+export async function readMasterRows(bytes,{minimumBoxes=49}={}) {
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.load(bytes);
   if (workbook.worksheets.length !== 1 || workbook.worksheets[0]?.name !== IM_MASTER_NAME)
@@ -68,19 +68,22 @@ export async function readMasterRows(bytes) {
     const key = boxKey(caja);
     if (key.length < 6 || seen.has(key)) throw Error('IM_MASTER_DUPLICATE_BOX');
     seen.add(key);
+    const receivedOnly = /^[1-9][0-9]*$/.test(text(row.getCell(1).value)) &&
+      [2,3,5,6,7,8,9,10].every(c=>row.getCell(c).value == null || row.getCell(c).value === '');
     output.push({
       row: r, numero: text(row.getCell(1).value),
       preparacion: dateString(row.getCell(2).value),
       responsable: text(row.getCell(3).value), caja,
-      celda: text(row.getCell(5).value), cargos: parseCargos(row.getCell(5).value),
+      celda: text(row.getCell(5).value), cargos: receivedOnly ? [] : parseCargos(row.getCell(5).value),
       clasificacion: text(row.getCell(6).value),
       envio: dateString(row.getCell(7).value),
       entrega: text(row.getCell(8).value),
       recibe: text(row.getCell(9).value),
       placa: text(row.getCell(10).value),
+      ...(receivedOnly ? {receivedOnly:true} : {}),
     });
     if (output.length > MAX_BOXES) throw Error('IM_MASTER_TOO_MANY_BOXES');
   }
-  if (output.length < 49) throw Error('IM_MASTER_SUSPICIOUSLY_EMPTY');
+  if (output.length < minimumBoxes) throw Error('IM_MASTER_SUSPICIOUSLY_EMPTY');
   return output;
 }

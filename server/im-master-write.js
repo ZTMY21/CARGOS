@@ -16,13 +16,41 @@ const nCell = (col,row,style,val) =>
   '<c r="'+col+row+'" s="'+style+'"><v>'+Number(val)+'</v></c>';
 const emptyCell = (col,row,style) => '<c r="'+col+row+'" s="'+style+'"/>';
 
-export async function appendPreparedBoxToMaster(bytes,box,{preparacion,responsable}={}) {
-  const rows=await readMasterRows(bytes);
+export async function appendPreparedBoxToMaster(bytes,box,{preparacion,responsable,minimumBoxes=49}={}) {
+  const rows=await readMasterRows(bytes,{minimumBoxes});
   const num=String(box.original_code||box.code||'').replace(/[^0-9]/g,'');
   const existing=rows.find(row=>row.caja.replace(/[^0-9]/g,'')===num);
   const cargos=[...new Set((box.cargos||[]).map(x=>String(x).trim().toUpperCase()))];
   if (!num || !cargos.length || cargos.some(x=>!/^\d{1,7}A?$/.test(x)))
     throw Error('IM_MASTER_INVALID_CONDITIONING');
+  if (existing?.receivedOnly) {
+    const index=existing.row;
+    const zip=await JSZip.loadAsync(bytes);
+    const path='xl/worksheets/sheet1.xml';
+    const file=zip.file(path);
+    if(!file)throw Error('IM_MASTER_STRUCTURE_CHANGED');
+    const sheet=await file.async('string');
+    const pattern=new RegExp('<row\\b[^>]*\\br="'+index+'"[^>]*>[\\s\\S]*?<\\/row>');
+    const original=sheet.match(pattern)?.[0];
+    if(!original)throw Error('IM_MASTER_STRUCTURE_CHANGED');
+    const cells=new Map([...original.matchAll(/<c\b[^>]*\br="([A-Z]+)\d+"[^>]*(?:\/>|>[\s\S]*?<\/c>)/g)]
+      .map(match=>[match[1],match[0]]));
+    const style=(col,fallback)=>cells.get(col)?.match(/\bs="(\d+)"/)?.[1]||(minimumBoxes===49 ? fallback : 0);
+    cells.set('B',nCell('B',index,style('B',4),stamp(preparacion)));
+    cells.set('C',textCell('C',index,style('C',5),responsable));
+    cells.set('E',textCell('E',index,style('E',5),cargos.join('-')));
+    cells.set('F',textCell('F',index,style('F',5),box.classification||'Cajas Nuevas'));
+    const replacement=original.match(/^<row\b[^>]*>/)[0]+[...cells.keys()].sort().map(col=>cells.get(col)).join('')+'</row>';
+    zip.file(path,sheet.replace(original,replacement));
+    const result=await zip.generateAsync({type:'nodebuffer',compression:'DEFLATE'});
+    const next=await readMasterRows(result,{minimumBoxes});
+    const verified=next.find(row=>row.row===index);
+    if(!verified || verified.receivedOnly || verified.caja!==existing.caja || verified.numero!==existing.numero ||
+      verified.celda!==cargos.join('-') || verified.envio || next.length!==rows.length ||
+      rows.some((row,i)=>row.row!==index&&JSON.stringify(row)!==JSON.stringify(next[i])))
+      throw Error('IM_MASTER_WRITE_NOT_VERIFIED');
+    return {bytes:result,rows:next,changed:true};
+  }
   if (existing) {
     const sameCargos=existing.cargos.length===cargos.length &&
       existing.cargos.every(cargo=>cargos.includes(cargo));
@@ -51,7 +79,7 @@ export async function appendPreparedBoxToMaster(bytes,box,{preparacion,responsab
   if (!tableXml.includes(oldRef)) throw Error('IM_MASTER_TABLE_CHANGED');
   zip.file('xl/tables/table1.xml',tableXml.replaceAll(oldRef,'ref="A1:J'+index+'"'));
   const result=await zip.generateAsync({type:'nodebuffer',compression:'DEFLATE'});
-  const next=await readMasterRows(result);
+  const next=await readMasterRows(result,{minimumBoxes});
   if (next.length!==rows.length+1 || !next.some(row=>row.row===index&&
       row.caja.replace(/[^0-9]/g,'')===num)) throw Error('IM_MASTER_WRITE_NOT_VERIFIED');
   return {bytes:result,rows:next,changed:true};
