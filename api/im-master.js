@@ -55,6 +55,19 @@ export function createImMasterHandler({env=process.env, fetcher=fetch}={}) {
       if (before.modifiedTime !== after.modifiedTime || before.md5Checksum !== after.md5Checksum ||
           before.size !== after.size) throw new ArchiveError('IM_MASTER_EDIT_IN_PROGRESS',409);
 
+      // La preview consulta el Maestro pero nunca concilia ni modifica bases o Excel reales.
+      if (env.VERCEL_ENV !== 'production') {
+        return json(res,200,{
+          ok:true,preview:true,source:'Excel Maestro de Iron Mountain',
+          boxes:rows.length,
+          sent:rows.filter(row=>row.envio).length,
+          pending:rows.filter(row=>!row.envio).length,
+          revision:after.modifiedTime,
+          history:{status:'PREVIEW_SIN_ESCRITURA',verified:false,pending:false},
+          message:'Preview en solo lectura: sin cambios en Maestro, Supabase ni Histórico IM.'
+        });
+      }
+
       const response = await fetcher(env.SUPABASE_URL+'/rest/v1/rpc/kardex_im_master_sync',{
         method:'POST',
         headers:{
