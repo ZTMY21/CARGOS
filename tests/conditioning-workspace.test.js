@@ -1,5 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {readFile} from 'node:fs/promises';
+import {attachConditioningWorkspace} from '../src/conditioning-workspace.js';
 import {JSDOM} from 'jsdom';
 import ExcelJS from 'exceljs';
 import {drawBoxBarcode} from '../src/box-code128.js';
@@ -53,4 +55,63 @@ test('preparación, primer despacho y retorno actualizan copias sin duplicar fil
   assert.equal(result.worksheets[0].getCell('Q2').value,'ABC-123');
   assert.equal(result.worksheets[0].getCell('D3').value,newBox.codigo);
   assert.deepEqual(retry.historico,sent.historico);
+});
+
+test('pantalla recibe Enter, habilita el guardado por año y muestra reintento si falla Excel',async()=>{
+  const html=await readFile(new URL('../index.html',import.meta.url),'utf8');
+  const dom=new JSDOM(html);
+  globalThis.document=dom.window.document;
+  let outcome='inexistente',saves=0,scan;
+  const prepared={codigo:'TD0900000019',origen:'nueva',cargos:['00943','942'],preparada:'2026-11-08',
+    responsable:'Operador',revision:1,sincronizada:0};
+  const repository={
+    async conditioning(action,data){
+      if(action==='listar')return {nuevas:1,solicitadas:0,preparadas:saves,listado:saves?[prepared]:[]};
+      if(action==='buscar'){
+        scan=data.p_codigo;
+        return {codigo:prepared.codigo,origen:'nueva',status:'disponible'};
+      }
+      if(action==='cargo'){
+        assert.equal(data.p_anio,2025);
+        return {status:outcome,codigo:'00943'};
+      }
+      saves++;
+      return prepared;
+    },
+    async conditioningExcel(){throw Error('network');}
+  };
+  const controller=attachConditioningWorkspace({repository});
+  try{
+    const get=id=>document.getElementById(id);
+    const settle=()=>new Promise(resolve=>setImmediate(resolve));
+    controller.activate();
+    get('acondScan').value='P0900000019';
+    get('acondScanForm').requestSubmit();
+    await settle();
+    assert.equal(scan,'P0900000019');
+    assert.equal(get('acondBarcodeCode').textContent,prepared.codigo);
+    assert.equal(get('acondBarcode').hasAttribute('hidden'),false);
+    get('acondYears').querySelector('[value="2025"]').click();
+    const cargo=get('acondCargo1');
+    cargo.value='943';
+    cargo.dispatchEvent(new dom.window.KeyboardEvent('keydown',{key:'Enter'}));
+    await settle();
+    assert.match(cargo.parentElement.textContent,/No existe el cargo/);
+    assert.equal(get('acondSave').disabled,true);
+    outcome='disponible';
+    cargo.dispatchEvent(new dom.window.KeyboardEvent('keydown',{key:'Enter'}));
+    await settle();
+    get('acondSave').click();
+    await settle();
+    assert.equal(saves,1);
+    assert.equal(get('acondPrepared').textContent,'1 de 1');
+    assert.equal(get('acondRetry').hidden,false);
+    assert.match(get('acondList').textContent,/00943-94208\/11\/2026/);
+    assert.equal(get('acondSave').disabled,true);
+    assert.equal(document.querySelectorAll('#grp-acondicionamiento progress').length,1);
+  }finally{
+    controller.reset();
+    dom.window.close();
+    delete globalThis.document;
+  }
 });
