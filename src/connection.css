@@ -71,7 +71,7 @@ mark{background:var(--yellow-bg);color:var(--navy-dark);font-weight:700;border-r
 .excel-link-button:focus-visible{outline:2px solid #1f4e78;outline-offset:2px}
 .excel-link-button.excel-link-compact{padding:4px 10px;background:#24864a;border-color:#24864a;color:#fff;font-size:12px;line-height:14px;font-weight:600;text-align:center}
 .excel-link-button.excel-link-compact:hover{background:#1c6e3b;border-color:#1c6e3b}
-#boxReceptionOpenExcel{min-inline-size:150px;max-inline-size:100%}
+#boxReceptionOpenExcel{inline-size:171px;max-inline-size:100%}
 .iv-excel-shortcut{margin-top:12px}
 
 #grp-resumen .expiry-card-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px;}
