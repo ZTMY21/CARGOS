@@ -57,6 +57,7 @@ export function invoiceSearchPresentation(doc, query = '') {
 // Busca exclusivamente la caja visible en Existencias, sin confundir su UUID interno
 // con el codigo fisico registrado en Iron Mountain o el numero de requerimiento.
 export function assignedBoxCode(doc, requirements = new Map()) {
+  if(doc.acondicionamiento?.codigo)return doc.acondicionamiento.codigo;
   if (usesHistoricalImDecision(doc) && isSentIm(computeDocEstado(doc).estado))
     return historicalShipmentDetails(doc).box || '';
   const requestNumber = requirements instanceof Map
@@ -68,14 +69,20 @@ export function assignedBoxCode(doc, requirements = new Map()) {
     || requestNumber || '').trim();
 }
 
+// Para una lectura completa se conservan todos los dígitos y ceros iniciales.
+export function physicalBoxKey(value) {
+  const compact=String(value??'').toUpperCase().replace(/[\s./_-]/g,'');
+  return /^[A-Z]*[0-9]{5,35}$/.test(compact)?compact.replace(/\D/g,''):'';
+}
+
 // La caja física se identifica por sus 10 dígitos, sin prefijos T, TD, P
 // ni letras adicionales. Se conservan búsquedas parciales y códigos antiguos
 // de 9 dígitos, así como los números de requerimiento REQ.
 export function matchesAssignedBoxCode(code, query, exact = false) {
   const candidate = normalizeSearch(code), needle = normalizeSearch(query);
   if (!candidate || !needle) return false;
-  const boxDigits = String(code ?? '').replace(/\D/g, '');
-  const queryDigits = String(query ?? '').replace(/\D/g, '');
+  const boxDigits = physicalBoxKey(code) || String(code ?? '').replace(/\D/g, '');
+  const queryDigits = physicalBoxKey(query) || String(query ?? '').replace(/\D/g, '');
   if (boxDigits.length >= 9 && boxDigits.length <= 10 && queryDigits.length >= 4) {
     return exact ? boxDigits === queryDigits : boxDigits.includes(queryDigits);
   }
@@ -113,7 +120,7 @@ export function filterDocuments(documents, requirements, filters, now=new Date()
           ? normalizeCargoIM(c)===cargoCanonical : normalizeSearch(c).includes(cargoQuery)))
         : terms.every(t=>fields.some(field=>field.includes(t)));
     const location=d.estado==='Histórico' || (usesHistoricalImDecision(d)&&isSentIm(d.estado))
-      ? 'Iron Mountain' : d.ubicacion;
+      ? 'Iron Mountain' : d.acondicionamiento ? 'Santa Anita' : d.ubicacion;
     return matchesInvoice && matchesCargo
       && (!filters.state||d.estado===filters.state)
       && (cargoOnly || boxOnly || !filters.type || d.tipoDoc===filters.type)

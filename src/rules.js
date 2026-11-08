@@ -88,6 +88,8 @@ export function computeDocEstado(d, now = new Date()) {
     if (documentedImShipment(d)) estado = 'Enviado a Iron Mountain';
     else if (d.imHistoricalDecision === 'historico') estado = 'Histórico';
   }
+  if(d.acondicionamiento)estado=d.acondicionamiento.enviada?'Enviado a Iron Mountain':
+    d.acondicionamiento.origen==='solicitada'?'Caja solicitada':'Caja preparada para envío';
   const today = new Date(`${limaDate(now)}T00:00:00`);
   const antiguedad = d.periodo && !isSentIm(estado)
     ? monthsBetween(new Date(`${d.periodo}T00:00:00`), today) : '-';

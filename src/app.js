@@ -1,7 +1,10 @@
 import {attachBoxScanner} from './box-scanner-ui.js';
 import {attachBoxReception,receptionStatus,requestReception,renderReceptionOverview} from './box-reception-ui.js';
 import './box-reception.css';
+import './conditioning-workspace.css';
 import {attachBoxScanSheets} from './box-scan-sheet-ui.js';
+import {attachConditioningWorkspace} from './conditioning-workspace.js';
+import {inventoryConditioning} from './conditioning-inventory.js';
 import {attachBoxConditioning} from './box-conditioning-ui.js';
 import {attachPickupMail} from './pickup-mail-ui.js';
 import {attachScanImport} from './scan-import-ui.js';
@@ -42,6 +45,7 @@ const repository = supabase ? new KardexRepository(supabase) : null;
 let activeWorkspaceTab='resumen';
 let boxScannerController=null;
 let boxConditioningController=null;
+let applyConditioningToDoc=doc=>doc;
 let boxScanSheetController=null;
 let pickupMailController=null;
 let appReady = false, isAdmin = false, mutationBusy = false, channelReady = false;
@@ -207,7 +211,7 @@ async function fetchSearchResults(render=true) {
   try {
     const result=await repository.search(appliedFilters,currentPage*PAGE_SIZE,PAGE_SIZE,searchController.signal);
     if(epoch!==searchEpoch)return;
-    queryResults={...result,rows:result.rows.map(docFromDb)};queryError='';
+    queryResults={...result,rows:result.rows.map(docFromDb).map(applyConditioningToDoc)};queryError='';
     if(render) {renderDocs();setAvailability();}
   } catch(error) {
     if(epoch!==searchEpoch||searchController.signal.aborted)return;
@@ -590,7 +594,12 @@ function populateCajaAsignadaOptions(currentValue){
 
 async function loadDocs(snapshot){
   const data = snapshot || await repository.snapshot();
-  docs = data.documentos.map(docFromDb);
+  if(receptionPreview&&isAdmin) {
+    const rows=await repository.conditioning('estados').catch(()=>null);
+    if(rows)applyConditioningToDoc=inventoryConditioning(rows);
+  }else applyConditioningToDoc=doc=>doc;
+  docs = data.documentos.map(docFromDb).map(applyConditioningToDoc);
+  if(queryResults)queryResults={...queryResults,rows:queryResults.rows.map(applyConditioningToDoc)};
 }
 // Total 2026 = cargos históricos del Excel + nuevos de la hoja nativa.
 // Una factura adicional para el mismo cargo no aumenta el contador.
@@ -1087,10 +1096,10 @@ function renderDocs(){
       const historical = d.estado==='Histórico';
       const reviewedShipment = usesHistoricalImDecision(d) && isSentIm(d.estado);
       const shipment = reviewedShipment ? historicalShipmentDetails(d) : null;
-      const cajaTxt = (shipment ? shipment.box : assignedBoxCode(d,reqs)) || (historical ? 'Caja histórica' : '—');
-      const fechaEnvioTxt = shipment ? shipment.realDate : d.imLiveCodigoCaja ? d.imLiveFechaEnvio
+      const cajaTxt = d.acondicionamiento?.codigo || (shipment ? shipment.box : assignedBoxCode(d,reqs)) || (historical ? 'Caja histórica' : '—');
+      const fechaEnvioTxt = d.acondicionamiento ? d.acondicionamiento.enviada : shipment ? shipment.realDate : d.imLiveCodigoCaja ? d.imLiveFechaEnvio
         : d.imConfirmado ? d.imFechaEnvio : d.fEnvio;
-      const responsableOrigen = (d.imLiveFechaEnvio && d.imLiveResponsableEntrega) ||
+      const responsableOrigen = d.acondicionamiento?.entrega || (d.imLiveFechaEnvio && d.imLiveResponsableEntrega) ||
         (shipment ? shipment.responsible : d.imConfirmado ? d.imResponsable
         : d.imPreparado && d.imResponsablePreparacion ? d.imResponsablePreparacion : d.usuario);
       const responsableTxt = !String(responsableOrigen||'').trim() || /^importaci[oó]n excel$/i.test(String(responsableOrigen).trim())
@@ -2156,7 +2165,9 @@ pickupMailController=attachPickupMail({
 });
 
 // Fase 2: USB-HID en modo teclado, identificación opcional con consentimiento WebHID y consulta sin escrituras.
-boxConditioningController=attachBoxConditioning({
+boxConditioningController=receptionPreview
+  ? attachConditioningWorkspace({repository,onChanged:refreshData})
+  : attachBoxConditioning({
   supabase,repository,isAdmin:()=>isAdmin,appReady:()=>appReady,isPreview:()=>isPreview,
   isolatedReception:receptionPreview,onChanged:refreshData
 });
