@@ -83,11 +83,8 @@ export function attachBoxReception({repository,refresh,live=false}) {
     el('boxScanCountLabel').textContent=physical?'Códigos únicos':'Lecturas únicas';
     el('boxScanCount').textContent=String(readings.length);
     if (!state) {card.replaceChildren();return;}
-    const last=readings.at(-1);
-    card.innerHTML='<strong>'+html(state.numero)+' · '+total+' cajas nuevas</strong>'+
-      '<p>'+html(receptionStatus(state))+' · '+html(state.solicitante)+'</p>'+
-      '<p>Solicitada el '+html(receptionTime(physical?state.fecha_solicitud:state.creada))+'</p>'+
-      (last?'<p>'+ (last.origen==='maestro'?'Código conciliado':'Último código') +' <strong>'+html(last.codigo)+'</strong> · '+html(receptionTime(last.leido))+'</p>':'');
+    const requested=total===1?'1 caja nueva solicitada':total+' cajas nuevas solicitadas';
+    card.innerHTML='<strong>'+html(state.numero)+' · '+requested+'</strong>';
     if (documentMode) return;
     el('boxScanHistoryTitle').textContent=physical?'Códigos registrados':'Últimos códigos escaneados';
     history.innerHTML=[...readings].reverse().map(row=>'<li><strong>'+html(row.codigo)+'</strong><span>'+

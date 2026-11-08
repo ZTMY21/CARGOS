@@ -11,7 +11,6 @@
 .reception-progress[data-state="complete"] #boxReceptionBadge { background:#dff5e3; color:#176535; }
 [data-reception-view="true"] :is(#ivBoxEmpty,.iv-muted-note) { display:none; }
 .reception-card strong { color:#12375b; }
-.reception-card p { margin:7px 0 0; }
 #boxScanHistory:has(.reception-read-state) { max-height:230px; overflow-y:auto; padding:0; list-style:none; }
 #boxScanHistory li:has(.reception-read-state) { display:flex; justify-content:space-between; gap:7px 12px; flex-wrap:wrap; padding:8px; border-bottom:1px solid #e0ebf3; }
 .reception-read-state { color:#48617c; font-size:.82rem; }
