@@ -90,7 +90,7 @@ export class KardexRepository {
     });
     if (response.ok && action==='descargar') return response.blob();
     const result=await response.json().catch(()=>null);
-    if (!response.ok || !result) throw Error(result?.error||'No se pudo verificar el Excel de prueba. Reintenta.');
+    if (!response.ok || !result) throw Error(result?.error||'No se pudo verificar el Excel. Reintenta.');
     return result;
   }
   async syncIMMaster({force=false}={}) {

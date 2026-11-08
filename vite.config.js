@@ -22,12 +22,15 @@ export default defineConfig(({ mode }) => {
   if (mode === 'production' && (!url || !key)) {
     throw new Error('Faltan SUPABASE_URL y SUPABASE_ANON_KEY.');
   }
+  const receptionLive=process.env.VERCEL_ENV==='production' && url==='https://uhjwhamzjxhjqlrhgxho.supabase.co' &&
+    /^[a-f0-9]{64}$/.test(env.KARDEX_RECEPCION_PROD_SECRET||'');
   return {
     define: {
       __SUPABASE_URL__: JSON.stringify(url),
       __SUPABASE_ANON_KEY__: JSON.stringify(key),
       __REQ4_ISOLATED__: JSON.stringify(Boolean(isolated)),
-      __RECEPTION_OVERVIEW__: JSON.stringify(process.env.VERCEL_ENV === 'production' && !isolated),
+      __RECEPTION_LIVE__: JSON.stringify(receptionLive),
+      __RECEPTION_OVERVIEW__: JSON.stringify(process.env.VERCEL_ENV === 'production' && !isolated && !receptionLive),
       __RECEPTION_PREVIEW__: JSON.stringify(process.env.VERCEL_GIT_COMMIT_REF === 'preview/recepcion-cajas-im' &&
         isolated === 'qpbzfzcobkkfnoioqytb' && url === 'https://qpbzfzcobkkfnoioqytb.supabase.co')
     },

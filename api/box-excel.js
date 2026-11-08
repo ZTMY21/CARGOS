@@ -1,14 +1,12 @@
-import {createHash} from 'node:crypto';
 import {DriveClient} from '../server/archive/drive-client.js';
 import {ArchiveError,configuration} from '../server/archive/security.js';
 import {authorize} from '../server/archive/repository.js';
 import {parseBoxScan} from '../src/box-scanner.js';
-import {IM_MASTER_FILE_ID,IM_MASTER_PARENT_ID,readMasterRows} from '../server/im-master-workbook.js';
+import {IM_MASTER_FILE_ID} from '../server/im-master-workbook.js';
 import {appendPreparedBoxToMaster} from '../server/im-master-write.js';
+import {readMasterDrive,writeMasterDrive,withMasterDriveLock} from '../server/im-master-drive.js';
 
 export const config={maxDuration:60};
-const fileURL='https://www.googleapis.com/drive/v3/files/'+IM_MASTER_FILE_ID;
-const maxSize=10*1024*1024;
 const answer=(res,status,body)=>{
   res.statusCode=status;
   res.setHeader('Content-Type','application/json; charset=utf-8');
@@ -16,19 +14,6 @@ const answer=(res,status,body)=>{
   res.setHeader('X-Content-Type-Options','nosniff');
   res.end(JSON.stringify(body));
 };
-async function metadata(client){
-  const q='id,name,mimeType,size,parents,trashed,md5Checksum,modifiedTime';
-  const r=await client.request(fileURL+'?fields='+encodeURIComponent(q));
-  const file=await r.json();
-  if(file.id!==IM_MASTER_FILE_ID||file.trashed||
-    !file.parents?.includes(IM_MASTER_PARENT_ID)||
-    !/^CARGOS_ENVIADOS_IRON_MOUNTAIN_MAESTRO\.(?:xlsm|xlsx)$/i.test(file.name)||
-    !['application/vnd.ms-excel.sheet.macroenabled.12',
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'].includes(file.mimeType)||
-    Number(file.size)<500||Number(file.size)>maxSize)
-    throw new ArchiveError('IM_MASTER_SOURCE_NOT_APPROVED',409);
-  return file;
-}
 async function rpc(fetcher,env,token,method,body){
   const r=await fetcher(env.SUPABASE_URL+'/rest/v1/rpc/'+method,{
     method:'POST',headers:{
@@ -76,37 +61,27 @@ export function createBoxExcelHandler({env=process.env,fetcher=fetch}={}){
 
       const client=new DriveClient(env,{fetcher});
       await client.checkRoot();
-      const before=await metadata(client);
-      const media=await client.request(fileURL+'?alt=media');
-      const bytes=Buffer.from(await media.arrayBuffer());
-      if(bytes.length!==Number(before.size))throw new ArchiveError('IM_MASTER_CHANGED',409);
-      const userResp=await fetcher(env.SUPABASE_URL+'/auth/v1/user',{
-        headers:{apikey:env.SUPABASE_ANON_KEY,Authorization:token},
-        signal:AbortSignal.timeout(12000),redirect:'error'
-      });
-      if(!userResp.ok)throw new ArchiveError('SESSION_INVALID',401);
-      const user=await userResp.json();
-      const who=String(user.user_metadata?.full_name||user.user_metadata?.nombre||user.email?.split('@')[0]||'Administrador').slice(0,150);
-      const updated=await appendPreparedBoxToMaster(bytes,record,{
-        preparacion:limaISO(record.started_at),responsable:who
-      });
-      const current=await metadata(client);
-      if(before.modifiedTime!==current.modifiedTime || before.md5Checksum!==current.md5Checksum ||
-         before.size!==current.size) throw new ArchiveError('IM_MASTER_EDIT_IN_PROGRESS',409);
-      if(updated.changed){
-        const r=await client.request('https://www.googleapis.com/upload/drive/v3/files/'+IM_MASTER_FILE_ID+
-          '?uploadType=media&fields=id,size,md5Checksum,modifiedTime',{
-            method:'PATCH',headers:{'Content-Type':before.mimeType},body:updated.bytes
+      const updated=await withMasterDriveLock(
+        (method,body)=>rpc(fetcher,env,token,method,body),
+        async ()=>{
+          const source=await readMasterDrive(client);
+          const userResp=await fetcher(env.SUPABASE_URL+'/auth/v1/user',{
+            headers:{apikey:env.SUPABASE_ANON_KEY,Authorization:token},
+            signal:AbortSignal.timeout(12000),redirect:'error'
           });
-        const proof=await r.json();
-        const hash=createHash('md5').update(updated.bytes).digest('hex');
-        if(proof.id!==IM_MASTER_FILE_ID||Number(proof.size)!==updated.bytes.length||
-           proof.md5Checksum!==hash)throw new ArchiveError('IM_MASTER_WRITE_NOT_VERIFIED',503);
-      }
-      const verified=await rpc(fetcher,env,token,'kardex_im_master_sync',{
-        p_file_id:IM_MASTER_FILE_ID,p_rows:updated.rows.filter(row=>!row.receivedOnly)
-      });
-      if(verified?.verificado!==true)throw new ArchiveError('IM_MASTER_DB_NOT_VERIFIED',503);
+          if(!userResp.ok)throw new ArchiveError('SESSION_INVALID',401);
+          const user=await userResp.json();
+          const who=String(user.user_metadata?.full_name||user.user_metadata?.nombre||user.email?.split('@')[0]||'Administrador').slice(0,150);
+          const result=await appendPreparedBoxToMaster(source.bytes,record,{
+            preparacion:limaISO(record.started_at),responsable:who
+          });
+          const proof=result.changed ? await writeMasterDrive(client,source,result.bytes) : source;
+          const verified=await rpc(fetcher,env,token,'kardex_im_master_sync',{
+            p_file_id:IM_MASTER_FILE_ID,p_rows:proof.rows.filter(row=>!row.receivedOnly)
+          });
+          if(verified?.verificado!==true)throw new ArchiveError('IM_MASTER_DB_NOT_VERIFIED',503);
+          return result;
+        });
       return answer(res,200,{verified:true,sourceSynced:true,
         source:updated.changed?'appended':'existing',
         message:'Caja verificada en el Excel Maestro y en el aplicativo.'});

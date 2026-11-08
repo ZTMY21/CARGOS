@@ -991,6 +991,9 @@
             <label class="iv-choose" for="scanFile"><svg class="iv-icon" aria-hidden="true"><use href="#iv-upload"></use></svg> Seleccionar archivo</label>
             <input id="scanFile" class="iv-file-input" type="file" accept=".xlsx,.xlsm,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel.sheet.macroenabled.12" aria-describedby="scanFileName">
           </div>
+          <div class="iv-cargos-shortcut">
+            <a id="scanOpenCurrentCargos" class="excel-link-button excel-link-compact" href="https://drive.google.com/file/d/1E4wmCkdei32i6NEcLh4ztQaK8_fOz5u3/view" target="_blank" rel="noopener noreferrer">Cargos Actuales</a>
+          </div>
                 <details class="intervention-option">
         <summary>Otra opción: pegar datos desde Excel</summary>
         <div class="intervention-option-content">
@@ -1077,7 +1080,7 @@
             <progress id="boxReceptionBar" max="100" value="0" aria-label="Cajas escaneadas"></progress>
             <button id="boxReceptionConfirm" data-reception-action type="button" disabled>Confirmar recepción completa</button>
             <p id="boxReceptionPending" class="iv-panel-hint"></p>
-            <button id="boxReceptionDownload" data-reception-action type="button" class="link">Descargar Maestro de prueba</button>
+            <a id="boxReceptionOpenExcel" class="excel-link-button excel-link-compact" href="https://drive.google.com/file/d/14tW2-XqukNYozn4P67A7lrhjFfPveAmv/view?usp=drivesdk" target="_blank" rel="noopener noreferrer">Cargos Enviados</a>
           </section>
           <div class="iv-scanner-meta">
             <div class="iv-device-status"><svg class="iv-icon" aria-hidden="true"><use href="#iv-scan"></use></svg> <span id="boxScannerModel" hidden></span><span><span id="boxScanCountLabel">Lecturas únicas</span>: <strong id="boxScanCount">0</strong></span></div>

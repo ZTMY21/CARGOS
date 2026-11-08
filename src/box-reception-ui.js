@@ -20,7 +20,6 @@ export function renderReceptionOverview(root,rows,visible) {
   const el=id=>root.querySelector('#'+id);
   const progress=el('boxReceptionProgress');
   progress.hidden=!visible;
-  el('boxReceptionDownload').hidden=true;
   if(!visible)return;
   const row=[...rows].reverse().find(item=>item.tipo===REQ_TYPES[0] && Number(item.cantidadCajas)>0 &&
     !item.fechaRecepcion && item.estadoV4!=='Recibido');
@@ -36,10 +35,11 @@ export function renderReceptionOverview(root,rows,visible) {
   el('boxReceptionPending').textContent='El guardado de recepción está pendiente de la conciliación de cajas existentes con el Maestro de Iron Mountain.';
 }
 
-export function attachBoxReception({repository,refresh}) {
+export function attachBoxReception({repository,refresh,live=false}) {
+  const master=live?'Excel Maestro de Iron Mountain':'Maestro de prueba';
   const el = id => document.getElementById(id);
   const mode = el('boxReceptionMode'), input = el('boxScanInput'), progress = el('boxReceptionProgress');
-  const save = el('boxReceptionSave'), confirm = el('boxReceptionConfirm'), download = el('boxReceptionDownload');
+  const save = el('boxReceptionSave'), confirm = el('boxReceptionConfirm');
   const card = el('boxReceptionCard'), history = el('boxScanHistory'), feedback = el('boxScanFeedback');
   let active=false, state=null, epoch=0, version=0, running=0, job=Promise.resolve(), poll=null, documentMode=false;
   const notify = (message,error=false) => {
@@ -54,27 +54,28 @@ export function attachBoxReception({repository,refresh}) {
     const physical=state?.recepcion_fisica;
     const matched=readings.filter(row=>row.origen==='maestro').length;
     const full=!!total&&readings.length===total;
-    mode.disabled=!total||full||complete;
+    const readOnly=live&&state?.escritura_habilitada!==true;
+    mode.disabled=readOnly||!total||full||complete;
     if (mode.disabled) mode.checked=false;
     progress.hidden=!total;
     card.hidden=!total||documentMode;
     card.parentElement.dataset.receptionView=String(!card.hidden);
-    save.disabled=running>0||!total||readings.length===saved||complete;
-    confirm.disabled=running>0||!full||complete;
+    save.disabled=readOnly||running>0||!total||readings.length===saved||complete;
+    confirm.disabled=readOnly||running>0||!full||complete;
     confirm.textContent=physical?'Confirmar registro de todas las cajas':'Confirmar recepción completa';
-    download.disabled=!state||saved===0;
     el('boxReceptionCount').textContent=readings.length+'/'+total+(physical?' cajas registradas por código':' cajas recepcionadas');
-    el('boxReceptionBadge').textContent=state ? receptionStatus(state) : 'Sin solicitud activa';
+    el('boxReceptionBadge').textContent=state ? (readOnly?'Modo consulta':receptionStatus(state)) : 'Sin solicitud activa';
     progress.dataset.state=full?'complete':'pending';
     const bar=el('boxReceptionBar');
     bar.max=total||100;bar.value=readings.length;
     el('boxReceptionPending').textContent=complete
       ? 'Confirmada el '+receptionTime(state.confirmada)+'. El acondicionamiento se registra por separado.'
+      : readOnly ? 'El registro en el Excel Maestro está pendiente de habilitación.'
       : physical
         ? physical+' recibidas físicamente · '+matched+' conciliadas del Maestro · '+(readings.length-matched)+
           ' escaneadas aquí · '+(total-readings.length)+' por registrar'
-        : saved+' guardadas en el Maestro de prueba · '+(readings.length-saved)+' pendientes de consolidar';
-    el('boxSheetsStatus').textContent=state ? 'Destino: Maestro de prueba · CARGOS ENVIADOS' :
+        : saved+' guardadas en el '+master+' · '+(readings.length-saved)+' pendientes de consolidar';
+    el('boxSheetsStatus').textContent=state ? 'Destino: '+master+' · CARGOS ENVIADOS' :
       'Solicita cajas nuevas en Requerimientos para iniciar la recepción.';
     el('boxScanHint').textContent=mode.checked ?
       'Escanea códigos completos de 10 dígitos. Se registran automáticamente con o sin Enter.' :
@@ -139,21 +140,12 @@ export function attachBoxReception({repository,refresh}) {
   save.addEventListener('click',()=>{
     if (save.disabled) return;
     void enqueue(id=>repository.receptionExcel('parcial',id),next=>
-      next.lecturas.filter(row=>row.guardado).length+'/'+next.cantidad+' cajas verificadas en el Maestro de prueba.')?.then(refreshSummary);
+      next.lecturas.filter(row=>row.guardado).length+'/'+next.cantidad+' cajas verificadas en el '+master+'.')?.then(refreshSummary);
   });
   confirm.addEventListener('click',()=>{
     if (confirm.disabled) return;
     void enqueue(id=>repository.receptionExcel('completa',id),next=>
       receptionStatus(next)+': '+next.cantidad+'/'+next.cantidad+' · '+receptionTime(next.confirmada))?.then(refreshSummary);
-  });
-  download.addEventListener('click',async()=>{
-    if (!state) return;
-    try {
-      const blob=await repository.receptionExcel('descargar',state.id);
-      const url=URL.createObjectURL(blob), a=document.createElement('a');
-      a.href=url;a.download='Maestro_Recepcion_Prueba.xlsx';a.click();
-      setTimeout(()=>URL.revokeObjectURL(url),1000);
-    } catch(error) {notify(error.message,true);}
   });
   el('boxReceptionModeLabel').hidden=false;
   return {
