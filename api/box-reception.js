@@ -1,4 +1,4 @@
-import {createHash,timingSafeEqual} from 'node:crypto';
+import {createHash,createHmac,timingSafeEqual} from 'node:crypto';
 import {authorize} from '../server/archive/repository.js';
 import {ArchiveError,configuration,isReceptionPreviewBranch} from '../server/archive/security.js';
 import {appendReceivedBoxes} from '../server/reception-workbook.js';
@@ -33,11 +33,13 @@ export function createBoxReceptionHandler({env=process.env,fetcher=fetch}={}) {
         throw new ArchiveError('Origen no autorizado',403);
       const body = typeof req.body==='string' ? JSON.parse(req.body) : req.body;
       if (live && body?.action==='verificar') {
-        const expires=Number(env.KARDEX_RECEPCION_PROBE_UNTIL);
         const proof=req.headers['x-kardex-probe'];
-        if (!(expires>Date.now() && expires-Date.now()<=2*60*60*1000) ||
-          typeof proof!=='string' || !/^[a-f0-9]{64}$/.test(proof) ||
-          !timingSafeEqual(Buffer.from(proof),Buffer.from(env.KARDEX_RECEPCION_PROD_SECRET)))
+        const signed=typeof proof==='string' && /^(\d{13}):([a-f0-9]{64})$/.exec(proof);
+        if (!signed || Math.abs(Date.now()-Number(signed[1]))>60000)
+          throw new ArchiveError('Operación no autorizada.',403);
+        const signature=createHmac('sha256',env.KARDEX_RECEPCION_PROD_SECRET)
+          .update('kardex-drive-preflight:'+signed[1]).digest();
+        if (!timingSafeEqual(Buffer.from(signed[2],'hex'),signature))
           throw new ArchiveError('Operación no autorizada.',403);
         if (!configuration(env).enabled) throw new ArchiveError('La conexión a Drive aún no está habilitada.',503);
         const client=new DriveClient(env,{fetcher});
