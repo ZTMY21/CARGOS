@@ -20,7 +20,6 @@ export function renderReceptionOverview(root,rows,visible) {
   const el=id=>root.querySelector('#'+id);
   const progress=el('boxReceptionProgress');
   progress.hidden=!visible;
-  el('boxReceptionDownload').hidden=true;
   if(!visible)return;
   const row=[...rows].reverse().find(item=>item.tipo===REQ_TYPES[0] && Number(item.cantidadCajas)>0 &&
     !item.fechaRecepcion && item.estadoV4!=='Recibido');
@@ -40,7 +39,7 @@ export function attachBoxReception({repository,refresh,live=false}) {
   const master=live?'Excel Maestro de Iron Mountain':'Maestro de prueba';
   const el = id => document.getElementById(id);
   const mode = el('boxReceptionMode'), input = el('boxScanInput'), progress = el('boxReceptionProgress');
-  const save = el('boxReceptionSave'), confirm = el('boxReceptionConfirm'), download = el('boxReceptionDownload');
+  const save = el('boxReceptionSave'), confirm = el('boxReceptionConfirm');
   const card = el('boxReceptionCard'), history = el('boxScanHistory'), feedback = el('boxScanFeedback');
   let active=false, state=null, epoch=0, version=0, running=0, job=Promise.resolve(), poll=null, documentMode=false;
   const notify = (message,error=false) => {
@@ -64,8 +63,6 @@ export function attachBoxReception({repository,refresh,live=false}) {
     save.disabled=readOnly||running>0||!total||readings.length===saved||complete;
     confirm.disabled=readOnly||running>0||!full||complete;
     confirm.textContent=physical?'Confirmar registro de todas las cajas':'Confirmar recepción completa';
-    download.disabled=readOnly||!state||saved===0;
-    download.textContent=live?'Descargar Excel Maestro':'Descargar Maestro de prueba';
     el('boxReceptionCount').textContent=readings.length+'/'+total+(physical?' cajas registradas por código':' cajas recepcionadas');
     el('boxReceptionBadge').textContent=state ? (readOnly?'Modo consulta':receptionStatus(state)) : 'Sin solicitud activa';
     progress.dataset.state=full?'complete':'pending';
@@ -86,11 +83,8 @@ export function attachBoxReception({repository,refresh,live=false}) {
     el('boxScanCountLabel').textContent=physical?'Códigos únicos':'Lecturas únicas';
     el('boxScanCount').textContent=String(readings.length);
     if (!state) {card.replaceChildren();return;}
-    const last=readings.at(-1);
-    card.innerHTML='<strong>'+html(state.numero)+' · '+total+' cajas nuevas</strong>'+
-      '<p>'+html(receptionStatus(state))+' · '+html(state.solicitante)+'</p>'+
-      '<p>Solicitada el '+html(receptionTime(physical?state.fecha_solicitud:state.creada))+'</p>'+
-      (last?'<p>'+ (last.origen==='maestro'?'Código conciliado':'Último código') +' <strong>'+html(last.codigo)+'</strong> · '+html(receptionTime(last.leido))+'</p>':'');
+    const requested=total===1?'1 caja nueva solicitada':total+' cajas nuevas solicitadas';
+    card.innerHTML='<strong>'+html(state.numero)+' · '+requested+'</strong>';
     if (documentMode) return;
     el('boxScanHistoryTitle').textContent=physical?'Códigos registrados':'Últimos códigos escaneados';
     history.innerHTML=[...readings].reverse().map(row=>'<li><strong>'+html(row.codigo)+'</strong><span>'+
@@ -149,15 +143,6 @@ export function attachBoxReception({repository,refresh,live=false}) {
     if (confirm.disabled) return;
     void enqueue(id=>repository.receptionExcel('completa',id),next=>
       receptionStatus(next)+': '+next.cantidad+'/'+next.cantidad+' · '+receptionTime(next.confirmada))?.then(refreshSummary);
-  });
-  download.addEventListener('click',async()=>{
-    if (!state) return;
-    try {
-      const blob=await repository.receptionExcel('descargar',state.id);
-      const url=URL.createObjectURL(blob), a=document.createElement('a');
-      a.href=url;a.download=live?'CARGOS_ENVIADOS_IRON_MOUNTAIN_MAESTRO.xlsm':'Maestro_Recepcion_Prueba.xlsx';a.click();
-      setTimeout(()=>URL.revokeObjectURL(url),1000);
-    } catch(error) {notify(error.message,true);}
   });
   el('boxReceptionModeLabel').hidden=false;
   return {

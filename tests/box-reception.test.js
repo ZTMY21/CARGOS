@@ -85,7 +85,10 @@ test('producción muestra el avance existente sin habilitar acciones de recepci�
     assert.equal(el('boxReceptionModeLabel').hidden,true);
     assert.equal(el('boxReceptionSave').disabled,true);
     assert.equal(el('boxReceptionConfirm').disabled,true);
-    assert.equal(el('boxReceptionDownload').hidden,true);
+    assert.equal(el('boxReceptionOpenExcel').href,
+      'https://drive.google.com/file/d/14tW2-XqukNYozn4P67A7lrhjFfPveAmv/view?usp=drivesdk');
+    assert.equal(el('boxReceptionOpenExcel').target,'_blank');
+    assert.equal(el('boxReceptionOpenExcel').closest('#boxReceptionProgress'),null);
     assert.match(el('boxReceptionPending').textContent,/conciliación/);
     assert.deepEqual(requestReception(row,{suministro:{solicitudes:[{id:row.id,enviadas:55}]}}),
       {id:row.id,enviadas:55,confirmada:null,leidas:55});
