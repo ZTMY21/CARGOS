@@ -55,23 +55,25 @@ export function attachBoxReception({repository,refresh,live=false}) {
     const physical=state?.recepcion_fisica;
     const matched=readings.filter(row=>row.origen==='maestro').length;
     const full=!!total&&readings.length===total;
-    mode.disabled=!total||full||complete;
+    const readOnly=live&&state?.escritura_habilitada!==true;
+    mode.disabled=readOnly||!total||full||complete;
     if (mode.disabled) mode.checked=false;
     progress.hidden=!total;
     card.hidden=!total||documentMode;
     card.parentElement.dataset.receptionView=String(!card.hidden);
-    save.disabled=running>0||!total||readings.length===saved||complete;
-    confirm.disabled=running>0||!full||complete;
+    save.disabled=readOnly||running>0||!total||readings.length===saved||complete;
+    confirm.disabled=readOnly||running>0||!full||complete;
     confirm.textContent=physical?'Confirmar registro de todas las cajas':'Confirmar recepción completa';
-    download.disabled=!state||saved===0;
+    download.disabled=readOnly||!state||saved===0;
     download.textContent=live?'Descargar Excel Maestro':'Descargar Maestro de prueba';
     el('boxReceptionCount').textContent=readings.length+'/'+total+(physical?' cajas registradas por código':' cajas recepcionadas');
-    el('boxReceptionBadge').textContent=state ? receptionStatus(state) : 'Sin solicitud activa';
+    el('boxReceptionBadge').textContent=state ? (readOnly?'Modo consulta':receptionStatus(state)) : 'Sin solicitud activa';
     progress.dataset.state=full?'complete':'pending';
     const bar=el('boxReceptionBar');
     bar.max=total||100;bar.value=readings.length;
     el('boxReceptionPending').textContent=complete
       ? 'Confirmada el '+receptionTime(state.confirmada)+'. El acondicionamiento se registra por separado.'
+      : readOnly ? 'El registro en el Excel Maestro está pendiente de habilitación.'
       : physical
         ? physical+' recibidas físicamente · '+matched+' conciliadas del Maestro · '+(readings.length-matched)+
           ' escaneadas aquí · '+(total-readings.length)+' por registrar'

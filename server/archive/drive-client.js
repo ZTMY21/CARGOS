@@ -13,7 +13,11 @@ export class DriveClient {
       if(secret.clientId!==this.env.GOOGLE_DRIVE_CLIENT_ID||secret.ownerEmail!==this.env.GOOGLE_DRIVE_OWNER_EMAIL)throw new ArchiveError('DRIVE_OAUTH_ACCOUNT_MISMATCH',503);refresh=secret.refreshToken;
     }
     const r=await this.fetch('https://oauth2.googleapis.com/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({client_id:this.env.GOOGLE_DRIVE_CLIENT_ID,client_secret:this.env.GOOGLE_DRIVE_CLIENT_SECRET,refresh_token:refresh,grant_type:'refresh_token'}),signal:AbortSignal.timeout(20000),redirect:'error'});
-    if(!r.ok)throw new ArchiveError('DRIVE_AUTH_FAILED',503);
+    if(!r.ok){
+      const failure=await r.json().catch(()=>null);
+      const code=failure?.error==='invalid_grant'?'DRIVE_REAUTH_REQUIRED':'DRIVE_AUTH_FAILED';
+      throw new ArchiveError(code,503);
+    }
     const d=await r.json();if(!d.access_token)throw new ArchiveError('DRIVE_AUTH_FAILED',503);
     this.cached={token:d.access_token,until:Date.now()+Math.max(0,(Number(d.expires_in)||300)-60)*1000};return d.access_token;
   }

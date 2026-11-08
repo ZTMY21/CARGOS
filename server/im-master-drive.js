@@ -72,7 +72,7 @@ export async function withMasterDriveLock(rpc,action) {
 
 export async function probeMasterDrive(client) {
   const real=await readMasterDrive(client);
-  const parent=(await client.folder('backups')).id;
+  const parent=await client.folder('backups');
   const filename='Kardex_validacion_temporal_'+randomUUID()+'.xlsx';
   const boundary='kardex_'+randomUUID();
   const fixture=await createReceptionFixture();
@@ -93,7 +93,7 @@ export async function probeMasterDrive(client) {
     const proof=await writeMasterDrive(client,copy,appended.bytes);
     const stale=await conditionalUpload(client,id,copy.file.mimeType,copy.etag,copy.bytes);
     await stale.body?.cancel();
-    if(stale.status!==412)throw Error('IM_MASTER_DRIVE_PRECONDITION_UNSUPPORTED');
+    if(stale.status!==412)throw new ArchiveError('IM_MASTER_DRIVE_PRECONDITION_UNSUPPORTED',409);
     await appendReceivedBoxes(proof.bytes,[{...row,guardado:true,correlativo:appended.added[row.clave]}],{minimumBoxes:1});
     return {masterReadable:true,masterRows:real.rows.length,masterSha256:sha(real.bytes),masterRevision:real.file.headRevisionId,writeVerified:true,staleRevisionRejected:true};
   }finally{
