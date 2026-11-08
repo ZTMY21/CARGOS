@@ -309,7 +309,8 @@ export function setupRequirements(root, {repository, context, refresh, onKindCha
         stamp:partial.tipo==='recepcion_parcial'?partial.registrado:null,tone:'pending',label:'Parcial',icon:'iv-box-receive'});
     }
     if (complete) {
-      events.push({title:'Recepción completa',description:total+' de '+total+' cajas recepcionadas',
+      events.push({title:total===1?'Se recibió la caja':'Se recibieron las '+total+' cajas',
+        description:total+' de '+total+(total===1?' caja registrada':' cajas registradas')+' en el Excel',
         stamp:complete.registrado,tone:'complete',label:'Completa',icon:'iv-check'});
     }
     const tone=complete?'complete':'pending';
