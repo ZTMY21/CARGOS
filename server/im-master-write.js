@@ -1,4 +1,5 @@
 import JSZip from 'jszip';
+import {displayExcelDate} from './workbook-cells.js';
 import {readMasterRows} from './im-master-workbook.js';
 
 const esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;')
@@ -21,7 +22,7 @@ export async function appendPreparedBoxToMaster(bytes,box,{preparacion,responsab
   const num=String(box.original_code||box.code||'').replace(/[^0-9]/g,'');
   const existing=rows.find(row=>row.caja.replace(/[^0-9]/g,'')===num);
   const cargos=[...new Set((box.cargos||[]).map(x=>String(x).trim().toUpperCase()))];
-  if (!num || !cargos.length || cargos.some(x=>!/^\d{1,7}A?$/.test(x)))
+  if (!num || !cargos.length || cargos.some(x=>(x.length>30||!/^0*\d{1,7}A?$/.test(x))))
     throw Error('IM_MASTER_INVALID_CONDITIONING');
   if (existing?.receivedOnly) {
     const index=existing.row;
@@ -36,7 +37,9 @@ export async function appendPreparedBoxToMaster(bytes,box,{preparacion,responsab
     const cells=new Map([...original.matchAll(/<c\b[^>]*\br="([A-Z]+)\d+"[^>]*(?:\/>|>[\s\S]*?<\/c>)/g)]
       .map(match=>[match[1],match[0]]));
     const style=(col,fallback)=>cells.get(col)?.match(/\bs="(\d+)"/)?.[1]||(minimumBoxes===49 ? fallback : 0);
-    cells.set('B',nCell('B',index,style('B',4),stamp(preparacion)));
+    const dateStyle=style('B',4);
+    cells.set('B',Number(dateStyle)>0?nCell('B',index,dateStyle,stamp(preparacion))
+      :textCell('B',index,0,displayExcelDate(preparacion)));
     cells.set('C',textCell('C',index,style('C',5),responsable));
     cells.set('E',textCell('E',index,style('E',5),cargos.join('-')));
     cells.set('F',textCell('F',index,style('F',5),box.classification||'Cajas Nuevas'));

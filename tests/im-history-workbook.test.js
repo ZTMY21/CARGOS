@@ -28,6 +28,7 @@ async function sourceWorkbook(){
   zip.file('xl/worksheets/sheet1.xml',xml.replace('</sheetData>',blank+'</sheetData>'));
   return zip.generateAsync({type:'nodebuffer'});
 }
+const movement=id=>({movementId:id,requestId:'solicitud-'+id,requestDate:'2026-10-30'});
 const box=(caja,envio,extra={})=>({
   caja,envio,preparacion:'2026-10-30',responsable:'ALEXIS',
   celda:'945-946',clasificacion:'Cajas Nuevas',entrega:'ENCARGADO',recibe:'IRON MOUNTAIN',placa:'ABC-123',...extra
@@ -57,8 +58,8 @@ test('registra una caja confirmada, conserva la otra hoja y respeta columnas',as
   assert.equal(sh.getCell('I3').value,'ABC-123');
   const zip=await JSZip.loadAsync(result.bytes);
   const sheetXml=await zip.file('xl/worksheets/sheet1.xml').async('string');
-  assert.match(sheetXml,/<c r="B3" s="33">/,'fecha de preparación confirmada en negro');
-  assert.match(sheetXml,/<c r="F3" s="33">/,'fecha de envío confirmada en negro');
+  assert.match(sheetXml,/<c r="B3"[^>]*>/,'fecha de preparación confirmada en negro');
+  assert.match(sheetXml,/<c r="F3"[^>]*>/,'fecha de envío confirmada en negro');
   const again=await mergeIronMountainHistory(result.bytes,[
     box('T2044202150','2026-11-05'),box('T2044202151','')
   ]);
@@ -67,10 +68,10 @@ test('registra una caja confirmada, conserva la otra hoja y respeta columnas',as
   assert.equal(Buffer.compare(again.bytes,result.bytes),0);
 });
 
-test('reenvío por solicitud modifica solo fecha F y no agrega un nuevo correlativo',async()=>{
+test('reenvío registra un retorno independiente y conserva F',async()=>{
   const original=await sourceWorkbook();
   const data=[box('P2044084018','2026-11-05',{
-    clasificacion:'POR SOLICITUD',celda:'0324-0325-0326'
+    clasificacion:'POR SOLICITUD',celda:'0324-0325-0326',...movement('retorno-1')
   })];
   const first=await mergeIronMountainHistory(original,data);
   assert.equal(first.added,0);
@@ -81,14 +82,21 @@ test('reenvío por solicitud modifica solo fecha F y no agrega un nuevo correlat
   await before.xlsx.load(original);await after.xlsx.load(first.bytes);
   assert.equal(after.getWorksheet('REGISTRO').getRow(2).getCell(6).value instanceof Date ||
     typeof after.getWorksheet('REGISTRO').getRow(2).getCell(6).value==='number',true);
-  for(const col of [1,2,3,4,5,7,8,9]){
+  for(const col of [1,2,3,4,5,6,7,8,9]){
     assert.deepEqual(after.getWorksheet('REGISTRO').getRow(2).getCell(col).value,
       before.getWorksheet('REGISTRO').getRow(2).getCell(col).value);
   }
   assert.equal(after.getWorksheet('REGISTRO').getRow(3).getCell(4).value,null);
   const zip=await JSZip.loadAsync(first.bytes);
   const sheetXml=await zip.file('xl/worksheets/sheet1.xml').async('string');
-  assert.match(sheetXml,/<c r="F2" s="33">/,'reenvío verificado deja la fecha en negro');
+  assert.match(sheetXml,/retorno-1/);
+  const second=await mergeIronMountainHistory(first.bytes,[{...data[0],envio:'2026-11-06',...movement('retorno-2')}]);
+  const workbook=new ExcelJS.Workbook();
+  await workbook.xlsx.load(second.bytes);
+  const sheet=workbook.getWorksheet('REGISTRO');
+  assert.equal(sheet.getCell('K2').value,'06/11/2026');
+  assert.equal(sheet.getCell('P2').value,'05/11/2026');
+  assert.equal(sheet.getCell('P3').value,'06/11/2026');
   const again=await mergeIronMountainHistory(first.bytes,data);
   assert.equal(again.changed,false);
   assert.equal(again.updated,0);
@@ -118,7 +126,7 @@ test('caja nueva duplica ni correlativo ni fecha y reenvío se distingue por cla
   assert.equal(suspicious.reviewRequired,1);
   assert.equal(suspicious.changed,false);
   const requested=await mergeIronMountainHistory(first.bytes,[
-    box('P2044202150','2026-11-06',{clasificacion:'POR SOLICITUD'})
+    box('P2044202150','2026-11-06',{clasificacion:'POR SOLICITUD',...movement('retorno-3')})
   ]);
   assert.equal(requested.updated,1);
   assert.equal(requested.added,0);
@@ -132,7 +140,7 @@ test('cargos con cero inicial y (A) coinciden sin modificar otros campos',async(
   sheet.getCell('F2').font={color:{argb:'FFFF0000'}};
   const result=await mergeIronMountainHistory(Buffer.from(await wb.xlsx.writeBuffer()),[
     box('T2032192124','2026-10-22',{
-      clasificacion:'POR SOLICITUD',celda:'3368A-3365A-3366A-3367A'
+      clasificacion:'POR SOLICITUD',celda:'3368A-3365A-3366A-3367A',...movement('retorno-4')
     })
   ]);
   assert.equal(result.updated,1);

@@ -186,8 +186,12 @@ test('Supabase aplica propiedad, límite, conciliación idempotente y bloqueo ha
     await db.exec(`
       insert into private.kardex_miembros(email,rol) values
         ('owner@example.test','admin'),('other@example.test','admin'),('guest@example.test','editor');
-      create table public.im_envios_cargos_live(codigo_caja text,codigo_cargo text,fecha_envio date,fecha_preparacion date,clasificacion_caja text);
-      create view public.kardex_documentos_resumen as select id,null::text im_live_codigo_caja from public.documentos;
+      create table public.im_envios_cargos_live(codigo_caja text,codigo_cargo text,fecha_envio date,fecha_preparacion date,clasificacion_caja text,responsable_preparacion text);
+      alter table public.documentos add column fecha_origen date, add column anio_origen integer;
+      create view public.kardex_documentos_resumen as
+        select id,null::text im_live_codigo_caja,null::text im_codigo_caja,null::text im_caja_preparada,
+          null::text im_historical_decision from public.documentos;
+      create function private.req4_cargo(text) returns text language sql immutable as $$ select $1 $$;
       create view public.kardex_live_ingresos as select null::text cargo where false;
       create function private.req4_cargos_unicos(text[]) returns text[] language sql immutable as $$ select $1 $$;
     `);
@@ -200,6 +204,7 @@ test('Supabase aplica propiedad, límite, conciliación idempotente y bloqueo ha
     await migration('20261107175000_recepcion_prefijos.sql');
     await migration('20261107233000_recepcion_conciliada.sql');
     await migration('20261108001800_recepcion_maestro_drive.sql');
+    await migration('20261108090000_acondicionamiento_integral.sql');
     await actor(owner);
     await db.exec(`
       insert into private.recepcion_maestro_prueba(archivo,secreto_hash,codigos)
@@ -220,11 +225,21 @@ test('Supabase aplica propiedad, límite, conciliación idempotente y bloqueo ha
     await actor(owner);
     assert.equal((await op('leer',id,codes[0].codigo)).lecturas.length,1);
     assert.equal((await op('leer',id,codes[0].clave)).duplicada,true);
+    const lookup=code=>one("select public.kardex_acondicionamiento('buscar',$1) result",[code]);
+    assert.equal((await lookup(codes[0].clave)).status,'inexistente');
     await actor(stranger);
     await assert.rejects(op('leer',other.id,codes[0].codigo),/otro requerimiento/);
     await actor(owner);
     await assert.rejects(commit('completa',id,0,{}),/todavía/);
     assert.equal((await commit('parcial',id,0,{[codes[0].clave]:901})).lecturas[0].correlativo,901);
+    const box=await lookup('P'+codes[0].clave);
+    assert.equal(box.status,'disponible');
+    assert.equal(box.origen,'nueva');
+    assert.equal(box.codigo,codes[0].codigo);
+    const cargoInYear=year=>one("select public.kardex_acondicionamiento('cargo',$1,$2,array['9876540']) result",
+      [box.codigo,year]);
+    assert.equal((await cargoInYear(2026)).status,'disponible');
+    assert.equal((await cargoInYear(2025)).status,'inexistente');
     await assert.rejects(commit('parcial',id,0,{[codes[0].clave]:901}),/Maestro cambió/);
     assert.equal((await op('estado',id,null)).lecturas.length,1);
     assert.equal((await op('leer',id,codes[1].codigo.toLowerCase())).lecturas[1].codigo,codes[1].codigo.toLowerCase());
@@ -260,6 +275,20 @@ test('Supabase aplica propiedad, límite, conciliación idempotente y bloqueo ha
     const productionSaved=await liveSave('parcial',{[codes[2].clave]:903});
     assert.equal(productionSaved.lecturas[0].correlativo,903);
     assert.equal(productionSaved.confirmada,null);
+    const productionBox=await lookup(codes[2].codigo);
+    assert.equal(productionBox.status,'disponible');
+    const productionMovement=await one(
+      "select public.kardex_acondicionamiento('preparar',$1,2026,array['9876540']) result",[codes[2].codigo]);
+    assert.equal(productionMovement.origen,'nueva');
+    const realBatch=(action,items,secret='solo-prueba')=>one(
+      'select public.kardex_acondicionamiento_excel_real($1,$2,$3,$4::jsonb) result',
+      [action,secret,lease.token,items==null?null:JSON.stringify(items)]);
+    await assert.rejects(realBatch('leer',null,'incorrecto'),/Maestro real no autorizado/);
+    const batch=await realBatch('leer',null);
+    assert.equal(batch.lote[0].id,productionMovement.id);
+    await assert.rejects(realBatch('confirmar',[{id:productionMovement.id,revision:2}]),/cambió/);
+    assert.equal((await realBatch('confirmar',[{id:productionMovement.id,revision:1}])).verificado,true);
+    assert.equal((await realBatch('leer',null)).lote.length,0);
     assert.equal((await liveSave('parcial',{})).lecturas.length,1);
     await one("select public.kardex_im_master_lock('liberar',$1) result",[lease.token]);
     await assert.rejects(liveSave('estado',{}),/reserva del Excel/);

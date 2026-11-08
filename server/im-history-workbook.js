@@ -1,5 +1,6 @@
 import ExcelJS from 'exceljs';
 import JSZip from 'jszip';
+import {checkHeaders,displayExcelDate,writeWorksheetCells} from './workbook-cells.js';
 
 export const IM_HISTORY_FILE_ID='1YKp7q-CPOHI6R7RwJ-ekgrpb5KEIloP9';
 export const IM_HISTORY_PARENT_ID='1ShNyHqhO-mD7bWmI-fkPSjR2K0Za4kyo';
@@ -36,39 +37,56 @@ const serial=iso=>{
     throw Error('IM_HISTORY_DATE_INVALID');
   return Math.round((timestamp-Date.UTC(1899,11,30))/86400000);
 };
-const xmlEscape=value=>String(value??'').replace(/&/g,'&amp;').replace(/</g,'&lt;')
-  .replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;');
-const cell=(name,row,style,value,numeric=false)=>numeric?
-  '<c r="'+name+row+'" s="'+style+'"><v>'+Number(value)+'</v></c>':
-  '<c r="'+name+row+'" s="'+style+'" t="inlineStr"><is><t>'+xmlEscape(value)+'</t></is></c>';
-const newRow=(row,number,item)=>[
-  cell('A',row,9,number,true),
-  cell('B',row,33,serial(item.preparacion),true),
-  cell('C',row,9,item.responsable),
-  cell('D',row,9,item.caja),
-  cell('E',row,9,item.celda),
-  cell('F',row,33,serial(item.envio),true),
-  cell('G',row,9,item.entrega||''),
-  cell('H',row,9,item.recibe||''),
-  cell('I',row,9,item.placa||'')
-];
-
-
 // Las facturas antiguas usan separadores distintos y, a veces, un (A) final.
 // El cotejo es por CONJUNTO de cargos, no por su posición ni por ceros iniciales.
-export function normalizedCargoSet(value){
+function historicalCargoTokens(value){
   const raw=norm(valueText(value)).replace(/[–—]/g,'-');
   const suffix=raw.match(/\(\s*([A-Z])\s*\)\s*$/);
   const content=suffix?raw.slice(0,suffix.index).trim():raw;
   const parts=content.split(/[\s,;/\-]+/).filter(Boolean);
-  if(!parts.length)return '';
   const result=[];
   for(const part of parts){
-    const match=part.match(/^0*(\d{1,7})([A-Z]?)$/);
-    if(!match)return '';
-    result.push(String(Number(match[1]))+(match[2]||suffix?.[1]||''));
+    const match=part.match(/^(0*[0-9]{1,7})([A-Z]?)$/);
+    if(!match || match[1].length>30)return [];
+    result.push(match[1]+(match[2]||suffix?.[1]||''));
   }
-  return [...new Set(result)].sort().join('|');
+  return result;
+}
+
+export function normalizedCargoSet(value){
+  return [...new Set(historicalCargoTokens(value).map(cargo=>cargo.replace(/^0+(?=\d)/,'')))].sort().join('|');
+}
+
+// Some Drive exports qualify shared-string and style elements. Normalize
+// only the reader's copy so the actual workbook keeps its original parts.
+async function loadHistoryWorkbook(bytes){
+  const zip=await JSZip.loadAsync(bytes);
+  let changed=false;
+  for(const path of ['xl/sharedStrings.xml','xl/styles.xml']){
+    const file=zip.file(path);
+    if(!file)continue;
+    const xml=await file.async('string');
+    if(!xml.includes('xmlns:x="http://schemas.openxmlformats.org/spreadsheetml/2006/main"'))continue;
+    zip.file(path,xml.replace(/(<\/?)(?:x:)(?=[A-Za-z])/g,'$1').replace('xmlns:x=','xmlns='));
+    changed=true;
+  }
+  const workbook=new ExcelJS.Workbook();
+  await workbook.xlsx.load(changed?await zip.generateAsync({type:'nodebuffer'}):bytes);
+  return workbook;
+}
+
+export async function readHistoryBoxes(bytes){
+  const workbook=await loadHistoryWorkbook(bytes);
+  const sheet=workbook.getWorksheet('REGISTRO');
+  if(!sheet||workbook.worksheets[0]!==sheet)throw Error('IM_HISTORY_SHEET_NOT_FOUND');
+  const {byBox}=extractHistory(sheet);
+  return [...byBox].flatMap(([clave,entries])=>entries.flatMap(entry=>{
+    const row=sheet.getRow(entry.row);
+    const codigo=valueText(row.getCell(4).value);
+    const cargos=historicalCargoTokens(row.getCell(5).value);
+    return cargos.length&&/^[A-Z\s]*[0-9][0-9. _/-]*$/i.test(codigo)
+      ? [{clave,codigo,cargos,envio:entry.envio||null}] : [];
+  }));
 }
 
 function extractHistory(sheet){
@@ -93,29 +111,28 @@ function extractHistory(sheet){
   return {byBox,lastOccupied,maxNumber};
 }
 
-// Actualiza exclusivamente la celda F de una fila ya identificada.
-// El estilo 33 del libro aprobado es fecha en negro (11 está en rojo y exige revisión).
-function updateExistingDate(xml,entry){
-  const rowPattern=new RegExp('(<row\\s[^>]*\\br="'+entry.row+'"[^>]*>)([\\s\\S]*?)(<\\/row>)');
-  const found=xml.match(rowPattern);
-  if(!found)throw Error('IM_HISTORY_RESHIP_ROW_MISSING');
-  const cellPattern=new RegExp('<c\\b[^>]*\\br="F'+entry.row+'"[^>]*(?:\\/>|>[\\s\\S]*?<\\/c>)');
-  if(!cellPattern.test(found[2]))throw Error('IM_HISTORY_RESHIP_DATE_CELL_MISSING');
-  const onlyF=found[2].replace(cellPattern,cell('F',entry.row,33,serial(entry.envio),true));
-  return xml.replace(rowPattern,found[1]+onlyF+found[3]);
-}
+const movementHeaders={
+  J:'FECHA DE SOLICITUD',K:'ÚLTIMO RETORNO A IM',L:'ID DE MOVIMIENTO',M:'CÓDIGO DE CAJA',
+  N:'ID DE SOLICITUD',O:'FECHA DE SOLICITUD DEL MOVIMIENTO',P:'FECHA REAL DE RETORNO',
+  Q:'PLACA DEL RETORNO',R:'RESPONSABLE DE ENTREGA DEL RETORNO',
+  S:'RESPONSABLE DE RECEPCIÓN DEL RETORNO',T:'CARGOS DEL RETORNO'
+};
 
 export async function mergeIronMountainHistory(historyBytes,masterRows){
   if(!Buffer.isBuffer(historyBytes)||!Array.isArray(masterRows))
     throw Error('IM_HISTORY_INVALID_INPUT');
-  const workbook=new ExcelJS.Workbook();
-  await workbook.xlsx.load(historyBytes);
+  const workbook=await loadHistoryWorkbook(historyBytes);
   if(workbook.worksheets[0]?.name!=='REGISTRO'||!workbook.getWorksheet('REGISTRO'))
     throw Error('IM_HISTORY_SHEET_NOT_FOUND');
   const sheet=workbook.getWorksheet('REGISTRO');
   const {byBox,lastOccupied,maxNumber}=extractHistory(sheet);
   const pending=[],updates=[],reviews=[],entries=[];
-  const processed=new Set();
+  const processed=new Set(),movements=new Map();
+  let movementEnd=1;
+  for(let row=2;row<=sheet.rowCount;row++){
+    const id=valueText(sheet.getCell('L'+row).value);
+    if(id){movements.set(id,row);movementEnd=row;}
+  }
   let alreadyRegistered=0;
   const sent=masterRows.filter(row=>row.envio);
   for(const item of sent){
@@ -123,8 +140,9 @@ export async function mergeIronMountainHistory(historyBytes,masterRows){
     const cargos=normalizedCargoSet((item.cargos||[]).join('-')||item.celda);
     const classification=norm(item.clasificacion);
     if(!key||!cargos||!newDate)throw Error('IM_HISTORY_INCOMPLETE_SHIPMENT');
-    if(processed.has(key))throw Error('IM_HISTORY_DUPLICATED_MASTER_BOX');
-    processed.add(key);
+    const movementKey=item.movementId||key;
+    if(processed.has(movementKey))throw Error('IM_HISTORY_DUPLICATED_MASTER_BOX');
+    processed.add(movementKey);
     const historical=byBox.get(key)||[];
     const exact=historical.filter(row=>row.cargos && row.cargos===cargos);
     const requested=/\bPOR SOLICITUD\b/.test(classification);
@@ -137,9 +155,24 @@ export async function mergeIronMountainHistory(historyBytes,masterRows){
           historical.length?'CARGOS_NO_COINCIDEN':'CAJA_NO_ENCONTRADA'});
         continue;
       }
-      if(exact[0].envio===newDate){alreadyRegistered++;continue;}
-      updates.push({row:exact[0].row,caja:item.caja,envio:newDate,
-        previous:exact[0].envio,cargos});
+      if(!item.movementId||!item.requestId||!item.requestDate){
+        if(exact[0].envio===newDate)alreadyRegistered++;
+        else reviews.push({caja:item.caja,motivo:'RETORNO_SIN_SOLICITUD_VERIFICADA'});
+        continue;
+      }
+      const prior=movements.get(item.movementId);
+      if(prior){
+        if(valueText(sheet.getCell('M'+prior).value)!==item.caja ||
+           valueText(sheet.getCell('N'+prior).value)!==item.requestId ||
+           dateISO(sheet.getCell('P'+prior).value)!==newDate ||
+           dateISO(sheet.getCell('O'+prior).value)!==dateISO(item.requestDate) ||
+           valueText(sheet.getCell('Q'+prior).value)!==(item.placa||'') ||
+           valueText(sheet.getCell('R'+prior).value)!==(item.entrega||'') ||
+           valueText(sheet.getCell('S'+prior).value)!==(item.recibe||''))
+          throw Error('IM_HISTORY_RETURN_CONFLICT');
+        alreadyRegistered++;continue;
+      }
+      updates.push({...item,row:exact[0].row,envio:newDate,previous:exact[0].envio,cargos});
       continue;
     }
     if(newBox){
@@ -166,38 +199,40 @@ export async function mergeIronMountainHistory(historyBytes,masterRows){
   const zip=await JSZip.loadAsync(historyBytes);
   const file=zip.file('xl/worksheets/sheet1.xml');
   if(!file)throw Error('IM_HISTORY_WORKSHEET_MISSING');
-  let xml=await file.async('string'),addOutside='';
-  for(const item of updates)xml=updateExistingDate(xml,item);
+  let xml=await file.async('string');
+  const styles=await zip.file('xl/styles.xml')?.async('string')||'';
+  const approvedStyle=Number(styles.match(/<(?:x:)?cellXfs[^>]*\bcount="(\d+)"/)?.[1])>33;
+  if(updates.length)checkHeaders(sheet,movementHeaders);
   for(const [i,item] of pending.entries()){
     const row=lastOccupied+i+1;
-    const number=maxNumber+i+1;
-    const columns=newRow(row,number,item);
-    const rowPattern=new RegExp('(<row\\s[^>]*\\br="'+row+'"[^>]*>)([\\s\\S]*?)(<\\/row>)');
-    const found=xml.match(rowPattern);
-    if(found){
-      let inner=found[2];
-      if(/<(?:v|is|f)(?:\s|>)/.test(inner))
-        throw Error('IM_HISTORY_TARGET_ROW_POPULATED');
-      for(let c=0;c<9;c++){
-        const letter=String.fromCharCode(65+c);
-        const placeholder=new RegExp('<c\\s+r="'+letter+row+'"[^>]*\\/>');
-        if(!placeholder.test(inner))throw Error('IM_HISTORY_PLACEHOLDER_MISSING');
-        inner=inner.replace(placeholder,columns[c]);
-      }
-      xml=xml.replace(rowPattern,found[1]+inner+found[3]);
-    }else{
-      addOutside+='<row r="'+row+'" ht="13.5" customHeight="1">'+columns.join('')+'</row>';
-    }
+    if(Array.from({length:9},(_,j)=>sheet.getRow(row).getCell(j+1).value)
+      .some(value=>value!=null&&value!==''))throw Error('IM_HISTORY_TARGET_ROW_POPULATED');
+    xml=writeWorksheetCells(xml,row,{
+      A:maxNumber+i+1,B:approvedStyle?serial(item.preparacion):displayExcelDate(item.preparacion),
+      C:item.responsable,D:item.caja,E:item.celda,F:approvedStyle?serial(item.envio):displayExcelDate(item.envio),
+      G:item.entrega||'',H:item.recibe||'',I:item.placa||''
+    },approvedStyle?{A:9,B:33,C:9,D:9,E:9,F:33,G:9,H:9,I:9}:{});
     entries.push({row,caja:item.caja,fecha_envio:item.envio});
   }
-  if(addOutside){
-    if(!xml.includes('</sheetData>'))throw Error('IM_HISTORY_SHEETDATA_MISSING');
-    xml=xml.replace('</sheetData>',addOutside+'</sheetData>');
+  if(updates.length){
+    xml=writeWorksheetCells(xml,1,movementHeaders);
+    const latest=new Map();
+    for(const item of updates){
+      item.logRow=++movementEnd;
+      xml=writeWorksheetCells(xml,item.logRow,{
+        L:item.movementId,M:item.caja,N:item.requestId,O:displayExcelDate(dateISO(item.requestDate)),
+        P:displayExcelDate(item.envio),Q:item.placa||'',R:item.entrega||'',S:item.recibe||'',T:item.celda
+      });
+      const previous=latest.get(item.row)||dateISO(sheet.getCell('K'+item.row).value);
+      if(item.envio>=previous){
+        latest.set(item.row,item.envio);
+        xml=writeWorksheetCells(xml,item.row,{J:displayExcelDate(dateISO(item.requestDate)),K:displayExcelDate(item.envio)});
+      }
+    }
   }
   zip.file('xl/worksheets/sheet1.xml',xml);
   const bytes=await zip.generateAsync({type:'nodebuffer',compression:'DEFLATE'});
-  const verify=new ExcelJS.Workbook();
-  await verify.xlsx.load(bytes);
+  const verify=await loadHistoryWorkbook(bytes);
   if(verify.worksheets.length!==workbook.worksheets.length)
     throw Error('IM_HISTORY_SHEETS_CHANGED');
   const sh=verify.getWorksheet('REGISTRO');
@@ -208,9 +243,10 @@ export async function mergeIronMountainHistory(historyBytes,masterRows){
   }
   for(const entry of updates){
     const before=sheet.getRow(entry.row),after=sh.getRow(entry.row);
-    if(dateISO(after.getCell(6).value)!==entry.envio)
+    if(valueText(sh.getCell('L'+entry.logRow).value)!==entry.movementId ||
+       dateISO(sh.getCell('P'+entry.logRow).value)!==entry.envio)
       throw Error('IM_HISTORY_RESHIP_READBACK_FAILED');
-    for(const col of [1,2,3,4,5,7,8,9]){
+    for(const col of [1,2,3,4,5,6,7,8,9]){
       if(valueText(after.getCell(col).value)!==valueText(before.getCell(col).value))
         throw Error('IM_HISTORY_RESHIP_UNEXPECTED_CHANGE');
     }

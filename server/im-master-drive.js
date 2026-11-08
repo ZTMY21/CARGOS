@@ -2,6 +2,7 @@ import {createHash,randomUUID} from 'node:crypto';
 import {ArchiveError} from './archive/security.js';
 import {IM_MASTER_FILE_ID,IM_MASTER_PARENT_ID,readMasterRows} from './im-master-workbook.js';
 import {appendReceivedBoxes,createReceptionFixture} from './reception-workbook.js';
+import {IM_HISTORY_FILE_ID,IM_HISTORY_PARENT_ID,IM_HISTORY_FILE_NAME} from './im-history-workbook.js';
 
 const drive='https://www.googleapis.com/drive';
 const fields='id,name,mimeType,size,parents,trashed,md5Checksum,headRevisionId,capabilities(canModifyContent)';
@@ -12,14 +13,14 @@ const md5=bytes=>createHash('md5').update(bytes).digest('hex');
 const sha=bytes=>createHash('sha256').update(bytes).digest('hex');
 
 export async function readMasterDrive(client,{id=IM_MASTER_FILE_ID,parent=IM_MASTER_PARENT_ID,
-  name=masterName,minimumBoxes=49}={}) {
+  name=masterName,minimumBoxes=49,parse=readMasterRows,maximumBytes=10*1024*1024}={}) {
   const uri=drive+'/v3/files/'+encodeURIComponent(id);
   const metadata=async()=>await (await client.request(uri+'?supportsAllDrives=true&fields='+encodeURIComponent(fields))).json();
   const file=await metadata();
-  if(file.id!==id || !name.test(file.name) || !file.parents?.includes(parent) || file.trashed ||
+  if(file.id!==id || !(typeof name==='string'?file.name===name:name.test(file.name)) || !file.parents?.includes(parent) || file.trashed ||
     ![excelMime,macroMime].includes(file.mimeType) || !file.capabilities?.canModifyContent ||
     !file.headRevisionId || !/^[a-f0-9]{32}$/.test(file.md5Checksum||'') ||
-    Number(file.size)<500 || Number(file.size)>10*1024*1024)
+    Number(file.size)<500 || Number(file.size)>maximumBytes)
     throw new ArchiveError('El Excel Maestro no tiene permisos de escritura o no coincide con el archivo autorizado.',409);
   const metadataV2=await (await client.request(drive+'/v2/files/'+encodeURIComponent(id)+
     '?supportsAllDrives=true&fields=id,etag,md5Checksum,headRevisionId')).json();
@@ -32,7 +33,12 @@ export async function readMasterDrive(client,{id=IM_MASTER_FILE_ID,parent=IM_MAS
   if(bytes.length!==Number(file.size)||md5(bytes)!==file.md5Checksum||
     after.headRevisionId!==file.headRevisionId||after.md5Checksum!==file.md5Checksum)
     throw new ArchiveError('El Excel cambió mientras se estaba leyendo. Reintenta.',409);
-  return {file,etag:metadataV2.etag,bytes,rows:await readMasterRows(bytes,{minimumBoxes}),parent,name,minimumBoxes};
+  return {file,etag:metadataV2.etag,bytes,rows:await parse(bytes,{minimumBoxes}),parent,name,minimumBoxes,parse,maximumBytes};
+}
+
+export function readHistoryDrive(client){
+  return readMasterDrive(client,{id:IM_HISTORY_FILE_ID,parent:IM_HISTORY_PARENT_ID,
+    name:IM_HISTORY_FILE_NAME,parse:async()=>null,maximumBytes:20*1024*1024});
 }
 
 async function conditionalUpload(client,id,mime,etag,bytes) {
@@ -55,7 +61,7 @@ export async function writeMasterDrive(client,source,bytes) {
   }
   const revision=await result.json();
   const proof=await readMasterDrive(client,{id:source.file.id,parent:source.parent,
-    name:source.name,minimumBoxes:source.minimumBoxes});
+    name:source.name,minimumBoxes:source.minimumBoxes,parse:source.parse,maximumBytes:source.maximumBytes});
   if(revision.id!==source.file.id || !revision.headRevisionId || revision.md5Checksum!==md5(bytes) ||
     Number(revision.fileSize)!==bytes.length || proof.file.headRevisionId!==revision.headRevisionId ||
     sha(proof.bytes)!==sha(bytes))

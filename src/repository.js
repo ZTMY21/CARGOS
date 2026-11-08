@@ -77,6 +77,20 @@ export class KardexRepository {
   async requestAction(id, action, data) {
     return reqFromDb(checked(await this.client.rpc('kardex_req4_accion',{p_id:id,p_accion:action,p_datos:data})));
   }
+  async conditioning(action,args={}) {
+    return checked(await this.client.rpc('kardex_acondicionamiento',{p_accion:action,...args}));
+  }
+  async conditioningExcel(action) {
+    const {session}=checked(await this.client.auth.getSession());
+    if(!session)throw Error('Inicia sesión para verificar el Excel.');
+    const response=await fetch('/api/box-conditioning',{
+      method:'POST',credentials:'same-origin',
+      headers:{Authorization:'Bearer '+session.access_token,'Content-Type':'application/json'},
+      body:JSON.stringify({action})
+    });
+    if(!response.ok)throw Error('Sincronización pendiente.');
+    return action==='sincronizar'?response.json():response.blob();
+  }
   async reception(action='estado',id=null,code=null) {
     return checked(await this.client.rpc('kardex_recepcion_operacion',{p_accion:action,p_id:id,p_codigo:code}));
   }
