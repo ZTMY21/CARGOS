@@ -101,12 +101,28 @@ export function attachConditioningWorkspace({repository,live=false,onChanged=()=
   async function refresh(){
     const version=++listVersion;
     try{
-      const data=await call('listar');
+      const [data,reception]=await Promise.all([call('listar'),repository.reception()]);
       if(!active||version!==listVersion)return;
-      const total=data.nuevas+data.solicitadas,percent=total?Math.round(data.preparadas/total*100):0;
-      el('acondNew').textContent=String(data.nuevas);
+      const supply=Number(reception?.cantidad)||0;
+      const receptionCount=el('acondReceptionCount');
+      let prepared=data.preparadas;
+      if(supply){
+        const readings=reception.lecturas||[];
+        const saved=new Set(readings.filter(row=>row.guardado).map(row=>physicalBoxKey(row.codigo)).filter(Boolean));
+        const inRequest=new Set(data.listado.filter(row=>row.origen==='nueva'&&
+          (!row.solicitud||row.solicitud===reception.id))
+          .map(row=>physicalBoxKey(row.codigo)).filter(key=>saved.has(key)));
+        prepared=inRequest.size;
+        receptionCount.textContent=readings.length+' de '+supply+' registradas · '+
+          Math.max(0,supply-readings.length)+' por registrar';
+      }
+      const percent=supply?Math.round(prepared/supply*100):0;
+      receptionCount.hidden=!supply;
+      el('acondNewLabel').textContent=supply?'Cajas nuevas solicitadas':'Cajas nuevas registradas';
+      el('acondNew').textContent=String(supply||data.nuevas);
       el('acondRequested').textContent=String(data.solicitadas);
-      el('acondPrepared').textContent=data.preparadas+' de '+total;
+      el('acondPrepared').textContent=supply?prepared+' de '+supply:String(prepared);
+      el('acondProgressTrack').hidden=!supply;
       el('acondProgress').value=percent;
       el('acondPercent').textContent=percent+'%';
       el('acondList').innerHTML=data.listado.map(row=>'<tr><td><strong>'+escapeHtml(row.codigo)+'</strong></td><td>'+
@@ -240,7 +256,7 @@ export function attachConditioningWorkspace({repository,live=false,onChanged=()=
   }
   chooseYear(year);select(null);
   return {
-    activate(){active=true;void refresh();clearInterval(timer);timer=setInterval(refresh,15000);scan.focus();},
+    activate(){active=true;void refresh();clearInterval(timer);timer=setInterval(refresh,5000);scan.focus();},
     deactivate(){active=false;lookupVersion++;clearInterval(timer);},
     reset(){active=false;lookupVersion++;listVersion++;clearInterval(timer);select(null);scan.value='';message('');}
   };

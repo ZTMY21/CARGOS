@@ -14,6 +14,7 @@
 .acond-icon{flex:none;width:47px;height:47px;display:grid;place-items:center;border-radius:11px;background:#e3fbe4;color:#14912b}
 .acond-icon .iv-icon{width:25px;height:25px}
 .acond-icon.requested{background:#d7f2fc;color:#0966c2}
+.acond-kpi small{display:block;margin-top:4px;color:#405974}
 .acond-kpi strong{display:block;font-size:clamp(22px,3vw,32px);font-weight:800;line-height:1.15}
 .acond-progress{flex:1;min-width:0}
 .acond-progress strong{font-size:clamp(17px,2.5vw,24px)}

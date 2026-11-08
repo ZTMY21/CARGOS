@@ -79,6 +79,7 @@ test('pantalla recibe Enter, habilita el guardado por año y muestra reintento s
       saves++;
       return prepared;
     },
+    async reception(){return null;},
     async conditioningExcel(){throw Error('network');}
   };
   const controller=attachConditioningWorkspace({repository});
@@ -114,11 +115,57 @@ test('pantalla recibe Enter, habilita el guardado por año y muestra reintento s
     get('acondSave').click();
     await settle();
     assert.equal(saves,1);
-    assert.equal(get('acondPrepared').textContent,'1 de 1');
+    assert.equal(get('acondPrepared').textContent,'1');
+    assert.equal(get('acondProgressTrack').hidden,true);
     assert.equal(get('acondRetry').hidden,false);
     assert.match(get('acondList').textContent,/00943-94208\/11\/2026/);
     assert.equal(get('acondSave').disabled,true);
     assert.equal(document.querySelectorAll('#grp-acondicionamiento progress').length,1);
+  }finally{
+    controller.reset();
+    dom.window.close();
+    delete globalThis.document;
+  }
+});
+
+test('avance de preparación usa la misma solicitud y el total del Centro de escaneo',async()=>{
+  const html=await readFile(new URL('../index.html',import.meta.url),'utf8');
+  const dom=new JSDOM(html);
+  globalThis.document=dom.window.document;
+  const lecturas=Array.from({length:30},(_,i)=>({
+    codigo:'T'+String(9400000000+i),guardado:'2026-11-08',origen:'maestro'
+  }));
+  const listado=lecturas.slice(0,7).map(({codigo},i)=>({
+    codigo:codigo.replace(/^T/,'TD'),origen:'nueva',...(i===0?{}:{solicitud:'vigente'})
+  }));
+  listado.push({codigo:lecturas[7].codigo,origen:'nueva',solicitud:'anterior'});
+  listado.push({codigo:lecturas[8].codigo,origen:'solicitada'});
+  const repository={
+    async conditioning(){return {nuevas:30,solicitadas:1,preparadas:9,listado};},
+    async reception(){return {id:'vigente',cantidad:100,lecturas};}
+  };
+  const controller=attachConditioningWorkspace({repository});
+  try{
+    const el=id=>document.getElementById(id);
+    const settle=()=>new Promise(resolve=>setImmediate(resolve));
+    controller.activate();
+    await settle();
+    assert.equal(el('acondNew').textContent,'100');
+    assert.equal(el('acondReceptionCount').textContent,'30 de 100 registradas · 70 por registrar');
+    assert.equal(el('acondPrepared').textContent,'7 de 100');
+    assert.equal(el('acondPercent').textContent,'7%');
+
+    const codigo='T9400000080';
+    lecturas.push({codigo,guardado:null,origen:'escaneo'});
+    listado.push({codigo,origen:'nueva',solicitud:'vigente'});
+    controller.activate();
+    await settle();
+    assert.equal(el('acondReceptionCount').textContent,'31 de 100 registradas · 69 por registrar');
+    assert.equal(el('acondPrepared').textContent,'7 de 100');
+    lecturas.at(-1).guardado='2026-11-08';
+    controller.activate();
+    await settle();
+    assert.equal(el('acondPrepared').textContent,'8 de 100');
   }finally{
     controller.reset();
     dom.window.close();
