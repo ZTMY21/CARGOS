@@ -132,7 +132,9 @@ test('Resumen separa el guardado en Excel de la confirmación completa',()=>{
     assert.equal(document.querySelector('.req-reception-progress').value,30);
     assert.deepEqual(show(100,100,[movement('recepcion_parcial',100)]),partial);
     assert.deepEqual(show(100,100,[movement('recepcion_parcial',100),movement('recepcion_completa',100)]),
-      [...partial,'Recepción completa']);
+      [...partial,'Se recibieron las 100 cajas']);
+    assert.match(document.querySelector('.req-reception-timeline li[data-state="complete"]').textContent,
+      /100 de 100 cajas registradas en el Excel/);
     assert.deepEqual(icons(),['#iv-box','#iv-box-receive','#iv-check']);
   }finally{dom.window.close();}
 });
