@@ -26,7 +26,9 @@ const configuration = { url: __SUPABASE_URL__, key: __SUPABASE_ANON_KEY__ };
 const isolatedRequirements = typeof __REQ4_ISOLATED__ !== 'undefined' && __REQ4_ISOLATED__;
 const receptionPreview = typeof __RECEPTION_PREVIEW__ !== 'undefined' && __RECEPTION_PREVIEW__;
 const receptionOverview = typeof __RECEPTION_OVERVIEW__ !== 'undefined' && __RECEPTION_OVERVIEW__;
-const receptionPresentation = receptionPreview || receptionOverview;
+const receptionLive = typeof __RECEPTION_LIVE__ !== 'undefined' && __RECEPTION_LIVE__;
+const receptionEnabled = receptionPreview || receptionLive;
+const receptionPresentation = receptionEnabled || receptionOverview;
 const previewLoginEmail = receptionPreview ? 'recepcion-preview@kardex.test' : 'intervencion4@kardex.test';
 // Capture recovery mode before the client consumes the email callback fragment.
 let passwordRecovery = new URLSearchParams(window.location.hash.slice(1)).get('type') === 'recovery';
@@ -53,7 +55,7 @@ let pendingReqId = null, pendingDocId = null;
 let requestTracking = null;
 let annualReference = null;
 const requestUI = setupRequirements(document.getElementById('req4Workspace'), {
-  repository, isPreview: isolatedRequirements, receptionEnabled: receptionPreview, receptionOverview,
+  repository, isPreview: isolatedRequirements, receptionEnabled, receptionOverview,
   context: () => ({allowed:appReady && isAdmin && (!isPreview || isolatedRequirements),
     id:currentUserId, name:document.getElementById('sessionUser').textContent}),
   refresh: refreshData,
@@ -283,7 +285,7 @@ function selectWorkspaceTab(tab,focus=false) {
   if(focus)(document.querySelector(`#workspaceTabs [data-workspace="${tab}"]`)
     || (tab==='solicitudes'?document.getElementById('btnTopAdminRequests'):null))?.focus();
   if(tab==='solicitudes')void refreshAdminRequests();
-  if(receptionPreview && (tab==='resumen'||tab==='requerimientos'))void refreshData().catch(()=>{});
+  if(receptionEnabled && (tab==='resumen'||tab==='requerimientos'))void refreshData().catch(()=>{});
 }
 document.getElementById('btnTopAdminRequests').addEventListener('click',()=>{
   if(!appReady||!isAdmin)return;
@@ -930,6 +932,14 @@ function renderDocs(){
   const baseAlerta = cargosPorVencer + cargosVencidos;
 
   const pct = (n, base) => base > 0 ? Math.round((n/base)*100) + '%' : '0%';
+  const solicitudCajas = receptionPresentation && isAdmin
+    ? reqs.findLast(row=>row.tipo==='Cajas nuevas para acondicionar' && Number(row.cantidadCajas)>0)
+    : null;
+  const cajasSolicitadas = Number(solicitudCajas?.cantidadCajas)||0;
+  const cajasRegistradas = solicitudCajas
+    ? Number(requestReception(solicitudCajas,requestTracking).guardadas ?? solicitudCajas.recibidoV4)
+    : 0;
+
 
   // Esta tabla agrupa por año del cargo. Los gráficos de cajas usan fechas efectivas.
   const referenceYears = annualReference?.anios ?? [];
@@ -973,8 +983,8 @@ function renderDocs(){
       </div>
       <div class="kpi kpi-color kpi-summary-process">
         <div class="l">En Proceso de Acondicionamiento</div>
-        <div class="n">${fmtNum(cargosEnProceso)}</div>
-        <div class="pct-txt">${pct(cargosEnProceso,totalCargos)}</div>
+        <div class="n">${solicitudCajas ? fmtNum(cajasRegistradas)+'/'+fmtNum(cajasSolicitadas) : fmtNum(cargosEnProceso)}</div>
+        <div class="pct-txt">${solicitudCajas ? pct(Math.max(0,cajasSolicitadas-cajasRegistradas),cajasSolicitadas) : pct(cargosEnProceso,totalCargos)}</div>
       </div>
       <div class="kpi kpi-color kpi-summary-pending">
         <div class="l">Pendiente de Envío a IM</div>
@@ -1008,7 +1018,7 @@ function renderDocs(){
       </div>
       ${isAdmin ? requestCards(reqs,requestTracking) : ''}
     </div>
-    ${receptionPreview ? '<p class="expiry-note">Preview de recepción · solicitudes y códigos de prueba. Los registros de recepción se guardan en el Maestro de prueba.</p>' : isolatedRequirements ? '<p class="expiry-note">Intervención 4 · Base aislada de pruebas con una muestra de registros reales. Consolidación en Excel pendiente.</p>' : ''}
+    ${receptionPreview ? '<p class="expiry-note">Preview de recepción · los guardados se hacen en el Maestro de prueba. Las solicitudes conciliadas identifican los códigos que ya constan en Iron Mountain.</p>' : isolatedRequirements ? '<p class="expiry-note">Intervención 4 · Base aislada de pruebas con una muestra de registros reales. Consolidación en Excel pendiente.</p>' : ''}
     ${expiryGroups.unknown.length ? `<p class="expiry-note">${fmtNum(cargosDe(expiryGroups.unknown))} cargos de 2025/2026 sin fecha válida para calcular el vencimiento; no se incluyen en estas alertas.</p>` : ''}
     <section class="year-section periodo-box" aria-labelledby="year-summary-heading">
       <h3 class="year-heading" id="year-summary-heading">Cargos por Año</h3>
@@ -2155,8 +2165,8 @@ boxScanSheetController=attachBoxScanSheets({
 });
 boxScannerController=attachBoxScanner({
   repository,isAdmin:()=>isAdmin,appReady:()=>appReady,
-  reception:receptionPreview ? attachBoxReception({repository,refresh:refreshData}) : null,
-  onScan:event=>{if(!receptionPreview)boxScanSheetController?.scan(event);}
+  reception:receptionEnabled ? attachBoxReception({repository,refresh:refreshData,live:receptionLive}) : null,
+  onScan:event=>{if(!receptionEnabled)boxScanSheetController?.scan(event);}
 });
 
 // Capa visual aprobada: sin modificar la lógica, el menú ni otras pantallas.

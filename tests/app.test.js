@@ -17,12 +17,13 @@ import {summarizeCreatedCargos} from '../src/monthly-created-summary.js';
 import {renderImBarChart} from '../src/im-bar-chart.js';
 import {renderCargoLineChart} from '../src/cargo-line-chart.js';
 import {requestCards,setupRequirements} from '../src/requirements-ui.js';
+import {requestReception,receptionStatus} from '../src/box-reception-ui.js';
 
 const flush=()=>new Promise(resolve=>setTimeout(resolve,20));
 const reqRow={id:randomUUID(),numero:'REQ-00001',tipo:'Cajas nuevas para acondicionar',fecha_solicitud:'2026-10-01',cantidad_cajas:2,numeros_cargo:'',fecha_recepcion:'2026-10-02',fecha_devolucion:null,usuario:'Juan',updated_at:'2026-10-13T00:00:00.123456Z'};
 const docRow={id:randomUUID(),kardex:'SA-00001',fecha_registro:'2026-10-13',tipo_doc:'Facturas-Guia',periodo:'2026-01-01',ubicacion:'Santa Anita',folios:30,cargos:['C001'],caja_asignada:reqRow.id,f_envio:null,sustento:'',sustento_imagen:'',usuario:'Juan',facturas:'F-001',obs:'',updated_at:'2026-10-13T00:00:00.123456Z'};
 
-async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recovery=false,adminLink='',loginError=null,isolatedPreview=false,annualReference=null,loanMatches={},requestAction=null,enableSearch=false,username='',previousMapping={},initialDocs=[docRow],initialReqs=[reqRow],initialTracking=null,now=Date.now()}={}) {
+async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recovery=false,adminLink='',loginError=null,isolatedPreview=false,receptionPreview=false,annualReference=null,loanMatches={},requestAction=null,enableSearch=false,username='',previousMapping={},initialDocs=[docRow],initialReqs=[reqRow],initialTracking=null,now=Date.now()}={}) {
   const html=await readFile(new URL('../index.html',import.meta.url),'utf8');
   const source=(await readFile(new URL('../src/app.js',import.meta.url),'utf8')).replace(/^import .*;\n/gm,'');
   const dom=new JSDOM(html,{url:'https://kardex.example.test'+adminLink+(recovery?'#type=recovery':''),runScripts:'outside-only'});
@@ -93,13 +94,13 @@ async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recov
   context.Date=class extends Date {constructor(...args){super(...(args.length?args:[state.now]));}static now(){return state.now;}};
   Object.assign(context,{cargoTotalsByYear,uniqueCargoDocuments,isSentIm,usesHistoricalImDecision,historicalShipmentDetails,HISTORICAL_IM_NOTE,cargoExpiryGroups,formatCargoDuration,limaDate,requestedIMBoxes,countRequestedCargos,summarizePreparedIm,summarizeShippedBoxes,summarizeCreatedCargos,renderImBarChart,renderCargoLineChart});
   Object.assign(context,{
-    requestCards,setupRequirements,
+    requestCards,setupRequirements,requestReception,receptionStatus,attachBoxReception:()=>null,
     // Los módulos de interfaz externos no forman parte del test de autenticación.
     attachScanImport:()=>{},attachPickupMail:()=>null,attachBoxConditioning:()=>null,
     attachBoxScanSheets:()=>null,attachBoxScanner:()=>({activate:()=>{},deactivate:()=>{},reset:()=>{}}),
     attachInterventionExperience:()=>{},
     createClient:(url,key,options)=>{state.authOptions=options?.auth;return client;},KardexRepository:FakeRepository,reqFromDb,docFromDb,reqEstado,docEstado,fmtDate,escapeHtml,invoiceSearchPresentation,buildWorkbook:async(...args)=>{state.exportCalls.push(args);return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},buildCargoWorkbook:async(cargo)=>{state.guestExport=cargo;return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},buildExistenciasReport:async(...args)=>{state.reportArgs=args;return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},serializeExistenciasReport:async()=>{state.serializedReport=true;return new Uint8Array([1]);},parseWorkbook,highlightMatch,normalizeSearch,filterDocuments,filterRequirements,assignedBoxCode,cargoYear,invoiceLocation,locationLabel,groupsForCodes,
-    __SUPABASE_URL__:'https://example.supabase.co',__SUPABASE_ANON_KEY__:'sb_publishable_test',__REQ4_ISOLATED__:isolatedPreview,confirm:()=>true,alert:()=>{}});
+    __SUPABASE_URL__:'https://example.supabase.co',__SUPABASE_ANON_KEY__:'sb_publishable_test',__REQ4_ISOLATED__:isolatedPreview,__RECEPTION_PREVIEW__:receptionPreview,confirm:()=>true,alert:()=>{}});
   await vm.runInContext(`(async()=>{${source}})()`,context);
   const node=id=>dom.window.document.getElementById(id);
   return {dom,state,node,close(){dom.window.close();}};
@@ -153,6 +154,28 @@ test('la Preview alinea las tres tarjetas y distingue los conteos anuales de la 
   assert.equal(a.node('yearSummaryGrid').querySelector('[data-cargo-year]'),null);
   assert.match(summary.textContent,/Existencias contiene una muestra de pruebas/);
  } finally { a.close(); }
+});
+
+test('Resumen muestra cajas registradas y solo el porcentaje pendiente de la solicitud de acondicionamiento',async()=>{
+ const supply={...reqRow,fecha_recepcion:null,cantidad_cajas:100,estado_v4:'Recibido parcialmente',recibido_v4:30,solicitante_v4:'owner'};
+ const counts={id:supply.id,solicitadas:100,leidas:40,guardadas:30,acondicionadas:0};
+ const a=await app({isolatedPreview:true,receptionPreview:true,initialReqs:[supply],
+   initialTracking:{cajas:[],movimientos:[],suministro:{pendientes:100,solicitudes:[counts]}}});
+ try {
+   const card=()=>a.node('resumenTablas').querySelector('.kpi-summary-process');
+   assert.equal(card().querySelector('.n').textContent,'30/100');
+   assert.equal(card().querySelector('.pct-txt').textContent,'70%');
+   a.state.tracking.suministro.solicitudes[0].guardadas=45;
+   a.node('workspaceTabResumen').click();
+   await flush();
+   assert.equal(card().querySelector('.n').textContent,'45/100');
+   assert.equal(card().querySelector('.pct-txt').textContent,'55%');
+   a.state.tracking.suministro.solicitudes[0].guardadas=100;
+   a.node('workspaceTabResumen').click();
+   await flush();
+   assert.equal(card().querySelector('.n').textContent,'100/100');
+   assert.equal(card().querySelector('.pct-txt').textContent,'0%');
+ }finally{a.close();}
 });
 
 test('la Preview muestra los datos de las solicitudes de ambas tarjetas solo en Ver detalle',async()=>{

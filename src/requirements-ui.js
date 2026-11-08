@@ -1,5 +1,5 @@
 import { escapeHtml as html, fmtDate, limaDate, REQ_TYPES } from './rules.js';
-import {receptionStatus as receiptStatus,receptionTime,requestReception} from './box-reception-ui.js';
+import {receptionTime,requestReception} from './box-reception-ui.js';
 
 const kinds = {nuevas: 'Cajas nuevas', prestamo: 'Solicitudes a IM'};
 const steps = {nuevas: ['Cantidad', 'Solicitar'], prestamo: ['Buscar', 'Seleccionar', 'Solicitar']};
@@ -288,33 +288,44 @@ export function setupRequirements(root, {repository, context, refresh, onKindCha
     }
   });
 
-  function receiptHistory(row) {
+  function receiptProgress(row) {
     const receipt=requestReception(row,tracking);
-    const total=Number(row.cantidadCajas), read=Number(receipt?.leidas||0), status=receiptStatus(receipt||{});
-    const movements=(tracking?.movimientos||[]).filter(item=>item.requerimiento===row.id &&
-      ['recepcion_parcial','recepcion_completa'].includes(item.tipo));
-    const labels={
-      'recepcion_parcial':['Guardado parcial de recepción','Parcial'],
-      'recepcion_completa':['Recepción completa','Completa']
-    };
-    const events=[{title:'Solicitud de cajas nuevas',description:total+' cajas solicitadas',stamp:row.createdAt||receipt?.creada,tone:'request',label:'Solicitud'},
-      ...movements.map(event=>({
-        title:labels[event.tipo][0],description:event.datos.cantidad+' de '+total+' cajas verificadas',
-        stamp:event.registrado,tone:event.tipo==='recepcion_completa'?'complete':'pending',label:labels[event.tipo][1]
-      }))];
-    const lastPartial=movements.filter(event=>event.tipo==='recepcion_parcial').at(-1);
-    const tone=receipt?.confirmada?'complete':'pending';
+    const total=Number(row.cantidadCajas);
+    const movements=(tracking?.movimientos||[]).filter(item=>item.requerimiento===row.id);
+    const partial=movements.findLast(event=>event.tipo==='recepcion_parcial'||event.tipo==='recepcion_conciliada');
+    const confirmation=movements.findLast(event=>event.tipo==='recepcion_completa'&&Number(event.datos.cantidad)===total);
+    const saved=Number(receipt.guardadas??confirmation?.datos.cantidad??partial?.datos.cantidad??row.recibidoV4??0);
+    const complete=saved===total ? confirmation : null;
+    const status=complete ? 'Recepción completa' : saved ? 'Recepción parcial' : 'Solicitud pendiente';
+    const requestDate=receipt.recepcion_fisica ? row.fechaSolicitud : row.createdAt||receipt.creada||row.fechaSolicitud;
+    return {total,saved,partial,complete,status,requestDate};
+  }
+
+  function receiptHistory(row) {
+    const {total,saved,partial,complete,requestDate}=receiptProgress(row);
+    const events=[{title:'Solicitud de cajas nuevas',description:total+' cajas solicitadas',stamp:requestDate,tone:'request',label:'Solicitud',icon:'iv-box'}];
+    if (partial) {
+      events.push({title:'Guardado parcial de recepción',description:partial.datos.cantidad+' de '+total+' cajas registradas en el Excel',
+        stamp:partial.tipo==='recepcion_parcial'?partial.registrado:null,tone:'pending',label:'Parcial',icon:'iv-box-receive'});
+    }
+    if (complete) {
+      events.push({title:'Recepción completa',description:total+' de '+total+' cajas recepcionadas',
+        stamp:complete.registrado,tone:'complete',label:'Completa',icon:'iv-check'});
+    }
+    const tone=complete?'complete':'pending';
     return `<article class="req-reception-detail">
       <div class="req-reception-info" data-state="${tone}">
-        <div><strong>${html(status)}: ${read ? read+'/'+total+' cajas recepcionadas' : total+' cajas'}</strong>
-          <span>${html(row.numero)} · ${html(row.usuario)} · Solicitada el ${html(receptionTime(row.createdAt||receipt?.creada))}</span></div>
-        <div><span>Acondicionadas: ${receipt.acondicionadas==null ? 'Por conciliar' : receipt.acondicionadas+'/'+total}</span>
-          ${lastPartial?`<span>Último guardado parcial: ${html(receptionTime(lastPartial.registrado))}</span>`:''}</div>
+        <div><strong>${saved} de ${total} cajas registradas</strong>
+          <span>${html(row.numero)} · ${html(row.usuario)} · Solicitada el ${html(receptionTime(requestDate))}</span></div>
+        <span>${total-saved} pendientes de registrar</span>
       </div>
-      <progress class="req-reception-progress" data-state="${read===total?'complete':'pending'}" value="${read}" max="${total}" aria-label="Progreso de recepción de ${html(row.numero)}"></progress>
+      <progress class="req-reception-progress" data-state="${tone}" value="${saved}" max="${total}" aria-label="Cajas registradas en el Excel para ${html(row.numero)}"></progress>
       <h3 class="req4-history-heading">Historial de movimientos</h3>
       <ol class="req-reception-timeline">${events.map(event=>`<li data-state="${event.tone}">
-        <div><strong>${html(event.title)}</strong><span>${html(event.description)}</span></div>
+        <div class="req-reception-event">
+          <svg class="req-reception-event-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><use href="#${event.icon}"></use></svg>
+          <div><strong>${html(event.title)}</strong><span>${html(event.description)}</span></div>
+        </div>
         <span class="req-reception-event-label">${html(event.label)}</span><time>${html(receptionTime(event.stamp))}</time>
       </li>`).join('')}</ol>
     </article>`;
@@ -331,12 +342,12 @@ export function setupRequirements(root, {repository, context, refresh, onKindCha
     const activeLabels = supply ? ['solicitud pendiente','solicitudes pendientes'] : ['solicitud activa','solicitudes activas'];
     find('DialogTitle').textContent = supply ? 'Cajas para acondicionar' : kinds.prestamo;
     find('DialogIntro').textContent = supply ? 'Solicitudes de cajas nuevas' : 'Consulta las cajas solicitadas a Iron Mountain.';
-    const latest=supply&&list.length ? requestReception(list.at(-1),tracking) : null;
+    const latest=supply&&list.length ? receiptProgress(list.at(-1)) : null;
     find('DialogBody').innerHTML = `
       <div class="req4-request-summary${supply&&showReception?' req-reception-summary':''}">
         <div><strong>${total}</strong><span>${total === 1 ? 'caja solicitada' : 'cajas solicitadas'}</span></div>
         <div><strong>${active}</strong><span>${activeLabels[active === 1 ? 0 : 1]}</span></div>
-        ${supply&&showReception?`<div><span>Estado actual</span><strong>${html(latest?receiptStatus(latest):'Sin solicitudes')}</strong></div>`:''}
+        ${supply&&showReception?`<div><span>Estado actual</span><strong>${html(latest?.status||'Sin solicitudes')}</strong></div>`:''}
       </div>
       ${list.length ? supply&&showReception
         ? [...list].reverse().map(row=>receiptHistory(row)).join('')
