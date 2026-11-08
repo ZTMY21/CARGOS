@@ -26,7 +26,9 @@ const configuration = { url: __SUPABASE_URL__, key: __SUPABASE_ANON_KEY__ };
 const isolatedRequirements = typeof __REQ4_ISOLATED__ !== 'undefined' && __REQ4_ISOLATED__;
 const receptionPreview = typeof __RECEPTION_PREVIEW__ !== 'undefined' && __RECEPTION_PREVIEW__;
 const receptionOverview = typeof __RECEPTION_OVERVIEW__ !== 'undefined' && __RECEPTION_OVERVIEW__;
-const receptionPresentation = receptionPreview || receptionOverview;
+const receptionLive = typeof __RECEPTION_LIVE__ !== 'undefined' && __RECEPTION_LIVE__;
+const receptionEnabled = receptionPreview || receptionLive;
+const receptionPresentation = receptionEnabled || receptionOverview;
 const previewLoginEmail = receptionPreview ? 'recepcion-preview@kardex.test' : 'intervencion4@kardex.test';
 // Capture recovery mode before the client consumes the email callback fragment.
 let passwordRecovery = new URLSearchParams(window.location.hash.slice(1)).get('type') === 'recovery';
@@ -53,7 +55,7 @@ let pendingReqId = null, pendingDocId = null;
 let requestTracking = null;
 let annualReference = null;
 const requestUI = setupRequirements(document.getElementById('req4Workspace'), {
-  repository, isPreview: isolatedRequirements, receptionEnabled: receptionPreview, receptionOverview,
+  repository, isPreview: isolatedRequirements, receptionEnabled, receptionOverview,
   context: () => ({allowed:appReady && isAdmin && (!isPreview || isolatedRequirements),
     id:currentUserId, name:document.getElementById('sessionUser').textContent}),
   refresh: refreshData,
@@ -283,7 +285,7 @@ function selectWorkspaceTab(tab,focus=false) {
   if(focus)(document.querySelector(`#workspaceTabs [data-workspace="${tab}"]`)
     || (tab==='solicitudes'?document.getElementById('btnTopAdminRequests'):null))?.focus();
   if(tab==='solicitudes')void refreshAdminRequests();
-  if(receptionPreview && (tab==='resumen'||tab==='requerimientos'))void refreshData().catch(()=>{});
+  if(receptionEnabled && (tab==='resumen'||tab==='requerimientos'))void refreshData().catch(()=>{});
 }
 document.getElementById('btnTopAdminRequests').addEventListener('click',()=>{
   if(!appReady||!isAdmin)return;
@@ -2163,8 +2165,8 @@ boxScanSheetController=attachBoxScanSheets({
 });
 boxScannerController=attachBoxScanner({
   repository,isAdmin:()=>isAdmin,appReady:()=>appReady,
-  reception:receptionPreview ? attachBoxReception({repository,refresh:refreshData}) : null,
-  onScan:event=>{if(!receptionPreview)boxScanSheetController?.scan(event);}
+  reception:receptionEnabled ? attachBoxReception({repository,refresh:refreshData,live:receptionLive}) : null,
+  onScan:event=>{if(!receptionEnabled)boxScanSheetController?.scan(event);}
 });
 
 // Capa visual aprobada: sin modificar la lógica, el menú ni otras pantallas.

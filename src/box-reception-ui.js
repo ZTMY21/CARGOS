@@ -36,7 +36,8 @@ export function renderReceptionOverview(root,rows,visible) {
   el('boxReceptionPending').textContent='El guardado de recepción está pendiente de la conciliación de cajas existentes con el Maestro de Iron Mountain.';
 }
 
-export function attachBoxReception({repository,refresh}) {
+export function attachBoxReception({repository,refresh,live=false}) {
+  const master=live?'Excel Maestro de Iron Mountain':'Maestro de prueba';
   const el = id => document.getElementById(id);
   const mode = el('boxReceptionMode'), input = el('boxScanInput'), progress = el('boxReceptionProgress');
   const save = el('boxReceptionSave'), confirm = el('boxReceptionConfirm'), download = el('boxReceptionDownload');
@@ -63,6 +64,7 @@ export function attachBoxReception({repository,refresh}) {
     confirm.disabled=running>0||!full||complete;
     confirm.textContent=physical?'Confirmar registro de todas las cajas':'Confirmar recepción completa';
     download.disabled=!state||saved===0;
+    download.textContent=live?'Descargar Excel Maestro':'Descargar Maestro de prueba';
     el('boxReceptionCount').textContent=readings.length+'/'+total+(physical?' cajas registradas por código':' cajas recepcionadas');
     el('boxReceptionBadge').textContent=state ? receptionStatus(state) : 'Sin solicitud activa';
     progress.dataset.state=full?'complete':'pending';
@@ -73,8 +75,8 @@ export function attachBoxReception({repository,refresh}) {
       : physical
         ? physical+' recibidas físicamente · '+matched+' conciliadas del Maestro · '+(readings.length-matched)+
           ' escaneadas aquí · '+(total-readings.length)+' por registrar'
-        : saved+' guardadas en el Maestro de prueba · '+(readings.length-saved)+' pendientes de consolidar';
-    el('boxSheetsStatus').textContent=state ? 'Destino: Maestro de prueba · CARGOS ENVIADOS' :
+        : saved+' guardadas en el '+master+' · '+(readings.length-saved)+' pendientes de consolidar';
+    el('boxSheetsStatus').textContent=state ? 'Destino: '+master+' · CARGOS ENVIADOS' :
       'Solicita cajas nuevas en Requerimientos para iniciar la recepción.';
     el('boxScanHint').textContent=mode.checked ?
       'Escanea códigos completos de 10 dígitos. Se registran automáticamente con o sin Enter.' :
@@ -139,7 +141,7 @@ export function attachBoxReception({repository,refresh}) {
   save.addEventListener('click',()=>{
     if (save.disabled) return;
     void enqueue(id=>repository.receptionExcel('parcial',id),next=>
-      next.lecturas.filter(row=>row.guardado).length+'/'+next.cantidad+' cajas verificadas en el Maestro de prueba.')?.then(refreshSummary);
+      next.lecturas.filter(row=>row.guardado).length+'/'+next.cantidad+' cajas verificadas en el '+master+'.')?.then(refreshSummary);
   });
   confirm.addEventListener('click',()=>{
     if (confirm.disabled) return;
@@ -151,7 +153,7 @@ export function attachBoxReception({repository,refresh}) {
     try {
       const blob=await repository.receptionExcel('descargar',state.id);
       const url=URL.createObjectURL(blob), a=document.createElement('a');
-      a.href=url;a.download='Maestro_Recepcion_Prueba.xlsx';a.click();
+      a.href=url;a.download=live?'CARGOS_ENVIADOS_IRON_MOUNTAIN_MAESTRO.xlsm':'Maestro_Recepcion_Prueba.xlsx';a.click();
       setTimeout(()=>URL.revokeObjectURL(url),1000);
     } catch(error) {notify(error.message,true);}
   });

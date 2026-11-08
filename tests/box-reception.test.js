@@ -181,7 +181,7 @@ test('Supabase aplica propiedad, límite, conciliación idempotente y bloqueo ha
     await db.exec(`
       insert into private.kardex_miembros(email,rol) values
         ('owner@example.test','admin'),('other@example.test','admin'),('guest@example.test','editor');
-      create table public.im_envios_cargos_live(codigo_caja text,codigo_cargo text,fecha_envio date);
+      create table public.im_envios_cargos_live(codigo_caja text,codigo_cargo text,fecha_envio date,fecha_preparacion date,clasificacion_caja text);
       create view public.kardex_documentos_resumen as select id,null::text im_live_codigo_caja from public.documentos;
       create view public.kardex_live_ingresos as select null::text cargo where false;
       create function private.req4_cargos_unicos(text[]) returns text[] language sql immutable as $$ select $1 $$;
@@ -194,6 +194,7 @@ test('Supabase aplica propiedad, límite, conciliación idempotente y bloqueo ha
     await migration('20261107172500_recepcion_cajas.sql');
     await migration('20261107175000_recepcion_prefijos.sql');
     await migration('20261107233000_recepcion_conciliada.sql');
+    await migration('20261108001800_recepcion_maestro_drive.sql');
     await actor(owner);
     await db.exec(`
       insert into private.recepcion_maestro_prueba(archivo,secreto_hash,codigos)
@@ -235,9 +236,28 @@ test('Supabase aplica propiedad, límite, conciliación idempotente y bloqueo ha
     await condition(codes[0]);
     await assert.rejects(req('crear',{tipo:'nuevas',cantidad:1}),/No se pueden solicitar/);
     await condition(codes[1]);
-    assert.equal((await req('crear',{tipo:'nuevas',cantidad:100})).cantidad_cajas,100);
+    const live=await req('crear',{tipo:'nuevas',cantidad:100});
+    assert.equal(live.cantidad_cajas,100);
     const detail=await one('select public.kardex_req4_detalle() result');
     assert.deepEqual(detail.movimientos.filter(x=>x.requerimiento===id).map(x=>x.tipo),
       ['crear','recepcion_parcial','recepcion_completa']);
+    await db.exec("delete from private.recepcion_maestro_prueba; insert into private.recepcion_maestro_produccion(secreto_hash) values(sha256(convert_to('solo-prueba','UTF8')))");
+    const lease=await one("select public.kardex_im_master_lock('tomar',null) result");
+    const liveSave=(action,rows,token=lease.token)=>one(
+      'select public.kardex_recepcion_produccion_excel($1,$2,$3,$4,$5,$6::jsonb) result',
+      [action,live.id,'solo-prueba',token,'revision-drive',JSON.stringify(rows)]);
+    await assert.rejects(liveSave('estado',{}),/no está habilitado/);
+    await db.exec('update private.recepcion_maestro_produccion set habilitada=true');
+    await assert.rejects(liveSave('estado',{},randomUUID()),/reserva del Excel/);
+    assert.equal((await one("select public.kardex_im_master_lock('tomar',null) result")).token,null);
+    await op('leer',live.id,codes[2].codigo);
+    await assert.rejects(liveSave('completa',{[codes[2].clave]:903}),/aún no permite/);
+    const productionSaved=await liveSave('parcial',{[codes[2].clave]:903});
+    assert.equal(productionSaved.lecturas[0].correlativo,903);
+    assert.equal(productionSaved.confirmada,null);
+    assert.equal((await liveSave('parcial',{})).lecturas.length,1);
+    await one("select public.kardex_im_master_lock('liberar',$1) result",[lease.token]);
+    await assert.rejects(liveSave('estado',{}),/reserva del Excel/);
+
   }finally{await db.close();}
 });
