@@ -53,6 +53,7 @@ async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recov
       signOut:async()=>{state.signOuts++;state.session=null;state.authCallback('SIGNED_OUT',null);return {error:null};}}
   };
   class FakeRepository {
+    async conditioning(){return [];}
     async requestBoxes(query){return structuredClone(loanMatches[query]||[]);}
     async requestTracking(){return structuredClone(state.tracking || {cajas:[],movimientos:[]});}
     async requestAction(id,action,data){return requestAction(id,action,data,state);}
@@ -97,6 +98,7 @@ async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recov
     requestCards,setupRequirements,requestReception,receptionStatus,attachBoxReception:()=>null,
     // Los módulos de interfaz externos no forman parte del test de autenticación.
     attachScanImport:()=>{},attachPickupMail:()=>null,attachBoxConditioning:()=>null,
+    attachConditioningWorkspace:()=>null,inventoryConditioning:()=>doc=>doc,
     attachBoxScanSheets:()=>null,attachBoxScanner:()=>({activate:()=>{},deactivate:()=>{},reset:()=>{}}),
     attachInterventionExperience:()=>{},
     createClient:(url,key,options)=>{state.authOptions=options?.auth;return client;},KardexRepository:FakeRepository,reqFromDb,docFromDb,reqEstado,docEstado,fmtDate,escapeHtml,invoiceSearchPresentation,buildWorkbook:async(...args)=>{state.exportCalls.push(args);return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},buildCargoWorkbook:async(cargo)=>{state.guestExport=cargo;return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},buildExistenciasReport:async(...args)=>{state.reportArgs=args;return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},serializeExistenciasReport:async()=>{state.serializedReport=true;return new Uint8Array([1]);},parseWorkbook,highlightMatch,normalizeSearch,filterDocuments,filterRequirements,assignedBoxCode,cargoYear,invoiceLocation,locationLabel,groupsForCodes,
