@@ -1197,16 +1197,16 @@
     <div id="acondYears" class="acond-years" role="group" aria-label="Año del cargo">
       <button type="button" value="2020">2020</button><button type="button" value="2021">2021</button><button type="button" value="2022">2022</button><button type="button" value="2023">2023</button><button type="button" value="2024">2024</button><button type="button" value="2025">2025</button><button type="button" value="2026">2026</button>
     </div>
-    <strong>Cargos</strong><p>Ingresa o escanea el cargo y presiona Enter para validarlo.</p>
+    <strong>Cargos</strong><p id="acondCargoHint" role="status">Primero consulta el código de una caja nueva recibida.</p>
     <div id="acondCargoFields">
-      <div class="acond-cargo"><label for="acondCargo1">1</label><input id="acondCargo1" aria-label="Cargo 1" autocomplete="off" maxlength="24">
+      <div class="acond-cargo"><label for="acondCargo1">1</label><input id="acondCargo1" aria-label="Cargo 1" aria-describedby="acondCargoHint" autocomplete="off" maxlength="24">
       <button type="button" aria-label="Validar cargo 1">→</button><span class="acond-feedback" role="status"></span></div>
-<div class="acond-cargo"><label for="acondCargo2">2</label><input id="acondCargo2" aria-label="Cargo 2" autocomplete="off" maxlength="24">
+<div class="acond-cargo"><label for="acondCargo2">2</label><input id="acondCargo2" aria-label="Cargo 2" aria-describedby="acondCargoHint" autocomplete="off" maxlength="24">
       <button type="button" aria-label="Validar cargo 2">→</button><span class="acond-feedback" role="status"></span></div>
-<div class="acond-cargo"><label for="acondCargo3">3</label><input id="acondCargo3" aria-label="Cargo 3" autocomplete="off" maxlength="24">
+<div class="acond-cargo"><label for="acondCargo3">3</label><input id="acondCargo3" aria-label="Cargo 3" aria-describedby="acondCargoHint" autocomplete="off" maxlength="24">
       <button type="button" aria-label="Validar cargo 3">→</button><span class="acond-feedback" role="status"></span></div>
     </div>
-    <p id="acondExtraCargos" hidden></p><p id="acondCargoHint">Máximo 3 cargos por caja nueva.</p>
+    <p id="acondExtraCargos" hidden></p>
     <label id="acondVerifiedLabel" class="acond-verification" hidden><input type="checkbox" id="acondVerified"> Los cargos físicos coinciden con el Histórico IM.</label>
     <button id="acondSave" class="acond-save" type="button" disabled><svg class="iv-icon" aria-hidden="true"><use href="#iv-box"></use></svg> Caja preparada</button>
     <p id="acondMessage" role="status"></p><button id="acondRetry" class="secondary" type="button" hidden>Reintentar sincronización</button>

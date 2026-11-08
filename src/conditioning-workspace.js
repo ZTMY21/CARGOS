@@ -44,7 +44,18 @@ export function attachConditioningWorkspace({repository,onChanged=()=>{}}){
     const checking=selected?.status==='disponible'&&selected.origen==='solicitada';
     el('acondVerifiedLabel').hidden=!checking;
     verified.disabled=busy;
-    el('acondCargoHint').hidden=selected?.origen==='solicitada';
+    const cargoHint=el('acondCargoHint');
+    if(editing){
+      cargoHint.textContent='Elige el año, ingresa hasta 3 cargos y presiona Enter o la flecha para validar cada uno.';
+    }else if(selected?.origen==='solicitada'){
+      cargoHint.textContent=selected.status==='no_recibida'
+        ? 'Confirma la recepción en Control de cajas para verificar los cargos del Histórico IM.'
+        : 'Los cargos del Histórico IM se muestran para consulta y verificación física.';
+    }else if(selected?.codigo){
+      cargoHint.textContent='Los campos se habilitan para cajas nuevas recibidas y pendientes de preparación.';
+    }else{
+      cargoHint.textContent='Primero consulta el código de una caja nueva recibida.';
+    }
     const filled=fields.map(({input},i)=>[input.value.trim(),validations[i]]).filter(([value])=>value);
     for(const {input,button} of fields){input.readOnly=!editing;button.disabled=!editing;}
     save.disabled=busy||!(checking?verified.checked:editing&&filled.length>0&&

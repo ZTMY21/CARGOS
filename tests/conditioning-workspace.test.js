@@ -69,6 +69,7 @@ test('pantalla recibe Enter, habilita el guardado por año y muestra reintento s
       if(action==='listar')return {nuevas:1,solicitadas:0,preparadas:saves,listado:saves?[prepared]:[]};
       if(action==='buscar'){
         scan=data.p_codigo;
+        if(scan==='TD0900000018')return {codigo:scan,origen:'solicitada',status:'no_recibida',cargos:['00943']};
         return {codigo:prepared.codigo,origen:'nueva',status:'disponible'};
       }
       if(action==='cargo'){
@@ -85,12 +86,21 @@ test('pantalla recibe Enter, habilita el guardado por año y muestra reintento s
     const get=id=>document.getElementById(id);
     const settle=()=>new Promise(resolve=>setImmediate(resolve));
     controller.activate();
+    assert.equal(get('acondCargo1').readOnly,true);
+    assert.match(get('acondCargoHint').textContent,/Primero consulta/);
+    get('acondScan').value='TD0900000018';
+    get('acondScanForm').requestSubmit();
+    await settle();
+    assert.equal(get('acondCargo1').readOnly,true);
+    assert.match(get('acondCargoHint').textContent,/Confirma la recepción/);
     get('acondScan').value='P0900000019';
     get('acondScanForm').requestSubmit();
     await settle();
     assert.equal(scan,'P0900000019');
     assert.equal(get('acondBarcodeCode').textContent,prepared.codigo);
     assert.equal(get('acondBarcode').hasAttribute('hidden'),false);
+    assert.equal(get('acondCargo1').readOnly,false);
+    assert.match(get('acondCargoHint').textContent,/Enter o la flecha/);
     get('acondYears').querySelector('[value="2025"]').click();
     const cargo=get('acondCargo1');
     cargo.value='943';
