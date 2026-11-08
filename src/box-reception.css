@@ -32,6 +32,10 @@
 .req-reception-timeline li[data-state="complete"]::before { border-color:#238440; }
 .req-reception-timeline li[data-state="complete"] .req-reception-event-label { background:#dff5e3; color:#176535; }
 .req-reception-timeline li[data-state="request"] .req-reception-event-label { background:#dbeefa; color:#16557f; }
+.req-reception-event { display:flex; align-items:center; gap:10px; min-width:0; }
+.req-reception-event-icon { box-sizing:border-box; width:36px; height:36px; padding:7px; flex:none; border-radius:8px; color:#16557f; background:#dbeefa; }
+.req-reception-timeline li[data-state="pending"] .req-reception-event-icon { color:#8c5000; background:#ffedcb; }
+.req-reception-timeline li[data-state="complete"] .req-reception-event-icon { color:#176535; background:#dff5e3; }
 .req-reception-timeline li div span, .req-reception-timeline time { display:block; font-size:.86rem; color:#385372; }
 @media(max-width:600px) {
   .req4-request-summary.req-reception-summary { grid-template-columns:repeat(2,minmax(0,1fr)); }
