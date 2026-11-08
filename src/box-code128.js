@@ -13,8 +13,9 @@ const patterns=(
 
 export function drawBoxBarcode(svg,code) {
   svg.replaceChildren();
-  svg.hidden=!/^[\x20-\x7e]+$/.test(code);
-  if(svg.hidden)return;
+  const valid=/^[\x20-\x7e]+$/.test(code);
+  svg.toggleAttribute('hidden',!valid);
+  if(!valid)return;
   const codes=Array.from(code,char=>char.charCodeAt(0)-32);
   const checksum=codes.reduce((sum,n,i)=>sum+n*(i+1),104)%103;
   const bars=[104,...codes,checksum,106].map(n=>patterns[n]).join('');
