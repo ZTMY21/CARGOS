@@ -42,13 +42,13 @@ create function private.acond_clave(valor text) returns text language sql immuta
   from (select regexp_replace(upper(coalesce(valor,'')), '[[:space:]./_-]', '', 'g') codigo) c
 $$;
 
-create function private.acond_cargo_clave(valor text) returns text language sql immutable set search_path='' as $
+create function private.acond_cargo_clave(valor text) returns text language sql immutable set search_path='' as $$
   select private.req4_cargo(regexp_replace(btrim(valor),'^0+(?=[0-9])',''))
-$;
-create function private.acond_cargos_claves(valores text[]) returns text[] language sql immutable set search_path='' as $
+$$;
+create function private.acond_cargos_claves(valores text[]) returns text[] language sql immutable set search_path='' as $$
   select coalesce(array_agg(distinct clave) filter(where clave is not null),'{}')
   from (select private.acond_cargo_clave(valor) clave from unnest(valores) valor) c
-$;
+$$;
 
 create view private.acond_cajas as
   select c.clave,c.codigo,c.requerimiento solicitud,'nueva'::text origen,
