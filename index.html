@@ -1312,6 +1312,36 @@
           </div>
         </section>
       </div>
+
+      <!-- Diseño de aprobación: correo combinado NUEVAS + DEVOLUCIONES (sin envío real) -->
+      <details id="pickupOutlookProposal" class="pickup-outlook-proposal" open>
+        <summary><span>Vista propuesta · Aviso de recojo por Outlook</span><span class="pickup-outlook-pill">DISEÑO PARA REVISIÓN · NO ENVIADO</span></summary>
+        <div class="pickup-outlook-container">
+          <p class="pickup-outlook-info">Correo único, con destinatarios predefinidos y saludo según la hora de Lima. Las cantidades y los adjuntos de este ejemplo se basan en el formato de referencia y no sustituyen los registros reales.</p>
+          <div class="pickup-outlook-window" aria-label="Ejemplo visual del nuevo correo">
+            <div class="pickup-outlook-window-top"><span class="pickup-outlook-icon" aria-hidden="true">✉</span> Vista de redacción · Microsoft Outlook <span class="pickup-outlook-pill">Borrador ilustrativo</span></div>
+            <div class="pickup-outlook-line"><strong>De</strong><span>Cuenta corporativa autorizada al conectar Outlook (pendiente de validar)</span></div>
+            <div class="pickup-outlook-line"><strong>Para</strong><span id="pickupOutlookTo">—</span></div>
+            <div class="pickup-outlook-line"><strong>CC</strong><span id="pickupOutlookCc">—</span></div>
+            <div class="pickup-outlook-line"><strong>Asunto</strong><span id="pickupOutlookSubject">—</span></div>
+            <div class="pickup-outlook-body" id="pickupOutlookBody">Generando ejemplo…</div>
+            <div class="pickup-outlook-attachments">
+              <div class="pickup-outlook-attachments-title">Adjuntos previstos · aún no generados</div>
+              <div class="pickup-outlook-attachment-row">
+                <div class="pickup-outlook-attachment"><span class="pickup-outlook-xls">XLSX</span> Formato IM-DYT (NUEVAS).xlsx</div>
+                <div class="pickup-outlook-attachment"><span class="pickup-outlook-xls">XLSX</span> Formato IM-DYT (DEVOLUCIONES).xlsx</div>
+              </div>
+            </div>
+            <div class="pickup-outlook-signature">Firma: se tomará de la cuenta y configuración de Outlook al integrar el envío. No se escribirá una firma inventada o duplicada en el cuerpo.</div>
+          </div>
+          <div class="pickup-outlook-tools">
+            <button type="button" class="secondary" id="pickupOutlookRefresh">Actualizar saludo y fecha</button>
+            <button type="button" id="pickupOutlookCopy">Copiar correo de ejemplo</button>
+            <span id="pickupOutlookGreetingTime" class="pickup-outlook-pill" aria-label="Saludo y fecha del ejemplo">—</span>
+          </div>
+          <p class="pickup-outlook-footnote" id="pickupOutlookCopyStatus" role="status">Esta visual no envía mensajes, no crea adjuntos ni modifica Excel. El botón de envío real solo se habilitará cuando esté integrada y autorizada la cuenta corporativa y se validen las dos relaciones.</p>
+        </div>
+      </details>
       <details id="pickupPreviewDetails" class="intervention-preview-panel iv-mail-preview">
         <summary><svg class="iv-icon" aria-hidden="true"><use href="#iv-mail"></use></svg> Ver correo generado</summary>
         <div class="intervention-preview-inner">
