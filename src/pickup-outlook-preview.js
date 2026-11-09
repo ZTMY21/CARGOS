@@ -9,9 +9,13 @@ export function pickupLimaGreeting(date=new Date()){
 }
 export function pickupSampleContent(date=new Date()){
  const fecha=new Intl.DateTimeFormat('es-PE',{timeZone:'America/Lima',day:'2-digit',month:'2-digit',year:'numeric'}).format(date);
+ const sello=new Intl.DateTimeFormat('en-GB',{timeZone:'America/Lima',year:'numeric',month:'2-digit',day:'2-digit'})
+  .formatToParts(date);
+ const parte=tipo=>sello.find(p=>p.type===tipo)?.value||'';
+ const fechaAsunto=parte('year')+parte('month')+parte('day');
  const saludo=pickupLimaGreeting(date);
  return {
-  subject:'Solicitud de recojo a Iron Mountain | CD Santa Anita | '+fecha,
+  subject:'IM-'+fechaAsunto+' II INGRESO DE CAJAS A IRON MOUNTAIN',
   body:'Estimado Jorge Ramos:\n'+saludo+'.\n\n'+
    'Tu apoyo con la siguiente solicitud para Iron Mountain:\n\n'+
    '• 30 cajas nuevas para almacenamiento en Iron Mountain.\n'+
