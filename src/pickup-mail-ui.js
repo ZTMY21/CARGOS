@@ -148,8 +148,8 @@ export function attachPickupMail({supabase,isAdmin,appReady,isPreview,mailReques
    if(isPreview()){
     // La base aislada de esta preview aún no tiene los RPC de avisos.
     // Ofrecer solamente una demostración local, nunca fabricar lotes ni escribir.
-    lastReady=0;items=[];
-    counts.textContent='0 cajas nuevas listas · Demostración (sin registros de cajas reales)';
+    lastReady=null;items=[];
+    counts.textContent='Sin datos reales de cajas en esta preview · simulación disponible';
     input.to.value=PICKUP_TO.join('; ');
     input.cc.value=PICKUP_CC.join('; ');
     input.subject.value=pickupMailSubject();
