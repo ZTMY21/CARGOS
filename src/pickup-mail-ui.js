@@ -1,6 +1,9 @@
 // Bandeja de recojos: preparación y confirmación manual, sin envío real.
 import {renderPickupSample} from './pickup-mail-demo.js';
+import {attachPickupOutlookPreview} from './pickup-outlook-preview.js';
+import './pickup-outlook-preview.css';
 export function attachPickupMail({supabase,isAdmin,appReady,isPreview,mailRequest=null}){
+ attachPickupOutlookPreview();
  const el=id=>document.getElementById(id);
  const status=el('pickupMailStatus'),counts=el('pickupMailCounts'),
   batches=el('pickupMailBatches'),preview=el('pickupMailPreview'),
