@@ -83,3 +83,32 @@ test('Ver correo sin avisos reales muestra instrucciones y permite simular desde
   dom.window.close();
  }
 });
+
+test('preview aislada sin RPC conserva la simulación en Ver correo generado sin preparar lotes',async()=>{
+ const dom=new JSDOM(html,{url:'https://preview.example.com'});
+ const old=globalThis.document;globalThis.document=dom.window.document;
+ const d=dom.window.document;
+ const calls=[];
+ const supabase={rpc:async(name)=>{calls.push(name);return {data:null,error:{code:'PGRST202',message:'RPC unavailable in isolated preview'}};}};
+ const pickup=attachPickupMail({supabase,isAdmin:()=>true,appReady:()=>true,isPreview:()=>true,
+  mailRequest:async()=>{throw Error('La demo nunca solicita enviar un correo');}});
+ try {
+  pickup.activate();await settle();
+  assert.match(d.getElementById('pickupMailCounts').textContent,/Sin datos reales/);
+  assert.equal(d.getElementById('pickupPrepare').disabled,true);
+  assert.equal(d.getElementById('pickupOutlookProposal'),null);
+  d.getElementById('ivMailSimShortcut').click();
+  await settle();
+  const preview=d.getElementById('pickupMailPreview');
+  assert.equal(d.getElementById('pickupPreviewDetails').open,true);
+  assert.equal(preview.hidden,false);
+  assert.match(preview.srcdoc,/IM-\d{8} II INGRESO DE CAJAS A IRON MOUNTAIN/);
+  assert.match(preview.srcdoc,/bsalvador@farmaciasperuanas\.pe/);
+  assert.match(preview.srcdoc,/fp-qs-liquidaciones@intercorpretail\.pe/);
+  assert.equal(calls.filter(n=>/prepare|configure|mark/.test(n)).length,0);
+ } finally {
+  pickup.reset();
+  if(old===undefined)delete globalThis.document;else globalThis.document=old;
+  dom.window.close();
+ }
+});
