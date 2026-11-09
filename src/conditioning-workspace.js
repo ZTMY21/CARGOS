@@ -358,17 +358,17 @@ export function attachConditioningWorkspace({repository,live=false,onChanged=()=
       const record=await call('preparar',{p_codigo:box.codigo,p_anio:year,
         p_cargos:fields.map(f=>f.input.value.trim()).filter(Boolean),p_datos:{verificada:verified.checked}});
       if(selected!==box)return;
-      select({...record,status:'preparada'});
       if(mobileMode){
         el('acondDoneText').textContent='La caja '+record.codigo+' ha sido registrada correctamente.';
         el('acondDoneCode').textContent=record.codigo;
         el('acondDoneYears').textContent=record.anios?.join(', ')||'—';
         el('acondDoneCount').textContent=String(record.cargos.length);
-        showStep('done');
       }
-      const registered=selected;
+      select(null);
+      scan.value='';
+      if(mobileMode)showStep('done');
+      else scan.focus();
       const synced=await sync();
-      if(selected!==registered)return;
       message(synced?'Caja acondicionada y verificada en el '+excelLabel+'.':'Caja acondicionada. Sincronización pendiente.');
       await Promise.allSettled([refresh(),onChanged()]);
     }catch(error){

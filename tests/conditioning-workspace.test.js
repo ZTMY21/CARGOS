@@ -115,6 +115,9 @@ test('pantalla recibe Enter, habilita el guardado por año y muestra reintento s
     get('acondSave').click();
     await settle();
     assert.equal(saves,1);
+    assert.equal(get('acondScan').value,'');
+    assert.equal(get('acondCargo1').value,'');
+    assert.equal(get('acondCargo2').value,'');
     assert.equal(get('acondPrepared').textContent,'1');
     assert.equal(get('acondProgressTrack').hidden,true);
     assert.equal(get('acondRetry').hidden,false);
@@ -245,6 +248,9 @@ test('modo celular corta lecturas repetidas, valida las filas y confirma solo de
     await settle();
     assert.equal(el('acondDone').hidden,false);
     assert.equal(el('acondDoneCount').textContent,'2');
+    assert.equal(el('acondScan').value,'');
+    assert.equal(el('acondCargo1').value,'');
+    assert.equal(el('acondCargo2').value,'');
     el('acondAnother').click();
     assert.equal(el('acondOpenCamera').hidden,false);
     assert.equal(el('acondCargo1').value,'');
