@@ -32,7 +32,7 @@ const receptionOverview = typeof __RECEPTION_OVERVIEW__ !== 'undefined' && __REC
 const receptionLive = typeof __RECEPTION_LIVE__ !== 'undefined' && __RECEPTION_LIVE__;
 const receptionEnabled = receptionPreview || receptionLive;
 const receptionPresentation = receptionEnabled || receptionOverview;
-const previewLoginEmail = receptionPreview ? 'recepcion-preview@kardex.test' : 'intervencion4@kardex.test';
+const previewLoginEmail = (receptionPreview || isolatedRequirements) ? 'recepcion-preview@kardex.test' : 'intervencion4@kardex.test';
 // Capture recovery mode before the client consumes the email callback fragment.
 let passwordRecovery = new URLSearchParams(window.location.hash.slice(1)).get('type') === 'recovery';
 let passwordRecoveryCompleted = false;
