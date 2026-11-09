@@ -15,9 +15,11 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "2.117.3",
+    "@zxing/browser": "0.1.5",
+    "@zxing/library": "0.21.3",
     "exceljs": "4.4.0",
     "jszip": "3.10.2",
-    "xlsx": "https://sheet.lol/balls/xlsx-0.20.3.tgz"
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
   },
   "devDependencies": {
     "@electric-sql/pglite": "0.5.9",
