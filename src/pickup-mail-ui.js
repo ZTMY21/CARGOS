@@ -1,9 +1,6 @@
 // Bandeja de recojos: preparación y confirmación manual, sin envío real.
-import {renderPickupSample} from './pickup-mail-demo.js';
-import {attachPickupOutlookPreview} from './pickup-outlook-preview.js';
-import './pickup-outlook-preview.css';
+import {renderPickupSample,pickupMailSubject,PICKUP_TO,PICKUP_CC} from './pickup-mail-demo.js';
 export function attachPickupMail({supabase,isAdmin,appReady,isPreview,mailRequest=null}){
- attachPickupOutlookPreview();
  const el=id=>document.getElementById(id);
  const status=el('pickupMailStatus'),counts=el('pickupMailCounts'),
   batches=el('pickupMailBatches'),preview=el('pickupMailPreview'),
@@ -20,7 +17,7 @@ export function attachPickupMail({supabase,isAdmin,appReady,isPreview,mailReques
   logoStatus=el('pickupLogoStatus'),logoClear=el('pickupLogoClear');
  let logoData='';
  const defaultCopy={
-  subject:'Solicitud de recojo | {{cantidad}} cajas nuevas | {{sede}} | {{fecha}}',
+  subject:pickupMailSubject(),
   greeting:'Estimados(as),',
   introduction:'Se comunica que tenemos {{cantidad}} cajas nuevas acondicionadas y listas para recojo en {{sede}}.',
   request:'Agradeceremos gestionar la solicitud de recojo ante Iron Mountain y confirmar la fecha estimada de atención.',
@@ -134,21 +131,33 @@ export function attachPickupMail({supabase,isAdmin,appReady,isPreview,mailReques
    }catch{ /* En Preview antiguo la migración aún puede no estar aplicada. */ }
    const cfg=data.config||{};
    input.sender.value=cfg.sender||'';
-   input.to.value=(cfg.to||[]).join('; ');
-   input.cc.value=(cfg.cc||[]).join('; ');
+   input.to.value=(cfg.to?.length?cfg.to:PICKUP_TO).join('; ');
+   input.cc.value=(cfg.cc?.length?cfg.cc:PICKUP_CC).join('; ');
    input.name.value=cfg.name||'';
    input.position.value=cfg.position||'';
    input.area.value=cfg.area||'';
    input.company.value=cfg.company||'';
    input.contact.value=cfg.contact||'';
    for(const [field,defaultValue] of Object.entries(defaultCopy)){
-    input[field].value=brand[field]||defaultValue;
+    input[field].value=field==='subject'&&isPreview()?pickupMailSubject():brand[field]||defaultValue;
    }
    logoData=brand.logo||'';showLogo();
    items=Array.isArray(data.batches)?data.batches:[];
    render();
   }catch{
-   notify('No se pudo consultar avisos. Actualiza la bandeja.',true);
+   if(isPreview()){
+    // La base aislada de esta preview aún no tiene los RPC de avisos.
+    // Ofrecer solamente una demostración local, nunca fabricar lotes ni escribir.
+    lastReady=0;items=[];
+    counts.textContent='0 cajas nuevas listas · Demostración (sin registros de cajas reales)';
+    input.to.value=PICKUP_TO.join('; ');
+    input.cc.value=PICKUP_CC.join('; ');
+    input.subject.value=pickupMailSubject();
+    for(const field of ['greeting','introduction','request','closing'])
+     input[field].value=defaultCopy[field];
+    render();
+    notify('Preview de formato: utiliza Simular correo sin enviar. Preparar correo real continúa deshabilitado.');
+   }else notify('No se pudo consultar avisos. Actualiza la bandeja.',true);
   }
  };
  const act=async fn=>{
@@ -218,7 +227,8 @@ export function attachPickupMail({supabase,isAdmin,appReady,isPreview,mailReques
   const values=Object.fromEntries(Object.entries(input).map(([k,v])=>[k,v.value]));
   values.logo=logoData;
   showPreview(renderPickupSample(values),
-    'SIMULACIÓN · 30 cajas ficticias · Sin guardar ni enviar.',
+    'SIMULACIÓN · '+pickupMailSubject()+' · Para: '+PICKUP_TO.join('; ')+
+      ' · CC: '+PICKUP_CC.join('; ')+' · Sin guardar ni enviar.',
     'Ejemplo visible abajo: 30 cajas ficticias. No se ha registrado ni enviado un correo.');
  };
  el('pickupSample').addEventListener('click',simulate);
