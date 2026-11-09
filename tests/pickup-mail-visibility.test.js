@@ -42,6 +42,10 @@ test('el ejemplo desde la bandeja aparece visible y no guarda ni envía ningún 
   const doc=d.getElementById('pickupMailPreview').srcdoc;
   assert.match(doc,/SIMULACIÓN INTERNA/);
   assert.match(doc,/TD-DEMO-030/);
+  assert.match(doc,/II INGRESO DE CAJAS A IRON MOUNTAIN/);
+  assert.match(doc,/joramos@farmaciasperuanas\.pe/);
+  assert.match(doc,/Formato IM-DYT \(DEVOLUCIONES\)\.xlsx/);
+  assert.equal(d.getElementById('pickupOutlookProposal'),null,'no debe existir apartado duplicado');
   assert.ok(calls.every(n=>n==='kardex_pickup_mail_state'||n==='kardex_pickup_mail_brand_state'));
  }finally{
   enhanced.disconnect();
