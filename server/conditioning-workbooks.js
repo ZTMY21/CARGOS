@@ -22,6 +22,7 @@ async function editMaster(bytes,update){
   const file=zip.file(sheetPath);
   if(!file)throw Error('IM_MASTER_WORKSHEET_MISSING');
   const {xml,row,fields}=update(sheet,await file.async('string'));
+  if(!xml)return bytes;
   zip.file(sheetPath,xml);
   const next=await zip.generateAsync({type:'nodebuffer',compression:'DEFLATE'});
   const proof=new ExcelJS.Workbook();
@@ -48,6 +49,8 @@ function writeRequestedMovement(bytes,item){
     const fields={K:item.id,L:item.solicitud,M:item.codigo,N:item.cargos.join('-'),O:'POR SOLICITUD',
       P:displayExcelDate(item.preparada),Q:item.responsable,R:displayExcelDate(item.enviada),S:item.placa||'',
       T:item.entrega||'',U:item.recibe||''};
+    if(same&&Object.entries(fields).every(([col,value])=>String(sheet.getCell(col+row).value??'')===value))
+      return {row,fields};
     return {row,fields,xml:writeWorksheetCells(writeWorksheetCells(xml,1,headers),row,fields)};
   });
 }
@@ -66,7 +69,12 @@ async function writeNewBox(bytes,item){
     prior.responsable!==item.responsable||prior.clasificacion!=='Cajas Nuevas'){
     throw Error('IM_MASTER_EXISTING_BOX_CONFLICT');
   }
-  if(!item.enviada||prior.envio===item.enviada)return bytes;
+  if(!item.enviada)return bytes;
+  if(prior.envio===item.enviada){
+    if(prior.entrega!==(item.entrega||'')||prior.recibe!==(item.recibe||'')||prior.placa!==(item.placa||''))
+      throw Error('IM_MASTER_EXISTING_SHIPMENT_CONFLICT');
+    return bytes;
+  }
   const row=prior.row;
   const fields={G:displayExcelDate(item.enviada),H:item.entrega||'',I:item.recibe||'',J:item.placa||''};
   const next=await editMaster(bytes,(_sheet,xml)=>({row,fields,xml:writeWorksheetCells(xml,row,fields)}));

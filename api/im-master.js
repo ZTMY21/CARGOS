@@ -1,6 +1,7 @@
 import {DriveClient} from '../server/archive/drive-client.js';
 import {ArchiveError, configuration} from '../server/archive/security.js';
 import {syncIronMountainHistory} from '../server/im-history-sync.js';
+import {withMasterDriveLock} from '../server/im-master-drive.js';
 import {authorize} from '../server/archive/repository.js';
 import {
   readMasterRows, IM_MASTER_FILE_ID, IM_MASTER_PARENT_ID
@@ -45,64 +46,77 @@ export function createImMasterHandler({env=process.env, fetcher=fetch}={}) {
       if (!configuration(env).enabled) throw new ArchiveError('DRIVE_NOT_READY',503);
       const client = new DriveClient(env,{fetcher});
       await client.checkRoot();
-      const before = await metadata(client);
-      const media = await client.request(
-        DRIVE + IM_MASTER_FILE_ID + '?alt=media&supportsAllDrives=true');
-      const buffer = Buffer.from(await media.arrayBuffer());
-      if (buffer.length !== Number(before.size)) throw new ArchiveError('IM_MASTER_SIZE_CHANGED',409);
-      const rows = await readMasterRows(buffer);
-      const after = await metadata(client);
-      if (before.modifiedTime !== after.modifiedTime || before.md5Checksum !== after.md5Checksum ||
-          before.size !== after.size) throw new ArchiveError('IM_MASTER_EDIT_IN_PROGRESS',409);
+      const refresh=async()=>{
+        const before = await metadata(client);
+        const media = await client.request(
+          DRIVE + IM_MASTER_FILE_ID + '?alt=media&supportsAllDrives=true');
+        const buffer = Buffer.from(await media.arrayBuffer());
+        if (buffer.length !== Number(before.size)) throw new ArchiveError('IM_MASTER_SIZE_CHANGED',409);
+        const rows = await readMasterRows(buffer);
+        const after = await metadata(client);
+        if (before.modifiedTime !== after.modifiedTime || before.md5Checksum !== after.md5Checksum ||
+            before.size !== after.size) throw new ArchiveError('IM_MASTER_EDIT_IN_PROGRESS',409);
 
-      // La preview consulta el Maestro pero nunca concilia ni modifica bases o Excel reales.
-      if (env.VERCEL_ENV !== 'production') {
+        // La preview consulta el Maestro pero nunca concilia ni modifica bases o Excel reales.
+        if (env.VERCEL_ENV !== 'production') {
+          return json(res,200,{
+            ok:true,preview:true,source:'Excel Maestro de Iron Mountain',
+            boxes:rows.length,
+            sent:rows.filter(row=>row.envio).length,
+            received:rows.filter(row=>row.receivedOnly).length,
+          pending:rows.filter(row=>!row.envio&&!row.receivedOnly).length,
+            revision:after.modifiedTime,
+            history:{status:'PREVIEW_SIN_ESCRITURA',verified:false,pending:false},
+            message:'Preview en solo lectura: sin cambios en Maestro, Supabase ni Histórico IM.'
+          });
+        }
+
+        const response = await fetcher(env.SUPABASE_URL+'/rest/v1/rpc/kardex_im_master_sync',{
+          method:'POST',
+          headers:{
+            apikey:env.SUPABASE_ANON_KEY,
+            Authorization:req.headers.authorization,
+            'Content-Type':'application/json',
+            Prefer:'return=representation',
+          },
+          body:JSON.stringify({p_file_id:IM_MASTER_FILE_ID,p_rows:rows.filter(row=>!row.receivedOnly)}),
+          signal:AbortSignal.timeout(20000),redirect:'error'
+        });
+        const result = await response.json().catch(()=>null);
+        if (!response.ok) throw new ArchiveError('IM_MASTER_DB_SYNC_REJECTED',409);
+        if (!result?.verificado) throw new ArchiveError('IM_MASTER_NOT_VERIFIED',503);
+        let history;
+        try {
+          history=await syncIronMountainHistory({
+            env,fetcher,client,bearer:req.headers.authorization,masterRows:rows
+          });
+        } catch {
+          history={status:'PENDIENTE',pending:true,
+            message:'El Maestro está sincronizado, pero el histórico no se pudo verificar. Se reintentará.'};
+        }
         return json(res,200,{
-          ok:true,preview:true,source:'Excel Maestro de Iron Mountain',
+          ok:true,source:'Excel Maestro de Iron Mountain',
           boxes:rows.length,
           sent:rows.filter(row=>row.envio).length,
           received:rows.filter(row=>row.receivedOnly).length,
-        pending:rows.filter(row=>!row.envio&&!row.receivedOnly).length,
+          pending:rows.filter(row=>!row.envio&&!row.receivedOnly).length,
+          requestedPending:rows.filter(row=>!row.envio&&/por\s+solicitud/i.test(row.clasificacion)).length,
           revision:after.modifiedTime,
-          history:{status:'PREVIEW_SIN_ESCRITURA',verified:false,pending:false},
-          message:'Preview en solo lectura: sin cambios en Maestro, Supabase ni Histórico IM.'
+          history,
+          result
         });
-      }
-
-      const response = await fetcher(env.SUPABASE_URL+'/rest/v1/rpc/kardex_im_master_sync',{
-        method:'POST',
-        headers:{
-          apikey:env.SUPABASE_ANON_KEY,
-          Authorization:req.headers.authorization,
-          'Content-Type':'application/json',
-          Prefer:'return=representation',
-        },
-        body:JSON.stringify({p_file_id:IM_MASTER_FILE_ID,p_rows:rows.filter(row=>!row.receivedOnly)}),
-        signal:AbortSignal.timeout(20000),redirect:'error'
-      });
-      const result = await response.json().catch(()=>null);
-      if (!response.ok) throw new ArchiveError('IM_MASTER_DB_SYNC_REJECTED',409);
-      if (!result?.verificado) throw new ArchiveError('IM_MASTER_NOT_VERIFIED',503);
-      let history;
-      try {
-        history=await syncIronMountainHistory({
-          env,fetcher,client,bearer:req.headers.authorization,masterRows:rows
+      };
+      if(env.VERCEL_ENV!=='production')return refresh();
+      const rpc=async(method,args)=>{
+        const response=await fetcher(env.SUPABASE_URL+'/rest/v1/rpc/'+method,{
+          method:'POST',redirect:'error',signal:AbortSignal.timeout(10000),
+          headers:{apikey:env.SUPABASE_ANON_KEY,Authorization:req.headers.authorization,'Content-Type':'application/json'},
+          body:JSON.stringify(args)
         });
-      } catch {
-        history={status:'PENDIENTE',pending:true,
-          message:'El Maestro está sincronizado, pero el histórico no se pudo verificar. Se reintentará.'};
-      }
-      return json(res,200,{
-        ok:true,source:'Excel Maestro de Iron Mountain',
-        boxes:rows.length,
-        sent:rows.filter(row=>row.envio).length,
-        received:rows.filter(row=>row.receivedOnly).length,
-        pending:rows.filter(row=>!row.envio&&!row.receivedOnly).length,
-        requestedPending:rows.filter(row=>!row.envio&&/por\s+solicitud/i.test(row.clasificacion)).length,
-        revision:after.modifiedTime,
-        history,
-        result
-      });
+        if(!response.ok)throw new ArchiveError('IM_MASTER_LOCK_UNAVAILABLE',503);
+        return response.json();
+      };
+      return await withMasterDriveLock(rpc,refresh);
     } catch (error) {
       const known=error instanceof ArchiveError;
       const code=known?error.code:/^IM_MASTER_/.test(error?.message||'')?error.message:'IM_MASTER_UNAVAILABLE';

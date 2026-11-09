@@ -79,6 +79,7 @@ test('pantalla recibe Enter, habilita el guardado por año y muestra reintento s
       saves++;
       return prepared;
     },
+    async reception(){return null;},
     async conditioningExcel(){throw Error('network');}
   };
   const controller=attachConditioningWorkspace({repository});
@@ -114,11 +115,142 @@ test('pantalla recibe Enter, habilita el guardado por año y muestra reintento s
     get('acondSave').click();
     await settle();
     assert.equal(saves,1);
-    assert.equal(get('acondPrepared').textContent,'1 de 1');
+    assert.equal(get('acondPrepared').textContent,'1');
+    assert.equal(get('acondProgressTrack').hidden,true);
     assert.equal(get('acondRetry').hidden,false);
     assert.match(get('acondList').textContent,/00943-94208\/11\/2026/);
     assert.equal(get('acondSave').disabled,true);
     assert.equal(document.querySelectorAll('#grp-acondicionamiento progress').length,1);
+  }finally{
+    controller.reset();
+    dom.window.close();
+    delete globalThis.document;
+  }
+});
+
+test('avance de preparación usa la misma solicitud y el total del Centro de escaneo',async()=>{
+  const html=await readFile(new URL('../index.html',import.meta.url),'utf8');
+  const dom=new JSDOM(html);
+  globalThis.document=dom.window.document;
+  const lecturas=Array.from({length:30},(_,i)=>({
+    codigo:'T'+String(9400000000+i),guardado:'2026-11-08',origen:'maestro'
+  }));
+  const listado=lecturas.slice(0,7).map(({codigo},i)=>({
+    codigo:codigo.replace(/^T/,'TD'),origen:'nueva',...(i===0?{}:{solicitud:'vigente'})
+  }));
+  listado.push({codigo:lecturas[7].codigo,origen:'nueva',solicitud:'anterior'});
+  listado.push({codigo:lecturas[8].codigo,origen:'solicitada'});
+  const repository={
+    async conditioning(){return {nuevas:30,solicitadas:1,preparadas:9,listado};},
+    async reception(){return {id:'vigente',cantidad:100,lecturas};}
+  };
+  const controller=attachConditioningWorkspace({repository});
+  try{
+    const el=id=>document.getElementById(id);
+    const settle=()=>new Promise(resolve=>setImmediate(resolve));
+    controller.activate();
+    await settle();
+    assert.equal(el('acondNew').textContent,'100');
+    assert.equal(el('acondReceptionCount').textContent,'30 de 100 registradas · 70 por registrar');
+    assert.equal(el('acondPrepared').textContent,'7 de 100');
+    assert.equal(el('acondPercent').textContent,'7%');
+
+    const codigo='T9400000080';
+    lecturas.push({codigo,guardado:null,origen:'escaneo'});
+    listado.push({codigo,origen:'nueva',solicitud:'vigente'});
+    controller.activate();
+    await settle();
+    assert.equal(el('acondReceptionCount').textContent,'31 de 100 registradas · 69 por registrar');
+    assert.equal(el('acondPrepared').textContent,'7 de 100');
+    lecturas.at(-1).guardado='2026-11-08';
+    controller.activate();
+    await settle();
+    assert.equal(el('acondPrepared').textContent,'8 de 100');
+  }finally{
+    controller.reset();
+    dom.window.close();
+    delete globalThis.document;
+  }
+});
+
+test('modo celular corta lecturas repetidas, valida las filas y confirma solo después del guardado',async()=>{
+  const html=await readFile(new URL('../index.html',import.meta.url),'utf8');
+  const dom=new JSDOM(html);
+  globalThis.document=dom.window.document;
+  let captures,signal,lookups=0,saves=0,releaseSave;
+  const code='TD0900000019';
+  const repository={
+    async conditioning(action,data){
+      if(action==='listar')return {nuevas:1,solicitadas:0,preparadas:0,listado:[]};
+      if(action==='buscar'){
+        lookups++;
+        assert.equal(data.p_codigo,'P0900000019');
+        return {codigo:code,origen:'nueva',status:'disponible'};
+      }
+      if(action==='cargo'){
+        const cargo=data.p_cargos[0];
+        return cargo==='946'?{status:'inexistente'}:{status:'disponible',codigo:cargo};
+      }
+      assert.equal(action,'preparar');
+      assert.equal(data.p_codigo,code);
+      assert.equal(data.p_anio,2025);
+      assert.deepEqual(data.p_cargos,['945','947']);
+      saves++;
+      return new Promise(resolve=>{releaseSave=resolve;});
+    },
+    async reception(){return null;},
+    async conditioningExcel(){return {verified:true,count:1};}
+  };
+  const controller=attachConditioningWorkspace({repository,scanCamera:async(_video,abort,onCode)=>{
+    signal=abort;
+    captures=onCode;
+  }});
+  try{
+    const el=id=>document.getElementById(id);
+    const settle=()=>new Promise(resolve=>setImmediate(resolve));
+    controller.activate();
+    el('acondMobile').click();
+    assert.equal(el('acondKpis').hidden,false);
+    el('acondOpenCamera').click();
+    assert.equal(el('acondCamera').hidden,false);
+    captures('P0900000019');
+    captures('P0900000019');
+    await settle();
+    assert.equal(signal.aborted,true);
+    assert.equal(lookups,1);
+    assert.match(el('acondReadCode').textContent,/P0900000019.*TD0900000019/);
+    el('acondContinue').click();
+    el('acondYears').querySelector('[value="2025"]').click();
+    el('acondCargo1').value='945';
+    el('acondCargo2').value='946';
+    el('acondNext').click();
+    await settle();
+    assert.equal(el('acondSave').hidden,true);
+    assert.match(el('acondCargo2').parentElement.textContent,/No existe/);
+    el('acondCargo2').value='0945';
+    el('acondNext').click();
+    await settle();
+    assert.equal(el('acondSave').hidden,true);
+    assert.match(el('acondCargo2').parentElement.textContent,/Cargo duplicado/);
+    el('acondCargo2').value='947';
+    el('acondNext').click();
+    await settle();
+    assert.equal(el('acondSave').hidden,false);
+    assert.equal(saves,0);
+    el('acondSave').click();
+    el('acondSave').click();
+    assert.equal(saves,1);
+    assert.equal(el('acondDone').hidden,true);
+    releaseSave({codigo:code,origen:'nueva',cargos:['945','947'],anios:[2025]});
+    await settle();
+    assert.equal(el('acondDone').hidden,false);
+    assert.equal(el('acondDoneCount').textContent,'2');
+    el('acondAnother').click();
+    assert.equal(el('acondOpenCamera').hidden,false);
+    assert.equal(el('acondCargo1').value,'');
+    el('acondLaptop').click();
+    assert.equal(el('acondLaptop').getAttribute('aria-pressed'),'true');
+    assert.equal(el('acondPreparation').hidden,false);
   }finally{
     controller.reset();
     dom.window.close();

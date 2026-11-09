@@ -39,19 +39,54 @@ const serial=iso=>{
 };
 // Las facturas antiguas usan separadores distintos y, a veces, un (A) final.
 // El cotejo es por CONJUNTO de cargos, no por su posición ni por ceros iniciales.
-export function normalizedCargoSet(value){
+function historicalCargoTokens(value){
   const raw=norm(valueText(value)).replace(/[–—]/g,'-');
   const suffix=raw.match(/\(\s*([A-Z])\s*\)\s*$/);
   const content=suffix?raw.slice(0,suffix.index).trim():raw;
   const parts=content.split(/[\s,;/\-]+/).filter(Boolean);
-  if(!parts.length)return '';
   const result=[];
   for(const part of parts){
-    const match=part.match(/^0*(\d{1,7})([A-Z]?)$/);
-    if(!match)return '';
-    result.push(String(Number(match[1]))+(match[2]||suffix?.[1]||''));
+    const match=part.match(/^(0*[0-9]{1,7})([A-Z]?)$/);
+    if(!match || match[1].length>30)return [];
+    result.push(match[1]+(match[2]||suffix?.[1]||''));
   }
-  return [...new Set(result)].sort().join('|');
+  return result;
+}
+
+export function normalizedCargoSet(value){
+  return [...new Set(historicalCargoTokens(value).map(cargo=>cargo.replace(/^0+(?=\d)/,'')))].sort().join('|');
+}
+
+// Some Drive exports qualify shared-string and style elements. Normalize
+// only the reader's copy so the actual workbook keeps its original parts.
+async function loadHistoryWorkbook(bytes){
+  const zip=await JSZip.loadAsync(bytes);
+  let changed=false;
+  for(const path of ['xl/sharedStrings.xml','xl/styles.xml']){
+    const file=zip.file(path);
+    if(!file)continue;
+    const xml=await file.async('string');
+    if(!xml.includes('xmlns:x="http://schemas.openxmlformats.org/spreadsheetml/2006/main"'))continue;
+    zip.file(path,xml.replace(/(<\/?)(?:x:)(?=[A-Za-z])/g,'$1').replace('xmlns:x=','xmlns='));
+    changed=true;
+  }
+  const workbook=new ExcelJS.Workbook();
+  await workbook.xlsx.load(changed?await zip.generateAsync({type:'nodebuffer'}):bytes);
+  return workbook;
+}
+
+export async function readHistoryBoxes(bytes){
+  const workbook=await loadHistoryWorkbook(bytes);
+  const sheet=workbook.getWorksheet('REGISTRO');
+  if(!sheet||workbook.worksheets[0]!==sheet)throw Error('IM_HISTORY_SHEET_NOT_FOUND');
+  const {byBox}=extractHistory(sheet);
+  return [...byBox].flatMap(([clave,entries])=>entries.flatMap(entry=>{
+    const row=sheet.getRow(entry.row);
+    const codigo=valueText(row.getCell(4).value);
+    const cargos=historicalCargoTokens(row.getCell(5).value);
+    return cargos.length&&/^[A-Z\s]*[0-9][0-9. _/-]*$/i.test(codigo)
+      ? [{clave,codigo,cargos,envio:entry.envio||null}] : [];
+  }));
 }
 
 function extractHistory(sheet){
@@ -86,8 +121,7 @@ const movementHeaders={
 export async function mergeIronMountainHistory(historyBytes,masterRows){
   if(!Buffer.isBuffer(historyBytes)||!Array.isArray(masterRows))
     throw Error('IM_HISTORY_INVALID_INPUT');
-  const workbook=new ExcelJS.Workbook();
-  await workbook.xlsx.load(historyBytes);
+  const workbook=await loadHistoryWorkbook(historyBytes);
   if(workbook.worksheets[0]?.name!=='REGISTRO'||!workbook.getWorksheet('REGISTRO'))
     throw Error('IM_HISTORY_SHEET_NOT_FOUND');
   const sheet=workbook.getWorksheet('REGISTRO');
@@ -167,7 +201,7 @@ export async function mergeIronMountainHistory(historyBytes,masterRows){
   if(!file)throw Error('IM_HISTORY_WORKSHEET_MISSING');
   let xml=await file.async('string');
   const styles=await zip.file('xl/styles.xml')?.async('string')||'';
-  const approvedStyle=Number(styles.match(/<cellXfs[^>]*\bcount="(\d+)"/)?.[1])>33;
+  const approvedStyle=Number(styles.match(/<(?:x:)?cellXfs[^>]*\bcount="(\d+)"/)?.[1])>33;
   if(updates.length)checkHeaders(sheet,movementHeaders);
   for(const [i,item] of pending.entries()){
     const row=lastOccupied+i+1;
@@ -198,8 +232,7 @@ export async function mergeIronMountainHistory(historyBytes,masterRows){
   }
   zip.file('xl/worksheets/sheet1.xml',xml);
   const bytes=await zip.generateAsync({type:'nodebuffer',compression:'DEFLATE'});
-  const verify=new ExcelJS.Workbook();
-  await verify.xlsx.load(bytes);
+  const verify=await loadHistoryWorkbook(bytes);
   if(verify.worksheets.length!==workbook.worksheets.length)
     throw Error('IM_HISTORY_SHEETS_CHANGED');
   const sh=verify.getWorksheet('REGISTRO');

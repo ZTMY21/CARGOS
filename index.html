@@ -1178,22 +1178,33 @@
 
 <template id="conditioningWorkspaceTemplate">
 <div class="group-body acond-workspace">
-<h2><svg class="iv-icon " aria-hidden="true"><use href="#iv-box"></use></svg> Acondicionamiento</h2>
-<div class="acond-kpis" aria-label="Indicadores de acondicionamiento">
-  <div class="acond-panel acond-kpi"><span class="acond-icon"><svg class="iv-icon " aria-hidden="true"><use href="#iv-box"></use></svg></span><div><strong id="acondNew">—</strong>Cajas nuevas</div></div>
-  <div class="acond-panel acond-kpi"><span class="acond-icon requested"><svg class="iv-icon " aria-hidden="true"><use href="#iv-box-receive"></use></svg></span><div><strong id="acondRequested">—</strong>Cajas solicitadas</div></div>
-  <div class="acond-panel acond-kpi"><span class="acond-icon"><svg class="iv-icon " aria-hidden="true"><use href="#iv-check"></use></svg></span><div class="acond-progress">Cajas preparadas<strong id="acondPrepared">—</strong><div><progress id="acondProgress" max="100" value="0" aria-label="Avance de cajas preparadas"></progress><span id="acondPercent">—</span></div></div></div>
+<header class="acond-header">
+  <h2><svg class="iv-icon" aria-hidden="true"><use href="#iv-box"></use></svg> Acondicionamiento</h2>
+  <div class="acond-mode" role="group" aria-label="Modalidad de acondicionamiento">
+    <button id="acondLaptop" type="button" aria-label="Laptop" aria-pressed="true"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="12" rx="1"/><path d="M2 20h20"/></svg></button>
+    <button id="acondMobile" type="button" aria-label="Celular" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg></button>
+  </div>
+</header>
+<div id="acondKpis" class="acond-kpis" aria-label="Indicadores de acondicionamiento">
+  <div class="acond-panel acond-kpi"><span class="acond-icon"><svg class="iv-icon " aria-hidden="true"><use href="#iv-box"></use></svg></span><div><strong id="acondNew">—</strong><span id="acondNewLabel">Cajas nuevas registradas</span><small id="acondReceptionCount" hidden></small></div></div>
+  <div class="acond-panel acond-kpi"><span class="acond-icon requested"><svg class="iv-icon " aria-hidden="true"><use href="#iv-box-receive"></use></svg></span><div><strong id="acondRequested">—</strong>Cajas solicitadas en préstamo</div></div>
+  <div class="acond-panel acond-kpi"><span class="acond-icon"><svg class="iv-icon " aria-hidden="true"><use href="#iv-check"></use></svg></span><div class="acond-progress">Cajas preparadas<strong id="acondPrepared">—</strong><div id="acondProgressTrack" hidden><progress id="acondProgress" max="100" value="0" aria-label="Avance de cajas preparadas"></progress><span id="acondPercent">—</span></div></div></div>
 </div>
 <div class="acond-detail">
-  <section class="acond-panel"><h3>Preparar una caja</h3><p>Escanea el código de caja para iniciar la preparación.</p>
+  <section id="acondLookup" class="acond-panel">
+    <div id="acondLookupIntro"><h3>Preparar una caja</h3><p>Escanea el código de caja para iniciar la preparación.</p></div>
+    <button id="acondOpenCamera" class="acond-save" type="button" hidden>Abrir cámara</button>
+    <div id="acondReadCode" class="acond-mobile-result" hidden><h3>Código leído</h3><strong></strong><p></p></div>
     <div class="acond-barcode"><svg id="acondBarcode" role="img" hidden></svg><strong id="acondBarcodeCode">Escanea una caja</strong></div>
     <form id="acondScanForm"><label for="acondScan">Código de caja</label><div class="acond-input-row">
       <input id="acondScan" maxlength="80" autocomplete="off" spellcheck="false" autocapitalize="characters" required><button class="secondary">Consultar caja</button>
     </div></form>
     <p id="acondBoxOrigin" hidden></p><p id="acondBoxState" role="status"></p>
-    <p>La información se actualiza desde <b>Control de cajas</b> y <b>Requerimientos</b>.</p>
+    <p id="acondLaptopHint">La información se actualiza desde <b>Control de cajas</b> y <b>Requerimientos</b>.</p>
+    <button id="acondContinue" class="acond-save" type="button" hidden>Continuar →</button>
+    <button id="acondNewScan" class="secondary" type="button" hidden>Consultar otra caja</button>
   </section>
-  <section class="acond-panel"><h3>Detalle de preparación</h3><strong>Año del cargo</strong>
+  <section id="acondPreparation" class="acond-panel"><h3>Detalle de preparación</h3><strong>Año del cargo</strong>
     <div id="acondYears" class="acond-years" role="group" aria-label="Año del cargo">
       <button type="button" value="2020">2020</button><button type="button" value="2021">2021</button><button type="button" value="2022">2022</button><button type="button" value="2023">2023</button><button type="button" value="2024">2024</button><button type="button" value="2025">2025</button><button type="button" value="2026">2026</button>
     </div>
@@ -1208,10 +1219,24 @@
     </div>
     <p id="acondExtraCargos" hidden></p>
     <label id="acondVerifiedLabel" class="acond-verification" hidden><input type="checkbox" id="acondVerified"> Los cargos físicos coinciden con el Histórico IM.</label>
+    <button id="acondNext" class="acond-save" type="button" hidden>Siguiente paso →</button>
+    <div id="acondConfirm" hidden><p>Confirma que deseas registrar esta caja como preparada.</p></div>
     <button id="acondSave" class="acond-save" type="button" disabled><svg class="iv-icon" aria-hidden="true"><use href="#iv-box"></use></svg> Caja preparada</button>
-    <p id="acondMessage" role="status"></p><button id="acondRetry" class="secondary" type="button" hidden>Reintentar sincronización</button>
+    <button id="acondEdit" class="secondary" type="button" hidden>Volver a los cargos</button>
   </section>
 </div>
+<section id="acondCamera" class="acond-panel" hidden>
+  <h3>Escanear código de caja</h3>
+  <div class="acond-camera-view"><video id="acondCameraVideo" autoplay muted playsinline aria-label="Vista de cámara"></video><span aria-hidden="true"></span></div>
+  <p id="acondCameraStatus" role="status">Buscando código de caja…</p>
+  <button id="acondCloseCamera" class="secondary" type="button">Volver</button>
+</section>
+<section id="acondDone" class="acond-panel" hidden>
+  <div class="acond-mobile-result"><h3>✓ Caja preparada</h3><p id="acondDoneText"></p></div>
+  <dl><dt>Código de caja</dt><dd id="acondDoneCode"></dd><dt>Año del cargo</dt><dd id="acondDoneYears"></dd><dt>Cargos registrados</dt><dd id="acondDoneCount"></dd></dl>
+  <button id="acondAnother" class="acond-save" type="button">Preparar otra caja</button>
+</section>
+<div class="acond-notice"><p id="acondMessage" role="status"></p><button id="acondRetry" class="secondary" type="button" hidden>Reintentar sincronización</button></div>
 <section class="acond-panel acond-list"><h3>Listado de cajas preparadas</h3><div class="acond-table"><table>
   <thead><tr><th>Código de caja</th><th>Tipo de caja</th><th>Cargos asociados</th><th>Fecha de preparación</th><th>Responsable</th></tr></thead><tbody id="acondList"></tbody>
 </table></div></section>

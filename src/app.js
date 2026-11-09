@@ -594,7 +594,7 @@ function populateCajaAsignadaOptions(currentValue){
 
 async function loadDocs(snapshot){
   const data = snapshot || await repository.snapshot();
-  if(receptionPreview&&isAdmin) {
+  if(receptionEnabled&&isAdmin) {
     const rows=await repository.conditioning('estados').catch(()=>null);
     if(rows)applyConditioningToDoc=inventoryConditioning(rows);
   }else applyConditioningToDoc=doc=>doc;
@@ -2165,8 +2165,8 @@ pickupMailController=attachPickupMail({
 });
 
 // Fase 2: USB-HID en modo teclado, identificación opcional con consentimiento WebHID y consulta sin escrituras.
-boxConditioningController=receptionPreview
-  ? attachConditioningWorkspace({repository,onChanged:refreshData})
+boxConditioningController=receptionEnabled
+  ? attachConditioningWorkspace({repository,live:receptionLive,onChanged:refreshData})
   : attachBoxConditioning({
   supabase,repository,isAdmin:()=>isAdmin,appReady:()=>appReady,isPreview:()=>isPreview,
   isolatedReception:receptionPreview,onChanged:refreshData

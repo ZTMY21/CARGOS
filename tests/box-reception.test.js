@@ -186,7 +186,7 @@ test('Supabase aplica propiedad, límite, conciliación idempotente y bloqueo ha
     await db.exec(`
       insert into private.kardex_miembros(email,rol) values
         ('owner@example.test','admin'),('other@example.test','admin'),('guest@example.test','editor');
-      create table public.im_envios_cargos_live(codigo_caja text,codigo_cargo text,fecha_envio date,fecha_preparacion date,clasificacion_caja text);
+      create table public.im_envios_cargos_live(codigo_caja text,codigo_cargo text,fecha_envio date,fecha_preparacion date,clasificacion_caja text,responsable_preparacion text);
       alter table public.documentos add column fecha_origen date, add column anio_origen integer;
       create view public.kardex_documentos_resumen as
         select id,null::text im_live_codigo_caja,null::text im_codigo_caja,null::text im_caja_preparada,
@@ -275,6 +275,20 @@ test('Supabase aplica propiedad, límite, conciliación idempotente y bloqueo ha
     const productionSaved=await liveSave('parcial',{[codes[2].clave]:903});
     assert.equal(productionSaved.lecturas[0].correlativo,903);
     assert.equal(productionSaved.confirmada,null);
+    const productionBox=await lookup(codes[2].codigo);
+    assert.equal(productionBox.status,'disponible');
+    const productionMovement=await one(
+      "select public.kardex_acondicionamiento('preparar',$1,2026,array['9876540']) result",[codes[2].codigo]);
+    assert.equal(productionMovement.origen,'nueva');
+    const realBatch=(action,items,secret='solo-prueba')=>one(
+      'select public.kardex_acondicionamiento_excel_real($1,$2,$3,$4::jsonb) result',
+      [action,secret,lease.token,items==null?null:JSON.stringify(items)]);
+    await assert.rejects(realBatch('leer',null,'incorrecto'),/Maestro real no autorizado/);
+    const batch=await realBatch('leer',null);
+    assert.equal(batch.lote[0].id,productionMovement.id);
+    await assert.rejects(realBatch('confirmar',[{id:productionMovement.id,revision:2}]),/cambió/);
+    assert.equal((await realBatch('confirmar',[{id:productionMovement.id,revision:1}])).verificado,true);
+    assert.equal((await realBatch('leer',null)).lote.length,0);
     assert.equal((await liveSave('parcial',{})).lecturas.length,1);
     await one("select public.kardex_im_master_lock('liberar',$1) result",[lease.token]);
     await assert.rejects(liveSave('estado',{}),/reserva del Excel/);

@@ -61,16 +61,25 @@ create view private.acond_cajas as
       where private.acond_clave(l.codigo_caja)=c.clave and l.fecha_envio is not null))
     and not exists(select 1 from private.acond_movimientos m where m.clave=c.clave and m.enviada is not null)
   union all
-  select c.clave,c.codigo,c.requerimiento,'solicitada',c.recepcion,r.fecha_solicitud,
+  select c.clave,coalesce(case when h.coincidencias=1 then h.codigo end,c.codigo),c.requerimiento,'solicitada',c.recepcion,r.fecha_solicitud,
     case when h.coincidencias=1 then h.envio end,
     case when h.coincidencias=1 then h.cargos else c.cargos end
   from private.req4_cajas c join public.requerimientos r on r.id=c.requerimiento
   left join lateral (
-    select count(*) coincidencias,min(f.envio) envio,(array_agg(f.cargos::text))[1]::text[] cargos
+    select count(*) coincidencias,min(f.envio) envio,min(f.codigo) codigo,(array_agg(f.cargos::text))[1]::text[] cargos
     from private.acond_historia_fuente f where f.clave=c.clave and
       private.acond_cargos_claves(c.cargos) <@ private.acond_cargos_claves(f.cargos)
   ) h on true
   where c.devolucion is null;
+
+create view private.acond_maestro_preparadas as
+  select c.clave,c.codigo,min(l.fecha_preparacion) preparada,
+    min(l.responsable_preparacion) responsable,array_agg(distinct l.codigo_cargo order by l.codigo_cargo) cargos
+  from private.acond_cajas c join public.im_envios_cargos_live l on private.acond_clave(l.codigo_caja)=c.clave
+  where c.origen='nueva' and l.fecha_envio is null and l.fecha_preparacion is not null
+    and lower(trim(l.clasificacion_caja))='cajas nuevas' and nullif(trim(l.codigo_cargo),'') is not null
+    and exists(select 1 from private.recepcion_maestro_produccion r where r.id and r.habilitada)
+  group by c.clave,c.codigo;
 
 create function private.acond_cargo(p_cargo text,p_anio integer,p_clave text,p_solicitud uuid)
 returns jsonb language sql stable set search_path='' as $$
@@ -106,6 +115,7 @@ declare
   movimiento private.acond_movimientos%rowtype;
   coincidencias integer;
   legacy private.box_conditioning%rowtype;
+  anterior private.acond_maestro_preparadas%rowtype;
   anios integer[];
 begin
   if clave_busqueda is null then return jsonb_build_object('status','inexistente'); end if;
@@ -122,6 +132,10 @@ begin
     and (caja.solicitud is null or m.solicitud=caja.solicitud) order by m.registrada desc,m.id desc limit 1;
   if movimiento.id is not null then
     return to_jsonb(movimiento)||jsonb_build_object('status','preparada');
+  end if;
+  if caja.origen='nueva' then
+    select * into anterior from private.acond_maestro_preparadas where clave=clave_busqueda;
+    if found then return to_jsonb(anterior)||jsonb_build_object('origen','nueva','status','preparada'); end if;
   end if;
   select * into legacy from private.box_conditioning where code=clave_busqueda;
   if legacy.code is not null and coalesce(caja.origen,'nueva')='nueva' then
@@ -142,6 +156,12 @@ begin
   return to_jsonb(caja)||jsonb_build_object('anios',anios,'status',case when caja.recibida is null then 'no_recibida'
     when caja.origen='solicitada' and caja.envio_original is null then 'revisar_historico' else 'disponible' end);
 end
+$$;
+
+create function private.acond_habilitada() returns boolean
+language sql stable set search_path='' as $$
+  select exists(select 1 from private.acond_historico_prueba where id)
+    or exists(select 1 from private.recepcion_maestro_produccion r where r.id and r.habilitada)
 $$;
 
 create function private.acond_operacion(p_accion text,p_codigo text,p_anio integer,p_cargos text[],p_datos jsonb)
@@ -174,12 +194,17 @@ begin
         (b.finished_at at time zone 'America/Lima')::date
       from private.box_conditioning b left join auth.users u on u.id=b.responsible_id
       where b.status='LISTA' and not exists(select 1 from private.acond_movimientos m where m.clave=b.code and m.origen='nueva')
+        and not exists(select 1 from private.acond_maestro_preparadas p where p.clave=b.code)
+      union all select to_jsonb(p)||jsonb_build_object('origen','nueva'),p.preparada
+      from private.acond_maestro_preparadas p
+      where not exists(select 1 from private.acond_movimientos m where m.clave=p.clave and m.origen='nueva')
     )
     select jsonb_build_object(
       'nuevas',(select count(*) from activas where origen='nueva'),
       'solicitadas',(select count(*) from activas where origen='solicitada'),
       'preparadas',(select count(*) from activas a where exists(select 1 from private.acond_movimientos m where m.clave=a.clave and m.solicitud=a.solicitud)
-        or (a.origen='nueva' and exists(select 1 from private.box_conditioning b where b.code=a.clave and b.status='LISTA'))),
+        or (a.origen='nueva' and (exists(select 1 from private.box_conditioning b where b.code=a.clave and b.status='LISTA')
+          or exists(select 1 from private.acond_maestro_preparadas p where p.clave=a.clave)))),
       'listado',coalesce((select jsonb_agg(data order by fecha desc,data->>'codigo') from preparadas),'[]'::jsonb)));
   end if;
   if p_accion='buscar' then return private.acond_buscar(p_codigo); end if;
@@ -199,7 +224,7 @@ begin
   end if;
   if coalesce(p_accion,'') not in ('recibir','cargo','preparar','enviar') then raise exception 'Acción inválida'; end if;
   if p_accion in ('recibir','preparar','enviar') then
-    if not exists(select 1 from private.acond_historico_prueba where id) then raise exception 'Entorno aislado no disponible'; end if;
+    if not private.acond_habilitada() then raise exception 'Acondicionamiento aún no está habilitado'; end if;
     -- Serializar asignaciones cruzadas y reintentos, incluso entre dos cajas.
     perform pg_advisory_xact_lock(66110435);
   end if;
@@ -271,7 +296,10 @@ $$;
 
 create function private.acond_retorno_req() returns trigger language plpgsql security definer set search_path='' as $$
 begin
-  if old.devolucion is null and new.devolucion is not null and exists(select 1 from private.acond_historico_prueba where id) then
+  if old.devolucion is null and new.devolucion is not null and private.acond_habilitada()
+      and (exists(select 1 from private.acond_historico_prueba where id) or exists(
+        select 1 from private.acond_movimientos where solicitud=new.requerimiento and clave=new.clave
+      )) then
     update private.acond_movimientos m set enviada=new.devolucion,despachada_por=auth.uid(),revision=2
     where m.solicitud=new.requerimiento and m.clave=new.clave and m.origen='solicitada'
       and m.enviada is null and m.preparada<=new.devolucion;
@@ -328,8 +356,8 @@ returns jsonb language sql set search_path='' as $$
 $$;
 revoke execute on function private.acond_clave(text),private.acond_buscar(text),
   private.acond_cargo_clave(text),private.acond_cargos_claves(text[]),
-  private.acond_cargo(text,integer,text,uuid),private.acond_retorno_req() from public,anon,authenticated;
-revoke all on private.acond_cajas from public,anon,authenticated;
+  private.acond_cargo(text,integer,text,uuid),private.acond_habilitada(),private.acond_retorno_req() from public,anon,authenticated;
+revoke all on private.acond_cajas,private.acond_maestro_preparadas from public,anon,authenticated;
 revoke execute on function private.acond_operacion(text,text,integer,text[],jsonb),
   private.acond_excel(text,text,integer,text,text,jsonb),
   public.kardex_acondicionamiento(text,text,integer,text[],jsonb),
@@ -338,3 +366,51 @@ grant execute on function private.acond_operacion(text,text,integer,text[],jsonb
   private.acond_excel(text,text,integer,text,text,jsonb),
   public.kardex_acondicionamiento(text,text,integer,text[],jsonb),
   public.kardex_acondicionamiento_excel(text,text,integer,text,text,jsonb) to authenticated;
+
+create function private.acond_excel_real(p_accion text,p_secreto text,p_token uuid,p_lote jsonb)
+returns jsonb language plpgsql security definer set search_path='' as $$
+declare
+  fila jsonb;
+  trabajo private.acond_movimientos%rowtype;
+  lote jsonb;
+begin
+  if auth.uid() is null or not private.kardex_has_access(true) or not exists(
+    select 1 from private.recepcion_maestro_produccion where id and habilitada
+      and secreto_hash=sha256(convert_to(coalesce(p_secreto,''),'UTF8'))
+  ) then raise exception 'Maestro real no autorizado' using errcode='42501'; end if;
+  if not exists(select 1 from private.im_master_write_lock
+      where id and token=p_token and actor=auth.uid() and hasta>clock_timestamp())
+    then raise exception 'El bloqueo del Maestro venció' using errcode='40001'; end if;
+  if p_accion='leer' then
+    select coalesce(jsonb_agg(to_jsonb(t) order by t.registrada,t.id),'[]') into lote
+    from (select m.* from private.acond_movimientos m where m.revision<>m.sincronizada
+      order by m.registrada,m.id limit 30) t;
+    return jsonb_build_object('lote',lote);
+  end if;
+  if p_accion is distinct from 'confirmar' or jsonb_typeof(p_lote) is distinct from 'array'
+    or jsonb_array_length(p_lote) not between 1 and 30
+    then raise exception 'Lote inválido'; end if;
+  for fila in select value from jsonb_array_elements(p_lote) loop
+    select * into trabajo from private.acond_movimientos m where m.id=(fila->>'id')::uuid for update;
+    if not found or trabajo.revision is distinct from (fila->>'revision')::integer then
+      raise exception 'La preparación cambió durante el guardado' using errcode='40001';
+    end if;
+    update private.acond_movimientos set sincronizada=trabajo.revision where id=trabajo.id;
+    if trabajo.origen='nueva' and trabajo.enviada is not null then
+      insert into private.acond_historia_fuente(clave,codigo,cargos,envio)
+      values(trabajo.clave,trabajo.codigo,trabajo.cargos,trabajo.enviada)
+      on conflict (clave,codigo,cargos) do nothing;
+    end if;
+  end loop;
+  return jsonb_build_object('verificado',true);
+end
+$$;
+
+create function public.kardex_acondicionamiento_excel_real(p_accion text,p_secreto text,p_token uuid,p_lote jsonb default null)
+returns jsonb language sql set search_path='' as $$
+  select private.acond_excel_real(p_accion,p_secreto,p_token,p_lote)
+$$;
+revoke execute on function private.acond_excel_real(text,text,uuid,jsonb),
+  public.kardex_acondicionamiento_excel_real(text,text,uuid,jsonb) from public,anon;
+grant execute on function private.acond_excel_real(text,text,uuid,jsonb),
+  public.kardex_acondicionamiento_excel_real(text,text,uuid,jsonb) to authenticated;
