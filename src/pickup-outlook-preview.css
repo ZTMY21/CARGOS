@@ -1,0 +1,25 @@
+
+/* Propuesta visual del correo único, aislada del flujo EML vigente. */
+.pickup-outlook-proposal{margin:18px 0;border:1px solid #dfe5ef;border-radius:16px;background:#fff;overflow:hidden;box-shadow:0 12px 30px rgba(26,47,77,.06)}
+.pickup-outlook-proposal>summary{cursor:pointer;list-style:none;display:flex;flex-wrap:wrap;align-items:center;gap:10px;background:#f7f9fc;padding:16px 20px;font-weight:750;color:#18334f}
+.pickup-outlook-proposal>summary::-webkit-details-marker{display:none}
+.pickup-outlook-pill{font-size:11px;background:#eef3fa;border:1px solid #ccd9ea;border-radius:100px;padding:4px 10px;color:#456482;font-weight:650}
+.pickup-outlook-container{padding:22px;max-width:950px;margin:0 auto}
+.pickup-outlook-info{color:#5a6d80;font-size:13px;line-height:1.6;margin:0 0 18px}
+.pickup-outlook-window{border:1px solid #d4dce7;border-radius:10px;background:white;overflow:hidden;box-shadow:0 4px 18px #2030470a}
+.pickup-outlook-window-top{display:flex;gap:9px;align-items:center;padding:13px 18px;border-bottom:1px solid #edf0f5;background:#f8fafc;font-size:13px;font-weight:750;color:#284567}
+.pickup-outlook-icon{width:27px;height:27px;border-radius:7px;background:#eef5ff;display:grid;place-items:center;color:#1c62ad}
+.pickup-outlook-line{display:grid;grid-template-columns:70px minmax(0,1fr);gap:10px;padding:10px 18px;border-bottom:1px solid #edf0f5;font-size:13px;line-height:1.55}
+.pickup-outlook-line>strong{font-weight:600;color:#65778c}
+.pickup-outlook-line>span{color:#26394c;overflow-wrap:anywhere}
+.pickup-outlook-body{font-family:Arial,Helvetica,sans-serif;white-space:pre-wrap;padding:19px 20px 6px;font-size:14px;line-height:1.75;color:#1f2f3e}
+.pickup-outlook-attachments{padding:10px 20px 20px}
+.pickup-outlook-attachments-title{font-size:12px;color:#586b7e;margin-bottom:10px;font-weight:650}
+.pickup-outlook-attachment-row{display:flex;flex-wrap:wrap;gap:10px}
+.pickup-outlook-attachment{display:flex;align-items:center;gap:10px;border:1px solid #dce4ed;border-radius:8px;padding:10px 12px;background:#fbfcff;font-size:12px;color:#263a4f;overflow-wrap:anywhere}
+.pickup-outlook-xls{background:#e3f2e8;color:#157347;border-radius:5px;padding:7px 6px;font-size:10px;font-weight:800}
+.pickup-outlook-signature{margin:0 20px 20px;padding:12px 14px;background:#f5f8fc;border-left:3px solid #a9bdd4;border-radius:4px;color:#576a7e;font-size:12px;line-height:1.5}
+.pickup-outlook-tools{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:17px}
+.pickup-outlook-tools button{font-size:13px}
+.pickup-outlook-footnote{font-size:12px;line-height:1.6;color:#64758a;margin-top:14px}
+@media(max-width:620px){.pickup-outlook-container{padding:14px}.pickup-outlook-line{grid-template-columns:45px minmax(0,1fr);padding:10px 12px;font-size:12px}.pickup-outlook-body{padding:14px 12px;font-size:13px}.pickup-outlook-attachments,.pickup-outlook-signature{margin:0 12px 14px;padding:12px}}
