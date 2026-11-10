@@ -193,3 +193,17 @@ test('Los pasos para solicitar cajas se mantienen: Cantidad, Solicitar y búsque
   assert.match(steps.textContent,/Solicitar/);
   assert.ok(reqRoot.querySelector('#req4Search'));
 });
+
+test('Ver correo generado no repite marca ni asunto dentro del cuerpo',async()=>{
+  const ui=setupRequirementsMail(root,{repository:{pickupMailConfig:async()=>config},
+    context:()=>({mailAccess:true,mailPreviewMode:true,id:actor})});
+  ui.update([supply],{cajas:[]});
+  await flush();
+  const body=document.querySelector('.req4-mail-content');
+  assert.equal(body.querySelector('.req4-mail-brand'),null);
+  assert.equal(body.querySelector('h3'),null);
+  assert.equal(body.querySelector('h2'),null);
+  assert.doesNotMatch(body.textContent,/Solicitud de 100 cajas nuevas a IM \| CD Santa Anita \|/);
+  assert.equal(document.querySelector('#req4MailSubject').textContent,
+    'Solicitud de 100 cajas nuevas a IM | CD Santa Anita |');
+});
