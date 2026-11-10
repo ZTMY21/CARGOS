@@ -42,8 +42,8 @@ test('confirmar correo registra remitente y destinatarios, no toca solicitudes',
   assert.equal(result.ya_registrado,false);
   const entry=(await db.query("select tipo,datos,actor from private.req4_movimientos where requerimiento=$1",[id])).rows[0];
   assert.equal(entry.tipo,'correo_solicitud_enviado');
-  assert.deepEqual(entry.datos.destinatarios,['destino@example.com']);
-  assert.deepEqual(entry.datos.copias,['copia@example.com']);
+  assert.deepEqual(entry.datos.destinatarios,['joramos@farmaciasperuanas.pe','alopezv@farmaciasperuanas.pe','bsalvador@farmaciasperuanas.pe']);
+  assert.deepEqual(entry.datos.copias,['fp-qs-liquidaciones@intercorpretail.pe']);
   assert.equal(entry.actor,user);
   assert.equal((await call('estado')).estado,'ENVIADO');
   assert.equal((await db.query('select count(*)::int n from public.requerimientos')).rows[0].n,2);
@@ -59,7 +59,7 @@ test('sin autenticación bloquea estado',async()=>{
   await db.query("select set_config('request.jwt.claim.sub','',true)");
   await assert.rejects(call('estado'),/Acceso administrativo requerido/);
 });
-test('no confirma si faltan destinatarios de Aviso de recojo',async()=>{
-  await db.exec("update private.pickup_mail_config set recipients=array[]::text[]");
+test('no confirma si falta el remitente de Aviso de recojo',async()=>{
+  await db.exec("update private.pickup_mail_config set sender_email=''");
   await assert.rejects(call('confirmar',id,'Solicitud de cajas | CD Santa Anita'),/Falta la configuración/);
 });
