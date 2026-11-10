@@ -61,8 +61,7 @@ export function composeRequirementsMail(row,boxes=[],config={},options={}){
   const signatureHtml=sign.map(escapeHtml).join('<br>');
   const html='<!doctype html><html lang="es"><head><meta charset="utf-8"></head><body style="font-family:Arial,Helvetica,sans-serif;background:#f5f7f9;color:#172033;padding:20px">'+
     '<table role="presentation" style="max-width:640px;width:100%;margin:auto;background:white;border:1px solid #dce2e9;border-top:4px solid #b50917;border-collapse:collapse"><tr><td style="padding:24px;font-size:14px;line-height:1.6">'+
-    '<h2 style="margin:0;color:#172033">Farmacias Peruanas</h2><p style="margin:0 0 18px;color:#526071;font-size:12px">Gestión documental · CD Santa Anita</p>'+
-    '<h3 style="margin:0 0 18px">'+escapeHtml(subject)+'</h3><p>'+escapeHtml(greeting)+'</p><p>'+escapeHtml(intro)+'</p>'+
+    '<p>'+escapeHtml(greeting)+'</p><p>'+escapeHtml(intro)+'</p>'+
     (details.length?'<ul>'+details.map(line=>'<li>'+escapeHtml(line)+'</li>').join('')+'</ul>':'')+
     '<p>'+escapeHtml(request)+'</p><p>Quedamos atentos a su confirmación.</p>'+
     (sign.length?'<p>Saludos cordiales,</p><p style="border-top:1px solid #dce2e9;padding-top:12px">'+signatureHtml+'</p>':'<p>Saludos cordiales.</p>')+
