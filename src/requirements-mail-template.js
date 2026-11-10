@@ -23,9 +23,15 @@ export function composeRequirementsMail(row,boxes=[],config={},options={}){
   const simulation=options.simulation===true;
   const supply=row?.tipo===REQ_TYPES[0];
   if(!row || (!supply&&row.tipo!==REQ_TYPES[1]))throw Error('Selecciona un requerimiento válido.');
-  const count=supply?Number(row.cantidadCajas):boxes.length;
+  // Iron Mountain identifica las cajas por su código, no por los cargos ni los
+  // documentos que contienen. Usar solo códigos reales y omitir repetidos.
+  const loanCodes=supply?[]:[...new Map(boxes.map(box=>{
+    const code=clean(box?.codigo||box?.code);
+    return [code.toUpperCase(),code];
+  }).filter(([key])=>key)).values()];
+  const count=supply?Number(row.cantidadCajas):loanCodes.length;
   if(!Number.isSafeInteger(count)||count<1||(supply&&count>100))
-    throw Error(supply?'La solicitud debe tener entre 1 y 100 cajas.':'No hay cajas registradas en este préstamo.');
+    throw Error(supply?'La solicitud debe tener entre 1 y 100 cajas.':'No hay códigos de caja registrados en esta solicitud a IM.');
   const preview=options.preview===true;
   const sender=simulation?'remitente@example.invalid':clean(config.sender)||(preview?'remitente@example.invalid':'');
   const to=simulation?['destinatario@example.invalid']:[...REQUEST_MAIL_TO];
@@ -38,21 +44,17 @@ export function composeRequirementsMail(row,boxes=[],config={},options={}){
   const number=clean(row.numero)||'SIN NÚMERO';
   const subject=supply
     ?'Solicitud de '+count+' '+(count===1?'caja nueva':'cajas nuevas')+' a IM | CD Santa Anita |'
-    :'Solicitud de '+count+' '+(count===1?'caja en préstamo':'cajas en préstamo')+' a IM | CD Santa Anita |';
+    :'Solicitud de '+count+' '+(count===1?'caja':'cajas')+' a IM | CD Santa Anita |';
   const greeting='Buenas tardes, estimados:';
   const intro=supply
     ?'Por medio del presente, solicitamos '+count+' '+(count===1?'caja nueva':'cajas nuevas')+' para el acondicionamiento de documentos en el CD Santa Anita.'
-    :'Por medio del presente, solicitamos el préstamo de '+count+' '+(count===1?'caja':'cajas')+' a Iron Mountain para la consulta de documentos del CD Santa Anita.';
+    :'Por medio del presente, solicitamos a Iron Mountain el préstamo de '+count+' '+(count===1?'caja':'cajas')+' identificadas por los siguientes códigos:';
   // El correo no incluye metadatos del requerimiento ni un renglón de cantidad.
   // La cantidad solicitada ya figura en el asunto y en el mensaje principal.
-  const details=supply?[]:boxes.map(box=>{
-    const code=clean(box.codigo||box.code);
-    const cargos=Array.isArray(box.cargos)?box.cargos.map(clean).filter(Boolean):[];
-    return 'Caja '+code+(cargos.length?' · Cargos: '+cargos.join(' - '):'');
-  });
+  const details=supply?[]:loanCodes;
   const request=supply
     ?'Agradeceremos confirmar la disponibilidad y la fecha programada de entrega.'
-    :'Agradeceremos confirmar la disponibilidad y la fecha de atención de este préstamo.';
+    :'Agradeceremos confirmar la disponibilidad y la fecha programada de entrega de estas cajas.';
   // Si no hay una firma auténtica configurada, no se muestra ningún marcador
   // provisional ni la empresa aislada como firma.
   const sign=name&&company?[name,config.position,config.area,company,config.contact].map(clean).filter(Boolean):[];
