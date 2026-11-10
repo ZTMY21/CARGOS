@@ -4,6 +4,7 @@ import './box-reception.css';
 import './conditioning-workspace.css';
 import {attachBoxScanSheets} from './box-scan-sheet-ui.js';
 import {attachConditioningWorkspace} from './conditioning-workspace.js';
+import {attachPreparedMonthlyKpi} from './prepared-monthly-kpi.js';
 import {inventoryConditioning} from './conditioning-inventory.js';
 import {attachBoxConditioning} from './box-conditioning-ui.js';
 import {attachPickupMail} from './pickup-mail-ui.js';
@@ -134,6 +135,7 @@ function fetchPreviousCargos(rows){
 let currentPage = 0;
 let expiryGroups = {today:'', overdue:[], upcoming:[], unknown:[]};
 let activeExpiryGroup = null, expiryPage = 0, expiryReturnButton = '';
+let preparedMonthlyKpi = null;
 let preparedImRows = [], preparedImFetchEpoch = 0;
 let preparedImSummary = null, preparedImSummaryEpoch = 0;
 let requestedIMRows = [], requestedIMData = [], requestedIMError = '', requestedIMFetchEpoch = 0;
@@ -406,6 +408,7 @@ async function refreshData() {
           void reloadPreparedImSummary();
           void reloadRequestedIM();
           void reloadShippedBoxesSummary();
+          void preparedMonthlyKpi?.refresh();
         }
       }
       const selected = document.getElementById('f_cajaAsignada').value;
@@ -900,12 +903,7 @@ function renderMonthlyCargoStats(){
   document.getElementById('monthlyCargosShipped').textContent=monthlyShippedSummary
     ? fmtNum(monthlyShippedSummary.currentCount):'—';
   renderMonthlyShippedDetail();
-  document.getElementById('monthlyCargosRequested').textContent=
-    requestedIMLoaded && !requestedIMError ? fmtNum(requestedIMData.length):'—';
-  document.getElementById('requestedIMNote').textContent=requestedDemo?'Datos de ejemplo · No son registros reales':
-    requestedIMError?'No se pudo actualizar desde el Excel Maestro':
-      requestedIMLoaded ? fmtNum(countRequestedCargos(requestedIMData))+' cargos'
-        :'Consultando cajas y cargos pendientes…';
+  // El KPI de Acondicionamiento consulta solamente cajas realmente preparadas.
 }
 function renderDocs(){
   const filters=appliedFilters;
@@ -1339,11 +1337,7 @@ async function reloadRequestedIM(){
 }
 document.getElementById('btnRequestedIMDetail').addEventListener('click',()=>{
   if(!isAdmin||!appReady)return;
-  const modal=document.getElementById('requestedIMSheet');
-  if(!modal.open)modal.showModal();
-  document.getElementById('requestedIMCount').textContent='Consultando solicitudes actualizadas…';
-  document.getElementById('requestedIMList').textContent='Actualizando registros del Excel Maestro…';
-  void reloadRequestedIM();
+  preparedMonthlyKpi?.open();
 });
 document.getElementById('btnRefreshRequestedIM').addEventListener('click',()=>{
   requestedIMError='';void reloadRequestedIM();
@@ -2131,6 +2125,7 @@ setInterval(()=>{
       void reloadPreparedImSummary();
       void reloadRequestedIM();
       void reloadShippedBoxesSummary();
+      void preparedMonthlyKpi?.refresh();
     }
     if(appReady && isAdmin && expiryGroups.today !== limaDate(new Date())) renderDocs();
     else if(appReady && isAdmin &&
@@ -2178,6 +2173,11 @@ boxScannerController=attachBoxScanner({
   repository,isAdmin:()=>isAdmin,appReady:()=>appReady,
   reception:receptionEnabled ? attachBoxReception({repository,refresh:refreshData,live:receptionLive}) : null,
   onScan:event=>{if(!receptionEnabled)boxScanSheetController?.scan(event);}
+});
+
+// KPI mensual e histórico de cajas finalizadas, sin escritura en origen.
+preparedMonthlyKpi=attachPreparedMonthlyKpi({
+  repository,isAdmin:()=>isAdmin,appReady:()=>appReady
 });
 
 // Capa visual aprobada: sin modificar la lógica, el menú ni otras pantallas.
