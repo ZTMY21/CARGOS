@@ -3,7 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Preview · Solicitudes a IM · Kárdex Digital</title>
+<title>Requerimientos · Solicitudes a IM · Kárdex Digital (Preview)</title>
+<link rel="stylesheet" href="/src/connection.css">
 <style>
   :root{
     --navy:#1F4E78; --navy-dark:#12324D;
@@ -982,23 +983,24 @@
 @media(prefers-reduced-motion:reduce){#sessionLoading .loading-dots span{animation:none;opacity:1}}
 </style>
 <style>
-  .im-demo-banner{padding:14px 18px;background:#eaf2fb;border:1px solid #bed5ed;border-radius:10px;margin:0 0 16px;color:#173957;font-size:14px}
-  .im-demo-banner strong{display:block;margin-bottom:5px}
-  .im-demo-banner p{margin:0;line-height:1.5}
+  .im-demo-banner{padding:10px 14px;background:#f1f5f9;border:1px solid #dbe3eb;border-radius:8px;margin:0 0 14px;color:#415267;font-size:12px;line-height:1.45}
+  .im-demo-banner strong{display:inline;margin-right:8px;color:#1f4e78}
+  .im-demo-banner p{display:inline;margin:0}
   .im-demo-footer{color:#687586;text-align:center;padding:8px 0 22px;font-size:12px}
   #grp-requerimientos{display:block!important}
   #req4Workspace{padding-bottom:10px}
+  @media(max-width:650px){.im-demo-banner p{display:block;margin-top:4px}.header-row h1{font-size:17px}}
 </style>
 </head>
 <body>
-<main class="wrap">
+<main class="wrap" id="appShell">
   <header class="header-row">
     <img src="/farmacias-heart.svg" alt="Farmacias Peruanas" class="header-logo" width="62" height="49">
-    <h1>Kárdex Digital — CD Santa Anita</h1>
+    <h1>Kardex Digital — Control de Existencias Documentos Contables (CD Santa Anita)</h1>
   </header>
   <div class="im-demo-banner" role="status">
-    <strong>Vista previa · Solicitudes a IM</strong>
-    <p>Diseño de prueba con códigos ficticios. No conecta con solicitudes reales, no registra cambios y no envía correos.</p>
+    <strong>Vista previa de Solicitudes a IM</strong>
+    <p>Misma estructura del aplicativo · Códigos de ejemplo: T00045, TD00046 y P00078 · El botón Solicitar solo simula el guardado.</p>
   </div>
   <details class="group" id="grp-requerimientos" open>
     <summary><span class="stitle">Requerimientos<small>Cajas nuevas y solicitudes a IM</small></span><span class="chev">▶</span></summary>
