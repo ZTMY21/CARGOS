@@ -842,6 +842,88 @@
     #conditionedMonthlySheet .conditioned-tabs{gap:5px;margin:0 15px 12px;}
     #conditionedMonthlySheet .conditioned-period-tab{font-size:11px;padding:8px 12px;min-height:34px;}
   }
+
+  /* Los dos avances usan la misma proporción: valor / cajas solicitadas. */
+  #grp-resumen .conditioning-batch-progress{
+    display:block;width:100%;height:7px;min-height:7px;margin:10px 0 0;
+    appearance:none;-webkit-appearance:none;border:none;border-radius:99px;
+    background:#e2e9ef;overflow:hidden;accent-color:var(--accent,#0284c7);
+  }
+  #grp-resumen .conditioning-batch-progress::-webkit-progress-bar{background:#e2e9ef;border-radius:99px;}
+  #grp-resumen .conditioning-batch-progress::-webkit-progress-value{background:var(--accent,#0284c7);border-radius:99px;}
+  #grp-resumen .conditioning-batch-progress::-moz-progress-bar{background:var(--accent,#0284c7);border-radius:99px;}
+  #grp-resumen .kpi-summary-to-condition{--accent:#477c9c;}
+  #grp-resumen .kpi-summary-process .pct-txt{font-size:12px;}
+  #grp-resumen .kpi-summary-to-condition .pct-txt{font-size:12px;}
+
+  /* Demostración aislada para revisar la nueva lógica sin autenticación ni guardar datos. */
+  #conditioningBatchDemo{
+    box-sizing:border-box;width:min(830px,calc(100vw - 22px));max-width:830px;
+    max-height:90vh;overflow-y:auto;border:1px solid #dce6ee;border-radius:17px;
+    background:#fff;color:#263e50;box-shadow:0 30px 90px #132f4066;padding:0;
+    font-family:Arial,Helvetica,sans-serif;
+  }
+  #conditioningBatchDemo::backdrop{background:#102332a3;backdrop-filter:blur(3px);}
+  #conditioningBatchDemo .batch-demo-head{
+    display:flex;align-items:flex-start;justify-content:space-between;gap:15px;
+    padding:21px 24px 15px;border-bottom:1px solid #e8edf1;
+  }
+  #conditioningBatchDemo .batch-demo-head h2{font-size:19px;color:#243e54;margin:5px 0;}
+  #conditioningBatchDemo .batch-demo-head small{font-size:10px;font-weight:800;letter-spacing:.07em;color:#137ba9;}
+  #conditioningBatchDemo .batch-demo-head p{font-size:12px;color:#75899a;margin:4px 0 0;}
+  #conditioningBatchDemo .batch-demo-close{
+    border:0;background:#f0f4f7;border-radius:9px;font-size:19px;width:34px;height:34px;
+    color:#536777;flex:none;
+  }
+  #conditioningBatchDemo .batch-demo-content{padding:20px 24px 24px;}
+  #conditioningBatchDemo .batch-demo-zone{margin-bottom:15px;}
+  #conditioningBatchDemo .batch-demo-zone h3{
+    font-size:12px;font-weight:850;color:#526b80;text-transform:uppercase;
+    letter-spacing:.04em;margin:0 0 9px;
+  }
+  #conditioningBatchDemo .batch-demo-card{
+    border:1px solid #dfe6ec;border-top:3px solid var(--accent);
+    border-radius:11px;padding:18px;background:#fff;
+    box-shadow:0 2px 7px #1525350d;min-height:135px;
+  }
+  #conditioningBatchDemo .batch-demo-card.process{--accent:#0284c7;}
+  #conditioningBatchDemo .batch-demo-card.to-condition{--accent:#477c9c;}
+  #conditioningBatchDemo .batch-demo-card .label{
+    font-size:11px;letter-spacing:.04em;text-transform:uppercase;
+    color:#536273;font-weight:800;
+  }
+  #conditioningBatchDemo .batch-demo-card strong{
+    font-size:31px;color:var(--accent);display:block;margin:9px 0 5px;line-height:1.15;
+    font-variant-numeric:tabular-nums;
+  }
+  #conditioningBatchDemo .batch-demo-card .pct{font-size:12px;font-weight:750;color:var(--accent);}
+  #conditioningBatchDemo .batch-demo-bar{
+    height:7px;background:#e3ebf1;border-radius:99px;overflow:hidden;margin-top:11px;
+  }
+  #conditioningBatchDemo .batch-demo-bar>span{
+    display:block;height:100%;background:var(--accent);border-radius:99px;
+    transition:width .15s;
+  }
+  #conditioningBatchDemo .batch-demo-explanation{
+    color:#657e91;font-size:12px;line-height:1.5;margin:8px 0 0;
+  }
+  #conditioningBatchDemo .batch-demo-controls{
+    background:#f5f9fc;border:1px solid #e2ebf2;border-radius:12px;
+    padding:15px;margin-top:16px;display:grid;gap:15px;
+  }
+  #conditioningBatchDemo .batch-demo-controls h3{font-size:13px;margin:0;color:#344e65;}
+  #conditioningBatchDemo .batch-demo-controls label{
+    display:flex;justify-content:space-between;gap:10px;color:#546d82;font-size:12px;font-weight:750;
+  }
+  #conditioningBatchDemo .batch-demo-controls input{width:100%;accent-color:#158dbd;cursor:pointer;}
+  #conditioningBatchDemo .batch-demo-note{font-size:11px;color:#718698;line-height:1.5;margin:0;}
+  @media(max-width:560px){
+    #conditioningBatchDemo .batch-demo-head{padding:17px 15px 13px;}
+    #conditioningBatchDemo .batch-demo-content{padding:14px;}
+    #conditioningBatchDemo .batch-demo-card{min-height:125px;padding:14px;}
+    #conditioningBatchDemo .batch-demo-card strong{font-size:28px;}
+  }
+
 </style>
 <link rel="stylesheet" href="/src/intervention-ui.css">
 <link rel="stylesheet" href="/src/intervention-premium.css">
@@ -1787,6 +1869,52 @@
     <button id="btnBackLogin" class="secondary" type="button">Volver a iniciar sesión</button>
   </section>
 </main>
+
+<dialog id="conditioningBatchDemo" aria-labelledby="batchDemoTitle">
+  <div class="batch-demo-head">
+    <div>
+      <small>VISTA PREVIA · RESUMEN · DATOS DE EJEMPLO</small>
+      <h2 id="batchDemoTitle">Avance de cajas nuevas para acondicionar</h2>
+      <p>Dos indicadores independientes sobre la solicitud de 100 cajas.</p>
+    </div>
+    <button id="batchDemoClose" class="batch-demo-close" type="button" aria-label="Cerrar vista previa">×</button>
+  </div>
+  <div class="batch-demo-content">
+    <section class="batch-demo-zone">
+      <h3>Indicador superior · Resumen</h3>
+      <div class="batch-demo-card process">
+        <div class="label">En proceso de acondicionamiento</div>
+        <strong id="batchDemoPrepared">12/100</strong>
+        <div id="batchDemoPreparedPct" class="pct">12% acondicionadas</div>
+        <div class="batch-demo-bar"><span id="batchDemoPreparedBar" style="width:12%"></span></div>
+      </div>
+      <p class="batch-demo-explanation">Aumenta únicamente cuando se confirma «Caja preparada» en Acondicionamiento.</p>
+    </section>
+    <section class="batch-demo-zone">
+      <h3>Indicador inferior · Cajas para acondicionar</h3>
+      <div class="batch-demo-card to-condition">
+        <div class="label">Cajas para acondicionar</div>
+        <strong id="batchDemoRegistered">32/100</strong>
+        <div id="batchDemoRegisteredPct" class="pct">32% registradas</div>
+        <div class="batch-demo-bar"><span id="batchDemoRegisteredBar" style="width:32%"></span></div>
+      </div>
+      <p class="batch-demo-explanation">Aumenta al registrar los códigos de las cajas solicitadas en Control de cajas.</p>
+    </section>
+    <div class="batch-demo-controls">
+      <h3>Simular avances, sin modificar los datos del aplicativo</h3>
+      <div>
+        <label for="batchDemoRegisterSlider">Cajas registradas <span id="batchDemoRegisterLabel">32 de 100</span></label>
+        <input type="range" min="0" max="100" step="1" value="32" id="batchDemoRegisterSlider">
+      </div>
+      <div>
+        <label for="batchDemoPreparedSlider">Cajas preparadas <span id="batchDemoPreparedLabel">12 de 100</span></label>
+        <input type="range" min="0" max="32" step="1" value="12" id="batchDemoPreparedSlider">
+      </div>
+      <p class="batch-demo-note">Los valores de este ejemplo son ilustrativos; el Resumen real consulta los registros guardados en Control de cajas y Acondicionamiento.</p>
+    </div>
+  </div>
+</dialog>
+
 <script type="module" src="/src/app.js"></script>
 </body>
 </html>
