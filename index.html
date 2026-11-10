@@ -643,55 +643,119 @@
   .previous-cargo-pending{color:#8893a2;font-size:12px;}
   .previous-cargo-error{color:#8a6671;font-size:11px;}
 
-  /* Detalle del KPI de cajas acondicionadas: consistente con las gráficas mensuales. */
-  #conditionedMonthlySheet{width:min(790px,calc(100% - 26px));max-width:790px;}
-  #conditionedMonthlySheet .monthly-created-eyebrow{color:#1977a7;}
-  #conditionedMonthlySheet .monthly-created-tab[aria-selected="true"]{
-    color:#086b9b;background:#e0f5ff;border-color:#87d3f2;
+  /* KPI: tarjeta del Resumen mantiene el tamaño de las otras métricas. */
+  #googleSyncPanel .monthly-cargo-stat.conditioned{
+    --monthly-accent:#168b5a;--monthly-tint:#e2f7eb;
   }
-  #conditionedMonthlySheet .conditioned-summary{
-    display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;
-    margin:10px 28px 14px;
+  #googleSyncPanel .monthly-cargo-stat.conditioned .monthly-conditioned-unit{color:#21825b;}
+  #googleSyncPanel .monthly-cargo-stat.conditioned #conditionedMonthlyNote{color:#5b7080;}
+  #googleSyncPanel #btnRequestedIMDetail{
+    background:#e5f6ed;color:#176e48;border-color:#b6e5cd;
   }
-  #conditionedMonthlySheet .conditioned-stat{
-    background:#f5f9fc;border:1px solid #dfebf2;border-radius:12px;padding:12px 16px;
-  }
-  #conditionedMonthlySheet .conditioned-stat span{font-size:11px;color:#657d91;display:block;}
-  #conditionedMonthlySheet .conditioned-stat strong{font-size:28px;color:#156c9d;display:block;margin-top:4px;}
-  #conditionedMonthlySheet .conditioned-chart-wrap{
-    border:1px solid #e3eaf0;border-radius:13px;margin:12px 28px 8px;
-    padding:16px 15px 12px;
-  }
-  #conditionedMonthlySheet .conditioned-chart-title{font-size:13px;color:#314b62;margin:0 0 12px;}
-  #conditionedMonthlySheet .conditioned-chart{
-    max-height:365px;min-height:84px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;
-  }
-  #conditionedMonthlySheet .conditioned-chart-row{
-    display:grid;grid-template-columns:84px minmax(0,1fr) 38px;align-items:center;gap:10px;min-height:23px;
-  }
-  #conditionedMonthlySheet .conditioned-chart-label{font-size:11px;color:#687f92;font-weight:650;}
-  #conditionedMonthlySheet .conditioned-chart-track{
-    display:flex;height:15px;background:#edf2f6;border-radius:4px;overflow:hidden;
-  }
-  #conditionedMonthlySheet .conditioned-chart-track span{height:100%;min-width:0;display:block;}
-  #conditionedMonthlySheet .conditioned-segment-new{background:#238657;}
-  #conditionedMonthlySheet .conditioned-segment-requested{background:#2482bd;}
-  #conditionedMonthlySheet .conditioned-chart-value{text-align:right;color:#344e63;font-size:11px;}
-  #conditionedMonthlySheet .conditioned-legend{display:flex;gap:18px;flex-wrap:wrap;margin-top:13px;font-size:11px;color:#586e81;}
-  #conditionedMonthlySheet .conditioned-legend span{display:inline-flex;align-items:center;gap:6px;}
-  #conditionedMonthlySheet .conditioned-dot{display:inline-block;width:10px;height:10px;border-radius:2px;}
-  #conditionedMonthlySheet .conditioned-chart-explanation{
-    font-size:11px;color:#73879a;margin:10px 28px 22px;line-height:1.5;
-  }
-  @media(max-width:520px){
-    #conditionedMonthlySheet .conditioned-summary{margin:10px 14px;gap:8px;}
-    #conditionedMonthlySheet .conditioned-chart-wrap{margin:12px 14px 8px;padding:12px 9px;}
-    #conditionedMonthlySheet .conditioned-chart-row{grid-template-columns:62px minmax(0,1fr) 26px;gap:5px;}
-    #conditionedMonthlySheet .monthly-created-tabs{padding:12px 14px 5px;flex-wrap:wrap;}
-    #conditionedMonthlySheet .monthly-created-head{padding:18px 16px 13px;}
-    #conditionedMonthlySheet .conditioned-chart-explanation{margin:10px 14px 18px;}
-  }
+  #googleSyncPanel #btnRequestedIMDetail:hover{background:#d6f0e3;border-color:#7fd6ad;}
 
+  /* Modal premium oscuro: estructura de la vista aprobada del KPI. */
+  dialog#conditionedMonthlySheet{
+    width:min(930px,calc(100vw - 30px));max-width:930px;
+    max-height:min(92vh,920px);overflow-y:auto;
+    background:#090f13;color:#eaf4f7;border:1px solid #29423f;
+    border-radius:22px;padding:0;box-shadow:0 28px 95px #0813199c;
+    font-family:Arial,Helvetica,sans-serif;
+  }
+  #conditionedMonthlySheet::backdrop{background:rgba(4,12,18,.72);backdrop-filter:blur(5px);}
+  #conditionedMonthlySheet .conditioned-ui{padding:25px 29px 26px;}
+  #conditionedMonthlySheet .conditioned-topline{
+    display:flex;align-items:center;justify-content:space-between;gap:15px;margin-bottom:26px;
+  }
+  #conditionedMonthlySheet .conditioned-eyebrow{
+    font-size:11px;letter-spacing:.065em;font-weight:760;color:#aec0c9;text-transform:uppercase;
+  }
+  #conditionedMonthlySheet .conditioned-header-tools{display:flex;align-items:center;gap:12px;}
+  #conditionedMonthlySheet .conditioned-origin{
+    border:1px solid #2c4440;border-radius:999px;padding:5px 10px;
+    color:#c0d8cd;font-size:11px;white-space:nowrap;background:#10231b;
+  }
+  #conditionedMonthlySheet .conditioned-close{
+    border:1px solid #3b4b52;border-radius:9px;background:#1a2429;color:#d7e5e7;
+    min-width:33px;height:33px;display:grid;place-items:center;padding:0;font-size:20px;
+  }
+  #conditionedMonthlySheet .conditioned-close:hover{background:#29363d;}
+  #conditionedMonthlySheet .conditioned-main{position:relative;padding-right:55px;}
+  #conditionedMonthlySheet .conditioned-main h2{
+    font-size:20px;font-weight:750;line-height:1.35;margin:0 0 9px;color:#f4fafa;
+  }
+  #conditionedMonthlySheet .conditioned-main-icon{position:absolute;right:0;top:0;color:#17cb76;}
+  #conditionedMonthlySheet .conditioned-main-icon svg{width:33px;height:33px;}
+  #conditionedMonthlySheet .conditioned-primary-number{
+    display:block;font-size:49px;font-weight:800;line-height:1.05;letter-spacing:-.035em;
+    color:#18d17a;margin:0 0 7px;font-variant-numeric:tabular-nums;
+  }
+  #conditionedMonthlySheet .conditioned-period-note{color:#a9b9c1;font-size:13px;margin:0;}
+  #conditionedMonthlySheet .conditioned-breakdown{
+    border-top:1px solid #37444a;margin:19px 0 23px;padding-top:14px;
+    display:flex;justify-content:space-between;gap:15px;flex-wrap:wrap;
+  }
+  #conditionedMonthlySheet .conditioned-breakdown span{color:#ebf5f6;font-size:13px;font-weight:650;}
+  #conditionedMonthlySheet .conditioned-graph-header h3{
+    color:#f5f8fa;font-size:19px;line-height:1.3;font-weight:780;margin:0 0 5px;
+  }
+  #conditionedMonthlySheet .conditioned-graph-header p{font-size:12px;color:#b4c2c9;margin:0 0 16px;}
+  #conditionedMonthlySheet .conditioned-tabs{
+    display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:15px;
+  }
+  #conditionedMonthlySheet .conditioned-period-tab{
+    border:1px solid transparent;background:transparent;border-radius:999px;
+    color:#a9b9c2;font-size:13px;font-weight:700;text-align:center;
+    min-height:36px;padding:8px 10px;
+  }
+  #conditionedMonthlySheet .conditioned-period-tab[aria-selected="true"]{
+    background:#262d31;color:#fff;border-color:#38474e;
+  }
+  #conditionedMonthlySheet .conditioned-period-tab:focus-visible{outline:2px solid #3cb5ff;outline-offset:2px;}
+  #conditionedMonthlySheet .conditioned-chart-card{
+    background:linear-gradient(145deg,#181e22,#13191d 74%);
+    border:1px solid #394a50;border-radius:16px;padding:23px 18px 17px;
+    box-shadow:0 5px 20px #0002;overflow:hidden;
+  }
+  #conditionedMonthlySheet .conditioned-plot-viewport{
+    width:100%;overflow-x:auto;overflow-y:hidden;scrollbar-color:#4b616b transparent;
+  }
+  #conditionedMonthlySheet .conditioned-svg{
+    display:block;min-width:100%;height:306px;overflow:visible;
+  }
+  #conditionedMonthlySheet .conditioned-gridline{stroke:#46545c;stroke-width:1;stroke-dasharray:3 5;}
+  #conditionedMonthlySheet .conditioned-axis{stroke:#5c686d;stroke-width:1;}
+  #conditionedMonthlySheet .conditioned-axis-text{font-size:11px;fill:#9aabb3;font-family:Arial,Helvetica,sans-serif;}
+  #conditionedMonthlySheet .conditioned-bar-new{fill:#159bff;}
+  #conditionedMonthlySheet .conditioned-bar-requested{fill:#914bea;}
+  #conditionedMonthlySheet .conditioned-legend{
+    display:flex;align-items:center;justify-content:center;gap:24px;flex-wrap:wrap;
+    margin:11px 0 2px;font-size:12px;color:#d2dde3;
+  }
+  #conditionedMonthlySheet .conditioned-legend span{display:inline-flex;gap:7px;align-items:center;}
+  #conditionedMonthlySheet .conditioned-dot{
+    display:inline-block;width:10px;height:10px;border-radius:50%;flex:none;
+  }
+  #conditionedMonthlySheet .conditioned-chart-explanation{
+    border-top:1px solid #303b40;padding-top:12px;font-size:11px;color:#9cabb3;
+    margin:14px 0 0;line-height:1.6;
+  }
+  #conditionedMonthlySheet .conditioned-empty{
+    padding:20px 12px;text-align:center;color:#a2b6c0;font-size:12px;
+  }
+  @media(max-width:620px){
+    dialog#conditionedMonthlySheet{width:calc(100vw - 16px);border-radius:14px;max-height:94vh;}
+    #conditionedMonthlySheet .conditioned-ui{padding:17px 15px;}
+    #conditionedMonthlySheet .conditioned-topline{margin-bottom:19px;}
+    #conditionedMonthlySheet .conditioned-eyebrow{font-size:10px;}
+    #conditionedMonthlySheet .conditioned-main h2{font-size:17px;}
+    #conditionedMonthlySheet .conditioned-primary-number{font-size:43px;}
+    #conditionedMonthlySheet .conditioned-chart-card{padding:14px 9px 14px;}
+    #conditionedMonthlySheet .conditioned-breakdown span{font-size:11px;}
+    #conditionedMonthlySheet .conditioned-svg{height:275px;}
+    #conditionedMonthlySheet .conditioned-tabs{gap:3px;}
+    #conditionedMonthlySheet .conditioned-period-tab{font-size:12px;}
+  }
 </style>
 <link rel="stylesheet" href="/src/intervention-ui.css">
 <link rel="stylesheet" href="/src/intervention-premium.css">
@@ -779,7 +843,7 @@
         <button id="btnMonthlyShippedDetail" type="button" class="monthly-shipped-detail-button" aria-haspopup="dialog" aria-controls="monthlyShippedSheet">Ver detalle <span aria-hidden="true">↗</span></button>
       </article>
       <article class="sync-stat monthly-cargo-stat conditioned">
-        <span class="monthly-stat-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M20 20H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2Z"/></svg></span>
+        <span class="monthly-stat-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="m12 2 9 5-9 5-9-5 9-5Z"/><path d="M3 7v10l9 5 9-5V7M12 12v10"/><path d="m16 15 2 2 4-4"/></svg></span>
         <span class="sync-stat-label">CAJAS ACONDICIONADAS PARA ENVÍO</span>
         <div class="monthly-conditioned-total">
           <strong id="monthlyBoxesConditioned" class="sync-stat-value" aria-label="Cajas acondicionadas este mes pendientes de envío">—</strong>
@@ -1456,36 +1520,44 @@
 
 
 
-<dialog id="conditionedMonthlySheet" class="monthly-created-sheet conditioned-monthly-sheet" aria-labelledby="conditionedMonthlyTitle">
-  <div class="monthly-created-head">
-    <div class="monthly-created-heading">
-      <span class="monthly-created-eyebrow">KÁRDEX DIGITAL · ACONDICIONAMIENTO</span>
+<dialog id="conditionedMonthlySheet" aria-labelledby="conditionedMonthlyTitle" aria-describedby="conditionedMonthlyStatus">
+  <div class="conditioned-ui">
+    <div class="conditioned-topline">
+      <span class="conditioned-eyebrow">KÁRDEX DIGITAL · RESUMEN</span>
+      <div class="conditioned-header-tools">
+        <span id="conditionedDataSource" class="conditioned-origin">Datos de acondicionamiento</span>
+        <button id="btnCloseConditionedMonthly" type="button" class="conditioned-close" aria-label="Cerrar detalle">×</button>
+      </div>
+    </div>
+    <section class="conditioned-main">
       <h2 id="conditionedMonthlyTitle">Cajas acondicionadas para envío</h2>
-      <p>Productividad de preparación para Iron Mountain</p>
+      <span class="conditioned-main-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" stroke-linecap="round"><path d="m12 2 9 5-9 5-9-5 9-5Z"/><path d="M3 7v10l9 5 9-5V7M12 12v10"/><path d="m16 15 2 2 4-4"/></svg></span>
+      <strong id="conditionedMonthlyPending" class="conditioned-primary-number">—</strong>
+      <p id="conditionedPeriodLabel" class="conditioned-period-note">Este mes · Pendientes de envío a IM</p>
+    </section>
+    <div class="conditioned-breakdown">
+      <span id="conditionedMonthlyNew">— cajas nuevas</span>
+      <span id="conditionedMonthlyRequested">— cajas solicitadas acondicionadas</span>
     </div>
-    <button id="btnCloseConditionedMonthly" type="button" class="monthly-created-close" aria-label="Cerrar detalle">✕</button>
-  </div>
-  <div class="monthly-created-tabs" role="tablist" aria-label="Periodo del KPI">
-    <button type="button" class="monthly-created-tab" role="tab" aria-selected="true" data-prepared-period="dia">Por día</button>
-    <button type="button" class="monthly-created-tab" role="tab" aria-selected="false" data-prepared-period="semana">Por semana</button>
-    <button type="button" class="monthly-created-tab" role="tab" aria-selected="false" data-prepared-period="mes">Por mes</button>
-    <button type="button" class="monthly-created-tab" role="tab" aria-selected="false" data-prepared-period="anio">Por año</button>
-  </div>
-  <div class="conditioned-summary">
-    <div class="conditioned-stat"><span>Preparadas este mes</span><strong id="conditionedMonthlyPrepared">—</strong></div>
-    <div class="conditioned-stat"><span>Pendientes de envío este mes</span><strong id="conditionedMonthlyPending">—</strong></div>
-  </div>
-  <div class="conditioned-chart-wrap">
-    <h3 class="conditioned-chart-title">Evolución de cajas acondicionadas</h3>
-    <div id="conditionedMonthlyChart" class="conditioned-chart" role="list" aria-live="polite">Consultando acondicionamientos…</div>
-    <div class="conditioned-legend" aria-label="Clasificación de cajas">
-      <span><i class="conditioned-dot" style="background:#238657"></i> Cajas nuevas</span>
-      <span><i class="conditioned-dot" style="background:#2482bd"></i> Cajas solicitadas acondicionadas</span>
+    <div class="conditioned-graph-header">
+      <h3>Evolución de cajas preparadas</h3>
+      <p>Selecciona el periodo para explorar la gráfica.</p>
+    </div>
+    <div class="conditioned-tabs" role="tablist" aria-label="Periodo del KPI">
+      <button type="button" class="conditioned-period-tab" role="tab" aria-selected="true" data-prepared-period="dia">Día</button>
+      <button type="button" class="conditioned-period-tab" role="tab" aria-selected="false" data-prepared-period="semana">Semana</button>
+      <button type="button" class="conditioned-period-tab" role="tab" aria-selected="false" data-prepared-period="mes">Mes</button>
+      <button type="button" class="conditioned-period-tab" role="tab" aria-selected="false" data-prepared-period="anio">Año</button>
+    </div>
+    <div class="conditioned-chart-card">
+      <div class="conditioned-plot-viewport" id="conditionedMonthlyChart" aria-live="polite">Consultando acondicionamientos…</div>
+      <div class="conditioned-legend" aria-label="Clasificación de cajas">
+        <span><i class="conditioned-dot" style="background:#159bff"></i>Cajas nuevas</span>
+        <span><i class="conditioned-dot" style="background:#914bea"></i>Cajas solicitadas</span>
+      </div>
+      <p id="conditionedMonthlyStatus" class="conditioned-chart-explanation">La gráfica conserva el historial de preparación, incluso de cajas que posteriormente fueron enviadas.</p>
     </div>
   </div>
-  <p id="conditionedMonthlyStatus" class="conditioned-chart-explanation">
-    Solo cuenta preparaciones finalizadas; las solicitudes y recepciones no cuentan por sí solas.
-  </p>
 </dialog>
 
 <dialog id="requestedIMSheet" class="expiry-sheet prepared-im-sheet" aria-labelledby="requestedIMTitle">
