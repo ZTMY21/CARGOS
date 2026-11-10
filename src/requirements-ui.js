@@ -33,6 +33,7 @@ function detailsList(rows, tracking, supply) {
       <span class="req4-request-badge ${tone}">${html(state)}</span>
       <span class="req4-request-quantity"><strong>${Number(row.cantidadCajas)}</strong> ${Number(row.cantidadCajas) === 1 ? 'caja' : 'cajas'}</span>
       <button class="secondary" type="button" data-req-open="${html(row.id)}" aria-label="Ver solicitud ${html(row.numero)}">Ver solicitud</button>
+      <button class="secondary" type="button" data-req-mail="${html(row.id)}" aria-label="Preparar correo para ${html(row.numero)}">Preparar correo</button>
     </article>`;
   }).join('');
 }
@@ -292,7 +293,13 @@ export function setupRequirements(root, {repository, context, refresh, onKindCha
     }
     const data = loan ? {tipo:'prestamo',cajas:[...selected.values()].map(box=>box.codigo)}
       : {tipo:'nuevas',cantidad:count};
-    if (await write(data,status)) {
+    const saved=await write(data,status);
+    if (saved) {
+      const mailButton=root.ownerDocument.createElement('button');
+      mailButton.type='button';mailButton.className='secondary req4-mail-after-save';
+      mailButton.dataset.reqMail=saved.id;
+      mailButton.textContent='Generar correo de esta solicitud';
+      status.append(' ',mailButton);
       if (loan) {
         searchEpoch++;
         selected.clear();
@@ -393,6 +400,7 @@ export function setupRequirements(root, {repository, context, refresh, onKindCha
         <div><dt>Solicitante</dt><dd>${html(row.usuario)}</dd></div>
         <div><dt>Cajas solicitadas</dt><dd>${Number(row.cantidadCajas)}</dd></div>
       </dl>
+      <button class="secondary req4-mail-detail" type="button" data-req-mail="${html(row.id)}">Preparar correo de esta solicitud</button>
       ${supply ? showReception ? receiptHistory(row) : '' : `<h3 class="req4-history-heading">Cajas de la solicitud</h3>
         <ul>${boxes.map(box => `<li><strong>${html(box.codigo)}</strong> · cargos ${html(box.cargos.join(', '))}</li>`).join('')}</ul>`}`;
     find('DialogBody').dataset.row = row.id;
@@ -405,6 +413,11 @@ export function setupRequirements(root, {repository, context, refresh, onKindCha
     const d = button.dataset;
     if ('reqClose' in d) { dialog.close(); return; }
     if (busy) return;
+    if ('reqMail' in d) {
+      if(dialog.open)dialog.close();
+      void mailUI.selectRequest(d.reqMail,{generate:true});
+      return;
+    }
     if ('reqKind' in d) { selectKind(d.reqKind); return; }
     if ('reqSelect' in d) {
       const box = results[Number(d.reqSelect)];
