@@ -59,7 +59,10 @@ test('sin autenticación bloquea estado',async()=>{
   await db.query("select set_config('request.jwt.claim.sub','',true)");
   await assert.rejects(call('estado'),/Acceso administrativo requerido/);
 });
-test('no confirma si falta el remitente de Aviso de recojo',async()=>{
-  await db.exec("update private.pickup_mail_config set sender_email=''");
-  await assert.rejects(call('confirmar',id,'Solicitud de cajas | CD Santa Anita'),/Falta la configuración/);
+test('confirma envío manual de Outlook sin remitente configurado, dejando constancia de que no se verificó',async()=>{
+  await db.exec("update private.pickup_mail_config set sender_email='', signature_name='', signature_company=''");
+  assert.equal((await call('confirmar',id,'Solicitud de 100 cajas nuevas a IM | CD Santa Anita |')).estado,'ENVIADO');
+  const value=(await db.query("select datos from private.req4_movimientos where requerimiento=$1",[id])).rows[0].datos;
+  assert.equal(value.remitente_configurado,null);
+  assert.match(value.metodo,/no verificables/);
 });
