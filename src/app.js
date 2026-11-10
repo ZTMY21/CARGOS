@@ -2187,3 +2187,31 @@ preparedMonthlyKpi=attachPreparedMonthlyKpi({
 
 // Capa visual aprobada: sin modificar la lógica, el menú ni otras pantallas.
 attachInterventionExperience();
+
+
+// Simulación interactiva solo en el despliegue de Preview. No lee ni guarda datos reales.
+if(isPreview && new URLSearchParams(window.location.search).get('demo-avance')==='1'){
+  const demo=document.getElementById('conditioningBatchDemo');
+  const register=document.getElementById('batchDemoRegisterSlider');
+  const prepared=document.getElementById('batchDemoPreparedSlider');
+  const byId=id=>document.getElementById(id);
+  const update=()=>{
+    const read=Number(register.value);
+    prepared.max=String(read);
+    if(Number(prepared.value)>read)prepared.value=String(read);
+    const done=Number(prepared.value);
+    byId('batchDemoRegistered').textContent=read+'/100';
+    byId('batchDemoRegisteredPct').textContent=read+'% registradas';
+    byId('batchDemoRegisteredBar').style.width=read+'%';
+    byId('batchDemoRegisterLabel').textContent=read+' de 100';
+    byId('batchDemoPrepared').textContent=done+'/100';
+    byId('batchDemoPreparedPct').textContent=done+'% acondicionadas';
+    byId('batchDemoPreparedBar').style.width=done+'%';
+    byId('batchDemoPreparedLabel').textContent=done+' de 100';
+  };
+  register.addEventListener('input',update);
+  prepared.addEventListener('input',update);
+  byId('batchDemoClose').addEventListener('click',()=>demo.close());
+  update();
+  requestAnimationFrame(()=>{if(!demo.open)demo.showModal();});
+}
