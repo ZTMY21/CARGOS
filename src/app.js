@@ -64,6 +64,8 @@ let annualReference = null;
 const requestUI = setupRequirements(document.getElementById('req4Workspace'), {
   repository, isPreview: isolatedRequirements, receptionEnabled, receptionOverview,
   context: () => ({allowed:appReady && isAdmin && (!isPreview || isolatedRequirements),
+    mailAccess:appReady && isAdmin,
+    mailPreviewMode:appReady && isAdmin ? isPreview : true,
     id:currentUserId, name:document.getElementById('sessionUser').textContent}),
   refresh: refreshData,
   onKindChange: () => {

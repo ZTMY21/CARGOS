@@ -1,5 +1,6 @@
 import { escapeHtml as html, fmtDate, limaDate, REQ_TYPES } from './rules.js';
 import {receptionTime,requestReception} from './box-reception-ui.js';
+import {setupRequirementsMail} from './requirements-mail-ui.js';
 
 const kinds = {nuevas: 'Cajas nuevas', prestamo: 'Solicitudes a IM'};
 const steps = {nuevas: ['Cantidad', 'Solicitar'], prestamo: ['Buscar', 'Seleccionar', 'Solicitar']};
@@ -32,6 +33,7 @@ function detailsList(rows, tracking, supply) {
       <span class="req4-request-badge ${tone}">${html(state)}</span>
       <span class="req4-request-quantity"><strong>${Number(row.cantidadCajas)}</strong> ${Number(row.cantidadCajas) === 1 ? 'caja' : 'cajas'}</span>
       <button class="secondary" type="button" data-req-open="${html(row.id)}" aria-label="Ver solicitud ${html(row.numero)}">Ver solicitud</button>
+      <button class="secondary" type="button" data-req-mail="${html(row.id)}" aria-label="Preparar correo para ${html(row.numero)}">Preparar correo</button>
     </article>`;
   }).join('');
 }
@@ -113,6 +115,7 @@ export function setupRequirements(root, {repository, context, refresh, onKindCha
       </div>
       <p id="req4Status" class="req4-status" role="status"></p>
     </form>
+    <div id="req4Mail"></div>
     <dialog class="expiry-sheet req4-dialog" id="req4Dialog" aria-labelledby="req4DialogTitle">
       <div class="req4-dialog-head"><div class="req4-dialog-heading"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M3 7h18M4 3h16l2 4v3H2V7l2-4Z"/><path d="M4 10v11h16V10M9 14h6"/></svg><div><h2 id="req4DialogTitle"></h2><p id="req4DialogIntro" class="req4-help"></p></div></div><button class="secondary" data-req-close type="button">Cerrar</button></div>
       <div id="req4DialogBody"></div><p id="req4DialogStatus" role="status"></p>
@@ -120,6 +123,7 @@ export function setupRequirements(root, {repository, context, refresh, onKindCha
   const find = id => root.ownerDocument.getElementById(`req4${id}`);
   const allowed = () => context().allowed;
   const form = find('Form'), kind = find('Kind'), qty = find('Qty'), dialog = find('Dialog');
+  const mailUI=setupRequirementsMail(find('Mail'),{repository,context});
   root.ownerDocument.body.append(dialog);
   let results = [];
   const canRequest = box => !!box?.clave && box.solicitable === true && !box.prestamo;
@@ -289,7 +293,13 @@ export function setupRequirements(root, {repository, context, refresh, onKindCha
     }
     const data = loan ? {tipo:'prestamo',cajas:[...selected.values()].map(box=>box.codigo)}
       : {tipo:'nuevas',cantidad:count};
-    if (await write(data,status)) {
+    const saved=await write(data,status);
+    if (saved) {
+      const mailButton=root.ownerDocument.createElement('button');
+      mailButton.type='button';mailButton.className='secondary req4-mail-after-save';
+      mailButton.dataset.reqMail=saved.id;
+      mailButton.textContent='Generar correo de esta solicitud';
+      status.append(' ',mailButton);
       if (loan) {
         searchEpoch++;
         selected.clear();
@@ -402,6 +412,11 @@ export function setupRequirements(root, {repository, context, refresh, onKindCha
     const d = button.dataset;
     if ('reqClose' in d) { dialog.close(); return; }
     if (busy) return;
+    if ('reqMail' in d) {
+      if(dialog.open)dialog.close();
+      void mailUI.selectRequest(d.reqMail,{generate:true});
+      return;
+    }
     if ('reqKind' in d) { selectKind(d.reqKind); return; }
     if ('reqSelect' in d) {
       const box = results[Number(d.reqSelect)];
@@ -448,6 +463,7 @@ export function setupRequirements(root, {repository, context, refresh, onKindCha
       }
       rows = records;
       tracking = detail;
+      mailUI.update(records,detail);
       if (detail?.suministro) supplyRejected = false;
       if (dialog.open) {
         if (cardView) showCards(cardView);
