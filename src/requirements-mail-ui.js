@@ -35,6 +35,7 @@ export function setupRequirementsMail(root,{repository,context}){
     '<button id="req4MailOutlook" type="button">Descargar borrador de prueba para Outlook</button>'+
     '<button id="req4MailMark" type="button" class="secondary">Simular correo enviado</button></div>'+
     '</div></section>';
+  const doc=root.ownerDocument,win=doc.defaultView;
   const el=name=>root.querySelector('#req4Mail'+name);
   const select=el('Select'),status=el('Status'),result=el('Result');
   const previewMode=()=>context().mailPreviewMode!==false;
@@ -61,13 +62,13 @@ export function setupRequirementsMail(root,{repository,context}){
     const options=possible.slice().reverse();
     select.replaceChildren();
     if(!options.length){
-      const option=document.createElement('option');
+      const option=doc.createElement('option');
       option.value='';option.textContent=previewMode()?'Sin solicitudes registradas · Usa la simulación':'Sin solicitudes registradas';
       select.append(option);
       select.disabled=true;
     }else{
       for(const row of options){
-        const option=document.createElement('option');
+        const option=doc.createElement('option');
         const loan=row.tipo===REQ_TYPES[1];
         option.value=row.id;
         option.textContent=(row.numero||'Solicitud')+' · '+(loan?'Préstamo':'Cajas nuevas')+
@@ -141,10 +142,10 @@ export function setupRequirementsMail(root,{repository,context}){
       ?composeRequirementsMail(currentDraft.row,currentDraft.boxes,currentDraft.config,{simulation:true})
       :currentDraft.mail;
     const blob=new Blob([safe.eml],{type:'message/rfc822;charset=utf-8'});
-    const url=URL.createObjectURL(blob),link=document.createElement('a');
+    const url=win.URL.createObjectURL(blob),link=doc.createElement('a');
     link.href=url;link.download=safe.filename;
-    document.body.append(link);link.click();link.remove();
-    setTimeout(()=>URL.revokeObjectURL(url),10000);
+    doc.body.append(link);link.click();link.remove();
+    setTimeout(()=>win.URL.revokeObjectURL(url),10000);
     setStatus(previewMode()
       ?'Borrador de prueba descargado. Puedes abrirlo en Outlook; no contiene destinatarios reales.'
       :'Borrador descargado. Ábrelo en Outlook, verifica los destinatarios y envíalo manualmente.');
@@ -162,7 +163,7 @@ export function setupRequirementsMail(root,{repository,context}){
       setStatus('Envío simulado correctamente. No se ha registrado ni enviado un correo real.');
       return;
     }
-    if(!window.confirm('Confirma solo si ya enviaste este correo desde Outlook. ¿Lo enviaste realmente?'))return;
+    if(!win.confirm('Confirma solo si ya enviaste este correo desde Outlook. ¿Lo enviaste realmente?'))return;
     const actor=context().id,epoch=generationEpoch,draft=currentDraft;
     busy=true;renderRows();renderDraft();setStatus('Registrando confirmación de envío…');
     try{
