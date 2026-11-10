@@ -25,10 +25,17 @@ export function composeRequirementsMail(row,boxes=[],config={},options={}){
   if(!row || (!supply&&row.tipo!==REQ_TYPES[1]))throw Error('Selecciona un requerimiento válido.');
   // Iron Mountain identifica las cajas por su código, no por los cargos ni los
   // documentos que contienen. Usar solo códigos reales y omitir repetidos.
-  const loanCodes=supply?[]:[...new Map(boxes.map(box=>{
-    const code=clean(box?.codigo||box?.code);
-    return [code.toUpperCase(),code];
-  }).filter(([key])=>key)).values()];
+  const loanCodes=[];
+  if(!supply){
+    const seen=new Set();
+    for(const box of boxes){
+      const code=clean(box?.codigo||box?.code);
+      const key=code.toUpperCase();
+      if(!code||seen.has(key))continue;
+      seen.add(key);
+      loanCodes.push(code);
+    }
+  }
   const count=supply?Number(row.cantidadCajas):loanCodes.length;
   if(!Number.isSafeInteger(count)||count<1||(supply&&count>100))
     throw Error(supply?'La solicitud debe tener entre 1 y 100 cajas.':'No hay códigos de caja registrados en esta solicitud a IM.');
