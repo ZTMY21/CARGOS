@@ -3,24 +3,12 @@ import assert from 'node:assert/strict';
 import {JSDOM} from 'jsdom';
 import {attachPickupMail} from '../src/pickup-mail-ui.js';
 
-const ids=['pickupMailStatus','pickupMailCounts','pickupMailBatches','pickupMailPreview',
- 'pickupMailPreviewMeta','pickupSender','pickupTo','pickupCc','pickupName','pickupPosition',
- 'pickupArea','pickupCompany','pickupContact','pickupSaveConfig','pickupPrepare','pickupReload',
- 'pickupSubject','pickupGreeting','pickupIntroduction','pickupRequest','pickupClosing',
- 'pickupLogoFile','pickupLogoPreview','pickupLogoStatus','pickupLogoClear','pickupSample'];
+const ids=['pickupMailStatus','pickupMailCounts','pickupMailBatches','pickupMailPreviewMeta'];
 function createDom(){
- const markup='<html><body>'+ids.map(id=>id==='pickupLogoPreview'
- ?'<img id="'+id+'">'
- :id==='pickupLogoFile'?'<input id="'+id+'" type="file">'
- :['pickupIntroduction','pickupRequest','pickupClosing'].includes(id)
- ?'<textarea id="'+id+'"></textarea>'
- :id==='pickupMailPreview'
- ?'<iframe id="'+id+'"></iframe>'
- :['pickupSaveConfig','pickupPrepare','pickupReload','pickupLogoClear','pickupSample'].includes(id)
- ?'<button id="'+id+'"></button>'
- :['pickupMailStatus','pickupMailCounts','pickupMailBatches','pickupMailPreviewMeta','pickupLogoStatus'].includes(id)
- ?'<div id="'+id+'"></div>'
- :'<input id="'+id+'">').join('')+'</body></html>';
+ const markup='<html><body>'+ids.map(id=>'<div id="'+id+'"></div>').join('')+
+   '<section id="pickupMailPreview"></section>'+
+   ['pickupPrepare','pickupReload','pickupPreviewTrySample'].map(id=>'<button id="'+id+'"></button>').join('')+
+   '</body></html>';
  return new JSDOM(markup,{url:'https://app.example.com/'});
 }
 async function make({preview=false,ready=30,configured=true}={}){
@@ -49,7 +37,7 @@ async function make({preview=false,ready=30,configured=true}={}){
  const mailRequest=async(action,id)=>{
   requests.push({action,id});
   if(action==='preview')return {to:['jorge@example.com'],cc:[],boxes:30,
-    subject:'Solicitud de recojo',html:'<p>Vista previa de prueba</p>'};
+    subject:'Solicitud de recojo',text:'Vista previa de prueba'};
   throw Error('No enviar ni descargar en esta prueba');
  };
  const ui=attachPickupMail({supabase,isAdmin:()=>true,appReady:()=>true,isPreview:()=>preview,mailRequest});
@@ -92,8 +80,7 @@ test('Preview muestra datos pero nunca prepara ni configura ni confirma',async()
  const t=await make({preview:true});
  try{
   assert.equal(t.node('pickupPrepare').disabled,true);
-  assert.equal(t.node('pickupSaveConfig').disabled,true);
-  await t.click('pickupPrepare');await t.click('pickupSaveConfig');
+  await t.click('pickupPrepare');
   assert.equal(t.calls.filter(x=>x.name==='kardex_pickup_mail_prepare').length,0);
   assert.equal(t.calls.filter(x=>x.name==='kardex_pickup_mail_configure').length,0);
  }finally{t.cleanup();}
@@ -103,13 +90,10 @@ test('Preview muestra datos pero nunca prepara ni configura ni confirma',async()
 test('vista simulada usa 30 cajas ficticias sin confirmar ni escribir registros',async()=>{
  const t=await make();
  try{
-  t.node('pickupName').value='Angelo';
-  t.node('pickupPosition').value='Operador Integral | BPDT - Liquidaciones';
-  await t.click('pickupSample');
+  await t.click('pickupPreviewTrySample');
   assert.match(t.node('pickupMailPreviewMeta').textContent,/Simulación/i);
-  assert.match(t.node('pickupMailPreview').srcdoc,/SIMULACIÓN INTERNA/);
-  assert.match(t.node('pickupMailPreview').srcdoc,/TD-DEMO-030/);
-  assert.match(t.node('pickupMailPreview').srcdoc,/Angelo/);
+  assert.match(t.node('pickupMailPreview').textContent,/SIMULACIÓN INTERNA/);
+  assert.match(t.node('pickupMailPreview').textContent,/30 cajas nuevas/);
   assert.equal(t.calls.filter(x=>x.name==='kardex_pickup_mail_prepare').length,0);
   assert.equal(t.calls.filter(x=>x.name==='kardex_pickup_mail_mark').length,0);
   assert.equal(t.requests.length,0);

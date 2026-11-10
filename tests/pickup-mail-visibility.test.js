@@ -39,9 +39,9 @@ test('el ejemplo desde la bandeja aparece visible y no guarda ni envía ningún 
   assert.equal(d.getElementById('pickupMailPreviewEmpty').hidden,true);
   assert.ok(scrolled>0,'debe llevar al usuario a donde aparece la simulación');
   assert.match(d.getElementById('pickupMailPreviewMeta').textContent,/SIMULACIÓN/);
-  const doc=d.getElementById('pickupMailPreview').srcdoc;
+  const doc=d.getElementById('pickupMailPreview').textContent;
   assert.match(doc,/SIMULACIÓN INTERNA/);
-  assert.match(doc,/TD-DEMO-030/);
+  assert.match(doc,/30 cajas nuevas/);
   assert.ok(calls.every(n=>n==='kardex_pickup_mail_state'||n==='kardex_pickup_mail_brand_state'));
  }finally{
   enhanced.disconnect();
@@ -72,7 +72,7 @@ test('Ver correo sin avisos reales muestra instrucciones y permite simular desde
   d.getElementById('pickupPreviewTrySample').click();
   assert.equal(d.getElementById('pickupMailPreviewEmpty').hidden,true);
   assert.equal(d.getElementById('pickupMailPreview').hidden,false);
-  assert.match(d.getElementById('pickupMailPreview').srcdoc,/SIMULACIÓN INTERNA/);
+  assert.match(d.getElementById('pickupMailPreview').textContent,/SIMULACIÓN INTERNA/);
  }finally{
   pickup.reset();
   if(old===undefined)delete globalThis.document;else globalThis.document=old;

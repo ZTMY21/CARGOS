@@ -4,13 +4,22 @@ export class ArchiveError extends Error {
 }
 export const sha256=bytes=>createHash('sha256').update(bytes).digest('hex');
 export const categories=Object.freeze({scans:'01_Escaneados',originals:'02_Excel_originales',backups:'03_Respaldos',history:'04_Historico',manifests:'05_Manifiestos'});
+export const pickupEvidenceKey=/^pickup:([a-f0-9-]{36}):([a-f0-9-]{36}):([a-f0-9-]{36})$/i;
+export function pickupDriveAllowed(env){
+  try{return env.VERCEL_ENV==='production'&&env.KARDEX_PICKUP_WORKFLOW_ENABLED==='true'&&
+    /^[\w-]{10,200}$/.test(env.KARDEX_PICKUP_DRIVE_FOLDER_ID||'')&&
+    Boolean(env.KARDEX_PICKUP_DRIVE_OWNER_EMAIL)&&env.GOOGLE_DRIVE_OWNER_EMAIL===env.KARDEX_PICKUP_DRIVE_OWNER_EMAIL&&
+    JSON.parse(env.GOOGLE_DRIVE_FOLDER_IDS_JSON||'{}').scans===env.KARDEX_PICKUP_DRIVE_FOLDER_ID;}
+  catch{return false;}
+}
 export function validateInput(value){
   const v=Object.fromEntries(['documentId','importId','sourceKey','sourceVersion','name','sha256','size','mime','category','modifiedAt'].filter(k=>value?.[k]!==undefined).map(k=>[k,value[k]]));
   const uuid=x=>/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(x||'');
   if(v.importId!==undefined&&!uuid(v.importId))throw new ArchiveError('INVALID_IMPORT');
   const directExcelImport=v.documentId===null&&v.category==='originals'&&v.importId===undefined&&/^excel-import:[0-9a-f-]{36}:[a-f0-9]{64}$/i.test(v.sourceKey||'')&&v.mime!==undefined;
   const stagedEvidence=v.documentId===null&&v.importId===undefined&&v.category==='scans'&&/^sustento:[0-9a-f-]{36}$/i.test(v.sourceKey||'');
-  const global=v.documentId===null&&(['backups','manifests'].includes(v.category)||(v.category==='originals'&&uuid(v.importId))||directExcelImport||stagedEvidence);
+  const pickupEvidence=v.documentId===null&&v.importId===undefined&&v.category==='scans'&&pickupEvidenceKey.exec(v.sourceKey);
+  const global=v.documentId===null&&(['backups','manifests'].includes(v.category)||(v.category==='originals'&&uuid(v.importId))||directExcelImport||stagedEvidence||pickupEvidence);
   if(!global&&!uuid(v.documentId))throw new ArchiveError('INVALID_DOCUMENT');
   for(const k of ['sourceKey','sourceVersion'])if(typeof v[k]!=='string'||!v[k].trim()||v[k].length>200||/[\x00-\x1f]/.test(v[k]))throw new ArchiveError('INVALID_SOURCE');
   if(typeof v.name!=='string'||!v.name.trim()||v.name.length>180||/[\\/\x00-\x1f]/.test(v.name))throw new ArchiveError('INVALID_NAME');
@@ -26,9 +35,12 @@ export function validateInput(value){
   if(stagedEvidence){
     if(v.mime!=='image/jpeg'||v.name!=='sustento_'+v.sourceKey.slice('sustento:'.length)+'.jpg')throw new ArchiveError('INVALID_EVIDENCE');
   }
+  if(pickupEvidence&&(v.mime!=='application/pdf'||v.size>5*1024**2||
+    !new RegExp('^IM_RECOJO_\\d{4}-\\d{2}-\\d{2}_AV-'+pickupEvidence[1].slice(0,8)+'_'+pickupEvidence[2]+'\\.pdf$','i').test(v.name)))
+    throw new ArchiveError('INVALID_PICKUP_EVIDENCE');
   if(!Object.hasOwn(categories,v.category))throw new ArchiveError('INVALID_CATEGORY');
   if(v.modifiedAt!==undefined&&(!Number.isFinite(Date.parse(v.modifiedAt))||new Date(v.modifiedAt).toISOString()!==v.modifiedAt))throw new ArchiveError('INVALID_DATE');
-  const identity=[v.documentId,v.sourceKey,v.sourceVersion,v.sha256,v.category];if(v.importId)identity.push(v.importId);v.key=sha256(JSON.stringify(identity));
+  const identity=[v.documentId,v.sourceKey,v.sourceVersion,v.sha256,v.category];if(v.importId)identity.push(v.importId);v.key=sha256(JSON.stringify(pickupEvidence?[v.sourceKey]:identity));
   return v;
 }
 export const isReceptionPreviewBranch = env => env.VERCEL_GIT_COMMIT_REF==='preview/recepcion-cajas-im';

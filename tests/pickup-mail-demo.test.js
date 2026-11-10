@@ -6,11 +6,11 @@ test('vista previa de 30 cajas sin contactos reales, escritura ni envío',()=>{
   position:'Operador Integral | BPDT - Liquidaciones',
   subject:'Solicitud de recojo | {{cantidad}} cajas nuevas | {{sede}} | {{fecha}}'});
  assert.match(html,/SIMULACIÓN INTERNA/);
- assert.match(html,/TD-DEMO-030/);
+ assert.match(html,/30 cajas nuevas/);
  assert.match(html,/Angelo/);
  assert.match(html,/BPDT - Liquidaciones/);
  assert.match(html,/Solicitud de recojo \| 30 cajas nuevas \| CD Santa Anita/);
- assert.equal((html.match(/Cargo de ejemplo /g)||[]).length,30);
+ assert.doesNotMatch(html,/Cargo de ejemplo|TD-DEMO/);
  assert.doesNotMatch(html,/dcieza@|chtransa|AXL-818/);
 });
 test('simulación HTML escapa edición maliciosa y logo PNG es optativo',()=>{

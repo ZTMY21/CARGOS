@@ -1,6 +1,6 @@
 import {Readable} from 'node:stream';
 import {pipeline} from 'node:stream/promises';
-import {ArchiveError,configuration,safeJob,validateInput} from '../server/archive/security.js';
+import {ArchiveError,configuration,safeJob,validateInput,pickupEvidenceKey,pickupDriveAllowed} from '../server/archive/security.js';
 import {DriveClient} from '../server/archive/drive-client.js';
 import {gateway} from '../server/archive/runtime.js';
 import {ArchiveRepository,authorize} from '../server/archive/repository.js';
@@ -62,7 +62,9 @@ export function createHandler({env=process.env,fetcher=fetch}={}){
       if(action==='resolve')return json(200,await actor.resolve(req.query.kardex));
       if(action==='start'||action==='adopt'){const raw=await body(req),input=validateInput(raw);const isDirectExcelOriginal=input.documentId===null&&input.importId===undefined&&input.category==='originals'&&/^excel-import:[0-9a-f-]{36}:[a-f0-9]{64}$/i.test(input.sourceKey);
         const isStagedEvidence=input.documentId===null&&input.importId===undefined&&input.category==='scans'&&/^sustento:[0-9a-f-]{36}$/i.test(input.sourceKey);
-        if((input.documentId===null&&!isDirectExcelOriginal&&!isStagedEvidence)||['backups','manifests'].includes(input.category))actor.backup();
+        const pickup=pickupEvidenceKey.exec(input.sourceKey);
+        if(pickup&&(action!=='start'||pickup[3]!==actor.id||!pickupDriveAllowed(env)))throw new ArchiveError('PICKUP_DRIVE_NOT_AUTHORIZED',403);
+        if((input.documentId===null&&!isDirectExcelOriginal&&!isStagedEvidence&&!pickup)||['backups','manifests'].includes(input.category))actor.backup();
         if(input.documentId!==null)await actor.document(input.documentId);if(input.importId){const source=await actor.importSource(input.importId);if(input.category==='originals'&&source.sha256!==input.sha256)throw new ArchiveError('IMPORT_CHECKSUM_MISMATCH',409);}return json(200,action==='adopt'?await service.adopt(input,raw.driveFileId):await service.start(input));}
       if(action==='list'||action==='manifest'){
         const doc=req.query.documentId??null;if(doc===null)actor.backup();else{if(typeof doc!=='string'||!/^[-a-f0-9]{36}$/i.test(doc))throw new ArchiveError('INVALID_DOCUMENT');await actor.document(doc);}
@@ -71,7 +73,9 @@ export function createHandler({env=process.env,fetcher=fetch}={}){
       }
       if(!id)throw new ArchiveError('INVALID_JOB');const job=await store.get(id);const isDirectExcelJob=job.documentId===null&&job.importId==null&&job.category==='originals'&&/^excel-import:[0-9a-f-]{36}:[a-f0-9]{64}$/i.test(job.sourceKey||'');
       const isStagedEvidenceJob=job.documentId===null&&job.importId==null&&job.category==='scans'&&/^sustento:[0-9a-f-]{36}$/i.test(job.sourceKey||'');
-      if((job.documentId===null&&!isStagedEvidenceJob&&(!isDirectExcelJob||read))||['backups','manifests'].includes(job.category))actor.backup();
+      const pickup=pickupEvidenceKey.exec(job.sourceKey);
+      if(pickup&&(read||pickup[3]!==actor.id||!pickupDriveAllowed(env)))throw new ArchiveError('PICKUP_DRIVE_NOT_AUTHORIZED',403);
+      if((job.documentId===null&&!isStagedEvidenceJob&&!pickup&&(!isDirectExcelJob||read))||['backups','manifests'].includes(job.category))actor.backup();
       if(isStagedEvidenceJob){
         if(read)await actor.document(job.sourceKey.slice('sustento:'.length));
       }else if(job.documentId!==null)await actor.document(job.documentId);

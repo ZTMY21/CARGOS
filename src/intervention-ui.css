@@ -288,8 +288,9 @@
 #grp-correos .intervention-preview-inner,
 #grp-correos .intervention-config-inner{padding:16px 18px 18px;}
 #grp-correos #pickupMailPreview{
-  display:block;width:100%;min-height:420px;
+  display:block;width:100%;padding:16px 18px;
   border:1px solid #d9e4ea;border-radius:9px;background:#fff;
+  color:#172033;font-size:14px;line-height:1.6;white-space:pre-wrap;overflow-wrap:anywhere;
 }
 #grp-correos .intervention-config-panel .filters{
   display:grid;grid-template-columns:repeat(3,minmax(0,1fr));

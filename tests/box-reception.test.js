@@ -186,7 +186,7 @@ test('Supabase aplica propiedad, límite, conciliación idempotente y bloqueo ha
     await db.exec(`
       insert into private.kardex_miembros(email,rol) values
         ('owner@example.test','admin'),('other@example.test','admin'),('guest@example.test','editor');
-      create table public.im_envios_cargos_live(codigo_caja text,codigo_cargo text,fecha_envio date,fecha_preparacion date,clasificacion_caja text,responsable_preparacion text);
+      create table public.im_envios_cargos_live(sheet_id text,sheet_row integer,fuente_celda text,codigo_caja text,codigo_cargo text,fecha_envio date,fecha_preparacion date,clasificacion_caja text,responsable_preparacion text);
       alter table public.documentos add column fecha_origen date, add column anio_origen integer;
       create view public.kardex_documentos_resumen as
         select id,null::text im_live_codigo_caja,null::text im_codigo_caja,null::text im_caja_preparada,
@@ -292,6 +292,85 @@ test('Supabase aplica propiedad, límite, conciliación idempotente y bloqueo ha
     assert.equal((await liveSave('parcial',{})).lecturas.length,1);
     await one("select public.kardex_im_master_lock('liberar',$1) result",[lease.token]);
     await assert.rejects(liveSave('estado',{}),/reserva del Excel/);
+
+    for(const migrationName of ['20261101210000_pickup_mail.sql','20261101211500_pickup_mail_auto_queue.sql',
+      '20261101230000_pickup_mail_custom_template.sql','20261108200000_pickup_workflow.sql','20261108203000_pickup_master_prepared.sql','20261108210000_pickup_register_sent.sql'])
+      await migration(migrationName);
+    await db.exec("update private.pickup_mail_config set sender_email='admin@example.test',recipients=array['im@example.test'],signature_name='Prueba',signature_company='Kárdex'");
+    const workflow=(action,batchId,data={})=>one('select public.kardex_pickup_workflow($1,$2,$3::jsonb) result',
+      [action,batchId,JSON.stringify(data)]);
+    const markMail=(batchId,action)=>one('select public.kardex_pickup_mail_mark($1,$2) result',[batchId,action]);
+    const batchId=randomUUID(),visitId=randomUUID(),secondId=randomUUID();
+    const preparedKey=codes[2].clave;
+    const day=productionMovement.preparada;
+    await actor(user);
+    await assert.rejects(workflow('state',null),/Acceso administrativo/);
+    await actor(owner);
+    assert.equal((await workflow('state',null)).available[0].code,codes[2].codigo);
+    await workflow('prepare',batchId,{keys:[preparedKey]});
+    assert.equal((await workflow('prepare',batchId,{keys:[preparedKey]})).id,batchId);
+    await assert.rejects(workflow('prepare',secondId,{keys:[preparedKey]}),/reservadas/);
+    await workflow('cancel',batchId);
+    await assert.rejects(markMail(batchId,'PREPARADO'),/cancelado/);
+    await workflow('prepare',secondId,{keys:[preparedKey]});
+    await markMail(secondId,'PREPARADO');
+    await markMail(secondId,'CONFIRMADO');
+    await workflow('schedule',secondId,{NUEVAS:day});
+    assert.equal((await lookup(codes[2].codigo)).enviada,null);
+    await assert.rejects(one("select public.kardex_acondicionamiento('enviar',p_datos=>jsonb_build_object('id',$1::text,'fecha',$2::text)) result",
+      [productionMovement.id,day]),/desde Avisos/);
+    const visit=(action,data={},secret='solo-prueba')=>one('select public.kardex_pickup_visit($1,$2,$3,$4::jsonb,$5) result',
+      [action,secondId,visitId,JSON.stringify(data),secret]);
+    const confirmation={date:day,codes:[codes[2].codigo],fileId:'fake-drive-id',revision:'revision-fake',
+      name:'test.pdf',size:2000,pages:1,sha256:'a'.repeat(64),uploadedBy:owner};
+    await assert.rejects(visit('confirm',confirmation,'incorrecto'),/no autorizada/);
+    await assert.rejects(visit('confirm',{date:day,codes:[codes[2].codigo]}),/not-null/);
+    assert.equal((await lookup(codes[2].codigo)).enviada,null);
+    assert.equal((await visit('confirm',confirmation)).lote.length,1);
+    assert.equal((await visit('confirm',confirmation)).lote.length,1);
+    assert.equal((await visit('pdf')).fileId,'fake-drive-id');
+    assert.equal((await visit('progress',{destination:'master'})).verified,false);
+    assert.equal((await visit('progress',{destination:'history'})).verified,false);
+    assert.equal((await visit('progress',{destination:'projection'})).verified,true);
+    const pickupState=await workflow('state',null);
+    assert.equal(pickupState.batches.find(b=>b.id===secondId).visits[0].synced,true);
+    assert.deepEqual(pickupState.batches.find(b=>b.id===secondId).visits[0].codes,[codes[2].codigo]);
+
+    const workbookId='14tW2-XqukNYozn4P67A7lrhjFfPveAmv';
+    const legacyNew='T2028999701',legacyReturn='T2028999702';
+    await db.query(`insert into public.im_envios_cargos_live
+      (sheet_id,sheet_row,fuente_celda,codigo_caja,codigo_cargo,fecha_preparacion,clasificacion_caja,responsable_preparacion)
+      values ($1,2,'400-300',$2,'300',$4,'Cajas Nuevas','Prueba'),($1,2,'400-300',$2,'400',$4,'Cajas Nuevas','Prueba'),
+        ($1,3,'500',$3,'500',$4,'POR SOLICITUD','Prueba')`,[workbookId,legacyNew,legacyReturn,day]);
+    await db.query(`insert into private.acond_historia_fuente(clave,codigo,cargos,envio)
+      values (private.acond_clave($1),$1,array['500'],$2::date-1)`,[legacyReturn,day]);
+    const available=(await workflow('state',null)).available;
+    assert.deepEqual(available.map(b=>[b.code,b.type,b.cargos]),[
+      [legacyNew,'NUEVAS',['400','300']],[legacyReturn,'DEVOLUCION',['500']]
+    ]);
+    const legacyBatch=randomUUID(),legacyVisit=randomUUID();
+    const legacyKeys=available.map(b=>b.key);
+    await db.exec("update private.pickup_mail_config set sender_email='',recipients='{}',signature_name='',signature_company=''");
+    await assert.rejects(workflow('prepare',legacyBatch,{keys:legacyKeys}),/Completa el remitente/);
+    await workflow('register_sent',legacyBatch,{keys:legacyKeys});
+    assert.equal((await workflow('register_sent',legacyBatch,{keys:legacyKeys})).id,legacyBatch);
+    await assert.rejects(workflow('prepare',legacyBatch,{keys:legacyKeys}),/pertenece a otro aviso/);
+    const registered=(await workflow('state',null)).batches.find(b=>b.id===legacyBatch);
+    assert.equal(registered.status,'CONFIRMADO');
+    assert.equal(registered.external_mail,true);
+    await workflow('schedule',legacyBatch,{NUEVAS:day,DEVOLUCION:day});
+    const confirmLegacy=data=>one("select public.kardex_pickup_visit('confirm',$1,$2,$3::jsonb,'solo-prueba') result",
+      [legacyBatch,legacyVisit,JSON.stringify(data)]);
+    const legacyProof={...confirmation,codes:[legacyNew,legacyReturn],fileId:'legacy-proof'};
+    await assert.rejects(confirmLegacy({date:day,codes:legacyProof.codes}),/not-null/);
+    await db.query("update public.im_envios_cargos_live set fecha_envio=$1 where codigo_caja=$2",[day,legacyReturn]);
+    await assert.rejects(confirmLegacy(legacyProof),/Revisa la fecha/);
+    await db.query("update public.im_envios_cargos_live set fecha_envio=null where codigo_caja=$1",[legacyReturn]);
+    const result=await confirmLegacy(legacyProof);
+    assert.deepEqual(result.lote.map(b=>[b.codigo,b.origen,b.enviada,b.master_prepared]),[
+      [legacyNew,'nueva',day,true],[legacyReturn,'solicitada',day,true]
+    ]);
+    assert.equal((await workflow('state',null)).available.length,0);
 
   }finally{await db.close();}
 });

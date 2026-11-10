@@ -15,7 +15,7 @@ test('la intervención conserva cuatro formularios y sus identificadores origina
   'grp-escaneos':['scanFile','scanPaste','scanValidate','scanSave','scanSummary','scanSample','scanReceipt'],
   'grp-cajas':['boxScanInput','boxScanSubmit','boxReceptionSave','boxReceptionConfirm','boxScanClear','boxScanResult','boxScanHistory','boxSheetsStatus'],
   'grp-acondicionamiento':['conditionScanInput','conditionStart','conditionObserve','conditionResolve','conditionFinish','conditionRetryDrive','conditionSheetsStatus'],
-  'grp-correos':['pickupPrepare','pickupReload','pickupMailBatches','pickupPreviewDetails','pickupMailPreview','pickupSample','pickupSaveConfig']
+  'grp-correos':['pickupPrepare','pickupReload','pickupMailBatches','pickupPreviewDetails','pickupMailPreview','pickupPreviewTrySample']
  };
  for(const [module,ids] of Object.entries(selectors)){
   const root=doc.getElementById(module);
@@ -43,11 +43,12 @@ test('los demás módulos y la navegación se mantienen intactos',()=>{
   assert.equal(css.includes(blocked),false,'CSS de intervención no debe alcanzar '+blocked);
  }
 });
-test('el correo deja de mostrar un iframe gigante vacío; vista cerrada hasta pedirla',()=>{
+test('el correo se muestra como texto en el panel, cerrado hasta pedirlo',()=>{
  const mail=doc.getElementById('grp-correos');
  const detail=mail.querySelector('#pickupPreviewDetails');
  assert.ok(detail);
  assert.equal(detail.hasAttribute('open'),false);
  assert.ok(detail.contains(mail.querySelector('#pickupMailPreview')));
- assert.ok(mail.querySelector('.intervention-config-panel #pickupSaveConfig'));
+ assert.equal(mail.querySelector('.intervention-config-panel'),null);
+ assert.equal(mail.querySelector('#pickupMailPreview').tagName,'SECTION');
 });

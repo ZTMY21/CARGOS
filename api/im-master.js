@@ -40,7 +40,7 @@ export function createImMasterHandler({env=process.env, fetcher=fetch}={}) {
         throw new ArchiveError('ORIGIN_DENIED', 403);
       if (req.body && JSON.stringify(req.body).length > 256)
         throw new ArchiveError('INVALID_REQUEST', 400);
-      if (req.body?.action && req.body.action !== 'refresh')
+      if (req.body?.action && !['refresh','pickup'].includes(req.body.action))
         throw new ArchiveError('INVALID_ACTION', 400);
       await authorize(req, env, {admin:true, fetcher});
       if (!configuration(env).enabled) throw new ArchiveError('DRIVE_NOT_READY',503);
@@ -85,6 +85,7 @@ export function createImMasterHandler({env=process.env, fetcher=fetch}={}) {
         const result = await response.json().catch(()=>null);
         if (!response.ok) throw new ArchiveError('IM_MASTER_DB_SYNC_REJECTED',409);
         if (!result?.verificado) throw new ArchiveError('IM_MASTER_NOT_VERIFIED',503);
+        if(req.body?.action==='pickup')return json(res,200,{ok:true,revision:after.modifiedTime});
         let history;
         try {
           history=await syncIronMountainHistory({

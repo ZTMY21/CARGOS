@@ -35,7 +35,7 @@ export async function authorize(req,env,{admin=false,fetcher=fetch}={}){
   const r=await fetcher(env.SUPABASE_URL+'/rest/v1/rpc/kardex_access',{method:'POST',headers:{...headers,'Content-Type':'application/json'},body:'{}',signal:AbortSignal.timeout(10000),redirect:'error'});
   if(!r.ok)throw new ArchiveError('ACCESS_DENIED',403);
   const access=await r.json();if(!access.allowed||(admin&&!access.is_admin))throw new ArchiveError('ACCESS_DENIED',403);
-  return {backup(){if(!access.is_admin||!(env.KARDEX_DRIVE_BACKUP_OPERATOR_IDS||'').split(',').map(x=>x.trim()).includes(identity.id))throw new ArchiveError('BACKUP_OPERATOR_REQUIRED',403);},async resolve(kardex){
+  return {id:identity.id,backup(){if(!access.is_admin||!(env.KARDEX_DRIVE_BACKUP_OPERATOR_IDS||'').split(',').map(x=>x.trim()).includes(identity.id))throw new ArchiveError('BACKUP_OPERATOR_REQUIRED',403);},async resolve(kardex){
     if(!/^SA-\d{1,10}$/.test(kardex||''))throw new ArchiveError('INVALID_KARDEX');
     const r=await fetcher(env.SUPABASE_URL+'/rest/v1/documentos?select=id,kardex&kardex=eq.'+encodeURIComponent(kardex),{headers,signal:AbortSignal.timeout(10000),redirect:'error'});
     if(!r.ok)throw new ArchiveError('DOCUMENT_NOT_ACCESSIBLE',404);const rows=await r.json();if(rows.length!==1)throw new ArchiveError('DOCUMENT_NOT_ACCESSIBLE',404);return rows[0];

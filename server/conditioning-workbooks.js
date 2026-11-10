@@ -13,6 +13,7 @@ const headers={
 };
 const sheetPath='xl/worksheets/sheet1.xml';
 const options={minimumBoxes:1};
+const cellText=value=>String(value?.text??value??'');
 
 async function editMaster(bytes,update){
   const book=new ExcelJS.Workbook();
@@ -28,7 +29,7 @@ async function editMaster(bytes,update){
   const proof=new ExcelJS.Workbook();
   await proof.xlsx.load(next);
   for(const [col,value] of Object.entries(fields)){
-    if(String(proof.worksheets[0].getCell(col+row).value??'')!==value)
+    if(cellText(proof.worksheets[0].getCell(col+row).value)!==value)
       throw Error('IM_MASTER_MOVEMENT_NOT_VERIFIED');
   }
   return next;
@@ -40,7 +41,7 @@ function writeRequestedMovement(bytes,item){
     let row=2;
     while(sheet.getCell('K'+row).value && sheet.getCell('K'+row).value!==item.id)row++;
     const same=sheet.getCell('K'+row).value===item.id;
-    if(same&&(sheet.getCell('L'+row).value!==item.solicitud || sheet.getCell('M'+row).value!==item.codigo ||
+    if(same&&(sheet.getCell('L'+row).value!==item.solicitud || cellText(sheet.getCell('M'+row).value)!==item.codigo ||
        sheet.getCell('N'+row).value!==item.cargos.join('-') ||
        (sheet.getCell('R'+row).value&&sheet.getCell('R'+row).value!==displayExcelDate(item.enviada))))
       throw Error('IM_MASTER_MOVEMENT_CONFLICT');
@@ -49,24 +50,25 @@ function writeRequestedMovement(bytes,item){
     const fields={K:item.id,L:item.solicitud,M:item.codigo,N:item.cargos.join('-'),O:'POR SOLICITUD',
       P:displayExcelDate(item.preparada),Q:item.responsable,R:displayExcelDate(item.enviada),S:item.placa||'',
       T:item.entrega||'',U:item.recibe||''};
-    if(same&&Object.entries(fields).every(([col,value])=>String(sheet.getCell(col+row).value??'')===value))
+    if(same&&Object.entries(fields).every(([col,value])=>cellText(sheet.getCell(col+row).value)===value))
       return {row,fields};
     return {row,fields,xml:writeWorksheetCells(writeWorksheetCells(xml,1,headers),row,fields)};
   });
 }
 
-async function writeNewBox(bytes,item){
+async function writeMasterBox(bytes,item){
   const rows=await readMasterRows(bytes,options);
   const prior=rows.find(row=>row.caja===item.codigo);
   if(!prior)throw Error('IM_MASTER_RECEIPT_NOT_VERIFIED');
   if(prior.envio&&prior.envio!==item.enviada)throw Error('IM_MASTER_EXISTING_SHIPMENT_CONFLICT');
-  if(prior.receivedOnly){
+  if(prior.receivedOnly && !item.master_prepared){
     const prepared=await appendPreparedBoxToMaster(bytes,{
       original_code:item.codigo,cargos:item.cargos,classification:'Cajas Nuevas'
     },{preparacion:item.preparada,responsable:item.responsable,...options});
     bytes=prepared.bytes;
   }else if(prior.celda!==item.cargos.join('-')||prior.preparacion!==item.preparada||
-    prior.responsable!==item.responsable||prior.clasificacion!=='Cajas Nuevas'){
+    prior.responsable!==item.responsable||prior.clasificacion!==
+    (item.origen==='solicitada'?'POR SOLICITUD':'Cajas Nuevas')){
     throw Error('IM_MASTER_EXISTING_BOX_CONFLICT');
   }
   if(!item.enviada)return bytes;
@@ -83,15 +85,16 @@ async function writeNewBox(bytes,item){
   return next;
 }
 
-export async function updateConditioningWorkbooks(maestro,historico,lote){
+export async function updateConditioningWorkbooks(maestro,historico,lote,{target="both"}={}){
   const shipments=[];
   for(const item of lote){
-    maestro=item.origen==='solicitada'?await writeRequestedMovement(maestro,item):await writeNewBox(maestro,item);
-    if(!item.enviada)continue;
+    if(target!=='history')maestro=item.origen==='solicitada'&&!item.master_prepared
+      ?await writeRequestedMovement(maestro,item):await writeMasterBox(maestro,item);
+    if(target==='master'||!item.enviada)continue;
     shipments.push({
       caja:item.codigo,celda:item.cargos.join('-'),cargos:item.cargos,preparacion:item.preparada,
       responsable:item.responsable,envio:item.enviada,clasificacion:item.origen==='solicitada'?'POR SOLICITUD':'Cajas Nuevas',
-      movementId:item.id,requestId:item.solicitud,requestDate:item.solicitada,
+      movementId:item.id,masterPrepared:item.master_prepared,requestId:item.solicitud,requestDate:item.solicitada,
       placa:item.placa,entrega:item.entrega,recibe:item.recibe
     });
   }

@@ -1,7 +1,7 @@
 // Mejoras de experiencia visual exclusivamente en la intervención.
 // Nunca simula registros, crea cajas, envía correos ni llama a Supabase.
 // Los datos y eventos pertenecen a las funciones operativas existentes.
-export function attachInterventionExperience({doc=document}={}){
+export function attachInterventionExperience({doc=document,simulatePickupMail}={}){
  const byId=id=>doc.getElementById(id);
  const observers=[];
  const Mutation=doc.defaultView?.MutationObserver||globalThis.MutationObserver;
@@ -225,7 +225,7 @@ export function attachInterventionExperience({doc=document}={}){
    'Faltan '+(30-amount)+' cajas nuevas listas para el siguiente aviso.';
  }
  watch(mailCount,renderMail);
- byId('ivMailSimShortcut')?.addEventListener('click',()=>byId('pickupSample')?.click());
+ byId('ivMailSimShortcut')?.addEventListener('click',simulatePickupMail||(()=>byId('pickupPreviewTrySample')?.click()));
  renderMail();
  return {
   refresh(){renderFile();renderBox();renderCondition();renderMail();},

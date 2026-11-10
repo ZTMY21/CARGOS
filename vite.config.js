@@ -19,13 +19,29 @@ export default defineConfig(({ mode }) => {
     catch { throw new Error('La clave de Supabase no es válida.'); }
     if (payload.role !== 'anon') throw new Error('La clave service_role nunca puede publicarse.');
   }
-  if (mode === 'production' && (!url || !key)) {
+  const pickupPreview = process.env.VERCEL_GIT_COMMIT_REF === 'preview/avisos-recojo-iron-mountain';
+  if (mode === 'production' && !pickupPreview && (!url || !key)) {
     throw new Error('Faltan SUPABASE_URL y SUPABASE_ANON_KEY.');
   }
   const receptionLive=process.env.VERCEL_ENV==='production' && url==='https://uhjwhamzjxhjqlrhgxho.supabase.co' &&
     /^[a-f0-9]{64}$/.test(env.KARDEX_RECEPCION_PROD_SECRET||'');
   return {
+    plugins: pickupPreview && mode !== 'production' ? [{
+      name:'pickup-local-fixture',
+      configureServer(server){
+        server.middlewares.use('/api/pickup-mail',async(req,res)=>{
+          const chunks=[];
+          for await(const chunk of req)chunks.push(chunk);
+          try{req.body=JSON.parse(Buffer.concat(chunks).toString());}
+          catch{res.statusCode=400;res.end();return;}
+          const {createPickupMailHandler}=await import('./api/pickup-mail.js');
+          await createPickupMailHandler({env:{VERCEL_ENV:'preview',VERCEL_GIT_COMMIT_REF:'preview/avisos-recojo-iron-mountain'}})(req,res);
+        });
+      }
+    }] : [],
     define: {
+      __PICKUP_PREVIEW__: JSON.stringify(pickupPreview),
+      __PICKUP_LIVE__: JSON.stringify(receptionLive && env.KARDEX_PICKUP_WORKFLOW_ENABLED==='true'),
       __SUPABASE_URL__: JSON.stringify(url),
       __SUPABASE_ANON_KEY__: JSON.stringify(key),
       __REQ4_ISOLATED__: JSON.stringify(Boolean(isolated)),

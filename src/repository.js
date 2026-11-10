@@ -107,22 +107,27 @@ export class KardexRepository {
     if (!response.ok || !result) throw Error(result?.error||'No se pudo verificar el Excel. Reintenta.');
     return result;
   }
-  async syncIMMaster({force=false}={}) {
-    if (this._imMasterPromise) return this._imMasterPromise;
-    if (!force && this._imMasterAttemptAt && Date.now()-this._imMasterAttemptAt<120000)
+  async syncIMMaster({force=false,projectionOnly=false}={}) {
+    if (this._imMasterPromise) {
+      if(projectionOnly || !this._imMasterProjectionOnly)return this._imMasterPromise;
+      await this._imMasterPromise.catch(()=>{});
+      return this.syncIMMaster({force});
+    }
+    if (!projectionOnly && !force && this._imMasterAttemptAt && Date.now()-this._imMasterAttemptAt<120000)
       return null;
-    this._imMasterAttemptAt=Date.now();
+    if(!projectionOnly)this._imMasterAttemptAt=Date.now();
+    this._imMasterProjectionOnly=projectionOnly;
     this._imMasterPromise=(async()=>{
       const {data,error}=await this.client.auth.getSession();
       if (error || !data?.session?.access_token) throw Error('IM_MASTER_LOGIN_REQUIRED');
       const response=await fetch('/api/im-master',{
         method:'POST',credentials:'same-origin',
         headers:{'Content-Type':'application/json',Authorization:'Bearer '+data.session.access_token},
-        body:JSON.stringify({action:'refresh'})
+        body:JSON.stringify({action:projectionOnly?'pickup':'refresh'})
       });
       const result=await response.json().catch(()=>null);
       if (!response.ok || result?.ok!==true) throw Error(result?.error||'IM_MASTER_SYNC_UNAVAILABLE');
-      this._imMasterLastResult=result;
+      if(!projectionOnly)this._imMasterLastResult=result;
       return result;
     })();
     try { return await this._imMasterPromise; }

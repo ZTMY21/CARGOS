@@ -59,7 +59,7 @@ export function normalizedCargoSet(value){
 
 // Some Drive exports qualify shared-string and style elements. Normalize
 // only the reader's copy so the actual workbook keeps its original parts.
-async function loadHistoryWorkbook(bytes){
+export async function loadHistoryWorkbook(bytes){
   const zip=await JSZip.loadAsync(bytes);
   let changed=false;
   for(const path of ['xl/sharedStrings.xml','xl/styles.xml']){
@@ -155,7 +155,7 @@ export async function mergeIronMountainHistory(historyBytes,masterRows){
           historical.length?'CARGOS_NO_COINCIDEN':'CAJA_NO_ENCONTRADA'});
         continue;
       }
-      if(!item.movementId||!item.requestId||!item.requestDate){
+      if(!item.movementId||(!item.masterPrepared&&(!item.requestId||!item.requestDate))){
         if(exact[0].envio===newDate)alreadyRegistered++;
         else reviews.push({caja:item.caja,motivo:'RETORNO_SIN_SOLICITUD_VERIFICADA'});
         continue;
@@ -163,7 +163,7 @@ export async function mergeIronMountainHistory(historyBytes,masterRows){
       const prior=movements.get(item.movementId);
       if(prior){
         if(valueText(sheet.getCell('M'+prior).value)!==item.caja ||
-           valueText(sheet.getCell('N'+prior).value)!==item.requestId ||
+           valueText(sheet.getCell('N'+prior).value)!==(item.requestId||'') ||
            dateISO(sheet.getCell('P'+prior).value)!==newDate ||
            dateISO(sheet.getCell('O'+prior).value)!==dateISO(item.requestDate) ||
            valueText(sheet.getCell('Q'+prior).value)!==(item.placa||'') ||
@@ -220,13 +220,15 @@ export async function mergeIronMountainHistory(historyBytes,masterRows){
     for(const item of updates){
       item.logRow=++movementEnd;
       xml=writeWorksheetCells(xml,item.logRow,{
-        L:item.movementId,M:item.caja,N:item.requestId,O:displayExcelDate(dateISO(item.requestDate)),
+        L:item.movementId,M:item.caja,N:item.requestId||'',O:displayExcelDate(dateISO(item.requestDate)),
         P:displayExcelDate(item.envio),Q:item.placa||'',R:item.entrega||'',S:item.recibe||'',T:item.celda
       });
       const previous=latest.get(item.row)||dateISO(sheet.getCell('K'+item.row).value);
       if(item.envio>=previous){
         latest.set(item.row,item.envio);
-        xml=writeWorksheetCells(xml,item.row,{J:displayExcelDate(dateISO(item.requestDate)),K:displayExcelDate(item.envio)});
+        const dates={K:displayExcelDate(item.envio)};
+        if(item.requestDate)dates.J=displayExcelDate(dateISO(item.requestDate));
+        xml=writeWorksheetCells(xml,item.row,dates);
       }
     }
   }

@@ -9,13 +9,14 @@ import {summarizeBoxPreparationBatch} from './conditioning-batch-summary.js';
 import {inventoryConditioning} from './conditioning-inventory.js';
 import {attachBoxConditioning} from './box-conditioning-ui.js';
 import {attachPickupMail} from './pickup-mail-ui.js';
+import {createLivePickupWorkflow} from './pickup-workflow-live.js';
 import {attachScanImport} from './scan-import-ui.js';
 import {attachInterventionExperience} from './intervention-experience.js';
 import { createClient } from '@supabase/supabase-js';
-import { computeReqEstado as reqEstado, computeDocEstado as docEstado, fmtDate, escapeHtml, limaDate, isSentIm, usesHistoricalImDecision, historicalShipmentDetails, HISTORICAL_IM_NOTE } from './rules.js';
+import { computeReqEstado as reqEstado, computeDocEstado as docEstado, fmtDate, escapeHtml, limaDate, validDate, isSentIm, usesHistoricalImDecision, historicalShipmentDetails, HISTORICAL_IM_NOTE } from './rules.js';
 import { KardexRepository, reqFromDb, docFromDb } from './repository.js';
 import { buildCargoWorkbook, buildExistenciasReport, serializeExistenciasReport, parseWorkbook } from './excel-api.js';
-import { highlightMatch, normalizeSearch, filterDocuments, filterRequirements, invoiceSearchPresentation, assignedBoxCode } from './search.js';
+import { highlightMatch, normalizeSearch, filterDocuments, filterRequirements, invoiceSearchPresentation, assignedBoxCode, physicalBoxKey } from './search.js';
 import './connection.css';
 import { cargoYear, locationLabel, groupsForCodes } from './cargo-details.js';
 import { cargoTotalsByYear, uniqueCargoDocuments } from './cargo-year.js';
@@ -927,10 +928,8 @@ function renderDocs(){
   const totalFolios = foliosDe(enriched);
   const grupoEnviado = summaryDocs.filter(d=>isSentIm(d.estado));
   const grupoProceso = summaryDocs.filter(d=>d.estado==='En Proceso de Acondicionamiento');
-  const grupoPendiente = summaryDocs.filter(d=>!isSentIm(d.estado));
   const cargosEnviados = cargosDe(grupoEnviado);
   const cargosEnProceso = cargosDe(grupoProceso);
-  const cargosPendientes = cargosDe(grupoPendiente), foliosPendientes = foliosDe(grupoPendiente);
 
   expiryGroups = cargoExpiryGroups(summaryDocs, new Date());
   const grupoPorVencer = expiryGroups.upcoming;
@@ -1000,8 +999,7 @@ function renderDocs(){
       </div>
       <div class="kpi kpi-color kpi-summary-pending">
         <div class="l">Pendiente de Envío a IM</div>
-        <div class="n">${fmtNum(cargosPendientes)}<span class="folios-inline"> (${fmtNum(foliosPendientes)} folios)</span></div>
-        <div class="pct-txt">${pct(cargosPendientes,totalCargos)}</div>
+        <div class="n">${fmtNum(baseAlerta)}</div>
       </div>
     </div>
     <div class="resumen-titulo-alerta">Cargos de 2025 y 2026 pendientes de envío · Plazo de 6 meses</div>
@@ -1256,15 +1254,25 @@ async function reloadPreparedImSummary() {
     // La conciliación del Excel Maestro sigue siendo automática durante la sesión administrativa.
     try { if(!receptionPreview) await repository.syncIMMaster(); }
     catch(error) { /* El KPI utiliza la última lectura disponible sin requerir un botón manual. */ }
-    const rows=await repository.preparedImDetails();
+    const raw=await repository.preparedImDetails();
     if(epoch!==preparedImSummaryEpoch || generation!==authGeneration || !appReady || !isAdmin)return;
-    preparedImSummary=summarizePreparedIm(Array.isArray(rows)?rows:[]);
+    const rows=Array.isArray(raw)?raw:[];
+    const returnDates=new Map();
+    for(const row of rows){
+      if(row.fecha_envio || !/por\s+solicitud/i.test(row.clasificacion_caja||''))continue;
+      const box=physicalBoxKey(row.codigo_caja);
+      const date=validDate(row.fecha_preparacion);
+      if(!box || !date)continue;
+      returnDates.set(box,returnDates.has(box) && returnDates.get(box)!==date ? null : date);
+    }
+    preparedImSummary={...summarizePreparedIm(rows),returnDates};
   } catch(error) {
     if(epoch!==preparedImSummaryEpoch || generation!==authGeneration || !appReady || !isAdmin)return;
     preparedImSummary=null; // No presentar una cantidad anterior como actual.
   }
   const metric=document.getElementById('preparedImSummaryMetric');
   if(metric)metric.textContent=preparedImSummary?fmtNum(preparedImSummary.cajas):'—';
+  if(document.getElementById('requestedIMSheet').open)renderRequestedIM();
 }
 async function reloadPreparedImDetail() {
   const dialog=document.getElementById('preparedImSheet');
@@ -1303,15 +1311,22 @@ function renderRequestedIM(){
   document.getElementById('requestedIMRule').textContent=requestedDemo
     ? 'Vista de ejemplo. No son registros reales ni se modifica Google Sheets.'
     : 'Clasificación «Por solicitud» del Excel Maestro, comparada con los cargos del Kárdex.';
-  panel.innerHTML=requestedIMData.length?requestedIMData.map(box=>'<article class="prepared-im-box">'+
-    '<div class="prepared-im-head"><div><strong>Caja '+escapeHtml(box.codigo)+'</strong>'+
-    '<div class="prepared-im-sub">'+box.cargos.length+' cargos · '+box.coincidencias+
-      ' coincidencias con Kardex · '+box.revisar+' por revisar</div></div>'+
-    '<span class="prepared-im-state">Caja solicitada</span></div>'+
-    '<details><summary>Ver cargos asociados ('+box.cargos.length+')</summary>'+
-    '<div class="prepared-im-sub">'+box.cargos.map(c=>'<div>Cargo <strong>'+escapeHtml(c.cargo)+
-      '</strong> · '+(c.match?'Coincide con Kardex '+escapeHtml(c.kardex):'Revisar: '+escapeHtml(c.issue))+
-      '</div>').join('')+'</div></details></article>').join('')
+  const today=limaDate(new Date());
+  panel.innerHTML=requestedIMData.length?requestedIMData.map(box=>{
+    const prepared=preparedImSummary?.returnDates.get(box.numero);
+    const days=prepared && prepared<=today ? (Date.parse(today)-Date.parse(prepared))/86400000 : null;
+    const age=days===null ? 'Sin fecha de preparación' : `${fmtNum(days)} ${days===1?'día':'días'} desde preparación`;
+    return '<article class="prepared-im-box">'+
+      '<div class="prepared-im-head"><div><strong>Caja '+escapeHtml(box.codigo)+'</strong>'+
+      '<div class="prepared-im-sub">'+box.cargos.length+' cargos · '+box.coincidencias+
+        ' coincidencias con Kardex · '+box.revisar+' por revisar</div></div>'+
+      '<span class="prepared-im-state">Caja solicitada</span></div>'+
+      '<div class="prepared-im-sub">'+age+'</div>'+
+      '<details><summary>Ver cargos asociados ('+box.cargos.length+')</summary>'+
+      '<div class="prepared-im-sub">'+box.cargos.map(c=>'<div>Cargo <strong>'+escapeHtml(c.cargo)+
+        '</strong> · '+(c.match?'Coincide con Kardex '+escapeHtml(c.kardex):'Revisar: '+escapeHtml(c.issue))+
+        '</div>').join('')+'</div></details></article>';
+  }).join('')
     :'<p class="prepared-im-message">'+(requestedIMError?
       'La lectura de clasificación aún no está habilitada: '+escapeHtml(requestedIMError):
       'No hay cajas «Por solicitud» pendientes de envío en la información sincronizada.')+'</p>';
@@ -2161,7 +2176,10 @@ attachScanImport({
 
 // Correos de recojo: configuración, vista previa, EML y confirmación manual.
 pickupMailController=attachPickupMail({
-  supabase,isAdmin:()=>isAdmin,appReady:()=>appReady,isPreview:()=>isPreview
+  supabase,isAdmin:()=>isAdmin,appReady:()=>appReady,isPreview:()=>isPreview,
+  workflow:typeof __PICKUP_LIVE__!=='undefined'&&__PICKUP_LIVE__
+    ? createLivePickupWorkflow(supabase,{onChanged:refreshData,
+      refreshMaster:()=>repository.syncIMMaster({projectionOnly:true})}) : null
 });
 
 // Fase 2: USB-HID en modo teclado, identificación opcional con consentimiento WebHID y consulta sin escrituras.
@@ -2186,7 +2204,7 @@ preparedMonthlyKpi=attachPreparedMonthlyKpi({
 });
 
 // Capa visual aprobada: sin modificar la lógica, el menú ni otras pantallas.
-attachInterventionExperience();
+attachInterventionExperience({simulatePickupMail:()=>pickupMailController.simulate()});
 
 
 // Simulación interactiva solo en el despliegue de Preview. No lee ni guarda datos reales.

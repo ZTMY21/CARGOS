@@ -342,8 +342,11 @@
 #grp-correos .iv-mail-preview>summary .iv-icon,
 #grp-correos .intervention-config-panel>summary .iv-icon{color:#356c8e}
 #grp-correos .iv-mail-preview .intervention-preview-inner{padding:16px}
-#grp-correos .iv-mail-preview #pickupMailPreview{min-height:420px;background:#fff}
 #grp-correos .iv-mail-preview #pickupMailPreview[hidden]{display:none!important}
+#grp-correos .pickup-mail-boxes{margin:14px 0 0;padding:12px 14px;border:1px solid #d9e4ea;border-radius:9px}
+#grp-correos .pickup-mail-boxes h4,#grp-correos .pickup-mail-boxes h5{margin:0 0 8px;color:#24435b}
+#grp-correos .pickup-mail-boxes ul{display:flex;flex-wrap:wrap;gap:6px;list-style:none;padding:0;margin:0 0 12px}
+#grp-correos .pickup-mail-boxes li{overflow-wrap:anywhere;max-width:100%;white-space:normal}
 #grp-correos .iv-preview-empty{
  min-height:180px;padding:25px 18px;border:1px dashed #d6e2eb;border-radius:10px;
  background:#f8fafc;display:flex;flex-direction:column;justify-content:center;align-items:center;
@@ -384,4 +387,64 @@
  :is(#grp-escaneos,#grp-cajas,#grp-acondicionamiento,#grp-correos) .iv-premium *:after{
   animation:none!important;transition:none!important;
  }
+}
+
+#pickupSelections:not([hidden]){display:grid;gap:12px;margin:16px 0;}
+.pickup-group{display:flex;align-items:center;justify-content:space-between;gap:12px;border:1px solid var(--border);border-radius:10px;padding:12px;}
+.pickup-group p,.pickup-visit p{margin:4px 0;}
+#pickupDialog{width:min(560px,calc(100% - 28px));max-height:90vh;overflow:auto;border:1px solid var(--border);color:var(--text);}
+#pickupDialog::backdrop{background:rgba(15,39,59,.48);}
+#pickupDialog label{display:flex;gap:8px;align-items:center;margin:8px 0;}
+#pickupDialog input[type=checkbox]{width:auto;}
+#pickupDialog .pickup-list{max-height:300px;overflow:auto;border:1px solid var(--border);padding:8px 12px;margin:12px 0;}
+#pickupDialog .actions,#pickupMailBatches .actions{flex-wrap:wrap;gap:6px;}
+#pickupHistorySearch{margin-bottom:10px;width:100%;}
+.pickup-visit{border-top:1px solid var(--border);padding-top:8px;margin-top:8px;}
+
+#grp-correos [hidden]{display:none!important;}
+
+/* Avisos de recojo: las etapas conservan los componentes y colores del Kárdex. */
+#grp-correos .pickup-group{display:block;background:#fff;}
+#grp-correos .pickup-stage-heading,#grp-correos .pickup-group-controls{
+ display:flex;align-items:center;justify-content:space-between;gap:12px;
+}
+#grp-correos .pickup-group-controls{align-items:flex-end;margin-top:9px;}
+#grp-correos .pickup-group-controls>div{flex:1;min-width:0;}
+#grp-correos .pickup-counter{font-size:19px;font-weight:800;color:#173c53;}
+#grp-correos progress{display:block;width:100%;height:9px;margin:7px 0;appearance:none;border:0;border-radius:20px;overflow:hidden;background:#e1e9ee;}
+#grp-correos progress::-webkit-progress-bar{background:#e1e9ee;}
+#grp-correos progress::-webkit-progress-value{background:#2b7796;}
+#grp-correos progress::-moz-progress-bar{background:#2b7796;}
+#grp-correos .pickup-badge{display:inline-block;border-radius:20px;padding:5px 10px;font-size:12px;font-weight:750;background:#edf5fa;color:#19516c;}
+#grp-correos .pickup-wait{background:#fff3d9;color:#805500;}
+#grp-correos .pickup-done{background:#e0f4e6;color:#126444;}
+#grp-correos .pickup-primary{background:#194f69;border-color:#194f69;color:#fff;font-weight:750;}
+#grp-correos .pickup-primary:disabled{opacity:.55;}
+#grp-correos #pickupPrepare.pickup-primary{flex:1;}
+#grp-correos #pickupDialog{width:min(1030px,calc(100% - 28px));padding:22px;}
+#grp-correos .pickup-columns{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin:15px 0;}
+#grp-correos .pickup-stage-card{min-width:0;border:1px solid var(--border);border-radius:10px;padding:14px;margin:8px 0;background:#fff;}
+#grp-correos .pickup-stage-card h4,#grp-correos .pickup-history h4,#grp-correos .pickup-stage-heading h4{margin:0;color:#173c53;font-size:15px;}
+#grp-correos #pickupDialog .pickup-list{margin:8px 0;padding:0 9px;max-height:235px;}
+#grp-correos #pickupDialog .pickup-box-row{padding:8px 0;margin:0;border-bottom:1px solid #e3ebef;flex-wrap:wrap;}
+#grp-correos #pickupDialog .pickup-box-row small{color:#52687a;margin-left:auto;}
+#grp-correos #pickupDialog input[type=search]{width:100%;margin-top:8px;}
+#grp-correos #pickupDialog input[type=checkbox]{accent-color:#2b7796;}
+#grp-correos #pickupDialog .pickup-file{align-items:flex-start;flex-direction:column;background:#edf5fa;border:1px solid var(--border);border-radius:8px;padding:12px;font-weight:750;}
+#grp-correos .pickup-callout{background:#edf5fa;color:#19516c;font-weight:700;border-radius:8px;padding:11px 13px;}
+#grp-correos .pickup-footer{display:flex;justify-content:flex-end;align-items:center;gap:8px;flex-wrap:wrap;}
+#grp-correos .pickup-footer p{margin-right:auto;}
+#grp-correos .pickup-mail-fields{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:6px 12px;margin-bottom:0;}
+#grp-correos .pickup-mail-fields dt{font-weight:700;align-self:center;}
+#grp-correos .pickup-mail-fields dd{margin:0;background:#edf5fa;border-radius:6px;padding:7px 9px;overflow-wrap:anywhere;}
+#grp-correos .pickup-attachments{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0;}
+#grp-correos .pickup-attachments span{border-radius:6px;}
+#grp-correos .pickup-history{margin-top:14px;padding-top:12px;border-top:1px solid var(--border);}
+#grp-correos .pickup-visit{display:flex;align-items:flex-start;justify-content:space-between;gap:9px;padding:9px;border:1px solid var(--border);border-radius:8px;}
+#grp-correos .pickup-visit details{min-width:0;overflow-wrap:anywhere;}
+#grp-correos .pickup-visit button{flex-shrink:0;}
+@media(max-width:640px){
+ #grp-correos .pickup-columns{grid-template-columns:1fr;}
+ #grp-correos #pickupDialog{padding:14px;}
+ #grp-correos #pickupDialog .pickup-stage-card>label{flex-wrap:wrap;}
 }

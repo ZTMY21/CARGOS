@@ -4,10 +4,10 @@ import {readFile} from 'node:fs/promises';
 import vm from 'node:vm';
 import {randomUUID} from 'node:crypto';
 import {JSDOM} from 'jsdom';
-import {computeReqEstado as reqEstado,computeDocEstado as docEstado,fmtDate,escapeHtml,limaDate,isSentIm,usesHistoricalImDecision,historicalShipmentDetails,HISTORICAL_IM_NOTE} from '../src/rules.js';
+import {computeReqEstado as reqEstado,computeDocEstado as docEstado,fmtDate,escapeHtml,limaDate,validDate,isSentIm,usesHistoricalImDecision,historicalShipmentDetails,HISTORICAL_IM_NOTE} from '../src/rules.js';
 import {reqFromDb,docFromDb,KardexRepository} from '../src/repository.js';
 import {buildWorkbook,parseWorkbook} from '../src/excel.js';
-import {highlightMatch,normalizeSearch,filterDocuments,filterRequirements,invoiceSearchPresentation,assignedBoxCode} from '../src/search.js';
+import {highlightMatch,normalizeSearch,filterDocuments,filterRequirements,invoiceSearchPresentation,assignedBoxCode,physicalBoxKey} from '../src/search.js';
 import {cargoYear,invoiceLocation,locationLabel,groupsForCodes} from '../src/cargo-details.js';
 import {cargoTotalsByYear,uniqueCargoDocuments} from '../src/cargo-year.js';
 import {cargoExpiryGroups,formatCargoDuration} from '../src/cargo-expiry.js';
@@ -18,6 +18,7 @@ import {renderImBarChart} from '../src/im-bar-chart.js';
 import {renderCargoLineChart} from '../src/cargo-line-chart.js';
 import {requestCards,setupRequirements} from '../src/requirements-ui.js';
 import {requestReception,receptionStatus} from '../src/box-reception-ui.js';
+import {summarizeBoxPreparationBatch} from '../src/conditioning-batch-summary.js';
 
 const flush=()=>new Promise(resolve=>setTimeout(resolve,20));
 const reqRow={id:randomUUID(),numero:'REQ-00001',tipo:'Cajas nuevas para acondicionar',fecha_solicitud:'2026-10-01',cantidad_cajas:2,numeros_cargo:'',fecha_recepcion:'2026-10-02',fecha_devolucion:null,usuario:'Juan',updated_at:'2026-10-13T00:00:00.123456Z'};
@@ -100,7 +101,8 @@ async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recov
     attachScanImport:()=>{},attachPickupMail:()=>null,attachBoxConditioning:()=>null,
     attachConditioningWorkspace:()=>null,inventoryConditioning:()=>doc=>doc,
     attachBoxScanSheets:()=>null,attachBoxScanner:()=>({activate:()=>{},deactivate:()=>{},reset:()=>{}}),
-    attachInterventionExperience:()=>{},
+    attachInterventionExperience:()=>{},attachPreparedMonthlyKpi:()=>null,
+    summarizeBoxPreparationBatch,physicalBoxKey,validDate,
     createClient:(url,key,options)=>{state.authOptions=options?.auth;return client;},KardexRepository:FakeRepository,reqFromDb,docFromDb,reqEstado,docEstado,fmtDate,escapeHtml,invoiceSearchPresentation,buildWorkbook:async(...args)=>{state.exportCalls.push(args);return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},buildCargoWorkbook:async(cargo)=>{state.guestExport=cargo;return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},buildExistenciasReport:async(...args)=>{state.reportArgs=args;return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},serializeExistenciasReport:async()=>{state.serializedReport=true;return new Uint8Array([1]);},parseWorkbook,highlightMatch,normalizeSearch,filterDocuments,filterRequirements,assignedBoxCode,cargoYear,invoiceLocation,locationLabel,groupsForCodes,
     __SUPABASE_URL__:'https://example.supabase.co',__SUPABASE_ANON_KEY__:'sb_publishable_test',__REQ4_ISOLATED__:isolatedPreview,__RECEPTION_PREVIEW__:receptionPreview,confirm:()=>true,alert:()=>{}});
   await vm.runInContext(`(async()=>{${source}})()`,context);
@@ -931,7 +933,7 @@ test('administrator summary shows white colored cards and transparent heart logo
     const process=summary.querySelector('.kpi-summary-process .n');
     const pending=summary.querySelector('.kpi-summary-pending .n');
     assert.match(total.textContent,/folios/);
-    assert.match(pending.textContent,/folios/);
+    assert.equal(pending.querySelector('.folios-inline'),null);
     assert.doesNotMatch(sent.textContent,/folios/);
     assert.doesNotMatch(process.textContent,/folios/);
     assert.equal(sent.querySelector('.folios-inline'),null);
@@ -1026,6 +1028,56 @@ test('expiry cards and in-app sheet share 2025/2026 counts and update after ship
     assert.equal(guest.node('cargoExpirySheet').open,false);
     assert.equal(guest.node('cargoExpiryBody').textContent,'');
   } finally {guest.close();}
+});
+
+test('pending KPI sums both expiry groups and decreases after shipment',async()=>{
+  const cargo=(code,date,fields={})=>({...docRow,id:randomUUID(),cargos:[code],periodo:null,
+    fecha_origen:date,caja_asignada:null,...fields});
+  const returned={im_live_clasificacion:'POR SOLICITUD',im_live_codigo_caja:'T2032477001'};
+  const a=await app({now:Date.parse('2026-11-09T19:00:00Z'),initialDocs:[
+    cargo('4738','2024-01-08',returned),cargo('0340','2025-02-01',returned),
+    cargo('845','2026-05-11'),cargo('846','2026-01-11'),cargo('849','2025-02-01'),
+    cargo('847','2026-01-11',{im_confirmado:true}),cargo('848',null,{anio_origen:2026}),
+    cargo('5210','2024-01-01'),cargo('850','2026-01-11',{caja_asignada:reqRow.id}),
+    cargo('851','2026-01-11',{im_live_clasificacion:'Cajas nuevas',im_live_codigo_caja:'T2044202121'}),
+    cargo('852','2026-01-11',{im_preparado:true,im_caja_preparada:'T2044202122'})
+  ]});
+  try {
+    const {node}=a;
+    const card=()=>node('resumenTablas').querySelector('.kpi-summary-pending');
+    const count=selector=>Number(node('resumenTablas').querySelector(selector+' .n').textContent.match(/^\d+/)[0]);
+    const refresh=async()=>{
+      a.state.events.find(x=>x.filter.table==='kardex_eventos').callback();
+      await new Promise(resolve=>setTimeout(resolve,270));
+    };
+    assert.equal(card().querySelector('button'),null);
+    assert.equal(card().querySelector('.pct-txt'),null);
+    assert.equal(count('.kpi-summary-expiring'),1);
+    assert.equal(count('.kpi-summary-overdue'),5);
+    assert.equal(card().querySelector('.n').textContent,'6');
+    a.state.preparedImRows=[{codigo_caja:'TD2032477001',clasificacion_caja:'POR SOLICITUD',
+      fecha_preparacion:'2026-11-03',fecha_envio:null,cargos:['4738','0340']}];
+    a.state.requestedImRows=[
+      {codigo_caja:'T2032477001',codigo_cargo:'4738',clasificacion_caja:'POR SOLICITUD'},
+      {codigo_caja:'T2032477001',codigo_cargo:'0340',clasificacion_caja:'POR SOLICITUD'}
+    ];
+    a.state.docs.find(d=>d.cargos[0]==='846').caja_asignada=reqRow.id;
+    await refresh();
+    assert.equal(card().querySelector('.n').textContent,'6');
+    a.state.docs.find(d=>d.cargos[0]==='851').im_live_fecha_envio='2026-11-09';
+    await refresh();
+    assert.equal(count('.kpi-summary-expiring'),1);
+    assert.equal(count('.kpi-summary-overdue'),4);
+    assert.equal(card().querySelector('.n').textContent,'5');
+    node('btnCargosVencidos').click();
+    assert.match(node('cargoExpiryBody').textContent,/849/);
+    assert.doesNotMatch(node('cargoExpiryBody').textContent,/0340/);
+    node('btnCloseCargoExpiry').click();
+    node('btnRequestedIMDetail').click();
+    await flush();
+    assert.match(node('requestedIMList').textContent,/6 días desde preparación/);
+    assert.match(node('requestedIMList').textContent,/Cargo 340/);
+  } finally {a.close();}
 });
 
 test('expiry detail paginates every cargo, escapes source values and refreshes at the six-month boundary',async()=>{

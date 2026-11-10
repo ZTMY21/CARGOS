@@ -27,7 +27,8 @@ test('cuatro módulos de la intervención llevan diseños propios, iconos, accio
  assert.ok(d.querySelector('#grp-acondicionamiento #conditionFinish'));
  assert.ok(d.querySelector('#grp-correos #ivMailProgressTrack'));
  assert.ok(d.querySelector('#grp-correos #pickupMailBatches'));
- assert.ok(d.querySelector('#grp-correos #pickupSample'));
+ assert.ok(d.querySelector('#grp-correos #pickupPreviewTrySample'));
+ assert.equal(d.querySelector('#grp-correos .intervention-config-panel'),null);
  assert.ok(d.querySelector('#grp-correos #pickupMailPreview'));
  assert.ok(d.querySelector('link[href="/src/intervention-premium.css"]'));
  assert.equal(d.querySelectorAll('#scanFile').length,1);
@@ -102,7 +103,7 @@ test('avisos reflejan solo el contador real y la simulación reutiliza el botón
   assert.equal(d('ivMailChip').dataset.state,'success');
   assert.equal(d('ivMailProgressTrack').getAttribute('aria-valuenow'),'30');
   let sampleClicks=0;
-  d('pickupSample').addEventListener('click',()=>{sampleClicks++;});
+  d('pickupPreviewTrySample').addEventListener('click',()=>{sampleClicks++;});
   d('ivMailSimShortcut').click();
   assert.equal(sampleClicks,1);
  }finally{ui.disconnect();dom.window.close();}

@@ -1,4 +1,4 @@
-import {configuration} from '../server/archive/security.js';
+import {configuration,pickupDriveAllowed} from '../server/archive/security.js';
 import {DriveClient} from '../server/archive/drive-client.js';
 import {readMasterDrive,readHistoryDrive} from '../server/im-master-drive.js';
 import {appendReceivedBoxes} from '../server/reception-workbook.js';
@@ -12,6 +12,11 @@ try{
     throw Error('PRODUCTION_CONFIGURATION_NOT_READY');
   const client=new DriveClient(env);
   await client.checkRoot();
+  if(env.KARDEX_PICKUP_WORKFLOW_ENABLED==='true'){
+    if(!pickupDriveAllowed(env))throw Error('PICKUP_CONFIGURATION_NOT_READY');
+    await client.folder('scans');
+    console.log('Avisos de recojo: carpeta de sustentos y acceso de escritura verificados.');
+  }
   const [master,history]=await Promise.all([readMasterDrive(client),readHistoryDrive(client)]);
   const historyRows=await readHistoryBoxes(history.bytes);
   const sample=historyRows.find(row=>row.envio&&row.cargos.length>0&&

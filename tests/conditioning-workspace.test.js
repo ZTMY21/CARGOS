@@ -172,3 +172,88 @@ test('avance de preparación usa la misma solicitud y el total del Centro de esc
     delete globalThis.document;
   }
 });
+
+test('modo celular corta lecturas repetidas, valida las filas y confirma solo después del guardado',async()=>{
+  const html=await readFile(new URL('../index.html',import.meta.url),'utf8');
+  const dom=new JSDOM(html);
+  globalThis.document=dom.window.document;
+  let captures,signal,lookups=0,saves=0,releaseSave;
+  const code='TD0900000019';
+  const repository={
+    async conditioning(action,data){
+      if(action==='listar')return {nuevas:1,solicitadas:0,preparadas:0,listado:[]};
+      if(action==='buscar'){
+        lookups++;
+        assert.equal(data.p_codigo,'P0900000019');
+        return {codigo:code,origen:'nueva',status:'disponible'};
+      }
+      if(action==='cargo'){
+        const cargo=data.p_cargos[0];
+        return cargo==='946'?{status:'inexistente'}:{status:'disponible',codigo:cargo};
+      }
+      assert.equal(action,'preparar');
+      assert.equal(data.p_codigo,code);
+      assert.equal(data.p_anio,2025);
+      assert.deepEqual(data.p_cargos,['945','947']);
+      saves++;
+      return new Promise(resolve=>{releaseSave=resolve;});
+    },
+    async reception(){return null;},
+    async conditioningExcel(){return {verified:true,count:1};}
+  };
+  const controller=attachConditioningWorkspace({repository,scanCamera:async(_video,abort,onCode)=>{
+    signal=abort;
+    captures=onCode;
+  }});
+  try{
+    const el=id=>document.getElementById(id);
+    const settle=()=>new Promise(resolve=>setImmediate(resolve));
+    controller.activate();
+    el('acondMobile').click();
+    assert.equal(el('acondKpis').hidden,false);
+    el('acondOpenCamera').click();
+    assert.equal(el('acondCamera').hidden,false);
+    captures('P0900000019');
+    captures('P0900000019');
+    await settle();
+    assert.equal(signal.aborted,true);
+    assert.equal(lookups,1);
+    assert.match(el('acondReadCode').textContent,/P0900000019.*TD0900000019/);
+    el('acondContinue').click();
+    el('acondYears').querySelector('[value="2025"]').click();
+    el('acondCargo1').value='945';
+    el('acondCargo2').value='946';
+    el('acondNext').click();
+    await settle();
+    assert.equal(el('acondSave').hidden,true);
+    assert.match(el('acondCargo2').parentElement.textContent,/No existe/);
+    el('acondCargo2').value='0945';
+    el('acondNext').click();
+    await settle();
+    assert.equal(el('acondSave').hidden,true);
+    assert.match(el('acondCargo2').parentElement.textContent,/Cargo duplicado/);
+    el('acondCargo2').value='947';
+    el('acondNext').click();
+    await settle();
+    assert.equal(el('acondSave').hidden,false);
+    assert.equal(saves,0);
+    el('acondSave').click();
+    el('acondSave').click();
+    assert.equal(saves,1);
+    assert.equal(el('acondDone').hidden,true);
+    releaseSave({codigo:code,origen:'nueva',cargos:['945','947'],anios:[2025]});
+    await settle();
+    assert.equal(el('acondDone').hidden,false);
+    assert.equal(el('acondDoneCount').textContent,'2');
+    el('acondAnother').click();
+    assert.equal(el('acondOpenCamera').hidden,false);
+    assert.equal(el('acondCargo1').value,'');
+    el('acondLaptop').click();
+    assert.equal(el('acondLaptop').getAttribute('aria-pressed'),'true');
+    assert.equal(el('acondPreparation').hidden,false);
+  }finally{
+    controller.reset();
+    dom.window.close();
+    delete globalThis.document;
+  }
+});

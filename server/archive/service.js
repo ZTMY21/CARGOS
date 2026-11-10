@@ -15,7 +15,11 @@ export class ArchiveService {
     }
   }
   async start(input){
-    const job=await this.store.create(validateInput(input));
+    const validated=validateInput(input);
+    const job=await this.store.create(validated);
+    if(validated.sourceKey.startsWith('pickup:')&&
+      (job.sha256!==validated.sha256||job.name!==validated.name||job.size!==validated.size))
+      throw new ArchiveError('PICKUP_EVIDENCE_CONFLICT',409);
     if(job.status==='verified')return job.backendVerified===true&&!job.errorCode?safeJob(job):this.finish(job.id);
     if(job.adopted)return this.finish(job.id);
     return this.locked(job.id,async(job,owner)=>{

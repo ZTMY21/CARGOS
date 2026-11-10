@@ -1,16 +1,11 @@
+import {pickupBrandLogo} from './pickup-brand-logo.js';
 // Vista ficticia: nunca solicita datos reales ni escribe en Supabase/Google Drive/Outlook.
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const fill=x=>String(x??'').replaceAll('{{cantidad}}','30')
+const fill=x=>String(x??'').replaceAll('{{cantidad}}','30').replaceAll('{{nuevas}}','30').replaceAll('{{devoluciones}}','0')
  .replaceAll('{{sede}}','CD Santa Anita').replaceAll('{{fecha}}','01/11/2026');
 export function renderPickupSample(config={}){
- const rows=Array.from({length:30},(_,i)=>{
-   const code='TD-DEMO-'+String(i+1).padStart(3,'0');
-   return '<tr><td style="padding:9px;border-bottom:1px solid #dce2e9">'+(i+1)+
-     '</td><td style="padding:9px;border-bottom:1px solid #dce2e9">'+code+
-     '</td><td style="padding:9px;border-bottom:1px solid #dce2e9">Cargo de ejemplo '+(i+1)+'</td></tr>';
- }).join('');
  const content=(key,fallback)=>esc(fill(config[key]||fallback));
- const logo=String(config.logo||'');
+ const logo=String(config.logo||pickupBrandLogo);
  const hasLogo=/^iVBORw0KGgo[A-Za-z0-9+/]*={0,2}$/.test(logo)&&logo.length<=170000;
  const logomark=hasLogo?'<img width="48" height="48" alt="Farmacias Peruanas" src="data:image/png;base64,'+logo+'" style="width:48px;height:48px;object-fit:contain">':
  '<span style="display:block;width:48px;height:48px;border-radius:8px;background:#f6f8fb"></span>';
@@ -26,15 +21,10 @@ export function renderPickupSample(config={}){
  '<td><strong style="font-size:17px">Farmacias Peruanas</strong><div style="color:#526071;font-size:12px">Gestión documental · CD Santa Anita</div></td></tr></table>'+
  '<h1 style="font-size:21px;margin-bottom:10px">Solicitud de recojo de cajas</h1>'+
  '<p><strong>Asunto:</strong> '+content('subject','Solicitud de recojo | {{cantidad}} cajas nuevas | {{sede}} | {{fecha}}')+'</p>'+
- '<div style="background:#f6f8fb;padding:12px"><strong>Sede:</strong> CD Santa Anita<br>'+
- '<strong>Cajas nuevas listas:</strong> 30 <em>(datos de ejemplo)</em></div>'+
- '<p>'+content('greeting','Estimados(as),')+'</p>'+
- '<p>'+content('introduction','Se comunica que tenemos {{cantidad}} cajas nuevas acondicionadas y listas para recojo en {{sede}}.')+'</p>'+
- '<p>'+content('request','Agradeceremos gestionar la solicitud de recojo ante Iron Mountain y confirmar la fecha estimada de atención.')+'</p>'+
- '<h2 style="font-size:16px;color:#18599b">DETALLE DE CAJAS LISTAS: 30</h2>'+
- '<table width="100%" style="border-collapse:collapse;font-size:12px"><thead><tr style="background:#f6f8fb">'+
- '<th align="left" style="padding:9px">N.º</th><th align="left" style="padding:9px">Caja</th>'+
- '<th align="left" style="padding:9px">Cargos</th></tr></thead><tbody>'+rows+'</tbody></table>'+
+ '<p>'+content('greeting','Buenas tardes, estimado:')+'</p>'+
+ '<p>'+content('introduction','Se envía la siguiente solicitud de recojo de cajas en {{sede}}.')+'</p>'+
+ '<p>30 cajas nuevas</p>'+
+ '<p>'+content('request','Adjuntamos el detalle en el formato Excel. Agradeceremos confirmar la fecha de atención.')+'</p>'+
  '<p>'+content('closing','Quedamos atentos a la confirmación de la coordinación.')+'</p>'+
  '<p>Saludos cordiales,</p>'+
  '<p style="border-top:1px solid #dce2e9;padding-top:12px">'+sign+'</p>'+

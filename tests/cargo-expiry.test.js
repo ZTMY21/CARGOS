@@ -19,6 +19,20 @@ test('only 2025/2026 cargos pending shipment enter the expiry groups, including 
   assert.equal(groups.upcoming[0].cargos[0],'660A');
   assert.equal(groups.overdue[0].expiry.baseDate,'2025-01-01');
 });
+test('requested boxes are excluded from every expiry group, including when a cargo has no date', () => {
+  const requested={imLiveCodigoCaja:'T2032477001',imLiveClasificacion:'Por solicitud'};
+  const groups=cargoExpiryGroups([
+    doc('2025-01-01',requested),
+    doc('2026-09-30',requested),
+    doc('',requested),
+    doc('2026-01-01',{acondicionamiento:{origen:'solicitada',enviada:null}}),
+    doc('2026-01-01',{imLiveCodigoCaja:'T2044202121',imLiveClasificacion:'Cajas nuevas'})
+  ],now);
+  assert.equal(groups.upcoming.length,0);
+  assert.equal(groups.unknown.length,0);
+  assert.equal(groups.overdue.length,1);
+  assert.equal(groups.overdue[0].imLiveCodigoCaja,'T2044202121');
+});
 test('six-month anniversary is included in upcoming; one day later is overdue', () => {
   const groups=cargoExpiryGroups([doc('2026-04-17'),doc('2026-04-18'),doc('2026-04-19')],now);
   assert.equal(groups.overdue.length,1);

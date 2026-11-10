@@ -24,7 +24,7 @@ export function cargoExpiryGroups(docs, now = new Date()) {
     const year = cargoYear(doc);
     if (!['2025', '2026'].includes(year) || !doc.cargos?.length) continue;
     const { estado } = computeDocEstado(doc, now);
-    if (isSentIm(estado)) continue;
+    if (isSentIm(estado) || estado === 'Caja solicitada') continue;
     const baseDate = validDate(doc.periodo) || validDate(doc.fechaOrigen);
     if (!baseDate || baseDate > today) {
       groups.unknown.push(doc);

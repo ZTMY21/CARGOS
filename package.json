@@ -8,15 +8,18 @@
     "build": "vite build",
     "preview": "vite preview --host 0.0.0.0",
     "test": "node --test tests/*.test.js",
-    "test:conditioning": "node --test tests/conditioning-workspace.test.js tests/im-history-workbook.test.js tests/box-reception.test.js tests/box-scanner.test.js"
+    "test:conditioning": "node --test tests/conditioning-workspace.test.js tests/im-history-workbook.test.js tests/box-reception.test.js tests/box-scanner.test.js tests/pickup-mail.test.js tests/pickup-workflow.test.js"
   },
   "engines": {
     "node": "24.x"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.117.3",
+    "@zxing/browser": "0.1.5",
+    "@zxing/library": "0.21.3",
     "exceljs": "4.4.0",
     "jszip": "3.10.2",
+    "pdf-lib": "1.17.1",
     "xlsx": "https://sheet.lol/balls/xlsx-0.20.3.tgz"
   },
   "devDependencies": {
