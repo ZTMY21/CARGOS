@@ -1,6 +1,7 @@
 import { escapeHtml as html, fmtDate, limaDate, REQ_TYPES } from './rules.js';
 import {receptionTime,requestReception} from './box-reception-ui.js';
 import {setupRequirementsMail} from './requirements-mail-ui.js';
+import {setupRequirementsImMail} from './requirements-im-mail-ui.js';
 
 const kinds = {nuevas: 'Cajas nuevas', prestamo: 'Solicitudes a IM'};
 const steps = {nuevas: ['Cantidad', 'Solicitar'], prestamo: ['Buscar', 'Seleccionar', 'Solicitar']};
@@ -116,6 +117,7 @@ export function setupRequirements(root, {repository, context, refresh, onKindCha
       <p id="req4Status" class="req4-status" role="status"></p>
     </form>
     <div id="req4Mail"></div>
+    <div id="req4ImMail" hidden></div>
     <dialog class="expiry-sheet req4-dialog" id="req4Dialog" aria-labelledby="req4DialogTitle">
       <div class="req4-dialog-head"><div class="req4-dialog-heading"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M3 7h18M4 3h16l2 4v3H2V7l2-4Z"/><path d="M4 10v11h16V10M9 14h6"/></svg><div><h2 id="req4DialogTitle"></h2><p id="req4DialogIntro" class="req4-help"></p></div></div><button class="secondary" data-req-close type="button">Cerrar</button></div>
       <div id="req4DialogBody"></div><p id="req4DialogStatus" role="status"></p>
@@ -124,6 +126,7 @@ export function setupRequirements(root, {repository, context, refresh, onKindCha
   const allowed = () => context().allowed;
   const form = find('Form'), kind = find('Kind'), qty = find('Qty'), dialog = find('Dialog');
   const mailUI=setupRequirementsMail(find('Mail'),{repository,context});
+  const imMailUI=setupRequirementsImMail(find('ImMail'),{repository,context});
   root.ownerDocument.body.append(dialog);
   let results = [];
   const canRequest = box => !!box?.clave && box.solicitable === true && !box.prestamo;
@@ -154,6 +157,8 @@ export function setupRequirements(root, {repository, context, refresh, onKindCha
     const loan = kind.value === 'prestamo';
     find('Loan').hidden = !loan;
     find('Supply').hidden = loan;
+    find('Mail').hidden = loan;
+    find('ImMail').hidden = !loan || !context().mailAccess;
     find('QtyWrap').hidden = find('ReceiptWrap').hidden = loan;
     find('SelectionCount').hidden = !loan;
     find('FormTitle').textContent = loan ? 'Solicitar cajas a IM' : 'Solicitar cajas nuevas';
@@ -291,7 +296,8 @@ export function setupRequirements(root, {repository, context, refresh, onKindCha
     if (!loan && (!Number.isInteger(count) || count < 1 || count > 100)) {
       status.textContent = 'Ingresa entre 1 y 100 cajas enteras.'; return;
     }
-    const data = loan ? {tipo:'prestamo',cajas:[...selected.values()].map(box=>box.codigo)}
+    const loanCodes=loan?[...selected.values()].map(box=>box.codigo):[];
+    const data = loan ? {tipo:'prestamo',cajas:loanCodes}
       : {tipo:'nuevas',cantidad:count};
     const saved=await write(data,status);
     if (saved) {
@@ -300,6 +306,10 @@ export function setupRequirements(root, {repository, context, refresh, onKindCha
       mailButton.dataset.reqMail=saved.id;
       mailButton.textContent='Generar correo de esta solicitud';
       status.append(' ',mailButton);
+      if(loan){
+        imMailUI.update(rows,tracking);
+        void imMailUI.selectRequest(saved.id,{codes:loanCodes,generate:true});
+      }
       if (loan) {
         searchEpoch++;
         selected.clear();
@@ -408,16 +418,27 @@ export function setupRequirements(root, {repository, context, refresh, onKindCha
 
   function handleClick(event) {
     const button = event.target.closest('button');
-    if (!button || !allowed()) return;
-    const d = button.dataset;
-    if ('reqClose' in d) { dialog.close(); return; }
-    if (busy) return;
-    if ('reqMail' in d) {
+    if(!button)return;
+    const d=button.dataset;
+    // El correo puede visualizarse en la preview de solo lectura.
+    if ('reqMail' in d && context().mailAccess) {
+      const row=rows.find(item=>item.id===d.reqMail);
       if(dialog.open)dialog.close();
-      void mailUI.selectRequest(d.reqMail,{generate:true});
+      if(row?.tipo===REQ_TYPES[1]){
+        selectKind('prestamo');
+        void imMailUI.selectRequest(row.id,{generate:true});
+      }else if(row?.tipo===REQ_TYPES[0]){
+        selectKind('nuevas');
+        void mailUI.selectRequest(row.id,{generate:true});
+      }
       return;
     }
-    if ('reqKind' in d) { selectKind(d.reqKind); return; }
+    if ('reqKind' in d && (allowed()||(context().mailAccess&&context().mailPreviewMode))){
+      selectKind(d.reqKind);return;
+    }
+    if(!allowed())return;
+    if ('reqClose' in d) { dialog.close(); return; }
+    if (busy) return;
     if ('reqSelect' in d) {
       const box = results[Number(d.reqSelect)];
       if (canRequest(box) && !selected.has(box.clave)) {
@@ -455,21 +476,26 @@ export function setupRequirements(root, {repository, context, refresh, onKindCha
         find('Query').value = '';
         find('Status').textContent = '';
         qty.value = '';
-        kind.value = 'nuevas';
+        const startIm=current.mailPreviewMode &&
+          new URLSearchParams(root.ownerDocument.defaultView.location.search).get('reqMail')==='im';
+        kind.value=startIm?'prestamo':'nuevas';
         changeKind();
-        if (resetKind) onKindChange('nuevas');
+        if(resetKind||startIm)onKindChange(kind.value);
         dialog.close();
         renderSelection();
       }
       rows = records;
       tracking = detail;
       mailUI.update(records,detail);
+      imMailUI.update(records,detail);
+      find('Mail').hidden=kind.value!=='nuevas'||!current.mailAccess;
+      find('ImMail').hidden=kind.value!=='prestamo'||!current.mailAccess;
       if (detail?.suministro) supplyRejected = false;
       if (dialog.open) {
         if (cardView) showCards(cardView);
         else if (find('DialogBody').dataset.row) show(rows.find(row=>row.id===find('DialogBody').dataset.row));
       }
-      form.hidden = !current.allowed;
+      form.hidden = !current.allowed && !(current.mailAccess&&current.mailPreviewMode);
       find('Date').value = limaDate();
       find('User').value = current.name || '';
       renderAvailability();
