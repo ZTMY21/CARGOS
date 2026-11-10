@@ -207,3 +207,33 @@ test('Ver correo generado no repite marca ni asunto dentro del cuerpo',async()=>
   assert.equal(document.querySelector('#req4MailSubject').textContent,
     'Solicitud de 100 cajas nuevas a IM | CD Santa Anita |');
 });
+
+test('sin configuración previa muestra correo real y abre Outlook con cuenta activa sin enviar automáticamente',async()=>{
+  let writes=0,opened=null;
+  window.HTMLAnchorElement.prototype.click=function(){opened=this.href;};
+  const repo={
+    pickupMailConfig:async()=>({sender:'',name:'',company:''}),
+    requirementsMail:async(action)=>{
+      if(action==='estado')return {estado:'NO_ENVIADO'};
+      writes++;
+      return {estado:'ENVIADO'};
+    }
+  };
+  const ui=setupRequirementsMail(root,{repository:repo,
+    context:()=>({mailAccess:true,mailPreviewMode:false,id:actor})});
+  ui.update([supply],{cajas:[]});
+  document.querySelector('#req4MailGenerate').click();
+  await flush();
+  assert.equal(document.querySelector('#req4MailResult').hidden,false);
+  assert.equal(document.querySelector('#req4MailOutlook').textContent,'Abrir correo en Outlook');
+  assert.equal(document.querySelector('#req4MailFrom').textContent,'Cuenta activa de Outlook al redactar');
+  document.querySelector('#req4MailOutlook').click();
+  assert.ok(opened?.startsWith('mailto:joramos@farmaciasperuanas.pe,alopezv@farmaciasperuanas.pe,bsalvador@farmaciasperuanas.pe?'));
+  const query=new URL(opened).searchParams;
+  assert.equal(query.get('cc'),'fp-qs-liquidaciones@intercorpretail.pe');
+  assert.equal(query.get('subject'),'Solicitud de 100 cajas nuevas a IM | CD Santa Anita |');
+  assert.match(query.get('body'),/Buenas tardes, estimados:/);
+  assert.doesNotMatch(query.get('body'),/Requerimiento:|Fecha de solicitud:|Solicitante:|Cantidad solicitada:|Firma pendiente de confirmar/);
+  assert.equal(writes,0);
+  assert.equal(document.querySelector('#req4MailBadge').textContent,'No enviado');
+});
