@@ -72,14 +72,14 @@ function extractBook(xml,table){
   // Copiar el formato de la última fila con un cargo real, no de las filas
   // vacías de formato que permanecen al final del maestro original.
   const templateStyles={};
-  for(const cellMatch of lastDataRowXml.matchAll(/<c\\b[^>]*\\br="([A-K])\\d+"[^>]*\\bs="(\\d+)"/g))
+  for(const cellMatch of lastDataRowXml.matchAll(/<c\b[^>]*\br="([A-K])\d+"[^>]*\bs="(\d+)"/g))
     templateStyles[cellMatch[1]]=cellMatch[2];
   const numericStyle=templateStyles.B||templateStyles.C||templateStyles.G||'3';
   const textStyle=templateStyles.A||templateStyles.D||'2';
   for(const column of 'ABCDEFGHIJK')
     if(!templateStyles[column])templateStyles[column]='BCG'.includes(column)?numericStyle:textStyle;
-  const rowStart=lastDataRowXml.match(/^<row\\b[^>]*>/)?.[0]||'';
-  const height=rowStart.match(/\\sht="([0-9.]+)"/)?.[1];
+  const rowStart=lastDataRowXml.match(/^<row\b[^>]*>/)?.[0]||'';
+  const height=rowStart.match(/\sht="([0-9.]+)"/)?.[1];
   const rowAttributes=height?' ht="'+height+'" customHeight="1"':' spans="1:11"';
   return {rows:count,template:{styles:templateStyles,rowAttributes},
     cargos:[...cargoRows.keys()].sort((a,b)=>a-b),
