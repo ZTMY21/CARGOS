@@ -70,5 +70,27 @@ test('La preview muestra los destinatarios reales indicados incluso si no hay cu
 test('La cantidad solicitada cambia automáticamente en el asunto',()=>{
   const mail=composeRequirementsMail({...newBoxes,cantidadCajas:32},[],config);
   assert.equal(mail.subject,'Solicitud de 32 cajas nuevas a IM | CD Santa Anita |');
-  assert.match(mail.text,/Cantidad solicitada: 32 cajas/);
+  assert.match(mail.text,/solicitamos 32 cajas nuevas/);
+  assert.doesNotMatch(mail.text,/Cantidad solicitada:/);
+});
+
+test('No muestra firma provisional, empresa aislada ni metadatos internos en la vista previa',()=>{
+  const mail=composeRequirementsMail({
+    ...newBoxes,numero:'REQ-00001',fechaSolicitud:'2026-10-15',usuario:'Juan Alexis'
+  },[],{},{preview:true});
+  const hidden=/Firma pendiente de confirmar|Requerimiento:|Fecha de solicitud:|Solicitante:|Cantidad solicitada:/;
+  assert.doesNotMatch(mail.text,hidden);
+  assert.doesNotMatch(mail.html,hidden);
+  assert.doesNotMatch(mail.text,/Farmacias Peruanas/);
+  assert.match(mail.text,/solicitamos 100 cajas nuevas/);
+  assert.match(mail.text,/Agradeceremos confirmar la disponibilidad/);
+});
+test('El HTML y el texto de Outlook omiten todos los campos eliminados, incluso con firma configurada',()=>{
+  const mail=composeRequirementsMail({
+    ...newBoxes,numero:'REQ-00001',fechaSolicitud:'2026-10-15',usuario:'Juan Alexis'
+  },[],config);
+  for(const body of [mail.text,mail.html]){
+    assert.doesNotMatch(body,/Requerimiento: REQ-00001|Fecha de solicitud: 2026-10-15|Solicitante: Juan Alexis|Cantidad solicitada: 100 cajas|Firma pendiente de confirmar/);
+  }
+  assert.match(mail.text,/Responsable de archivo/);
 });
