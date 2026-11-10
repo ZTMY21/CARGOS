@@ -80,66 +80,120 @@ function timeline(summary,period) {
       solicitadas:subset.filter(r=>r.origen==='solicitada').length,total:subset.length};
   });
 }
+// Gráfica vertical de dos series, con ejes y cuadrícula como la vista aprobada.
+export function groupedChartSvg(buckets) {
+  const count=buckets.length;
+  const width=Math.max(700, count*53+78);
+  const height=300,left=39,right=16,top=20,bottom=43;
+  const innerW=width-left-right,innerH=height-top-bottom;
+  const maxValue=Math.max(4,...buckets.flatMap(x=>[x.nuevas,x.solicitadas]));
+  const step=Math.max(1,Math.ceil(maxValue/4)),max=step*4;
+  const toY=value=>top+innerH-innerH*value/max;
+  const rows=Array.from({length:5},(_,i)=>{
+    const value=i*step,y=toY(value);
+    return '<line class="conditioned-gridline" x1="'+left+'" x2="'+(width-right)+'" y1="'+y+'" y2="'+y+'"/>'+
+      '<text class="conditioned-axis-text" x="'+(left-12)+'" y="'+(y+4)+'" text-anchor="end">'+value+'</text>';
+  }).join('');
+  const groupWidth=innerW/Math.max(1,count);
+  const barWidth=Math.min(23,Math.max(8,groupWidth*.29));
+  const gap=Math.min(5,groupWidth*.08);
+  const bars=buckets.map((item,i)=>{
+    const center=left+groupWidth*(i+.5);
+    const groups=[['nuevas','conditioned-bar-new','Cajas nuevas',-barWidth-gap/2],
+      ['solicitadas','conditioned-bar-requested','Cajas solicitadas',gap/2]];
+    const rects=groups.map(([key,cls,label,dx])=>{
+      const n=item[key],y=toY(n),h=toY(0)-y;
+      if(!n)return '';
+      return '<rect class="'+cls+'" x="'+(center+dx)+'" y="'+y+'" width="'+barWidth+
+        '" height="'+h+'" rx="4" ry="4"><title>'+item.label+': '+n+' '+label+'</title></rect>';
+    }).join('');
+    return rects+'<text class="conditioned-axis-text" x="'+center+'" y="'+(height-19)+'" text-anchor="middle">'+item.label+'</text>';
+  }).join('');
+  return '<svg class="conditioned-svg" xmlns="http://www.w3.org/2000/svg" width="'+width+
+    '" height="'+height+'" viewBox="0 0 '+width+' '+height+'" role="img" aria-label="Gráfico de cajas nuevas y solicitadas acondicionadas por periodo">'+
+    rows+'<line class="conditioned-axis" x1="'+left+'" x2="'+(width-right)+'" y1="'+toY(0)+'" y2="'+toY(0)+'"/>'+
+    '<line class="conditioned-axis" x1="'+left+'" x2="'+left+'" y1="'+top+'" y2="'+toY(0)+'"/>'+bars+'</svg>';
+}
+export function demoConditionedRows() {
+  // Únicamente para la vista demostrativa del despliegue preview, nunca persiste.
+  const nue=[1,1,2,3,2,4,2,1,2],sol=[0,1,1,1,0,1,1,0,1],rows=[];
+  for(let i=0;i<9;i++){
+    const preparada='2026-11-'+String(i+1).padStart(2,'0');
+    for(let j=0;j<nue[i];j++)rows.push({codigo:'T'+String(10001+i*10+j),origen:'nueva',preparada});
+    for(let j=0;j<sol[i];j++)rows.push({codigo:'P'+String(40001+i*10+j),origen:'solicitada',preparada});
+  }
+  return rows;
+}
 export function attachPreparedMonthlyKpi({repository,isAdmin,appReady}) {
   const el=id=>document.getElementById(id);
   const modal=el('conditionedMonthlySheet'),metric=el('monthlyBoxesConditioned'),
     note=el('conditionedMonthlyNote');
+  const params=new URLSearchParams(window.location.search);
+  const demo=params.get('demo-kpi')==='1' && /-ztmy1\.vercel\.app$/i.test(window.location.hostname)
+    && !['kardex-digital-santa-anita-ztmy1.vercel.app','kardex-digital-santa-anita-git-main-ztmy1.vercel.app'].includes(window.location.hostname);
   let view='dia',summary=null,request=0;
   const format=n=>new Intl.NumberFormat('es-PE').format(n);
+  const formatMonth=value=>{
+    const [year,month]=value.split('-').map(Number);
+    return new Intl.DateTimeFormat('es-PE',{month:'long',year:'numeric',timeZone:'America/Lima'}).format(new Date(Date.UTC(year,month-1,1)));
+  };
   function render(){
     if(!modal.open)return;
-    [...modal.querySelectorAll('[data-prepared-period]')].forEach(button=>{
+    for(const button of modal.querySelectorAll('[data-prepared-period]')) {
       const active=button.dataset.preparedPeriod===view;
       button.setAttribute('aria-selected',String(active));
-    });
+      button.tabIndex=active?0:-1;
+    }
     const chart=el('conditionedMonthlyChart'),status=el('conditionedMonthlyStatus');
     if(!summary){
-      chart.textContent='Aún no hay datos disponibles.';
+      chart.innerHTML='<p class="conditioned-empty">Consultando registros de acondicionamiento…</p>';
       return;
     }
-    el('conditionedMonthlyPrepared').textContent=format(summary.mesPreparadas);
+    el('conditionedDataSource').textContent=demo?'Datos de ejemplo':'Datos de acondicionamiento';
     el('conditionedMonthlyPending').textContent=format(summary.mesPendientes);
+    el('conditionedMonthlyNew').textContent=format(summary.pendientesNuevas)+' cajas nuevas';
+    el('conditionedMonthlyRequested').textContent=format(summary.pendientesSolicitadas)+' cajas solicitadas acondicionadas';
+    el('conditionedPeriodLabel').textContent=
+      formatMonth(summary.currentMonth)+' · Pendientes de envío a IM';
     const buckets=timeline(summary,view);
-    const max=Math.max(1,...buckets.map(b=>b.total));
-    chart.innerHTML=buckets.map(bucket=>{
-      const first=bucket.nuevas/max*100,second=bucket.solicitadas/max*100;
-      return '<div class="conditioned-chart-row" role="listitem">'+
-        '<span class="conditioned-chart-label">'+bucket.label+'</span>'+
-        '<div class="conditioned-chart-track" aria-label="'+bucket.total+' cajas">'+
-        '<span class="conditioned-segment-new" style="width:'+first+'%"></span>'+
-        '<span class="conditioned-segment-requested" style="width:'+second+'%"></span></div>'+
-        '<strong class="conditioned-chart-value">'+format(bucket.total)+'</strong></div>';
-    }).join('');
-    status.textContent='Productividad histórica: incluye cajas preparadas que después fueron enviadas. La tarjeta superior solo cuenta las pendientes del mes.';
+    chart.innerHTML=groupedChartSvg(buckets);
+    status.textContent=demo
+      ? 'Datos ilustrativos, no extraídos del aplicativo. Prueba los filtros Día, Semana, Mes y Año.'
+      : 'La gráfica mide cajas preparadas en cada periodo y conserva el historial incluso después del envío. El número principal solo incluye las preparadas este mes que siguen pendientes de envío.';
   }
   async function refresh(){
-    if(!isAdmin()||!appReady())return;
+    if(!demo && (!isAdmin()||!appReady()))return;
     const current=++request;
-    try{
-      const data=await repository.conditioning('listar');
-      if(current!==request || !isAdmin() || !appReady())return;
+    try {
+      const data=demo
+        ? {listado:demoConditionedRows()}
+        : await repository.conditioning('listar');
+      if(current!==request || (!demo && (!isAdmin()||!appReady())))return;
       if(!data || !Array.isArray(data.listado))throw new Error('Respuesta no disponible');
-      summary=summarizeConditionedBoxes(data.listado);
+      summary=summarizeConditionedBoxes(data.listado,demo?new Date('2026-11-09T20:00:00-05:00'):new Date());
       metric.textContent=format(summary.mesPendientes);
       note.textContent='Preparadas este mes · Pendientes de envío a IM';
       render();
-    }catch{
+    } catch {
       if(current!==request)return;
       summary=null;metric.textContent='—';
       note.textContent='No se pudo consultar Acondicionamiento';
-      if(modal.open)el('conditionedMonthlyChart').textContent='No se pudieron consultar las cajas acondicionadas.';
+      if(modal.open)el('conditionedMonthlyChart').innerHTML=
+        '<p class="conditioned-empty">No se pudieron consultar las cajas acondicionadas.</p>';
     }
   }
   modal.querySelectorAll('[data-prepared-period]').forEach(button=>
     button.addEventListener('click',()=>{view=button.dataset.preparedPeriod;render();}));
   el('btnCloseConditionedMonthly').addEventListener('click',()=>modal.close());
-  return {
+  const controller={
     refresh,
     open(){
-      if(!isAdmin()||!appReady())return;
+      if(!demo && (!isAdmin()||!appReady()))return;
       view='dia';
       if(!modal.open)modal.showModal();
       render();void refresh();
     }
   };
+  if(demo)window.requestAnimationFrame(()=>controller.open());
+  return controller;
 }
