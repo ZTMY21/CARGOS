@@ -400,7 +400,6 @@ export function setupRequirements(root, {repository, context, refresh, onKindCha
         <div><dt>Solicitante</dt><dd>${html(row.usuario)}</dd></div>
         <div><dt>Cajas solicitadas</dt><dd>${Number(row.cantidadCajas)}</dd></div>
       </dl>
-      <button class="secondary req4-mail-detail" type="button" data-req-mail="${html(row.id)}">Preparar correo de esta solicitud</button>
       ${supply ? showReception ? receiptHistory(row) : '' : `<h3 class="req4-history-heading">Cajas de la solicitud</h3>
         <ul>${boxes.map(box => `<li><strong>${html(box.codigo)}</strong> · cargos ${html(box.cargos.join(', '))}</li>`).join('')}</ul>`}`;
     find('DialogBody').dataset.row = row.id;
