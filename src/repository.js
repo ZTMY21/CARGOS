@@ -136,6 +136,7 @@ export class KardexRepository {
   async preparedImDetails() { return checked(await this.client.rpc('kardex_prepared_im_detail')); }
   async requestedIMDetails() { return checked(await this.client.rpc('kardex_requested_im_detail')); }
   async shippedIMBoxesMonthly() { return checked(await this.client.rpc('kardex_im_boxes_sent_monthly')); }
+  async conditionedHistoricalBoxes() { return checked(await this.client.rpc('kardex_conditioned_boxes_historical')); }
   async cargoSafetyStatus() { return checked(await this.client.rpc('kardex_resguardo_estado')); }
   async previousCargos(ids) { return checked(await this.client.rpc('kardex_previous_cargos',{p_documento_ids:ids})); }
   async requestAdminAccess() { return checked(await this.client.rpc('kardex_admin_apply')); }
