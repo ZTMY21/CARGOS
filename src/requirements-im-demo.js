@@ -1,4 +1,3 @@
-import './connection.css';
 import {setupRequirements} from './requirements-ui.js';
 import {REQ_TYPES,limaDate} from './rules.js';
 
