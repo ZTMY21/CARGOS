@@ -926,6 +926,47 @@
     #conditioningBatchDemo .batch-demo-card strong{font-size:28px;}
   }
 
+
+  /* PREVIEW aislada · correo de solicitud de cajas, sin Excel */
+  #req4Mail[hidden]{display:none}
+  .req4-mail-panel{margin:22px 0 6px;padding:21px 22px;border:1px solid #dce4eb;background:#fff;border-radius:13px;box-shadow:0 3px 14px rgba(24,49,72,.055)}
+  .req4-mail-heading{display:flex;gap:13px;align-items:flex-start;flex-wrap:wrap}
+  .req4-mail-heading>div:nth-child(2){flex:1;min-width:240px}
+  .req4-mail-heading h3{color:#12324d;margin:1px 0 5px;font-size:18px}
+  .req4-mail-heading p{margin:0;color:#647384;font-size:13px;line-height:1.5}
+  .req4-mail-icon{width:43px;height:43px;display:grid;place-items:center;border-radius:11px;background:#e7f0f8;color:#1f4e78;font-size:24px;flex:none}
+  .req4-mail-preview-badge{background:#fff6de;color:#8c6107;border:1px solid #f0d998;border-radius:999px;font-size:10px;font-weight:800;letter-spacing:.05em;padding:5px 9px}
+  .req4-mail-controls{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;margin:20px 0 13px}
+  .req4-mail-controls label{min-width:260px;flex:1;font-size:12px;font-weight:750;color:#44566a}
+  .req4-mail-controls select{display:block;width:100%;height:42px;margin-top:7px;border:1px solid #ced8e2;border-radius:8px;background:#fff;padding:0 12px;font:inherit;font-weight:500;color:#243347}
+  .req4-mail-buttons,.req4-mail-footer{display:flex;flex-wrap:wrap;gap:9px}
+  .req4-mail-buttons button,.req4-mail-footer button{font-size:12px;min-height:40px}
+  .req4-mail-info{font-size:12px;line-height:1.5;color:#667587;margin:10px 0}
+  .req4-mail-status{font-size:12px;color:#2d6d43;min-height:16px;margin:8px 0}
+  .req4-mail-status.is-error{color:#b43f3f}
+  .req4-mail-result{border:1px solid #dde5ed;border-radius:11px;overflow:hidden;margin-top:17px;background:#fff}
+  .req4-mail-result[hidden]{display:none}
+  .req4-mail-result-head{padding:14px 17px;background:#f7f9fc;display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;border-bottom:1px solid #e6edf3}
+  .req4-mail-result-head h4{margin:0;color:#14324a;font-size:15px}
+  .req4-mail-stage{display:inline-block;border:1px solid #eddbbd;border-radius:999px;background:#fff7e6;padding:5px 10px;font-size:11px;color:#8d620c;font-weight:750}
+  .req4-mail-fields{display:grid;grid-template-columns:65px minmax(0,1fr);gap:10px 12px;margin:0;padding:16px 19px;border-bottom:1px solid #e6edf3;font-size:12px}
+  .req4-mail-fields dt{color:#677887;font-weight:750}
+  .req4-mail-fields dd{margin:0;color:#1f354b;overflow-wrap:anywhere}
+  .req4-mail-content{margin:18px auto;width:calc(100% - 38px);max-width:760px;border:1px solid #e0e5ec;border-top:4px solid #b50917;padding:24px;background:#fff}
+  .req4-mail-brand{display:flex;flex-direction:column;gap:5px;margin-bottom:18px;color:#193c5b}
+  .req4-mail-brand small{color:#6b7784}
+  .req4-mail-content pre{font:13px/1.7 Arial,Helvetica,sans-serif;white-space:pre-wrap;overflow-wrap:anywhere;margin:0;color:#1b3044}
+  .req4-mail-result>.req4-mail-info{margin:0 18px 12px}
+  .req4-mail-footer{padding:15px 18px;border-top:1px solid #e6edf3;background:#fbfcfe}
+  @media(max-width:700px){
+    .req4-mail-panel{padding:15px}
+    .req4-mail-controls{display:block}
+    .req4-mail-buttons{margin-top:10px}
+    .req4-mail-buttons button,.req4-mail-footer button{flex:1 1 100%}
+    .req4-mail-content{width:calc(100% - 20px);padding:17px;margin:10px auto}
+    .req4-mail-fields{grid-template-columns:50px minmax(0,1fr);padding:13px}
+  }
+
 </style>
 <link rel="stylesheet" href="/src/intervention-ui.css">
 <link rel="stylesheet" href="/src/intervention-premium.css">
