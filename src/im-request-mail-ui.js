@@ -6,7 +6,8 @@ export function setupImRequestMail(root,{context}){
   const doc=root.ownerDocument;
   let selected=[],draft=null,viewer=null;
   const preview=()=>context().mailPreviewMode!==false;
-  const accessible=()=>Boolean(context().allowed&&context().mailAccess);
+  // La preview puede permitir visualizar sin habilitar escrituras de solicitudes.
+  const accessible=()=>Boolean(context().mailAccess);
   const exampleCodes=['T00045','TD00046','P00078'];
   root.innerHTML=
     '<section class="req4-mail-panel" aria-labelledby="req4ImMailTitle">'+
