@@ -5,6 +5,7 @@ import './conditioning-workspace.css';
 import {attachBoxScanSheets} from './box-scan-sheet-ui.js';
 import {attachConditioningWorkspace} from './conditioning-workspace.js';
 import {attachPreparedMonthlyKpi} from './prepared-monthly-kpi.js';
+import {summarizeBoxPreparationBatch} from './conditioning-batch-summary.js';
 import {inventoryConditioning} from './conditioning-inventory.js';
 import {attachBoxConditioning} from './box-conditioning-ui.js';
 import {attachPickupMail} from './pickup-mail-ui.js';
@@ -136,6 +137,7 @@ let currentPage = 0;
 let expiryGroups = {today:'', overdue:[], upcoming:[], unknown:[]};
 let activeExpiryGroup = null, expiryPage = 0, expiryReturnButton = '';
 let preparedMonthlyKpi = null;
+let conditioningBatchSources={reception:null,preparedRows:null};
 let preparedImRows = [], preparedImFetchEpoch = 0;
 let preparedImSummary = null, preparedImSummaryEpoch = 0;
 let requestedIMRows = [], requestedIMData = [], requestedIMError = '', requestedIMFetchEpoch = 0;
@@ -372,9 +374,11 @@ async function refreshData() {
     do {
       refreshRequested = false;
       const generation = authGeneration;
-      const [snapshot, detail] = await Promise.all([
+      const [snapshot, detail, conditioningData, receptionData] = await Promise.all([
         repository.snapshot(),
-        isAdmin ? repository.requestTracking().catch(() => null) : null
+        isAdmin ? repository.requestTracking().catch(() => null) : null,
+        isAdmin && receptionEnabled ? repository.conditioning('listar').catch(() => null) : null,
+        isAdmin && receptionEnabled ? repository.reception().catch(() => null) : null
       ]);
       if (generation !== authGeneration || !currentUserId) {
         if (currentUserId) refreshRequested = true;
@@ -382,6 +386,7 @@ async function refreshData() {
       }
       await loadReqs(snapshot);
       requestTracking = detail;
+      conditioningBatchSources={reception:receptionData,preparedRows:Array.isArray(conditioningData?.listado)?conditioningData.listado:null};
       annualReference = isolatedRequirements && isAdmin ? snapshot.resumen_anual_referencia ?? null : null;
       const previousDocs = queryResults ? new Map(docs.map(d=>[d.id,d])) : null;
       await loadDocs(snapshot);
@@ -943,9 +948,8 @@ function renderDocs(){
     ? reqs.findLast(row=>row.tipo==='Cajas nuevas para acondicionar' && Number(row.cantidadCajas)>0)
     : null;
   const cajasSolicitadas = Number(solicitudCajas?.cantidadCajas)||0;
-  const cajasRegistradas = solicitudCajas
-    ? Number(requestReception(solicitudCajas,requestTracking).guardadas ?? solicitudCajas.recibidoV4)
-    : 0;
+  const avanceLote=summarizeBoxPreparationBatch(solicitudCajas,requestTracking,
+    conditioningBatchSources.reception,conditioningBatchSources.preparedRows);
 
 
   // Esta tabla agrupa por año del cargo. Los gráficos de cajas usan fechas efectivas.
@@ -990,8 +994,9 @@ function renderDocs(){
       </div>
       <div class="kpi kpi-color kpi-summary-process">
         <div class="l">En Proceso de Acondicionamiento</div>
-        <div class="n">${solicitudCajas ? fmtNum(cajasRegistradas)+'/'+fmtNum(cajasSolicitadas) : fmtNum(cargosEnProceso)}</div>
-        <div class="pct-txt">${solicitudCajas ? pct(Math.max(0,cajasSolicitadas-cajasRegistradas),cajasSolicitadas) : pct(cargosEnProceso,totalCargos)}</div>
+        <div class="n">${avanceLote?.prepared == null ? '—' : fmtNum(avanceLote.prepared)+'/'+fmtNum(avanceLote.total)}</div>
+        <div class="pct-txt">${avanceLote?.preparedPct == null ? 'Consultando cajas preparadas' : avanceLote.preparedPct+'% acondicionadas'}</div>
+        ${avanceLote?.prepared != null ? `<progress class="conditioning-batch-progress" value="${avanceLote.prepared}" max="${avanceLote.total}" aria-label="Porcentaje de cajas terminadas de acondicionar"></progress>` : ''}
       </div>
       <div class="kpi kpi-color kpi-summary-pending">
         <div class="l">Pendiente de Envío a IM</div>
@@ -1023,7 +1028,7 @@ function renderDocs(){
         <div class="n" id="preparedImSummaryMetric">${cajasPreparadas == null?'—':fmtNum(cajasPreparadas)}</div>
         <div class="pct-txt">Sin fecha de envío · Pendientes de envío a Iron Mountain</div>
       </div>
-      ${isAdmin ? requestCards(reqs,requestTracking) : ''}
+      ${isAdmin ? requestCards(reqs,requestTracking,avanceLote) : ''}
     </div>
     ${receptionPreview ? '<p class="expiry-note">Preview de recepción · los guardados se hacen en el Maestro de prueba. Las solicitudes conciliadas identifican los códigos que ya constan en Iron Mountain.</p>' : isolatedRequirements ? '<p class="expiry-note">Intervención 4 · Base aislada de pruebas con una muestra de registros reales. Consolidación en Excel pendiente.</p>' : ''}
     ${expiryGroups.unknown.length ? `<p class="expiry-note">${fmtNum(cargosDe(expiryGroups.unknown))} cargos de 2025/2026 sin fecha válida para calcular el vencimiento; no se incluyen en estas alertas.</p>` : ''}
@@ -2182,3 +2187,31 @@ preparedMonthlyKpi=attachPreparedMonthlyKpi({
 
 // Capa visual aprobada: sin modificar la lógica, el menú ni otras pantallas.
 attachInterventionExperience();
+
+
+// Simulación interactiva solo en el despliegue de Preview. No lee ni guarda datos reales.
+if(isPreview && new URLSearchParams(window.location.search).get('demo-avance')==='1'){
+  const demo=document.getElementById('conditioningBatchDemo');
+  const register=document.getElementById('batchDemoRegisterSlider');
+  const prepared=document.getElementById('batchDemoPreparedSlider');
+  const byId=id=>document.getElementById(id);
+  const update=()=>{
+    const read=Number(register.value);
+    prepared.max=String(read);
+    if(Number(prepared.value)>read)prepared.value=String(read);
+    const done=Number(prepared.value);
+    byId('batchDemoRegistered').textContent=read+'/100';
+    byId('batchDemoRegisteredPct').textContent=read+'% registradas';
+    byId('batchDemoRegisteredBar').style.width=read+'%';
+    byId('batchDemoRegisterLabel').textContent=read+' de 100';
+    byId('batchDemoPrepared').textContent=done+'/100';
+    byId('batchDemoPreparedPct').textContent=done+'% acondicionadas';
+    byId('batchDemoPreparedBar').style.width=done+'%';
+    byId('batchDemoPreparedLabel').textContent=done+' de 100';
+  };
+  register.addEventListener('input',update);
+  prepared.addEventListener('input',update);
+  byId('batchDemoClose').addEventListener('click',()=>demo.close());
+  update();
+  requestAnimationFrame(()=>{if(!demo.open)demo.showModal();});
+}

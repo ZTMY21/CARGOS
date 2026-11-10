@@ -42,18 +42,32 @@ function procedure(kind, current = 0) {
   ).join('')}</ol>`;
 }
 
-export function requestCards(rows, tracking) {
-  const supplyPending = supplyAvailability(rows,tracking).pending;
-  const loanPending = new Set(tracking?.cajas.filter(box => !box.devolucion).map(box => box.clave)).size;
-  return [['nuevas','Cajas para acondicionar',tracking ? supplyPending : '—'],
-          ['prestamo',kinds.prestamo,tracking ? loanPending : '—']]
-      .map(([kind,title,total]) => `<section class="kpi kpi-color">
-          <div class="expiry-card-heading">
-            <div class="l">${title}</div>
-            <button type="button" class="expiry-detail-button" data-req-card="${kind}" aria-label="Ver detalle de ${title}" aria-haspopup="dialog" aria-controls="req4Dialog">Ver detalle</button>
-          </div>
-          <div class="n">${total}</div>
-        </section>`).join('');
+export function requestCards(rows, tracking, batchProgress=null) {
+  const latestSupply=rows.filter(row=>row.tipo===REQ_TYPES[0] && Number(row.cantidadCajas)>0).at(-1);
+  const registeredReceipt=latestSupply?requestReception(latestSupply,tracking):null;
+  const supplyTotal=Number(latestSupply?.cantidadCajas)||0;
+  const inBatch=batchProgress && batchProgress.requestId===String(latestSupply?.id);
+  const fallback=Number(registeredReceipt?.leidas??registeredReceipt?.guardadas??latestSupply?.recibidoV4??0);
+  const registered=latestSupply && (tracking || inBatch)
+    ? Math.min(supplyTotal,Math.max(0,inBatch?batchProgress.registered:Number.isFinite(fallback)?fallback:0))
+    : null;
+  const fraction=supplyTotal&&registered!==null?registered+'/'+supplyTotal:'—';
+  const percentage=supplyTotal&&registered!==null?Math.round(100*registered/supplyTotal)+'% registradas':'';
+  const loanPending = new Set(tracking?.cajas?.filter(box => !box.devolucion).map(box => box.clave)).size;
+  return [['nuevas','Cajas para acondicionar',fraction,percentage],
+          ['prestamo',kinds.prestamo,tracking ? loanPending : '—','']]
+      .map(([kind,title,total,note]) => '<section class="kpi kpi-color '+
+          (kind==='nuevas'?'kpi-summary-to-condition':'')+'">'+
+          '<div class="expiry-card-heading">'+
+            '<div class="l">'+title+'</div>'+
+            '<button type="button" class="expiry-detail-button" data-req-card="'+kind+
+              '" aria-label="Ver detalle de '+title+'" aria-haspopup="dialog" aria-controls="req4Dialog">Ver detalle</button>'+
+          '</div>'+
+          '<div class="n">'+total+'</div>'+
+          (note ? '<div class="pct-txt">'+note+'</div>' : '')+
+          (kind==='nuevas' && registered!==null && supplyTotal ?
+            '<progress class="conditioning-batch-progress" value="'+registered+'" max="'+supplyTotal+'" aria-label="Avance de cajas registradas para acondicionar"></progress>' : '')+
+        '</section>').join('');
 }
 
 export function setupRequirements(root, {repository, context, refresh, onKindChange = () => {}, isPreview = false, receptionEnabled = false, receptionOverview = false}) {
