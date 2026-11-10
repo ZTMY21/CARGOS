@@ -41,7 +41,8 @@ afterEach(()=>{dom.window.close();delete globalThis.document;});
 
 test('genera correo de solicitud registrada, con destinatarios de recojo y sin Excel',async()=>{
   let requests=0,mutations=0;
-  mount({pickupMailConfig:async()=>{requests++;return config;},requestAction:async()=>{mutations++;}});
+  const ui=mount({pickupMailConfig:async()=>{requests++;return config;},requestAction:async()=>{mutations++;}});
+  await ui.selectRequest(supply.id);
   document.querySelector('#req4MailGenerate').click();
   await flush();
   assert.equal(requests,1);
