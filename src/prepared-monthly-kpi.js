@@ -99,15 +99,22 @@ export function groupedChartSvg(buckets) {
   const gap=Math.min(5,groupWidth*.08);
   const bars=buckets.map((item,i)=>{
     const center=left+groupWidth*(i+.5);
-    const groups=[['nuevas','conditioned-bar-new','Cajas nuevas',-barWidth-gap/2],
-      ['solicitadas','conditioned-bar-requested','Cajas solicitadas',gap/2]];
-    const rects=groups.map(([key,cls,label,dx])=>{
+    const groups=[['nuevas','conditioned-bar-new',-barWidth-gap/2],
+      ['solicitadas','conditioned-bar-requested',gap/2]];
+    const rects=groups.map(([key,cls,dx])=>{
       const n=item[key],y=toY(n),h=toY(0)-y;
       if(!n)return '';
       return '<rect class="'+cls+'" x="'+(center+dx)+'" y="'+y+'" width="'+barWidth+
-        '" height="'+h+'" rx="4" ry="4"><title>'+item.label+': '+n+' '+label+'</title></rect>';
+        '" height="'+h+'" rx="4" ry="4"/>';
     }).join('');
-    return rects+'<text class="conditioned-axis-text" x="'+center+'" y="'+(height-19)+'" text-anchor="middle">'+item.label+'</text>';
+    // Zona de interacción para toda la columna; también funciona con teclado y clic.
+    const hitX=left+groupWidth*i+groupWidth*.06,hitW=groupWidth*.88;
+    return '<g class="conditioned-hover-column" tabindex="0" data-prepared-index="'+i+
+      '" aria-label="'+item.label+': '+item.nuevas+' cajas nuevas, '+item.solicitadas+
+      ' cajas solicitadas, '+item.total+' en total">'+
+      '<rect class="conditioned-hover-zone" x="'+hitX+'" y="'+top+'" width="'+hitW+
+      '" height="'+innerH+'"/>'+rects+'</g>'+
+      '<text class="conditioned-axis-text" x="'+center+'" y="'+(height-19)+'" text-anchor="middle">'+item.label+'</text>';
   }).join('');
   return '<svg class="conditioned-svg" xmlns="http://www.w3.org/2000/svg" width="'+width+
     '" height="'+height+'" viewBox="0 0 '+width+' '+height+'" role="img" aria-label="Gráfico de cajas nuevas y solicitadas acondicionadas por periodo">'+
@@ -146,6 +153,7 @@ export function attachPreparedMonthlyKpi({repository,isAdmin,appReady}) {
     }
     const chart=el('conditionedMonthlyChart'),status=el('conditionedMonthlyStatus');
     if(!summary){
+      el('conditionedMonthlyTooltip').hidden=true;
       chart.innerHTML='<p class="conditioned-empty">Consultando registros de acondicionamiento…</p>';
       return;
     }
@@ -157,6 +165,36 @@ export function attachPreparedMonthlyKpi({repository,isAdmin,appReady}) {
       formatMonth(summary.currentMonth)+' · Pendientes de envío a IM';
     const buckets=timeline(summary,view);
     chart.innerHTML=groupedChartSvg(buckets);
+    const tip=el('conditionedMonthlyTooltip');
+    tip.hidden=true;
+    const card=modal.querySelector('.conditioned-chart-card');
+    function showTooltip(item,event,group){
+      // El detalle conserva el estilo flotante del gráfico de envíos IM.
+      const rect=card.getBoundingClientRect();
+      const targetRect=group.getBoundingClientRect();
+      const mx=event?.clientX || (targetRect.left+targetRect.width/2);
+      const my=event?.clientY || (targetRect.top+Math.min(130,targetRect.height/2));
+      const x=Math.max(88,Math.min(rect.width-88,mx-rect.left));
+      const y=Math.max(108,Math.min(rect.height-24,my-rect.top));
+      tip.innerHTML='<strong>'+item.label+' · Cajas acondicionadas</strong>'+
+        '<div class="conditioned-tooltip-row"><span class="conditioned-tooltip-dot" style="background:#329edb"></span>'+
+        'Cajas nuevas: '+format(item.nuevas)+'</div>'+
+        '<div class="conditioned-tooltip-row"><span class="conditioned-tooltip-dot" style="background:#9974d1"></span>'+
+        'Cajas solicitadas: '+format(item.solicitadas)+'</div>'+
+        '<div class="conditioned-tooltip-total">Total preparadas: '+format(item.total)+' cajas</div>';
+      tip.style.left=x+'px';
+      tip.style.top=y+'px';
+      tip.hidden=false;
+    }
+    chart.querySelectorAll('[data-prepared-index]').forEach(group=>{
+      const item=buckets[Number(group.dataset.preparedIndex)];
+      group.addEventListener('mouseenter',event=>showTooltip(item,event,group));
+      group.addEventListener('mousemove',event=>showTooltip(item,event,group));
+      group.addEventListener('mouseleave',()=>{tip.hidden=true;});
+      group.addEventListener('focus',()=>showTooltip(item,null,group));
+      group.addEventListener('blur',()=>{tip.hidden=true;});
+      group.addEventListener('click',event=>showTooltip(item,event,group));
+    });
     status.textContent=demo
       ? 'Datos ilustrativos, no extraídos del aplicativo. Prueba los filtros Día, Semana, Mes y Año.'
       : 'La gráfica mide cajas preparadas en cada periodo y conserva el historial incluso después del envío. El número principal solo incluye las preparadas este mes que siguen pendientes de envío.';
@@ -185,6 +223,7 @@ export function attachPreparedMonthlyKpi({repository,isAdmin,appReady}) {
   modal.querySelectorAll('[data-prepared-period]').forEach(button=>
     button.addEventListener('click',()=>{view=button.dataset.preparedPeriod;render();}));
   el('btnCloseConditionedMonthly').addEventListener('click',()=>modal.close());
+  modal.addEventListener('close',()=>{el('conditionedMonthlyTooltip').hidden=true;});
   const controller={
     refresh,
     open(){
