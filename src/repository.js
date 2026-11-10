@@ -74,6 +74,10 @@ export class KardexRepository {
   async access() { return checked(await this.client.rpc('kardex_access')); }
   async requestBoxes(query) { return checked(await this.client.rpc('kardex_req4_buscar',{p_query:query})); }
   async requestTracking() { return checked(await this.client.rpc('kardex_req4_detalle')); }
+  async pickupMailConfig() {
+    const state=checked(await this.client.rpc('kardex_pickup_mail_state'));
+    return state?.config||null;
+  }
   async requestAction(id, action, data) {
     return reqFromDb(checked(await this.client.rpc('kardex_req4_accion',{p_id:id,p_accion:action,p_datos:data})));
   }
