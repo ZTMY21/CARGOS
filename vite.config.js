@@ -50,6 +50,6 @@ export default defineConfig(({ mode }) => {
       __RECEPTION_PREVIEW__: JSON.stringify(process.env.VERCEL_GIT_COMMIT_REF === 'preview/recepcion-cajas-im' &&
         isolated === 'qpbzfzcobkkfnoioqytb' && url === 'https://qpbzfzcobkkfnoioqytb.supabase.co')
     },
-    build: { sourcemap: false, rolldownOptions: { input: { app: 'index.html' } } }
+    build: { sourcemap: false, rolldownOptions: { input: { app: 'index.html', imPreview: 'im-preview.html' } } }
   };
 });
