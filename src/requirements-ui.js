@@ -48,7 +48,7 @@ export function requestCards(rows, tracking, batchProgress=null) {
   const supplyTotal=Number(latestSupply?.cantidadCajas)||0;
   const inBatch=batchProgress && batchProgress.requestId===String(latestSupply?.id);
   const fallback=Number(registeredReceipt?.leidas??registeredReceipt?.guardadas??latestSupply?.recibidoV4??0);
-  const registered=latestSupply && tracking
+  const registered=latestSupply && (tracking || inBatch)
     ? Math.min(supplyTotal,Math.max(0,inBatch?batchProgress.registered:Number.isFinite(fallback)?fallback:0))
     : null;
   const fraction=supplyTotal&&registered!==null?registered+'/'+supplyTotal:'—';
