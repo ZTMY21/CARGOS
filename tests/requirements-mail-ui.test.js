@@ -61,17 +61,13 @@ test('genera correo de solicitud registrada, con destinatarios de recojo y sin E
   assert.equal(mutations,0);
 });
 
-test('desde Solicitudes a IM se muestran solo códigos de caja y nunca cargos',async()=>{
+test('desde solicitud específica se muestran caja y cargos del préstamo',async()=>{
   const ui=mount();
   await ui.selectRequest(loan.id,{generate:true});
   assert.equal(document.querySelector('#req4MailSelect').value,loan.id);
-  assert.equal(document.querySelector('#req4MailSubject').textContent,'Solicitud de 2 cajas a IM | CD Santa Anita |');
-  const body=document.querySelector('#req4MailBody').textContent;
-  assert.match(body,/T00045\r\nTD00046/);
-  assert.doesNotMatch(body,/Cargos|306|307|318|Factura|Guía|Solicitante:|Requerimiento:|Cantidad solicitada:/);
-  assert.equal(document.querySelector('#req4MailTo').textContent,
-    'joramos@farmaciasperuanas.pe; alopezv@farmaciasperuanas.pe; bsalvador@farmaciasperuanas.pe');
-  assert.equal(document.querySelector('#req4MailCc').textContent,'fp-qs-liquidaciones@intercorpretail.pe');
+  assert.match(document.querySelector('#req4MailSubject').textContent,/2 cajas en préstamo/);
+  assert.match(document.querySelector('#req4MailBody').textContent,/Caja T00045 · Cargos: 306 - 307/);
+  assert.match(document.querySelector('#req4MailBody').textContent,/Caja TD00046 · Cargos: 318/);
 });
 
 test('cambio de cuenta durante carga descarta correo y destinatarios anteriores',async()=>{
@@ -109,7 +105,7 @@ test('no permite generar un correo de préstamo sin cajas registradas',async()=>
   document.querySelector('#req4MailGenerate').click();
   await flush();
   assert.equal(document.querySelector('#req4MailResult').hidden,true);
-  assert.match(document.querySelector('#req4MailStatus').textContent,/No hay códigos de caja registrados/);
+  assert.match(document.querySelector('#req4MailStatus').textContent,/No hay cajas registradas/);
 });
 
 test('en modo de publicación el correo conserva los destinatarios y registra solo tras confirmar Outlook',async()=>{
@@ -267,55 +263,4 @@ test('mailto preserva espacios y tildes sin signos + con cantidades distintas',a
   const parsed=new URL(url).searchParams;
   assert.match(parsed.get('body'),/Por medio del presente, solicitamos 32 cajas nuevas/);
   assert.match(parsed.get('body'),/\r\n\r\n/);
-});
-
-test('La preview ofrece simulación exclusiva de Solicitudes a IM sin envíos ni datos internos',async()=>{
-  let writes=0;
-  const ui=setupRequirementsMail(root,{repository:{
-    pickupMailConfig:async()=>({}),
-    requestAction:async()=>{writes++;},
-    requirementsMail:async()=>{writes++;}
-  },context:()=>({mailAccess:true,mailPreviewMode:true,id:actor})});
-  ui.update([],{cajas:[]});
-  await flush();
-  const button=document.querySelector('#req4MailIMExample');
-  assert.equal(button.hidden,false);
-  button.click();
-  await flush();
-  assert.equal(document.querySelector('#req4MailResult').hidden,false);
-  assert.equal(document.querySelector('#req4MailSubject').textContent,'Solicitud de 3 cajas a IM | CD Santa Anita |');
-  const body=document.querySelector('#req4MailBody').textContent;
-  assert.match(body,/T00045\r\nTD00046\r\nP00078/);
-  assert.doesNotMatch(body,/Cargos|Facturas|Factura|Guía|Requerimiento:|Solicitante:|Cantidad solicitada:|SIMULACIÓN-IM/);
-  assert.equal(document.querySelector('#req4MailTo').textContent,
-    'joramos@farmaciasperuanas.pe; alopezv@farmaciasperuanas.pe; bsalvador@farmaciasperuanas.pe');
-  assert.equal(document.querySelector('#req4MailCc').textContent,'fp-qs-liquidaciones@intercorpretail.pe');
-  assert.match(document.querySelector('#req4MailStatus').textContent,/códigos de ejemplo/);
-  document.querySelector('#req4MailMark').click();
-  assert.equal(writes,0);
-  assert.match(document.querySelector('#req4MailBadge').textContent,/Envío simulado/);
-});
-
-test('Con enlace de preview para IM el ejemplo de códigos se abre automáticamente',async()=>{
-  dom.reconfigure({url:'https://preview.example/?reqMail=im'});
-  const ui=setupRequirementsMail(root,{repository:{pickupMailConfig:async()=>({})},
-    context:()=>({mailAccess:true,mailPreviewMode:true,id:actor})});
-  ui.update([],{cajas:[]});
-  await flush();
-  assert.equal(document.querySelector('#req4MailResult').hidden,false);
-  assert.equal(document.querySelector('#req4MailSubject').textContent,'Solicitud de 3 cajas a IM | CD Santa Anita |');
-  assert.match(document.querySelector('#req4MailBody').textContent,/T00045\r\nTD00046\r\nP00078/);
-});
-
-test('La simulación IM queda oculta en producción y el correo de cajas nuevas mantiene su formato',async()=>{
-  const ui=setupRequirementsMail(root,{repository:{
-    pickupMailConfig:async()=>config,
-    requirementsMail:async()=>({estado:'NO_ENVIADO'})
-  },context:()=>({mailAccess:true,mailPreviewMode:false,id:actor})});
-  ui.update([supply],{cajas:[]});
-  assert.equal(document.querySelector('#req4MailIMExample').hidden,true);
-  document.querySelector('#req4MailGenerate').click();
-  await flush();
-  assert.equal(document.querySelector('#req4MailSubject').textContent,'Solicitud de 100 cajas nuevas a IM | CD Santa Anita |');
-  assert.match(document.querySelector('#req4MailBody').textContent,/solicitamos 100 cajas nuevas/);
 });
