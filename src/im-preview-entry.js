@@ -1,4 +1,5 @@
 import {setupRequirements} from './requirements-ui.js';
+import {REQ_TYPES,limaDate} from './rules.js';
 
 // Fixture local de la preview: nunca consulta ni modifica Supabase o Excel.
 const EXAMPLE_BOXES=Object.freeze([
@@ -22,6 +23,7 @@ export function mountImRequestPreview(doc=document){
     allowed:true,mailAccess:true,mailPreviewMode:true,
     id:'simulacion-im-lectura',name:'Vista previa'
   });
+  let simulatedNumber=0;
   const repository={
     pickupMailConfig:async()=>null,
     requirementsMail:async()=>({estado:'NO_ENVIADO'}),
@@ -29,7 +31,17 @@ export function mountImRequestPreview(doc=document){
       const q=String(query||'').trim().toUpperCase();
       return EXAMPLE_BOXES.filter(box=>box.codigo.toUpperCase().includes(q));
     },
-    requestAction:async()=>{throw Error('Esta es una simulación: no se guardan solicitudes reales.');}
+    // Simulación local de guardado: devuelve el mismo formato del aplicativo,
+    // sin conectar a Supabase y sin enviar ningún correo.
+    requestAction:async(id,action,data)=>{
+      if(action!=='crear'||data.tipo!=='prestamo'||!Array.isArray(data.cajas)||!data.cajas.length)
+        throw Error('Selecciona cajas para simular una solicitud a IM.');
+      return {
+        id,numero:'DEMO-IM-'+String(++simulatedNumber).padStart(3,'0'),
+        tipo:REQ_TYPES[1],cantidadCajas:data.cajas.length,
+        usuario:'Vista previa',fechaSolicitud:limaDate(),estadoV4:'Pendiente'
+      };
+    }
   };
   const ui=setupRequirements(root,{
     repository,context,refresh:async()=>{},isPreview:true
