@@ -4,6 +4,15 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Kardex Digital — CD Santa Anita</title>
+<script>
+  // La demo IM tiene su propia página de solo lectura: no depende del inicio de sesión.
+  // Exclusivo de URLs de preview; el aplicativo principal permanece intacto.
+  if(/-ztmy1\.vercel\.app$/i.test(location.hostname) &&
+      new URLSearchParams(location.search).get('reqMail') === 'im' &&
+      location.pathname !== '/im-preview.html'){
+    location.replace('/im-preview.html'+location.search+location.hash);
+  }
+</script>
 <style>
   :root{
     --navy:#1F4E78; --navy-dark:#12324D;
