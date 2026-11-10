@@ -47,7 +47,7 @@ export function setupRequirementsMail(root,{repository,context}){
       :'Genera un borrador de Outlook con los destinatarios indicados para solicitudes de cajas. El envío se realiza manualmente.';
     el('Safety').textContent=preview
       ?'No se genera ningún Excel. El borrador de prueba contiene direcciones ficticias.'
-      :'Sin Excel ni adjuntos. Descarga el EML, envíalo desde Outlook y solo después confirma el envío en el aplicativo.';
+      :'Sin Excel ni adjuntos. Abre el borrador en Outlook, envíalo desde tu cuenta y solo después registra el envío en el aplicativo.';
     el('Outlook').textContent=preview?'Descargar borrador de prueba para Outlook':'Descargar borrador para Outlook';
     el('Mark').textContent=preview?'Simular correo enviado':'Registrar correo enviado';
   }
@@ -90,7 +90,10 @@ export function setupRequirementsMail(root,{repository,context}){
       return;
     }
     const {mail,simulation,sent}=currentDraft;
-    el('From').textContent=mail.senderConfigured?mail.from:'Pendiente de confirmar (sin remitente configurado)';
+    el('From').textContent=mail.senderConfigured?mail.from:
+      (previewMode()?'Pendiente de confirmar (sin remitente configurado)':'Cuenta activa de Outlook al redactar');
+    if(!previewMode())el('Outlook').textContent=mail.senderConfigured
+      ?'Descargar borrador para Outlook':'Abrir correo en Outlook';
     el('To').textContent=mail.to.join('; ');
     el('Cc').textContent=mail.cc.join('; ')||'—';
     el('Subject').textContent=mail.subject;
@@ -113,9 +116,14 @@ export function setupRequirementsMail(root,{repository,context}){
       const preview=previewMode();
       // La vista previa aparece de inmediato: nunca espera a la conexión de
       // Aviso de recojo para mostrar el asunto y los destinatarios confirmados.
-      const config=preview?{}:await repository.pickupMailConfig();
+      let config={};
+      if(!preview){
+        try{config=await repository.pickupMailConfig()||{};}
+        catch{/* Se permite redactar desde la cuenta activa de Outlook. */}
+      }
       if(epoch!==generationEpoch||!context().mailAccess||context().id!==actor)return;
-      const mail=composeRequirementsMail(row,boxes,config||{},{preview});
+      const needsOutlookSender=!config.sender||!config.name||!config.company;
+      const mail=composeRequirementsMail(row,boxes,config||{},{preview:preview||needsOutlookSender});
       const state=preview?null:await repository.requirementsMail('estado',row.id);
       if(epoch!==generationEpoch||!context().mailAccess||context().id!==actor)return;
       const sent=state?.estado==='ENVIADO';
@@ -124,7 +132,7 @@ export function setupRequirementsMail(root,{repository,context}){
       renderDraft();
       setStatus(sent
         ?'Esta solicitud ya tiene un correo registrado como enviado. No se descargará otro borrador para evitar duplicados.'
-        :!mail.senderConfigured?'Correo generado con los destinatarios indicados. Falta confirmar el remitente; no se ha enviado ningún mensaje.'
+        :!mail.senderConfigured?'Correo generado. Se enviará manualmente desde tu cuenta de Outlook; el aplicativo no lo enviará por ti.'
         :'Correo generado y listo para revisión. No se ha enviado ni registrado ningún mensaje.');
       if(scroll)result.scrollIntoView?.({behavior:'smooth',block:'nearest'});
       if(preview&&typeof repository.pickupMailConfig==='function'){
@@ -150,6 +158,17 @@ export function setupRequirementsMail(root,{repository,context}){
   }
   function download(){
     if(!context().mailAccess||!currentDraft||currentDraft.sent||busy)return;
+    if(!previewMode()&&!currentDraft.mail.senderConfigured){
+      const mail=currentDraft.mail;
+      const params=new win.URLSearchParams({
+        cc:mail.cc.join(','),subject:mail.subject,body:mail.text
+      });
+      const link=doc.createElement('a');
+      link.href='mailto:'+mail.to.join(',')+'?'+params.toString();
+      doc.body.append(link);link.click();link.remove();
+      setStatus('Se preparó el mensaje para abrirlo en Outlook. Verifica la cuenta remitente, revisa el borrador y envíalo manualmente.');
+      return;
+    }
     const safe=previewMode()
       ?composeRequirementsMail(currentDraft.row,currentDraft.boxes,currentDraft.config,{simulation:true})
       :currentDraft.mail;
