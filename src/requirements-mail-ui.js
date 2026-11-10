@@ -9,6 +9,13 @@ export function setupRequirementsMail(root,{repository,context}){
     id:'ejemplo-sin-guardar',numero:'SIMULACIÓN-100',tipo:REQ_TYPES[0],
     cantidadCajas:100,fechaSolicitud:limaDate(),usuario:'Personal de CD Santa Anita'
   };
+  const exampleIM={
+    id:'ejemplo-im-sin-guardar',numero:'SIMULACIÓN-IM',tipo:REQ_TYPES[1],
+    fechaSolicitud:limaDate(),usuario:'Personal de CD Santa Anita'
+  };
+  const exampleIMBoxes=[
+    {codigo:'T00045'},{codigo:'TD00046'},{codigo:'P00078'}
+  ];
   root.innerHTML=
     '<section class="req4-mail-panel" aria-labelledby="req4MailTitle">'+
     '<div class="req4-mail-heading"><div class="req4-mail-icon" aria-hidden="true">✉</div>'+
@@ -19,7 +26,8 @@ export function setupRequirementsMail(root,{repository,context}){
     '<label for="req4MailSelect">Solicitud registrada<select id="req4MailSelect"></select></label>'+
     '<div class="req4-mail-buttons"><button id="req4MailGenerate" type="button">Generar correo de solicitud</button>'+ 
     '<button id="req4MailViewTop" class="secondary" type="button">Ver correo generado</button>'+
-    '<button id="req4MailExample" class="secondary" type="button">Simular con 100 cajas</button></div></div>'+
+    '<button id="req4MailExample" class="secondary" type="button">Simular con 100 cajas</button>'+
+    '<button id="req4MailIMExample" class="secondary" type="button">Simular solicitud a IM</button></div></div>'+
     '<p id="req4MailInfo" class="req4-mail-info">La vista previa permite revisar el mensaje y descargar un borrador de prueba para Outlook con destinatarios ficticios. No registra ni envía correos.</p>'+
     '<p id="req4MailStatus" class="req4-mail-status" role="status" aria-live="polite"></p>'+
     '<div id="req4MailResult" class="req4-mail-result" hidden>'+
@@ -42,6 +50,7 @@ export function setupRequirementsMail(root,{repository,context}){
     const preview=previewMode();
     el('PreviewBadge').hidden=!preview;
     el('Example').hidden=!preview;
+    el('IMExample').hidden=!preview;
     el('Info').textContent=preview
       ?'El correo se muestra en esta pantalla con los destinatarios indicados y la cantidad solicitada. La descarga de prueba no envía ni registra correos.'
       :'Genera un borrador de Outlook con los destinatarios indicados para solicitudes de cajas. El envío se realiza manualmente.';
@@ -70,7 +79,7 @@ export function setupRequirementsMail(root,{repository,context}){
         const option=doc.createElement('option');
         const loan=row.tipo===REQ_TYPES[1];
         option.value=row.id;
-        option.textContent=(row.numero||'Solicitud')+' · '+(loan?'Préstamo':'Cajas nuevas')+
+        option.textContent=(row.numero||'Solicitud')+' · '+(loan?'Solicitud a IM':'Cajas nuevas')+
           ' · '+(loan?(tracking?.cajas||[]).filter(box=>box.requerimiento===row.id).length:Number(row.cantidadCajas)||0)+' cajas';
         select.append(option);
       }
@@ -80,9 +89,10 @@ export function setupRequirementsMail(root,{repository,context}){
     }
     el('Generate').disabled=busy||!select.value;
     el('Example').disabled=busy||!previewMode();
+    el('IMExample').disabled=busy||!previewMode();
   }
   const requestBoxes=row=>(tracking?.cajas||[]).filter(box=>box.requerimiento===row.id)
-    .map(box=>({codigo:box.codigo,cargos:box.cargos}));
+    .map(box=>({codigo:box.codigo}));
   function renderDraft(){
     result.hidden=!currentDraft;
     if(!currentDraft){
@@ -103,11 +113,11 @@ export function setupRequirementsMail(root,{repository,context}){
     el('Mark').disabled=sent||busy;
     el('Outlook').disabled=sent||busy;
   }
-  async function generate(sample=false,{scroll=true}={}){
-    if(!context().mailAccess||busy||(sample&&!previewMode()))return;
-    const row=sample?example:available().find(r=>r.id===select.value);
+  async function generate(sample=false,{scroll=true,imDemo=false}={}){
+    if(!context().mailAccess||busy||((sample||imDemo)&&!previewMode()))return;
+    const row=imDemo?exampleIM:sample?example:available().find(r=>r.id===select.value);
     if(!row){setStatus('Selecciona una solicitud registrada.',true);return;}
-    const boxes=sample?[]:requestBoxes(row);
+    const boxes=imDemo?exampleIMBoxes:sample?[]:requestBoxes(row);
     const epoch=++generationEpoch,actor=context().id;
     busy=true;renderRows();setStatus('Recuperando destinatarios y preparando el correo…');
     try{
@@ -127,11 +137,12 @@ export function setupRequirementsMail(root,{repository,context}){
       const state=preview?null:await repository.requirementsMail('estado',row.id);
       if(epoch!==generationEpoch||!context().mailAccess||context().id!==actor)return;
       const sent=state?.estado==='ENVIADO';
-      const draft={row,boxes,config:config||{},mail,simulation:sample,sent};
+      const draft={row,boxes,config:config||{},mail,simulation:sample||imDemo,sent};
       currentDraft=draft;
       renderDraft();
       setStatus(sent
         ?'Esta solicitud ya tiene un correo registrado como enviado. No se descargará otro borrador para evitar duplicados.'
+        :imDemo?'Simulación de solicitud a IM con códigos de ejemplo. No se ha enviado ni registrado ningún correo.'
         :!mail.senderConfigured?'Correo generado. Se enviará manualmente desde tu cuenta de Outlook; el aplicativo no lo enviará por ti.'
         :'Correo generado y listo para revisión. No se ha enviado ni registrado ningún mensaje.');
       if(scroll)result.scrollIntoView?.({behavior:'smooth',block:'nearest'});
@@ -189,6 +200,7 @@ export function setupRequirementsMail(root,{repository,context}){
     renderDraft();result.scrollIntoView?.({behavior:'smooth',block:'start'});
   });
   el('Example').addEventListener('click',()=>void generate(true));
+  el('IMExample').addEventListener('click',()=>void generate(false,{imDemo:true}));
   el('View').addEventListener('click',()=>{if(currentDraft){renderDraft();result.scrollIntoView?.({behavior:'smooth',block:'nearest'});}});
   el('Outlook').addEventListener('click',download);
   el('Mark').addEventListener('click',()=>{void markSent();});
@@ -234,7 +246,8 @@ export function setupRequirementsMail(root,{repository,context}){
         renderMode();renderRows();renderDraft();
         if(previewMode()&&!previewAutoloaded){
           previewAutoloaded=true;
-          void generate(!select.value,{scroll:false});
+          const imDemo=new URLSearchParams(win.location.search).get('reqMail')==='im';
+          void generate(imDemo?false:!select.value,{scroll:false,imDemo});
         }
       }
     },
