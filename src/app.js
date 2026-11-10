@@ -996,6 +996,7 @@ function renderDocs(){
         <div class="l">En Proceso de Acondicionamiento</div>
         <div class="n">${avanceLote?.prepared == null ? '—' : fmtNum(avanceLote.prepared)+'/'+fmtNum(avanceLote.total)}</div>
         <div class="pct-txt">${avanceLote?.preparedPct == null ? 'Consultando cajas preparadas' : avanceLote.preparedPct+'% acondicionadas'}</div>
+        ${avanceLote?.prepared != null ? `<progress class="conditioning-batch-progress" value="${avanceLote.prepared}" max="${avanceLote.total}" aria-label="Porcentaje de cajas terminadas de acondicionar"></progress>` : ''}
       </div>
       <div class="kpi kpi-color kpi-summary-pending">
         <div class="l">Pendiente de Envío a IM</div>
