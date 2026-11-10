@@ -160,11 +160,13 @@ export function setupRequirementsMail(root,{repository,context}){
     if(!context().mailAccess||!currentDraft||currentDraft.sent||busy)return;
     if(!previewMode()&&!currentDraft.mail.senderConfigured){
       const mail=currentDraft.mail;
-      const params=new win.URLSearchParams({
-        cc:mail.cc.join(','),subject:mail.subject,body:mail.text
-      });
+      // mailto (RFC 6068) needs percent-encoding. URLSearchParams emits
+      // '+' for spaces, which Outlook can display literally in the draft.
+      const query='cc='+encodeURIComponent(mail.cc.join(','))+
+        '&subject='+encodeURIComponent(mail.subject)+
+        '&body='+encodeURIComponent(mail.text.replace(/\r?\n/g,'\r\n'));
       const link=doc.createElement('a');
-      link.href='mailto:'+mail.to.join(',')+'?'+params.toString();
+      link.href='mailto:'+mail.to.join(',')+'?'+query;
       doc.body.append(link);link.click();link.remove();
       setStatus('Se preparó el mensaje para abrirlo en Outlook. Verifica la cuenta remitente, revisa el borrador y envíalo manualmente.');
       return;
