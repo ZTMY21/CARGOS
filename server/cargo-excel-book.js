@@ -44,7 +44,7 @@ function extractBook(xml,table){
     throw Error('RANGO_MAESTRO_NO_COINCIDE');
   if(count<1||count>1048576)throw Error('RANGO_MAESTRO_INVALIDO');
   const cargoRows=new Map(),codes=new Map(),details=new Map();
-  let lastRow=0;
+  let lastRow=0,lastDataRowXml='';
   for(const match of xml.matchAll(/<row\b[^>]*\br="(\d+)"[^>]*>([\s\S]*?)<\/row>/g)){
     const rowNumber=Number(match[1]),part=match[2];
     if(rowNumber<=lastRow||rowNumber>count)throw Error('FILAS_MAESTRAS_FUERA_DE_RANGO');
@@ -59,6 +59,7 @@ function extractBook(xml,table){
     const cargo=Number(found[1]);
     if(!Number.isSafeInteger(cargo)||cargo<1)throw Error('CARGO_INVALIDO_EN_MAESTRO');
     cargoRows.set(cargo,(cargoRows.get(cargo)||0)+1);
+    lastDataRowXml=match[0];
     if(cargo>=942){
       const rows=details.get(cargo)||[];rows.push(rawRowValues(part,rowNumber));details.set(cargo,rows);
       const code=part.match(/<c\s+[^>]*r="D\d+"[^>]*>(?:<is><t[^>]*>([\s\S]*?)<\/t><\/is>|<v>([^<]*)<\/v>)<\/c>/);
@@ -68,7 +69,20 @@ function extractBook(xml,table){
     }
   }
   if(lastRow!==count)throw Error('RANGO_MAESTRO_INVALIDO');
-  return {rows:count,cargos:[...cargoRows.keys()].sort((a,b)=>a-b),
+  // Copiar el formato de la última fila con un cargo real, no de las filas
+  // vacías de formato que permanecen al final del maestro original.
+  const templateStyles={};
+  for(const cellMatch of lastDataRowXml.matchAll(/<c\b[^>]*\br="([A-K])\d+"[^>]*\bs="(\d+)"/g))
+    templateStyles[cellMatch[1]]=cellMatch[2];
+  const numericStyle=templateStyles.B||templateStyles.C||templateStyles.G||'3';
+  const textStyle=templateStyles.A||templateStyles.D||'2';
+  for(const column of 'ABCDEFGHIJK')
+    if(!templateStyles[column])templateStyles[column]='BCG'.includes(column)?numericStyle:textStyle;
+  const rowStart=lastDataRowXml.match(/^<row\b[^>]*>/)?.[0]||'';
+  const height=rowStart.match(/\sht="([0-9.]+)"/)?.[1];
+  const rowAttributes=height?' ht="'+height+'" customHeight="1"':' spans="1:11"';
+  return {rows:count,template:{styles:templateStyles,rowAttributes},
+    cargos:[...cargoRows.keys()].sort((a,b)=>a-b),
     counts:Object.fromEntries(cargoRows),distinctCodes:Object.fromEntries([...codes].map(([n,set])=>[n,set.size])),
     fingerprints:Object.fromEntries([...details].map(([n,rows])=>[n,cargoFingerprint(rows)])),
     lastCargo:Math.max(0,...cargoRows.keys())};
@@ -89,12 +103,14 @@ export async function inspectMaster(bytes,target){
     throw Error('TABLA_MAESTRA_NO_COINCIDE');
   return {zip,xml,table,...info};
 }
-function cell(column,row,value){
+function cell(column,row,value,style){
   const r=column+row,v=String(value??'').trim();
-  if(!v)return '<c r="'+r+'" s="2"/>';
-  if(['B','C','G'].includes(column)&&/^\d+$/.test(v))return '<c r="'+r+'" s="3"><v>'+Number(v)+'</v></c>';
+  const prefix='<c r="'+r+'" s="'+style+'"';
+  if(!v)return prefix+'/>';
+  if(['B','C','G'].includes(column)&&/^\d+$/.test(v))
+    return prefix+'><v>'+Number(v)+'</v></c>';
   const text=column==='A'?v.replace(/\//g,'-'):v;
-  return '<c r="'+r+'" s="2" t="inlineStr"><is><t xml:space="preserve">'+escapeXml(text)+'</t></is></c>';
+  return prefix+' t="inlineStr"><is><t xml:space="preserve">'+escapeXml(text)+'</t></is></c>';
 }
 export async function appendMasterCargo(bytes,target,cargo,rows){
   const info=await inspectMaster(bytes,target);
@@ -107,8 +123,8 @@ export async function appendMasterCargo(bytes,target,cargo,rows){
     throw Error('DATOS_CARGO_NO_COINCIDEN');
   const append=rows.map((data,index)=>{
     const line=info.rows+1+index;
-    return '<row r="'+line+'" spans="1:11">'+[...'ABCDEFGHIJK']
-      .map((col,i)=>cell(col,line,data[i])).join('')+'</row>';
+    return '<row r="'+line+'"'+info.template.rowAttributes+'>'+[...'ABCDEFGHIJK']
+      .map((col,i)=>cell(col,line,data[i],info.template.styles[col])).join('')+'</row>';
   }).join('');
   const after=info.rows+rows.length;
   const oldRef='A1:K'+info.rows,newRef='A1:K'+after;
@@ -167,8 +183,8 @@ export async function replaceLastMasterCargo(bytes,target,cargo,rows){
 
   const append=rows.map((data,index)=>{
     const line=first+index;
-    return '<row r="'+line+'" spans="1:11">'+[...'ABCDEFGHIJK']
-      .map((col,i)=>cell(col,line,data[i])).join('')+'</row>';
+    return '<row r="'+line+'"'+info.template.rowAttributes+'>'+[...'ABCDEFGHIJK']
+      .map((col,i)=>cell(col,line,data[i],info.template.styles[col])).join('')+'</row>';
   }).join('');
   const last=first+rows.length-1;
   const oldRef='A1:K'+info.rows,newRef='A1:K'+last;
