@@ -28,9 +28,7 @@ export function setupRequirementsMail(root,{repository,context}){
     '<dl class="req4-mail-fields"><dt>De</dt><dd id="req4MailFrom"></dd>'+
     '<dt>Para</dt><dd id="req4MailTo"></dd><dt>CC</dt><dd id="req4MailCc"></dd>'+
     '<dt>Asunto</dt><dd id="req4MailSubject"></dd></dl>'+
-    '<div class="req4-mail-content"><div class="req4-mail-brand"><strong>Farmacias Peruanas</strong>'+
-    '<small>Gestión documental · CD Santa Anita</small></div>'+
-    '<pre id="req4MailBody"></pre></div>'+
+    '<div class="req4-mail-content"><pre id="req4MailBody"></pre></div>'+
     '<p id="req4MailSafety" class="req4-mail-info">No se adjunta ningún Excel. El borrador de prueba utiliza direcciones ficticias para evitar envíos involuntarios.</p>'+
     '<div class="req4-mail-footer"><button id="req4MailView" type="button" class="secondary">Ver correo generado</button>'+
     '<button id="req4MailOutlook" type="button">Descargar borrador de prueba para Outlook</button>'+
