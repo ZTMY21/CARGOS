@@ -16,6 +16,7 @@ beforeEach(()=>{
   dom=new JSDOM('<!doctype html><body><div id="host"></div></body>',{url:'https://kardex-preview.example/?reqMail=im'});
   globalThis.document=dom.window.document;
   globalThis.window=dom.window;
+  dom.window.HTMLDialogElement.prototype.close=function(){this.open=false;};
   root=document.querySelector('#host');
 });
 afterEach(()=>{dom.window.close();delete globalThis.document;delete globalThis.window;});
