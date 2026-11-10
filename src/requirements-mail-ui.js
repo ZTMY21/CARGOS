@@ -136,11 +136,11 @@ export function setupRequirementsMail(root,{repository,context}){
     setStatus('Envío simulado correctamente. No se ha registrado ni enviado un correo real.');
   });
   select.addEventListener('change',()=>{generationEpoch++;selectedId=select.value;currentDraft=null;result.hidden=true;setStatus('');});
-  async function selectRequest(id,{generate=false}={}){
+  async function selectRequest(id,{generate:autoGenerate=false}={}){
     if(!available().some(row=>row.id===id)||!context().mailAccess)return;
     generationEpoch++;selectedId=id;currentDraft=null;result.hidden=true;setStatus('');
     renderRows();root.scrollIntoView?.({behavior:'smooth',block:'start'});
-    if(generate)await generate();
+    if(autoGenerate)await generate();
   }
   return {
     update(records,detail){
