@@ -41,11 +41,9 @@ begin
     or p_asunto ~ '[\r\n\x00-\x1f\x7f]' then
     raise exception 'Asunto de correo inválido' using errcode='22023';
   end if;
+  -- No exige configurar la firma de Aviso de recojo: cuando está vacía,
+  -- el administrador redacta desde su propia cuenta en Outlook.
   select * into v_cfg from private.pickup_mail_config where id=true;
-  if v_cfg.id is null or v_cfg.sender_email='' or
-     v_cfg.signature_name='' or v_cfg.signature_company='' then
-    raise exception 'Falta la configuración de correo en Aviso de recojo' using errcode='22023';
-  end if;
 
   -- Doble clic u otros administradores: conservar una sola confirmación por
   -- requerimiento. El correo se envía manualmente en Outlook, no por esta función.
@@ -62,7 +60,8 @@ begin
   ) values(
     gen_random_uuid(),p_requerimiento,'correo_solicitud_enviado',v_fecha,
     jsonb_build_object(
-      'asunto',trim(p_asunto),'remitente',v_cfg.sender_email,
+      'asunto',trim(p_asunto),'remitente_configurado',nullif(v_cfg.sender_email,''),
+      'metodo','Confirmación manual de Outlook; remitente y envío no verificables',
       'destinatarios',array['joramos@farmaciasperuanas.pe',
         'alopezv@farmaciasperuanas.pe','bsalvador@farmaciasperuanas.pe'],
       'copias',array['fp-qs-liquidaciones@intercorpretail.pe'],
