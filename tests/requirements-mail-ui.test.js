@@ -35,9 +35,10 @@ beforeEach(()=>{
   actor='admin-uno';
   dom=new JSDOM('<!doctype html><body><div id="mail"></div></body>',{url:'https://preview.example'});
   globalThis.document=dom.window.document;
+  globalThis.window=dom.window;
   root=document.querySelector('#mail');
 });
-afterEach(()=>{dom.window.close();delete globalThis.document;});
+afterEach(()=>{dom.window.close();delete globalThis.document;delete globalThis.window;});
 
 test('genera correo de solicitud registrada, con destinatarios de recojo y sin Excel',async()=>{
   let requests=0,mutations=0;
@@ -100,4 +101,48 @@ test('no permite generar un correo de préstamo sin cajas registradas',async()=>
   await flush();
   assert.equal(document.querySelector('#req4MailResult').hidden,true);
   assert.match(document.querySelector('#req4MailStatus').textContent,/No hay cajas registradas/);
+});
+
+test('en modo de publicación el correo conserva los destinatarios y registra solo tras confirmar Outlook',async()=>{
+  let saved=0,statusChecks=0;
+  const repo={
+    pickupMailConfig:async()=>config,
+    requirementsMail:async(action,request,subject)=>{
+      assert.equal(request,supply.id);
+      if(action==='estado'){statusChecks++;return {estado:'NO_ENVIADO'};}
+      assert.equal(action,'confirmar');
+      assert.match(subject,/100 cajas nuevas/);
+      saved++;
+      return {estado:'ENVIADO',ya_registrado:false};
+    }
+  };
+  window.confirm=()=>true;
+  const ui=setupRequirementsMail(root,{repository:repo,context:()=>({mailAccess:true,mailPreviewMode:false,id:actor})});
+  ui.update([supply],{cajas:[]});
+  assert.equal(document.querySelector('#req4MailExample').hidden,true);
+  assert.equal(document.querySelector('#req4MailPreviewBadge').hidden,true);
+  document.querySelector('#req4MailGenerate').click();
+  await flush();
+  assert.equal(statusChecks,1);
+  assert.equal(document.querySelector('#req4MailOutlook').disabled,false);
+  assert.equal(document.querySelector('#req4MailMark').disabled,false);
+  assert.match(document.querySelector('#req4MailTo').textContent,/operaciones@example.com/);
+  document.querySelector('#req4MailMark').click();
+  await flush();
+  assert.equal(saved,1);
+  assert.match(document.querySelector('#req4MailBadge').textContent,/Correo enviado · registrado/);
+  assert.equal(document.querySelector('#req4MailMark').disabled,true);
+  assert.equal(document.querySelector('#req4MailOutlook').disabled,true);
+});
+
+test('envíos registrados anteriormente bloquean crear un borrador duplicado',async()=>{
+  const ui=setupRequirementsMail(root,{repository:{
+    pickupMailConfig:async()=>config,
+    requirementsMail:async()=>({estado:'ENVIADO',enviado_at:'2026-11-10T12:00:00Z'})
+  },context:()=>({mailAccess:true,mailPreviewMode:false,id:actor})});
+  ui.update([supply],{cajas:[]});
+  document.querySelector('#req4MailGenerate').click();
+  await flush();
+  assert.match(document.querySelector('#req4MailStatus').textContent,/ya tiene un correo registrado/);
+  assert.equal(document.querySelector('#req4MailOutlook').disabled,true);
 });
