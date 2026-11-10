@@ -87,7 +87,10 @@ export function setupRequirementsMail(root,{repository,context}){
     .map(box=>({codigo:box.codigo,cargos:box.cargos}));
   function renderDraft(){
     result.hidden=!currentDraft;
-    if(!currentDraft)return;
+    if(!currentDraft){
+      for(const field of ['From','To','Cc','Subject','Body'])el(field).textContent='';
+      return;
+    }
     const {mail,simulation,sent}=currentDraft;
     el('From').textContent=mail.senderConfigured?mail.from:'Pendiente de confirmar (sin remitente configurado)';
     el('To').textContent=mail.to.join('; ');
@@ -109,21 +112,33 @@ export function setupRequirementsMail(root,{repository,context}){
     try{
       // Solo reutiliza el remitente y firma, si existen; los destinatarios
       // fueron definidos explícitamente para este correo de solicitudes.
-      let config={};
-      try { config=await repository.pickupMailConfig()||{}; }
-      catch(error){ if(!previewMode())throw error; }
+      const preview=previewMode();
+      // La vista previa aparece de inmediato: nunca espera a la conexión de
+      // Aviso de recojo para mostrar el asunto y los destinatarios confirmados.
+      const config=preview?{}:await repository.pickupMailConfig();
       if(epoch!==generationEpoch||!context().mailAccess||context().id!==actor)return;
-      const mail=composeRequirementsMail(row,boxes,config,{preview:previewMode()});
-      const state=previewMode()?null:await repository.requirementsMail('estado',row.id);
+      const mail=composeRequirementsMail(row,boxes,config||{},{preview});
+      const state=preview?null:await repository.requirementsMail('estado',row.id);
       if(epoch!==generationEpoch||!context().mailAccess||context().id!==actor)return;
       const sent=state?.estado==='ENVIADO';
-      currentDraft={row,boxes,config,mail,simulation:sample,sent};
+      const draft={row,boxes,config:config||{},mail,simulation:sample,sent};
+      currentDraft=draft;
       renderDraft();
       setStatus(sent
         ?'Esta solicitud ya tiene un correo registrado como enviado. No se descargará otro borrador para evitar duplicados.'
         :!mail.senderConfigured?'Correo generado con los destinatarios indicados. Falta confirmar el remitente; no se ha enviado ningún mensaje.'
         :'Correo generado y listo para revisión. No se ha enviado ni registrado ningún mensaje.');
       if(scroll)result.scrollIntoView?.({behavior:'smooth',block:'nearest'});
+      if(preview&&typeof repository.pickupMailConfig==='function'){
+        void Promise.resolve().then(()=>repository.pickupMailConfig()).then(settings=>{
+          if(epoch!==generationEpoch||context().id!==actor||!context().mailAccess||currentDraft!==draft)return;
+          const configured=composeRequirementsMail(row,boxes,settings||{},{preview:true});
+          draft.config=settings||{};draft.mail=configured;
+          renderDraft();
+          if(configured.senderConfigured)
+            setStatus('Correo generado con remitente y firma recuperados. No se ha enviado ningún mensaje.');
+        }).catch(()=>{/* El correo ya se muestra aun sin configuración remota. */});
+      }
     }catch(error){
       if(epoch!==generationEpoch||!context().mailAccess||context().id!==actor)return;
       if(!sample){
