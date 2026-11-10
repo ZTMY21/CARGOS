@@ -32,9 +32,9 @@ export function composeRequirementsMail(row,boxes=[],config={},options={}){
   const cc=simulation?[]:[...REQUEST_MAIL_CC];
   if(!validEmail(sender)||!to.every(validEmail)||!cc.every(validEmail))
     throw Error('El remitente de Aviso de recojo no está configurado.');
-  const name=clean(config.name)||((simulation||preview)?'Firma pendiente de confirmar':'');
-  const company=clean(config.company)||((simulation||preview)?'Farmacias Peruanas':'');
-  if(!name||!company)throw Error('La firma de Aviso de recojo está incompleta.');
+  const name=clean(config.name);
+  const company=clean(config.company);
+  if(!preview&&!simulation&&(!name||!company))throw Error('La firma de Aviso de recojo está incompleta.');
   const number=clean(row.numero)||'SIN NÚMERO';
   const subject=supply
     ?'Solicitud de '+count+' '+(count===1?'caja nueva':'cajas nuevas')+' a IM | CD Santa Anita |'
@@ -43,8 +43,9 @@ export function composeRequirementsMail(row,boxes=[],config={},options={}){
   const intro=supply
     ?'Por medio del presente, solicitamos '+count+' '+(count===1?'caja nueva':'cajas nuevas')+' para el acondicionamiento de documentos en el CD Santa Anita.'
     :'Por medio del presente, solicitamos el préstamo de '+count+' '+(count===1?'caja':'cajas')+' a Iron Mountain para la consulta de documentos del CD Santa Anita.';
-  const summary=['Requerimiento: '+number,'Fecha de solicitud: '+clean(row.fechaSolicitud),'Solicitante: '+clean(row.usuario)];
-  const details=supply?['Cantidad solicitada: '+count+' cajas']:boxes.map(box=>{
+  // El correo no incluye metadatos del requerimiento ni un renglón de cantidad.
+  // La cantidad solicitada ya figura en el asunto y en el mensaje principal.
+  const details=supply?[]:boxes.map(box=>{
     const code=clean(box.codigo||box.code);
     const cargos=Array.isArray(box.cargos)?box.cargos.map(clean).filter(Boolean):[];
     return 'Caja '+code+(cargos.length?' · Cargos: '+cargos.join(' - '):'');
@@ -52,16 +53,20 @@ export function composeRequirementsMail(row,boxes=[],config={},options={}){
   const request=supply
     ?'Agradeceremos confirmar la disponibilidad y la fecha programada de entrega.'
     :'Agradeceremos confirmar la disponibilidad y la fecha de atención de este préstamo.';
-  const sign=[name,config.position,config.area,company,config.contact].map(clean).filter(Boolean);
-  const text=[greeting,'',intro,'',...summary,'',...details,'',request,'','Quedamos atentos a su confirmación.','','Saludos cordiales,',...sign].join('\r\n');
+  // Si no hay una firma auténtica configurada, no se muestra ningún marcador
+  // provisional ni la empresa aislada como firma.
+  const sign=name&&company?[name,config.position,config.area,company,config.contact].map(clean).filter(Boolean):[];
+  const text=[greeting,'',intro,...(details.length?['',...details]:[]),'',request,'',
+    'Quedamos atentos a su confirmación.','',...(sign.length?['Saludos cordiales,',...sign]:['Saludos cordiales.'])].join('\r\n');
   const signatureHtml=sign.map(escapeHtml).join('<br>');
   const html='<!doctype html><html lang="es"><head><meta charset="utf-8"></head><body style="font-family:Arial,Helvetica,sans-serif;background:#f5f7f9;color:#172033;padding:20px">'+
     '<table role="presentation" style="max-width:640px;width:100%;margin:auto;background:white;border:1px solid #dce2e9;border-top:4px solid #b50917;border-collapse:collapse"><tr><td style="padding:24px;font-size:14px;line-height:1.6">'+
     '<h2 style="margin:0;color:#172033">Farmacias Peruanas</h2><p style="margin:0 0 18px;color:#526071;font-size:12px">Gestión documental · CD Santa Anita</p>'+
     '<h3 style="margin:0 0 18px">'+escapeHtml(subject)+'</h3><p>'+escapeHtml(greeting)+'</p><p>'+escapeHtml(intro)+'</p>'+
-    '<p>'+summary.map(escapeHtml).join('<br>')+'</p>'+
-    '<ul>'+details.map(line=>'<li>'+escapeHtml(line)+'</li>').join('')+'</ul><p>'+escapeHtml(request)+'</p><p>Quedamos atentos a su confirmación.</p><p>Saludos cordiales,</p>'+
-    '<p style="border-top:1px solid #dce2e9;padding-top:12px">'+signatureHtml+'</p></td></tr></table></body></html>';
+    (details.length?'<ul>'+details.map(line=>'<li>'+escapeHtml(line)+'</li>').join('')+'</ul>':'')+
+    '<p>'+escapeHtml(request)+'</p><p>Quedamos atentos a su confirmación.</p>'+
+    (sign.length?'<p>Saludos cordiales,</p><p style="border-top:1px solid #dce2e9;padding-top:12px">'+signatureHtml+'</p>':'<p>Saludos cordiales.</p>')+
+    '</td></tr></table></body></html>';
   const boundary='kardex-solicitud-'+clean(row.id||'demo').replace(/[^a-z0-9-]/gi,'').slice(0,32);
   const subjectEncoded='=?UTF-8?B?'+btoa(String.fromCharCode(...new TextEncoder().encode((simulation?'SIMULACIÓN · ':'')+subject)))+'?=';
   const eml=['X-Unsent: 1','From: '+sender,'To: '+to.join(', '),
