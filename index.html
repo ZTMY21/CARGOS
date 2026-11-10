@@ -774,6 +774,7 @@
   }
   #conditionedMonthlySheet .conditioned-bar-new{fill:#329edb;}
   #conditionedMonthlySheet .conditioned-bar-requested{fill:#9974d1;}
+  #conditionedMonthlySheet .conditioned-bar-historical{fill:#8695a5;}
   #conditionedMonthlySheet .conditioned-hover-zone{fill:transparent;cursor:pointer;}
   #conditionedMonthlySheet .conditioned-hover-column:focus{
     outline:0;
@@ -787,6 +788,7 @@
   #conditionedMonthlySheet .conditioned-hover-column:is(:hover,:focus) .conditioned-bar-requested{
     fill:#8050c2;
   }
+  #conditionedMonthlySheet .conditioned-hover-column:is(:hover,:focus) .conditioned-bar-historical{fill:#627487;}
   #conditionedMonthlySheet .conditioned-tooltip{
     position:absolute;pointer-events:none;z-index:6;
     background:#1b3148;color:#fff;padding:10px 13px;border-radius:8px;
@@ -1695,6 +1697,7 @@
       <div class="conditioned-legend" aria-label="Clasificación de cajas">
         <span><i class="conditioned-dot" style="background:#329edb"></i>Cajas nuevas</span>
         <span><i class="conditioned-dot" style="background:#9974d1"></i>Cajas solicitadas</span>
+        <span id="conditionedHistoricalLegend" style="display:none"><i class="conditioned-dot" style="background:#8695a5"></i>Histórico IM · envío sin fecha de preparación</span>
       </div>
       <p id="conditionedMonthlyStatus" class="conditioned-chart-explanation">La gráfica conserva el historial de preparación, incluso de cajas que posteriormente fueron enviadas.</p>
     </div>
