@@ -1,13 +1,13 @@
-import {REQ_TYPES} from './rules.js';
+import {REQ_TYPES,limaDate} from './rules.js';
 import {composeRequirementsMail} from './requirements-mail-template.js';
 
 // Preview aislada: solo lecturas de solicitudes y de la configuración del Aviso de recojo.
 // Descargar un EML de prueba no prepara ni envía correo real.
 export function setupRequirementsMail(root,{repository,context}){
-  let rows=[],tracking=null,selectedId='',currentDraft=null,busy=false,userId=null;
+  let rows=[],tracking=null,selectedId='',currentDraft=null,busy=false,userId=null,generationEpoch=0;
   const example={
-    id:'ejemplo-sin-guardar',numero:'EJEMPLO-100',tipo:REQ_TYPES[0],
-    cantidadCajas:100,fechaSolicitud:'2026-11-10',usuario:'Personal de CD Santa Anita'
+    id:'ejemplo-sin-guardar',numero:'SIMULACIÓN-100',tipo:REQ_TYPES[0],
+    cantidadCajas:100,fechaSolicitud:limaDate(),usuario:'Personal de CD Santa Anita'
   };
   root.innerHTML=
     '<section class="req4-mail-panel" aria-labelledby="req4MailTitle">'+
@@ -86,11 +86,12 @@ export function setupRequirementsMail(root,{repository,context}){
     const row=sample?example:available().find(r=>r.id===select.value);
     if(!row){setStatus('Selecciona una solicitud registrada.',true);return;}
     const boxes=sample?[]:requestBoxes(row);
+    const epoch=++generationEpoch,actor=context().id;
     busy=true;renderRows();setStatus('Recuperando destinatarios y preparando el correo…');
     try{
       // Misma fuente que Avisos de recojo. No se cambia su configuración.
       const config=await repository.pickupMailConfig();
-      if(!context().mailAccess) return;
+      if(epoch!==generationEpoch||!context().mailAccess||context().id!==actor)return;
       if(!config||!config.sender||!Array.isArray(config.to)||!config.to.length)
         throw Error('No hay destinatarios o remitente configurados en Aviso de recojo.');
       const mail=composeRequirementsMail(row,boxes,config,{simulation:false});
@@ -99,6 +100,7 @@ export function setupRequirementsMail(root,{repository,context}){
       setStatus('Correo preparado para revisión. No se ha enviado ni guardado ningún correo.');
       result.scrollIntoView?.({behavior:'smooth',block:'nearest'});
     }catch(error){
+      if(epoch!==generationEpoch||!context().mailAccess||context().id!==actor)return;
       if(!sample){
         currentDraft=null;renderDraft();
         setStatus(error?.message||'No se pudo generar el correo.',true);
@@ -108,7 +110,7 @@ export function setupRequirementsMail(root,{repository,context}){
         const mail=composeRequirementsMail(example,[],fallback,{simulation:true});
         currentDraft={row:example,boxes:[],config:fallback,mail,simulation:true,sent:false};
         renderDraft();
-        setStatus('Simulación con datos ficticios. No se pudo recuperar la configuración real de Aviso de recojo.');
+        setStatus('Simulación con datos ficticios: el correo real de Aviso de recojo no está configurado o no respondió.');
       }
     }finally{busy=false;renderRows();}
   }
@@ -133,13 +135,20 @@ export function setupRequirementsMail(root,{repository,context}){
     renderDraft();
     setStatus('Envío simulado correctamente. No se ha registrado ni enviado un correo real.');
   });
-  select.addEventListener('change',()=>{selectedId=select.value;currentDraft=null;result.hidden=true;setStatus('');});
+  select.addEventListener('change',()=>{generationEpoch++;selectedId=select.value;currentDraft=null;result.hidden=true;setStatus('');});
+  async function selectRequest(id,{generate=false}={}){
+    if(!available().some(row=>row.id===id)||!context().mailAccess)return;
+    generationEpoch++;selectedId=id;currentDraft=null;result.hidden=true;setStatus('');
+    renderRows();root.scrollIntoView?.({behavior:'smooth',block:'start'});
+    if(generate)await generate();
+  }
   return {
     update(records,detail){
-      if(userId!==context().id){userId=context().id;selectedId='';currentDraft=null;result.hidden=true;setStatus('');}
+      if(userId!==context().id){generationEpoch++;userId=context().id;selectedId='';currentDraft=null;result.hidden=true;setStatus('');}
       rows=records;tracking=detail;
       root.hidden=!context().mailAccess;
       if(!root.hidden)renderRows();
-    }
+    },
+    selectRequest
   };
 }
