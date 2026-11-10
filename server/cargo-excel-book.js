@@ -32,16 +32,31 @@ function rawRowValues(xml,rowNumber){
   });
 }
 
-function extractBook(xml){
-  const dimension=xml.match(/<dimension\s+ref="A1:K(\d+)"\s*\/>/);
-  if(!dimension)throw Error('CABECERAS_MAESTRAS_INCOMPATIBLES');
-  const count=Number(dimension[1]);
+function extractBook(xml,table){
+  // La dimensión es opcional en OOXML: Excel puede guardar un .xlsm sin ella.
+  // La tabla consolidada es la fuente del rango, y no se modifica el histórico.
+  const tableRef=table.match(/<table\b[^>]*\bref="A1:K(\d+)"/)?.[1];
+  const dimension=xml.match(/<dimension\b[^>]*\bref="A1:K(\d+)"\s*\/>/);
+  if(!tableRef||(/<dimension\b/.test(xml)&&!dimension))
+    throw Error('CABECERAS_MAESTRAS_INCOMPATIBLES');
+  const count=Number(tableRef);
+  if(dimension&&Number(dimension[1])!==count)
+    throw Error('RANGO_MAESTRO_NO_COINCIDE');
   if(count<1||count>1048576)throw Error('RANGO_MAESTRO_INVALIDO');
   const cargoRows=new Map(),codes=new Map(),details=new Map();
+  let lastRow=0;
   for(const match of xml.matchAll(/<row\b[^>]*\br="(\d+)"[^>]*>([\s\S]*?)<\/row>/g)){
     const rowNumber=Number(match[1]),part=match[2];
+    if(rowNumber<=lastRow||rowNumber>count)throw Error('FILAS_MAESTRAS_FUERA_DE_RANGO');
+    lastRow=rowNumber;
     if(rowNumber<2)continue;
-    const cargo=Number(part.match(/<c\s+[^>]*r="B\d+"[^>]*><v>(\d+)<\/v><\/c>/)?.[1]);
+    // El original conserva cargos históricos como 653.0 y filas de formato vacías.
+    const found=part.match(/<c\s+[^>]*r="B\d+"[^>]*><v>(\d+(?:\.0+)?)<\/v><\/c>/);
+    if(!found){
+      if(/<(?:v|is|f)\b/.test(part))throw Error('CARGO_INVALIDO_EN_MAESTRO');
+      continue; // Solo filas sin valores ni fórmulas; nunca saltar datos.
+    }
+    const cargo=Number(found[1]);
     if(!Number.isSafeInteger(cargo)||cargo<1)throw Error('CARGO_INVALIDO_EN_MAESTRO');
     cargoRows.set(cargo,(cargoRows.get(cargo)||0)+1);
     if(cargo>=942){
@@ -52,6 +67,7 @@ function extractBook(xml){
       }
     }
   }
+  if(lastRow!==count)throw Error('RANGO_MAESTRO_INVALIDO');
   return {rows:count,cargos:[...cargoRows.keys()].sort((a,b)=>a-b),
     counts:Object.fromEntries(cargoRows),distinctCodes:Object.fromEntries([...codes].map(([n,set])=>[n,set.size])),
     fingerprints:Object.fromEntries([...details].map(([n,rows])=>[n,cargoFingerprint(rows)])),
@@ -67,7 +83,7 @@ export async function inspectMaster(bytes,target){
   const xml=await zip.file(SHEET).async('string'),table=await zip.file(TABLE).async('string');
   const workbook=await zip.file('xl/workbook.xml').async('string');
   if(!workbook.includes('CARGOS NUEVOS 2026'))throw Error('HOJA_2026_NO_IDENTIFICADA');
-  const info=extractBook(xml);
+  const info=extractBook(xml,table);
   const ref='A1:K'+info.rows;
   if(!table.includes('name="TablaConsolidada"')||!table.includes('ref="'+ref+'"'))
     throw Error('TABLA_MAESTRA_NO_COINCIDE');
@@ -96,8 +112,11 @@ export async function appendMasterCargo(bytes,target,cargo,rows){
   }).join('');
   const after=info.rows+rows.length;
   const oldRef='A1:K'+info.rows,newRef='A1:K'+after;
-  let patched=info.xml.replace('<dimension ref="'+oldRef+'"/>','<dimension ref="'+newRef+'"/>');
-  if(patched===info.xml)throw Error('DIMENSION_NO_ACTUALIZADA');
+  let patched=info.xml;
+  if(/<dimension\b/.test(patched)){
+    patched=patched.replace('<dimension ref="'+oldRef+'"/>','<dimension ref="'+newRef+'"/>');
+    if(patched===info.xml)throw Error('DIMENSION_NO_ACTUALIZADA');
+  }
   if(patched.split('</sheetData>').length!==2)throw Error('HOJA_MAESTRA_INESPERADA');
   patched=patched.replace('</sheetData>',append+'</sheetData>');
   patched=patched.replaceAll('ref="'+oldRef+'"','ref="'+newRef+'"');
@@ -154,7 +173,7 @@ export async function replaceLastMasterCargo(bytes,target,cargo,rows){
   const last=first+rows.length-1;
   const oldRef='A1:K'+info.rows,newRef='A1:K'+last;
   let patched=info.xml.slice(0,start)+append+info.xml.slice(end);
-  if(!patched.includes('<dimension ref="'+oldRef+'"/>'))
+  if(/<dimension\b/.test(info.xml)&&!patched.includes('<dimension ref="'+oldRef+'"/>'))
     throw Error('DIMENSION_NO_ACTUALIZADA');
   patched=patched.replaceAll('ref="'+oldRef+'"','ref="'+newRef+'"');
   const table=info.table.replaceAll('ref="'+oldRef+'"','ref="'+newRef+'"');
