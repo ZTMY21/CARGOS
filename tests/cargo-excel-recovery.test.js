@@ -131,3 +131,48 @@ test('no se omite una fila de maestro que tenga datos y no tenga cargo',async()=
   await assert.rejects(inspectMaster(await zip.generateAsync({type:'nodebuffer'}),'original'),
     /CARGO_INVALIDO_EN_MAESTRO/);
 });
+
+
+test('la carga posterior hereda Calibri 11 sin negrita del original y conserva altura y macros',async()=>{
+  const zip=new JSZip();
+  zip.file('xl/worksheets/sheet1.xml',
+    '<worksheet><sheetData><row r="1"></row>'+
+    '<row r="2" ht="15.75" customHeight="1"><c r="A2" s="16" t="inlineStr"><is><t>10-11-2026</t></is></c>'+
+    '<c r="B2" s="17"><v>946</v></c><c r="C2" s="17"><v>1</v></c>'+
+    '<c r="D2" s="16" t="inlineStr"><is><t>OLD</t></is></c>'+
+    '<c r="G2" s="17"><v>1</v></c><c r="K2" s="16"/></row>'+
+    '<row r="3" ht="15.75" customHeight="1"><c r="B3" s="20"/></row>'+
+    '</sheetData><autoFilter ref="A1:K3"/></worksheet>');
+  zip.file('xl/tables/table1.xml','<table name="TablaConsolidada" ref="A1:K3"><autoFilter ref="A1:K3"/></table>');
+  zip.file('xl/workbook.xml','<workbook>CARGOS NUEVOS 2026</workbook>');
+  zip.file('xl/vbaProject.bin',Buffer.from('existing macros'));
+  const input=await zip.generateAsync({type:'nodebuffer'});
+  const next=[['2026-11-10','947','2','FF-947','d.jpg','d.pdf','1','FACTURA','LECTURA','','']];
+  const out=await appendMasterCargo(input,'original',947,next);
+  const check=await inspectMaster(out.bytes,'original');
+  const newRow=check.xml.match(/<row r="4"[^>]*>[\s\S]*?<\/row>/)?.[0];
+  assert.ok(newRow);
+  assert.match(newRow,/<row r="4" ht="15.75" customHeight="1">/);
+  assert.match(newRow,/<c r="A4" s="16"/);
+  assert.match(newRow,/<c r="D4" s="16"/);
+  assert.match(newRow,/<c r="K4" s="16"/);
+  assert.match(newRow,/<c r="B4" s="17"/);
+  assert.match(newRow,/<c r="C4" s="17"/);
+  assert.match(newRow,/<c r="G4" s="17"/);
+  assert.doesNotMatch(newRow,/ s="2"/);
+  assert.equal(check.counts[946],1);
+  assert.equal(check.counts[947],1);
+  const a=await JSZip.loadAsync(input),b=await JSZip.loadAsync(out.bytes);
+  assert.deepEqual(await a.file('xl/vbaProject.bin').async('nodebuffer'),
+    await b.file('xl/vbaProject.bin').async('nodebuffer'));
+});
+
+test('el libro depurado sigue heredando sus estilos 2 y 3',async()=>{
+  const input=await fixture([[946,'VIGENTE']]);
+  const next=[['2026-11-10','947','1','SIGUIENTE','','','1','FACTURA','','','']];
+  const out=await appendMasterCargo(input,'depurado',947,next);
+  const xml=(await inspectMaster(out.bytes,'depurado')).xml;
+  const row=xml.match(/<row r="3"[^>]*>[\s\S]*?<\/row>/)?.[0];
+  assert.ok(row);
+  assert.match(row,/<c r="B3" s="3"/);
+});
