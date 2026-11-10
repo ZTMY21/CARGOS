@@ -298,3 +298,23 @@ mark{background:var(--yellow-bg);color:var(--navy-dark);font-weight:700;border-r
   .req4-request-summary { gap: 12px; padding: 13px; }
   .req4-request-summary > div { align-items: flex-start; flex-direction: column; gap: 4px; }
 }
+
+
+/* Solicitudes a IM: correo únicamente después de guardar el requerimiento. */
+#req4ImMail[hidden]{display:none!important}
+.req4-im-mail-card{margin:20px 0 7px;border:1px solid #dce4eb;background:#fff;border-radius:10px;overflow:hidden}
+.req4-im-mail-title{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;padding:16px 18px;background:#f7f9fc;border-bottom:1px solid #e3eaf1}
+.req4-im-mail-title h3{margin:0 0 4px;font-size:16px;color:#12324d}
+.req4-im-mail-title p{margin:0;color:#637486;font-size:12px;line-height:1.45}
+.req4-im-mail-card .req4-mail-fields{padding:14px 18px;grid-template-columns:60px minmax(0,1fr)}
+.req4-im-mail-card .req4-mail-content{width:calc(100% - 36px);max-width:none;margin:14px 18px;padding:16px 18px;border:1px solid #dce4eb;border-left:3px solid #2e7d46;border-top:1px solid #dce4eb}
+.req4-im-mail-card .req4-mail-content pre{font-size:13px;line-height:1.65}
+.req4-im-mail-footer{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;border-top:1px solid #e3eaf1;background:#fbfcfe;padding:13px 18px}
+.req4-im-mail-footer p{margin:0;flex:1 1 230px;font-size:12px;color:#5a6a7c;line-height:1.5}
+.req4-im-mail-footer button{font-size:12px}
+@media(max-width:650px){
+  .req4-im-mail-title{padding:14px}
+  .req4-im-mail-card .req4-mail-fields{padding:12px 14px}
+  .req4-im-mail-card .req4-mail-content{width:calc(100% - 28px);margin:12px 14px;padding:14px}
+  .req4-im-mail-footer{padding:12px 14px}
+}
