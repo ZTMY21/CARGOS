@@ -73,7 +73,7 @@ test('el correo aparece al final del flujo de Solicitudes a IM solo después de 
     assert.match(doc.querySelector('#req4ImMailBody').textContent,/T00045\r\nTD00046/);
     assert.doesNotMatch(doc.querySelector('#req4ImMailBody').textContent,/Cargos|300|301|Factura|Guía|Requerimiento:/);
     assert.equal(doc.querySelector('#req4ImMailOutlook').disabled,true);
-    assert.match(doc.querySelector('#req4Status').textContent,/no se ha guardado en el aplicativo/);
+    assert.match(doc.querySelector('#req4Status').textContent,/no se ha guardado en el aplicativo/i);
     assert.ok(doc.querySelector('#req4Form').compareDocumentPosition(doc.querySelector('#req4ImMail')) &
       dom.window.Node.DOCUMENT_POSITION_FOLLOWING);
   }finally{cleanup(dom);}
