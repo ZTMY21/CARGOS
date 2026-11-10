@@ -90,7 +90,7 @@ test('simular con los destinatarios indicados funciona incluso si la configuraci
   await flush();
   assert.equal(document.querySelector('#req4MailResult').hidden,false);
   assert.equal(document.querySelector('#req4MailSubject').textContent,'Solicitud de 100 cajas nuevas a IM | CD Santa Anita |');
-  assert.match(document.querySelector('#req4MailBody').textContent,/Requerimiento: SIMULACIÓN-100/);
+  assert.doesNotMatch(document.querySelector('#req4MailBody').textContent,/Requerimiento:|Fecha de solicitud:|Solicitante:|Cantidad solicitada:|Firma pendiente de confirmar|Farmacias Peruanas/);
   assert.equal(document.querySelector('#req4MailTo').textContent,'joramos@farmaciasperuanas.pe; alopezv@farmaciasperuanas.pe; bsalvador@farmaciasperuanas.pe');
   assert.equal(document.querySelector('#req4MailCc').textContent,'fp-qs-liquidaciones@intercorpretail.pe');
   assert.match(document.querySelector('#req4MailStatus').textContent,/Falta confirmar el remitente/);
@@ -171,7 +171,8 @@ test('Seleccionar otra cantidad cambia el asunto en el correo generado',async()=
   ui.update([row],{cajas:[]});
   await flush();
   assert.equal(document.querySelector('#req4MailSubject').textContent,'Solicitud de 32 cajas nuevas a IM | CD Santa Anita |');
-  assert.match(document.querySelector('#req4MailBody').textContent,/Cantidad solicitada: 32 cajas/);
+  assert.match(document.querySelector('#req4MailBody').textContent,/solicitamos 32 cajas nuevas/);
+  assert.doesNotMatch(document.querySelector('#req4MailBody').textContent,/Requerimiento:|Fecha de solicitud:|Solicitante:|Cantidad solicitada:|Firma pendiente de confirmar/);
 });
 test('Los pasos para solicitar cajas se mantienen: Cantidad, Solicitar y búsqueda para préstamos',()=>{
   const reqRoot=document.createElement('div');
