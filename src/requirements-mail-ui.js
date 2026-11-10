@@ -4,7 +4,7 @@ import {composeRequirementsMail} from './requirements-mail-template.js';
 // La preview no hace escrituras: descargará EML con destinatarios ficticios.
 // En producción, solo una confirmación manual registra el envío, nunca lo realiza.
 export function setupRequirementsMail(root,{repository,context}){
-  let rows=[],tracking=null,selectedId='',currentDraft=null,busy=false,userId=null,generationEpoch=0;
+  let rows=[],tracking=null,selectedId='',currentDraft=null,busy=false,userId=null,generationEpoch=0,previewAutoloaded=false;
   const example={
     id:'ejemplo-sin-guardar',numero:'SIMULACIÓN-100',tipo:REQ_TYPES[0],
     cantidadCajas:100,fechaSolicitud:limaDate(),usuario:'Personal de CD Santa Anita'
@@ -13,11 +13,12 @@ export function setupRequirementsMail(root,{repository,context}){
     '<section class="req4-mail-panel" aria-labelledby="req4MailTitle">'+
     '<div class="req4-mail-heading"><div class="req4-mail-icon" aria-hidden="true">✉</div>'+
     '<div><h3 id="req4MailTitle">Correo de solicitud de cajas</h3>'+
-    '<p>Prepara el mensaje con los destinatarios y la firma del Aviso de recojo. Sin Excel ni adjuntos.</p></div>'+
+    '<p>Genera la solicitud con destinatarios definidos para cajas y reutiliza la firma disponible. Sin Excel ni adjuntos.</p></div>'+
     '<span id="req4MailPreviewBadge" class="req4-mail-preview-badge">PREVIEW</span></div>'+
     '<div class="req4-mail-controls">'+
     '<label for="req4MailSelect">Solicitud registrada<select id="req4MailSelect"></select></label>'+
-    '<div class="req4-mail-buttons"><button id="req4MailGenerate" type="button">Generar correo de solicitud</button>'+
+    '<div class="req4-mail-buttons"><button id="req4MailGenerate" type="button">Generar correo de solicitud</button>'+ 
+    '<button id="req4MailViewTop" class="secondary" type="button">Ver correo generado</button>'+
     '<button id="req4MailExample" class="secondary" type="button">Simular con 100 cajas</button></div></div>'+
     '<p id="req4MailInfo" class="req4-mail-info">La vista previa permite revisar el mensaje y descargar un borrador de prueba para Outlook con destinatarios ficticios. No registra ni envía correos.</p>'+
     '<p id="req4MailStatus" class="req4-mail-status" role="status" aria-live="polite"></p>'+
@@ -44,8 +45,8 @@ export function setupRequirementsMail(root,{repository,context}){
     el('PreviewBadge').hidden=!preview;
     el('Example').hidden=!preview;
     el('Info').textContent=preview
-      ?'Puedes simular el envío y descargar un EML con destinatarios ficticios. Ningún correo se envía ni registra.'
-      :'Prepara un borrador para Outlook con los destinatarios configurados en Aviso de recojo. El envío se realiza manualmente.';
+      ?'El correo se muestra en esta pantalla con los destinatarios indicados y la cantidad solicitada. La descarga de prueba no envía ni registra correos.'
+      :'Genera un borrador de Outlook con los destinatarios indicados para solicitudes de cajas. El envío se realiza manualmente.';
     el('Safety').textContent=preview
       ?'No se genera ningún Excel. El borrador de prueba contiene direcciones ficticias.'
       :'Sin Excel ni adjuntos. Descarga el EML, envíalo desde Outlook y solo después confirma el envío en el aplicativo.';
@@ -88,7 +89,7 @@ export function setupRequirementsMail(root,{repository,context}){
     result.hidden=!currentDraft;
     if(!currentDraft)return;
     const {mail,simulation,sent}=currentDraft;
-    el('From').textContent=mail.from;
+    el('From').textContent=mail.senderConfigured?mail.from:'Pendiente de confirmar (sin remitente configurado)';
     el('To').textContent=mail.to.join('; ');
     el('Cc').textContent=mail.cc.join('; ')||'—';
     el('Subject').textContent=mail.subject;
@@ -98,7 +99,7 @@ export function setupRequirementsMail(root,{repository,context}){
     el('Mark').disabled=sent||busy;
     el('Outlook').disabled=sent||busy;
   }
-  async function generate(sample=false){
+  async function generate(sample=false,{scroll=true}={}){
     if(!context().mailAccess||busy||(sample&&!previewMode()))return;
     const row=sample?example:available().find(r=>r.id===select.value);
     if(!row){setStatus('Selecciona una solicitud registrada.',true);return;}
@@ -106,12 +107,13 @@ export function setupRequirementsMail(root,{repository,context}){
     const epoch=++generationEpoch,actor=context().id;
     busy=true;renderRows();setStatus('Recuperando destinatarios y preparando el correo…');
     try{
-      // Misma fuente que Avisos de recojo. No se cambia su configuración.
-      const config=await repository.pickupMailConfig();
+      // Solo reutiliza el remitente y firma, si existen; los destinatarios
+      // fueron definidos explícitamente para este correo de solicitudes.
+      let config={};
+      try { config=await repository.pickupMailConfig()||{}; }
+      catch(error){ if(!previewMode())throw error; }
       if(epoch!==generationEpoch||!context().mailAccess||context().id!==actor)return;
-      if(!config||!config.sender||!Array.isArray(config.to)||!config.to.length)
-        throw Error('No hay destinatarios o remitente configurados en Aviso de recojo.');
-      const mail=composeRequirementsMail(row,boxes,config,{simulation:false});
+      const mail=composeRequirementsMail(row,boxes,config,{preview:previewMode()});
       const state=previewMode()?null:await repository.requirementsMail('estado',row.id);
       if(epoch!==generationEpoch||!context().mailAccess||context().id!==actor)return;
       const sent=state?.estado==='ENVIADO';
@@ -119,20 +121,17 @@ export function setupRequirementsMail(root,{repository,context}){
       renderDraft();
       setStatus(sent
         ?'Esta solicitud ya tiene un correo registrado como enviado. No se descargará otro borrador para evitar duplicados.'
-        :'Correo preparado para revisión. No se ha enviado ni registrado ningún correo.');
-      result.scrollIntoView?.({behavior:'smooth',block:'nearest'});
+        :!mail.senderConfigured?'Correo generado con los destinatarios indicados. Falta confirmar el remitente; no se ha enviado ningún mensaje.'
+        :'Correo generado y listo para revisión. No se ha enviado ni registrado ningún mensaje.');
+      if(scroll)result.scrollIntoView?.({behavior:'smooth',block:'nearest'});
     }catch(error){
       if(epoch!==generationEpoch||!context().mailAccess||context().id!==actor)return;
       if(!sample){
         currentDraft=null;renderDraft();
         setStatus(error?.message||'No se pudo generar el correo.',true);
       }else{
-        const fallback={sender:'remitente@example.invalid',to:['destinatario@example.invalid'],
-          cc:[],name:'Remitente de prueba',company:'Farmacias Peruanas'};
-        const mail=composeRequirementsMail(example,[],fallback,{simulation:true});
-        currentDraft={row:example,boxes:[],config:fallback,mail,simulation:true,sent:false};
-        renderDraft();
-        setStatus('Simulación con datos ficticios: el correo real de Aviso de recojo no está configurado o no respondió.');
+        currentDraft=null;renderDraft();
+        setStatus(error?.message||'No se pudo generar la vista previa de las 100 cajas.',true);
       }
     }finally{busy=false;renderRows();renderDraft();}
   }
@@ -151,6 +150,10 @@ export function setupRequirementsMail(root,{repository,context}){
       :'Borrador descargado. Ábrelo en Outlook, verifica los destinatarios y envíalo manualmente.');
   }
   el('Generate').addEventListener('click',()=>void generate(false));
+  el('ViewTop').addEventListener('click',()=>{
+    if(!currentDraft){void generate(!select.value);return;}
+    renderDraft();result.scrollIntoView?.({behavior:'smooth',block:'start'});
+  });
   el('Example').addEventListener('click',()=>void generate(true));
   el('View').addEventListener('click',()=>{if(currentDraft){renderDraft();result.scrollIntoView?.({behavior:'smooth',block:'nearest'});}});
   el('Outlook').addEventListener('click',download);
@@ -178,7 +181,10 @@ export function setupRequirementsMail(root,{repository,context}){
       if(actor===context().id&&epoch===generationEpoch)setStatus(error?.message||'No se pudo confirmar el envío.',true);
     }finally{busy=false;renderRows();renderDraft();}
   }
-  select.addEventListener('change',()=>{generationEpoch++;selectedId=select.value;currentDraft=null;result.hidden=true;setStatus('');});
+  select.addEventListener('change',()=>{
+    generationEpoch++;selectedId=select.value;currentDraft=null;result.hidden=true;setStatus('');
+    if(previewMode()&&select.value)void generate(false,{scroll:false});
+  });
   async function selectRequest(id,{generate:autoGenerate=false}={}){
     if(!available().some(row=>row.id===id)||!context().mailAccess)return;
     generationEpoch++;selectedId=id;currentDraft=null;result.hidden=true;setStatus('');
@@ -187,10 +193,16 @@ export function setupRequirementsMail(root,{repository,context}){
   }
   return {
     update(records,detail){
-      if(userId!==context().id){generationEpoch++;userId=context().id;selectedId='';currentDraft=null;result.hidden=true;setStatus('');}
+      if(userId!==context().id){generationEpoch++;userId=context().id;selectedId='';currentDraft=null;result.hidden=true;setStatus('');previewAutoloaded=false;}
       rows=records;tracking=detail;
       root.hidden=!context().mailAccess;
-      if(!root.hidden){renderMode();renderRows();renderDraft();}
+      if(!root.hidden){
+        renderMode();renderRows();renderDraft();
+        if(previewMode()&&!previewAutoloaded){
+          previewAutoloaded=true;
+          void generate(!select.value,{scroll:false});
+        }
+      }
     },
     selectRequest
   };
