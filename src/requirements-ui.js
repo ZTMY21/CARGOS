@@ -1,5 +1,6 @@
 import { escapeHtml as html, fmtDate, limaDate, REQ_TYPES } from './rules.js';
 import {receptionTime,requestReception} from './box-reception-ui.js';
+import {setupRequirementsMail} from './requirements-mail-ui.js';
 
 const kinds = {nuevas: 'Cajas nuevas', prestamo: 'Solicitudes a IM'};
 const steps = {nuevas: ['Cantidad', 'Solicitar'], prestamo: ['Buscar', 'Seleccionar', 'Solicitar']};
@@ -113,6 +114,7 @@ export function setupRequirements(root, {repository, context, refresh, onKindCha
       </div>
       <p id="req4Status" class="req4-status" role="status"></p>
     </form>
+    <div id="req4Mail"></div>
     <dialog class="expiry-sheet req4-dialog" id="req4Dialog" aria-labelledby="req4DialogTitle">
       <div class="req4-dialog-head"><div class="req4-dialog-heading"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M3 7h18M4 3h16l2 4v3H2V7l2-4Z"/><path d="M4 10v11h16V10M9 14h6"/></svg><div><h2 id="req4DialogTitle"></h2><p id="req4DialogIntro" class="req4-help"></p></div></div><button class="secondary" data-req-close type="button">Cerrar</button></div>
       <div id="req4DialogBody"></div><p id="req4DialogStatus" role="status"></p>
@@ -120,6 +122,7 @@ export function setupRequirements(root, {repository, context, refresh, onKindCha
   const find = id => root.ownerDocument.getElementById(`req4${id}`);
   const allowed = () => context().allowed;
   const form = find('Form'), kind = find('Kind'), qty = find('Qty'), dialog = find('Dialog');
+  const mailUI=setupRequirementsMail(find('Mail'),{repository,context});
   root.ownerDocument.body.append(dialog);
   let results = [];
   const canRequest = box => !!box?.clave && box.solicitable === true && !box.prestamo;
@@ -448,6 +451,7 @@ export function setupRequirements(root, {repository, context, refresh, onKindCha
       }
       rows = records;
       tracking = detail;
+      mailUI.update(records,detail);
       if (detail?.suministro) supplyRejected = false;
       if (dialog.open) {
         if (cardView) showCards(cardView);
