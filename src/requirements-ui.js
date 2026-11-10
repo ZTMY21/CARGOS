@@ -1,6 +1,7 @@
 import { escapeHtml as html, fmtDate, limaDate, REQ_TYPES } from './rules.js';
 import {receptionTime,requestReception} from './box-reception-ui.js';
 import {setupRequirementsMail} from './requirements-mail-ui.js';
+import {setupImRequestMail} from './im-request-mail-ui.js';
 
 const kinds = {nuevas: 'Cajas nuevas', prestamo: 'Solicitudes a IM'};
 const steps = {nuevas: ['Cantidad', 'Solicitar'], prestamo: ['Buscar', 'Seleccionar', 'Solicitar']};
@@ -108,6 +109,7 @@ export function setupRequirements(root, {repository, context, refresh, onKindCha
         <p id="req4LoanHelp" class="req4-note">Solicitud a Iron Mountain. Selecciona cajas con envío confirmado y sin una solicitud activa.</p>
         <div id="req4Results" aria-live="polite"></div>
         <h4>Cajas seleccionadas</h4><div id="req4Selected" aria-live="polite"></div>
+        <div id="req4ImMail"></div>
       </section>
       <div class="req4-form-footer">
         <span id="req4SelectionCount" class="req4-help" hidden></span>
@@ -124,6 +126,7 @@ export function setupRequirements(root, {repository, context, refresh, onKindCha
   const allowed = () => context().allowed;
   const form = find('Form'), kind = find('Kind'), qty = find('Qty'), dialog = find('Dialog');
   const mailUI=setupRequirementsMail(find('Mail'),{repository,context});
+  const imMail=setupImRequestMail(find('ImMail'),{context});
   root.ownerDocument.body.append(dialog);
   let results = [];
   const canRequest = box => !!box?.clave && box.solicitable === true && !box.prestamo;
@@ -149,11 +152,14 @@ export function setupRequirements(root, {repository, context, refresh, onKindCha
     </li>`).join('')}</ul>` : '<p class="req4-empty">Agrega las cajas que deseas solicitar.</p>';
     find('SelectionCount').textContent = `${selected.size} ${selected.size === 1 ? 'caja seleccionada' : 'cajas seleccionadas'}`;
     if (kind.value === 'prestamo') find('Steps').innerHTML = procedure('prestamo',selected.size ? 1 : 0);
+    imMail.selectionChanged([...selected.values()]);
   }
   function changeKind() {
     const loan = kind.value === 'prestamo';
     find('Loan').hidden = !loan;
     find('Supply').hidden = loan;
+    // El correo de Cajas nuevas conserva su propio panel, fuera de Solicitudes a IM.
+    find('Mail').hidden = loan;
     find('QtyWrap').hidden = find('ReceiptWrap').hidden = loan;
     find('SelectionCount').hidden = !loan;
     find('FormTitle').textContent = loan ? 'Solicitar cajas a IM' : 'Solicitar cajas nuevas';
@@ -291,15 +297,18 @@ export function setupRequirements(root, {repository, context, refresh, onKindCha
     if (!loan && (!Number.isInteger(count) || count < 1 || count > 100)) {
       status.textContent = 'Ingresa entre 1 y 100 cajas enteras.'; return;
     }
-    const data = loan ? {tipo:'prestamo',cajas:[...selected.values()].map(box=>box.codigo)}
+    const loanCodes=loan?[...selected.values()].map(box=>box.codigo):[];
+    const data = loan ? {tipo:'prestamo',cajas:loanCodes}
       : {tipo:'nuevas',cantidad:count};
     const saved=await write(data,status);
     if (saved) {
-      const mailButton=root.ownerDocument.createElement('button');
-      mailButton.type='button';mailButton.className='secondary req4-mail-after-save';
-      mailButton.dataset.reqMail=saved.id;
-      mailButton.textContent='Generar correo de esta solicitud';
-      status.append(' ',mailButton);
+      if (!loan) {
+        const mailButton=root.ownerDocument.createElement('button');
+        mailButton.type='button';mailButton.className='secondary req4-mail-after-save';
+        mailButton.dataset.reqMail=saved.id;
+        mailButton.textContent='Generar correo de esta solicitud';
+        status.append(' ',mailButton);
+      }
       if (loan) {
         searchEpoch++;
         selected.clear();
@@ -307,6 +316,8 @@ export function setupRequirements(root, {repository, context, refresh, onKindCha
         find('Results').textContent = '';
         find('Query').value = '';
         renderSelection();
+        // Solo después de guardar los mismos códigos solicitados se permite abrir Outlook.
+        imMail.showSaved(saved,loanCodes);
       } else qty.value = '';
       find('Steps').innerHTML = procedure(kind.value,steps[kind.value].length - 1);
     }
@@ -413,8 +424,16 @@ export function setupRequirements(root, {repository, context, refresh, onKindCha
     if ('reqClose' in d) { dialog.close(); return; }
     if (busy) return;
     if ('reqMail' in d) {
+      const row=rows.find(item=>item.id===d.reqMail);
       if(dialog.open)dialog.close();
-      void mailUI.selectRequest(d.reqMail,{generate:true});
+      if(row?.tipo===REQ_TYPES[1]){
+        selectKind('prestamo');
+        const codes=(tracking?.cajas||[]).filter(box=>box.requerimiento===row.id);
+        if(codes.some(box=>box.codigo))imMail.showSaved(row,codes);
+        else find('Status').textContent='No se encontraron códigos para esta solicitud a IM.';
+      }else{
+        void mailUI.selectRequest(d.reqMail,{generate:true});
+      }
       return;
     }
     if ('reqKind' in d) { selectKind(d.reqKind); return; }
@@ -443,6 +462,9 @@ export function setupRequirements(root, {repository, context, refresh, onKindCha
     get kind() { return kind.value; },
     update(records,detail) {
       const current = context();
+      const launchImDemo = viewer !== current.id &&
+        current.mailPreviewMode!==false &&
+        new URLSearchParams(root.ownerDocument.defaultView.location.search).get('reqMail')==='im';
       if (viewer !== current.id) {
         const resetKind = kind.value !== 'nuevas';
         viewer = current.id;
@@ -455,15 +477,19 @@ export function setupRequirements(root, {repository, context, refresh, onKindCha
         find('Query').value = '';
         find('Status').textContent = '';
         qty.value = '';
-        kind.value = 'nuevas';
+        kind.value = launchImDemo?'prestamo':'nuevas';
         changeKind();
-        if (resetKind) onKindChange('nuevas');
+        if (resetKind||launchImDemo) onKindChange(kind.value);
         dialog.close();
         renderSelection();
       }
       rows = records;
       tracking = detail;
       mailUI.update(records,detail);
+      imMail.update();
+      // El módulo global de correo continúa siendo exclusivo de la vista Cajas nuevas.
+      find('Mail').hidden = kind.value==='prestamo'||!current.mailAccess;
+      if(launchImDemo)imMail.showDemo();
       if (detail?.suministro) supplyRejected = false;
       if (dialog.open) {
         if (cardView) showCards(cardView);
