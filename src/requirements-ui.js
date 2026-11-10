@@ -109,7 +109,6 @@ export function setupRequirements(root, {repository, context, refresh, onKindCha
         <p id="req4LoanHelp" class="req4-note">Solicitud a Iron Mountain. Selecciona cajas con envío confirmado y sin una solicitud activa.</p>
         <div id="req4Results" aria-live="polite"></div>
         <h4>Cajas seleccionadas</h4><div id="req4Selected" aria-live="polite"></div>
-        <div id="req4ImMail"></div>
       </section>
       <div class="req4-form-footer">
         <span id="req4SelectionCount" class="req4-help" hidden></span>
@@ -117,6 +116,7 @@ export function setupRequirements(root, {repository, context, refresh, onKindCha
       </div>
       <p id="req4Status" class="req4-status" role="status"></p>
     </form>
+    <div id="req4ImMail" hidden></div>
     <div id="req4Mail"></div>
     <dialog class="expiry-sheet req4-dialog" id="req4Dialog" aria-labelledby="req4DialogTitle">
       <div class="req4-dialog-head"><div class="req4-dialog-heading"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M3 7h18M4 3h16l2 4v3H2V7l2-4Z"/><path d="M4 10v11h16V10M9 14h6"/></svg><div><h2 id="req4DialogTitle"></h2><p id="req4DialogIntro" class="req4-help"></p></div></div><button class="secondary" data-req-close type="button">Cerrar</button></div>
@@ -160,6 +160,8 @@ export function setupRequirements(root, {repository, context, refresh, onKindCha
     find('Supply').hidden = loan;
     // El correo de Cajas nuevas conserva su propio panel, fuera de Solicitudes a IM.
     find('Mail').hidden = loan;
+    imMail.update();
+    if(!loan)find('ImMail').hidden=true;
     find('QtyWrap').hidden = find('ReceiptWrap').hidden = loan;
     find('SelectionCount').hidden = !loan;
     find('FormTitle').textContent = loan ? 'Solicitar cajas a IM' : 'Solicitar cajas nuevas';
@@ -248,7 +250,10 @@ export function setupRequirements(root, {repository, context, refresh, onKindCha
       const saved = await repository.requestAction(pending.id, 'crear', data);
       if (actor !== context().id) return null;
       pending = null;
-      status.textContent = receptionEnabled && data.tipo==='nuevas' ? `${saved.numero} registrada. Continúa en Control de cajas cuando llegue el suministro.` : `${saved.numero} guardado en el aplicativo. Consolidación en Excel pendiente.`;
+      status.textContent = isPreview && data.tipo==='prestamo'
+        ? 'Solicitud simulada para revisión. No se ha guardado en el aplicativo ni se ha enviado correo.'
+        : receptionEnabled && data.tipo==='nuevas' ? `${saved.numero} registrada. Continúa en Control de cajas cuando llegue el suministro.`
+          : `${saved.numero} guardado en el aplicativo. Consolidación en Excel pendiente.`;
       rows = [...rows.filter(row=>row.id!==saved.id),saved];
       renderAvailability();
       await refresh().catch(() => { status.textContent += ' Actualiza para consultar el registro.'; });
@@ -489,7 +494,6 @@ export function setupRequirements(root, {repository, context, refresh, onKindCha
       imMail.update();
       // El módulo global de correo continúa siendo exclusivo de la vista Cajas nuevas.
       find('Mail').hidden = kind.value==='prestamo'||!current.mailAccess;
-      if(launchImDemo)imMail.showDemo();
       if (detail?.suministro) supplyRejected = false;
       if (dialog.open) {
         if (cardView) showCards(cardView);
