@@ -42,8 +42,8 @@ begin
     raise exception 'Asunto de correo inválido' using errcode='22023';
   end if;
   select * into v_cfg from private.pickup_mail_config where id=true;
-  if v_cfg.id is null or cardinality(v_cfg.recipients)<1 or
-     v_cfg.sender_email='' or v_cfg.signature_name='' or v_cfg.signature_company='' then
+  if v_cfg.id is null or v_cfg.sender_email='' or
+     v_cfg.signature_name='' or v_cfg.signature_company='' then
     raise exception 'Falta la configuración de correo en Aviso de recojo' using errcode='22023';
   end if;
 
@@ -63,7 +63,9 @@ begin
     gen_random_uuid(),p_requerimiento,'correo_solicitud_enviado',v_fecha,
     jsonb_build_object(
       'asunto',trim(p_asunto),'remitente',v_cfg.sender_email,
-      'destinatarios',v_cfg.recipients,'copias',v_cfg.copies,
+      'destinatarios',array['joramos@farmaciasperuanas.pe',
+        'alopezv@farmaciasperuanas.pe','bsalvador@farmaciasperuanas.pe'],
+      'copias',array['fp-qs-liquidaciones@intercorpretail.pe'],
       'confirmacion','Declarada manualmente por el administrador; Outlook no fue verificado'
     ),v_actor,'Administrador autenticado'
   ) returning * into v_sent;
