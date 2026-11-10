@@ -24,7 +24,8 @@ export function summarizeConditionedBoxes(rows=[],today=new Date(),historical=[]
   for(const row of Array.isArray(rows)?rows:[]) {
     if(!row || !['nueva','solicitada'].includes(String(row.origen||'').toLowerCase()))continue;
     const codigo=boxKey(row.codigo||row.clave);
-    const preparada=limaDay(row.preparada||row.fecha_preparacion);
+    const rawDate=row.preparada||row.fecha_preparacion;
+    const preparada=rawDate?limaDay(rawDate):'';
     if(!codigo || !preparada)continue;
     // Una caja se contabiliza una sola vez por preparación y solicitud.
     const clave=codigo+':'+String(row.solicitud||'');
