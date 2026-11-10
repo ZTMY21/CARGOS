@@ -26,42 +26,17 @@ test('Correo de 100 cajas nuevas conserva destinatarios, copias y firma y NO adj
   assert.match(mail.eml,/X-Unsent: 1/);
   assert.doesNotMatch(mail.eml,/spreadsheet|\.xlsx|Content-Disposition: attachment/i);
 });
-test('La solicitud a IM muestra únicamente los códigos, sin cargos ni documentos',()=>{
+test('El préstamo incluye las cajas y sus cargos en el texto, nunca en Excel',()=>{
   const row={...newBoxes,id:'prestamo-1',numero:'PRE-123',tipo:REQ_TYPES[1],cantidadCajas:''};
   const mail=composeRequirementsMail(row,[
-    {codigo:'T0045',cargos:['401','402'],factura:'FF00001'},
-    {codigo:'P010',cargos:['450'],guia:'GR00002'}
+    {codigo:'T0045',cargos:['401','402']},{codigo:'P010',cargos:['450']}
   ],config);
   assert.equal(mail.count,2);
-  assert.equal(mail.subject,'Solicitud de 2 cajas a IM | CD Santa Anita |');
-  assert.deepEqual(mail.to,[...REQUEST_MAIL_TO]);
-  assert.deepEqual(mail.cc,[...REQUEST_MAIL_CC]);
-  assert.match(mail.text,/T0045\r\nP010/);
-  assert.match(mail.html,/<li>T0045<\/li><li>P010<\/li>/);
-  assert.doesNotMatch(mail.text+mail.html,/Cargos|401|402|450|FF00001|GR00002|Factura|Guía|Caja T0045|Caja P010|Requerimiento:/);
-  assert.doesNotMatch(mail.text+mail.html,/Cantidad solicitada:|Solicitante:|Fecha de solicitud:/);
+  assert.equal(mail.subject,'Solicitud de 2 cajas en préstamo a IM | CD Santa Anita |');
+  assert.match(mail.text,/Caja T0045 · Cargos: 401 - 402/);
+  assert.match(mail.text,/Caja P010 · Cargos: 450/);
   assert.doesNotMatch(mail.eml,/attachment|xlsx/i);
 });
-test('La solicitud a IM no repite códigos y respeta el código de caja con su prefijo',()=>{
-  const row={...newBoxes,tipo:REQ_TYPES[1]};
-  const mail=composeRequirementsMail(row,[
-    {codigo:'TD00046',cargos:['Cargo confidencial']},
-    {codigo:'td00046',cargos:['No mostrar']},
-    {codigo:'T00045'},
-    {codigo:'P00078'},
-    {codigo:'',cargos:['1234']}
-  ],{},{preview:true});
-  assert.equal(mail.count,3);
-  assert.equal(mail.subject,'Solicitud de 3 cajas a IM | CD Santa Anita |');
-  assert.match(mail.text,/TD00046\r\nT00045\r\nP00078/);
-  assert.doesNotMatch(mail.text+mail.html,/Cargo confidencial|No mostrar|1234|Cargos|Factura|Guía/);
-});
-
-test('La solicitud a IM sin códigos no prepara un correo vacío',()=>{
-  const row={...newBoxes,tipo:REQ_TYPES[1]};
-  assert.throws(()=>composeRequirementsMail(row,[{codigo:'',cargos:['555']}],config),/códigos de caja/);
-});
-
 test('Simular Outlook nunca incluye las direcciones reales y marca el asunto como prueba',()=>{
   const mail=composeRequirementsMail(newBoxes,[],config,{simulation:true});
   assert.deepEqual(mail.to,['destinatario@example.invalid']);
@@ -74,7 +49,7 @@ test('Simular Outlook nunca incluye las direcciones reales y marca el asunto com
 test('Rechaza remitente no configurado en producción y cantidades fuera de 100',()=>{
   assert.throws(()=>composeRequirementsMail(newBoxes,[],{}),/remitente/i);
   assert.throws(()=>composeRequirementsMail({...newBoxes,cantidadCajas:101},[],config),/entre 1 y 100/i);
-  assert.throws(()=>composeRequirementsMail({...newBoxes,tipo:REQ_TYPES[1]},[],config),/No hay códigos de caja registrados/i);
+  assert.throws(()=>composeRequirementsMail({...newBoxes,tipo:REQ_TYPES[1]},[],config),/No hay cajas registradas/i);
 });
 test('Rechaza requerimientos de otro tipo',()=>{
   assert.throws(()=>composeRequirementsMail({...newBoxes,tipo:'Otros'},[],config),/requerimiento válido/i);
