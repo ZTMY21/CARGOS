@@ -65,6 +65,8 @@ export function requestCards(rows, tracking, batchProgress=null) {
           '</div>'+
           '<div class="n">'+total+'</div>'+
           (note ? '<div class="pct-txt">'+note+'</div>' : '')+
+          (kind==='nuevas' && registered!==null && supplyTotal ?
+            '<progress class="conditioning-batch-progress" value="'+registered+'" max="'+supplyTotal+'" aria-label="Avance de cajas registradas para acondicionar"></progress>' : '')+
         '</section>').join('');
 }
 
