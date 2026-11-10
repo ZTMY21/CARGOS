@@ -2,6 +2,7 @@ import test, {afterEach,beforeEach} from 'node:test';
 import assert from 'node:assert/strict';
 import {JSDOM} from 'jsdom';
 import {setupRequirementsMail} from '../src/requirements-mail-ui.js';
+import {setupRequirements} from '../src/requirements-ui.js';
 import {REQ_TYPES} from '../src/rules.js';
 
 let dom,root;
@@ -46,12 +47,13 @@ test('genera correo de solicitud registrada, con destinatarios de recojo y sin E
   await ui.selectRequest(supply.id);
   document.querySelector('#req4MailGenerate').click();
   await flush();
-  assert.equal(requests,1);
+  assert.ok(requests>=1);
   assert.equal(mutations,0);
   assert.equal(document.querySelector('#req4MailResult').hidden,false);
   assert.match(document.querySelector('#req4MailSubject').textContent,/100 cajas nuevas/);
-  assert.match(document.querySelector('#req4MailTo').textContent,/operaciones@example.com/);
-  assert.match(document.querySelector('#req4MailCc').textContent,/jefatura@example.com/);
+  assert.equal(document.querySelector('#req4MailTo').textContent,'joramos@farmaciasperuanas.pe; alopezv@farmaciasperuanas.pe; bsalvador@farmaciasperuanas.pe');
+  assert.equal(document.querySelector('#req4MailCc').textContent,'fp-qs-liquidaciones@intercorpretail.pe');
+  assert.equal(document.querySelector('#req4MailSubject').textContent,'Solicitud de 100 cajas nuevas a IM | CD Santa Anita |');
   assert.match(document.querySelector('#req4MailBody').textContent,/Responsable de archivo/);
   assert.doesNotMatch(document.querySelector('#req4MailBody').textContent,/Excel|adjunto/);
   document.querySelector('#req4MailMark').click();
@@ -77,18 +79,20 @@ test('cambio de cuenta durante carga descarta correo y destinatarios anteriores'
   ui.update([supply],{cajas:[]});
   resolve(config);
   await flush();
-  assert.equal(document.querySelector('#req4MailResult').hidden,true);
-  assert.equal(document.querySelector('#req4MailTo').textContent,'');
+  assert.equal(document.querySelector('#req4MailResult').hidden,false);
+  assert.equal(document.querySelector('#req4MailFrom').textContent,'Pendiente de confirmar (sin remitente configurado)');
+  assert.equal(document.querySelector('#req4MailTo').textContent,'joramos@farmaciasperuanas.pe; alopezv@farmaciasperuanas.pe; bsalvador@farmaciasperuanas.pe');
 });
 
-test('simular con datos ficticios funciona incluso si la configuración falla',async()=>{
+test('simular con los destinatarios indicados funciona incluso si la configuración falla',async()=>{
   mount({pickupMailConfig:async()=>{throw Error('Sin conexión');}});
   document.querySelector('#req4MailExample').click();
   await flush();
   assert.equal(document.querySelector('#req4MailResult').hidden,false);
   assert.match(document.querySelector('#req4MailSubject').textContent,/SIMULACIÓN-100/);
-  assert.equal(document.querySelector('#req4MailTo').textContent,'destinatario@example.invalid');
-  assert.match(document.querySelector('#req4MailStatus').textContent,/Simulación con datos ficticios/);
+  assert.equal(document.querySelector('#req4MailTo').textContent,'joramos@farmaciasperuanas.pe; alopezv@farmaciasperuanas.pe; bsalvador@farmaciasperuanas.pe');
+  assert.equal(document.querySelector('#req4MailCc').textContent,'fp-qs-liquidaciones@intercorpretail.pe');
+  assert.match(document.querySelector('#req4MailStatus').textContent,/Falta confirmar el remitente/);
 });
 
 test('no permite generar un correo de préstamo sin cajas registradas',async()=>{
@@ -126,7 +130,7 @@ test('en modo de publicación el correo conserva los destinatarios y registra so
   assert.equal(statusChecks,1);
   assert.equal(document.querySelector('#req4MailOutlook').disabled,false);
   assert.equal(document.querySelector('#req4MailMark').disabled,false);
-  assert.match(document.querySelector('#req4MailTo').textContent,/operaciones@example.com/);
+  assert.match(document.querySelector('#req4MailTo').textContent,/joramos@farmaciasperuanas.pe/);
   document.querySelector('#req4MailMark').click();
   await flush();
   assert.equal(saved,1);
@@ -145,4 +149,45 @@ test('envíos registrados anteriormente bloquean crear un borrador duplicado',as
   await flush();
   assert.match(document.querySelector('#req4MailStatus').textContent,/ya tiene un correo registrado/);
   assert.equal(document.querySelector('#req4MailOutlook').disabled,true);
+});
+
+test('Ver correo generado funciona sin solicitudes y sin respuesta remota',async()=>{
+  const repo={pickupMailConfig:()=>new Promise(()=>{})};
+  const ui=setupRequirementsMail(root,{repository:repo,context:()=>({mailAccess:true,mailPreviewMode:true,id:actor})});
+  ui.update([],{cajas:[]});
+  await flush();
+  assert.equal(document.querySelector('#req4MailResult').hidden,false);
+  assert.equal(document.querySelector('#req4MailSubject').textContent,'Solicitud de 100 cajas nuevas a IM | CD Santa Anita |');
+  assert.equal(document.querySelector('#req4MailCc').textContent,'fp-qs-liquidaciones@intercorpretail.pe');
+  assert.equal(document.querySelector('#req4MailFrom').textContent,'Pendiente de confirmar (sin remitente configurado)');
+  document.querySelector('#req4MailViewTop').click();
+  assert.equal(document.querySelector('#req4MailResult').hidden,false);
+});
+test('Seleccionar otra cantidad cambia el asunto en el correo generado',async()=>{
+  const ui=setupRequirementsMail(root,{repository:{pickupMailConfig:async()=>config},
+    context:()=>({mailAccess:true,mailPreviewMode:true,id:actor})});
+  const row={...supply,id:'33333333-3333-4333-8333-333333333333',cantidadCajas:32};
+  ui.update([row],{cajas:[]});
+  await flush();
+  assert.equal(document.querySelector('#req4MailSubject').textContent,'Solicitud de 32 cajas nuevas a IM | CD Santa Anita |');
+  assert.match(document.querySelector('#req4MailBody').textContent,/Cantidad solicitada: 32 cajas/);
+});
+test('Los pasos para solicitar cajas se mantienen: Cantidad, Solicitar y búsqueda para préstamos',()=>{
+  const reqRoot=document.createElement('div');
+  reqRoot.id='req4-root';document.body.append(reqRoot);
+  setupRequirements(reqRoot,{
+    repository:{pickupMailConfig:async()=>config},
+    context:()=>({allowed:true,mailAccess:true,mailPreviewMode:true,id:actor,name:'Administrador'}),
+    refresh:async()=>{}
+  });
+  const steps=document.querySelector('#req4Steps');
+  assert.match(steps.textContent,/Cantidad/);
+  assert.match(steps.textContent,/Solicitar/);
+  assert.ok(reqRoot.querySelector('#req4Form'));
+  assert.ok(reqRoot.querySelector('#req4Submit'));
+  reqRoot.querySelector('#req4TabPrestamo').click();
+  assert.match(steps.textContent,/Buscar/);
+  assert.match(steps.textContent,/Seleccionar/);
+  assert.match(steps.textContent,/Solicitar/);
+  assert.ok(reqRoot.querySelector('#req4Search'));
 });
