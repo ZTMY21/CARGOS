@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import JSZip from 'jszip';
-import {inspectMaster,replaceLastMasterCargo} from '../server/cargo-excel-book.js';
+import {inspectMaster,appendMasterCargo,replaceLastMasterCargo} from '../server/cargo-excel-book.js';
 
 function row(n,cargo,code){
   return '<row r="'+n+'" spans="1:11"><c r="B'+n+'" s="3"><v>'+cargo+
@@ -83,4 +83,51 @@ test('reconciliation of macro-enabled original retains VBA bytes',async()=>{
   assert.deepEqual(await after.file('xl/vbaProject.bin').async('nodebuffer'),
     await before.file('xl/vbaProject.bin').async('nodebuffer'));
   assert.equal((await inspectMaster(output.bytes,'original')).counts[944],3);
+});
+
+
+test('.xlsm original sin dimension, con cargos decimales y filas de formato sigue aceptando el siguiente cargo',async()=>{
+  const zip=new JSZip();
+  zip.file('xl/worksheets/sheet1.xml',
+    '<worksheet><sheetData><row r="1"></row>'+
+    '<row r="2"><c r="B2"><v>943.0</v></c></row>'+
+    '<row r="3"><c r="B3"><v>944.0</v></c></row>'+
+    '<row r="4"><c r="B4" s="20"/></row>'+
+    '<row r="5"><c r="B5" s="20"/></row>'+
+    '</sheetData><autoFilter ref="A1:K5"/></worksheet>');
+  zip.file('xl/tables/table1.xml',
+    '<table name="TablaConsolidada" ref="A1:K5"><autoFilter ref="A1:K5"/></table>');
+  zip.file('xl/workbook.xml','<workbook><sheets>CARGOS NUEVOS 2026</sheets></workbook>');
+  zip.file('xl/vbaProject.bin',Buffer.from('macro-original-intacta'));
+  const input=await zip.generateAsync({type:'nodebuffer'});
+  const before=await inspectMaster(input,'original');
+  assert.equal(before.rows,5);
+  assert.equal(before.lastCargo,944);
+  assert.equal(before.counts[944],1);
+  const next=[['2026-11-10','945','1','FACT-945','','','1','FACTURA','ESCANER','','']];
+  const result=await appendMasterCargo(input,'original',945,next);
+  const after=await inspectMaster(result.bytes,'original');
+  assert.equal(result.rowsAdded,1);
+  assert.equal(after.rows,6);
+  assert.equal(after.lastCargo,945);
+  assert.equal(after.counts[945],1);
+  assert.equal(after.counts[944],1);
+  assert.equal(after.counts[943],1);
+  assert.ok(!after.xml.includes('<dimension'));
+  assert.ok(after.xml.includes('<row r="5"><c r="B5" s="20"/></row>'));
+  assert.ok(after.table.includes('ref="A1:K6"'));
+  const postZip=await JSZip.loadAsync(result.bytes);
+  assert.equal((await postZip.file('xl/vbaProject.bin').async('nodebuffer')).toString(),
+    'macro-original-intacta');
+});
+
+test('no se omite una fila de maestro que tenga datos y no tenga cargo',async()=>{
+  const zip=new JSZip();
+  zip.file('xl/worksheets/sheet1.xml','<worksheet><sheetData><row r="1"></row>'+
+    '<row r="2"><c r="D2"><v>987</v></c></row></sheetData></worksheet>');
+  zip.file('xl/tables/table1.xml','<table name="TablaConsolidada" ref="A1:K2"/>');
+  zip.file('xl/workbook.xml','<workbook>CARGOS NUEVOS 2026</workbook>');
+  zip.file('xl/vbaProject.bin',Buffer.from('macro'));
+  await assert.rejects(inspectMaster(await zip.generateAsync({type:'nodebuffer'}),'original'),
+    /CARGO_INVALIDO_EN_MAESTRO/);
 });
