@@ -342,7 +342,7 @@
     box-shadow:0 2px 8px #142b4110;
   }
   #googleSyncPanel .monthly-cargo-stat.shipped{--monthly-accent:#238657;--monthly-tint:#e2f4e8;}
-  #googleSyncPanel .monthly-cargo-stat.requested{--monthly-accent:#2482bd;--monthly-tint:#e3f1fa;}
+  #googleSyncPanel .monthly-cargo-stat.conditioned{--monthly-accent:#2482bd;--monthly-tint:#e3f1fa;}
   #googleSyncPanel .monthly-cargo-stat .monthly-stat-icon{display:inline-grid;place-items:center;width:34px;height:34px;border-radius:9px;background:var(--monthly-tint);color:var(--monthly-accent);font-size:20px;font-weight:700;vertical-align:middle;margin-right:8px;}
   #googleSyncPanel .monthly-cargo-stat .sync-stat-label{display:inline-block;vertical-align:middle;font-size:12px;color:#536a7d;font-weight:750;}
   #googleSyncPanel .monthly-cargo-stat .sync-stat-value{color:var(--monthly-accent);font-size:32px;margin:11px 0 9px;}
@@ -383,10 +383,10 @@
     font-variant-numeric:tabular-nums;
   }
   #googleSyncPanel .monthly-cargo-stat .monthly-stat-note{display:block;line-height:1.45;}
-  #googleSyncPanel .monthly-cargo-stat.requested .monthly-requested-total{display:flex;align-items:baseline;gap:8px;margin:3px 0 2px;}
-  #googleSyncPanel .monthly-cargo-stat.requested .monthly-requested-total .sync-stat-value{margin:6px 0 0;}
-  #googleSyncPanel .monthly-cargo-stat.requested .monthly-requested-unit{font-size:14px;color:#2482bd;font-weight:750;}
-  #googleSyncPanel .monthly-cargo-stat.requested #requestedIMNote{font-size:13px;font-weight:700;color:#526c86;}
+  #googleSyncPanel .monthly-cargo-stat.conditioned .monthly-conditioned-total{display:flex;align-items:baseline;gap:8px;margin:3px 0 2px;}
+  #googleSyncPanel .monthly-cargo-stat.conditioned .monthly-conditioned-total .sync-stat-value{margin:6px 0 0;}
+  #googleSyncPanel .monthly-cargo-stat.conditioned .monthly-conditioned-unit{font-size:14px;color:#2482bd;font-weight:750;}
+  #googleSyncPanel .monthly-cargo-stat.conditioned #conditionedMonthlyNote{font-size:13px;font-weight:700;color:#526c86;}
   @media(max-width:720px){
     #googleSyncPanel .monthly-cargo-stat{min-height:170px;}
   }
@@ -402,8 +402,8 @@
   }
   #googleSyncPanel .monthly-created-detail-button:hover{background:#fce8eb;border-color:#e8afb6;}
   #googleSyncPanel .monthly-created-detail-button:focus-visible{outline:2px solid #9e2131;outline-offset:2px;}
-  /* Solo la tarjeta Cargos Solicitados IM: botón celeste, los otros permanecen iguales. */
-  #googleSyncPanel .monthly-cargo-stat.requested{position:relative;padding-bottom:54px;}
+  /* Solo la tarjeta Cajas Acondicionadas para envío: botón celeste, los otros permanecen iguales. */
+  #googleSyncPanel .monthly-cargo-stat.conditioned{position:relative;padding-bottom:54px;}
   #googleSyncPanel #btnRequestedIMDetail{
     background:#e0f5ff;color:#086b9b;border:1px solid #87d3f2;
   }
@@ -642,6 +642,56 @@
   .previous-cargo-none{color:#8893a2;}
   .previous-cargo-pending{color:#8893a2;font-size:12px;}
   .previous-cargo-error{color:#8a6671;font-size:11px;}
+
+  /* Detalle del KPI de cajas acondicionadas: consistente con las gráficas mensuales. */
+  #conditionedMonthlySheet{width:min(790px,calc(100% - 26px));max-width:790px;}
+  #conditionedMonthlySheet .monthly-created-eyebrow{color:#1977a7;}
+  #conditionedMonthlySheet .monthly-created-tab[aria-selected="true"]{
+    color:#086b9b;background:#e0f5ff;border-color:#87d3f2;
+  }
+  #conditionedMonthlySheet .conditioned-summary{
+    display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;
+    margin:10px 28px 14px;
+  }
+  #conditionedMonthlySheet .conditioned-stat{
+    background:#f5f9fc;border:1px solid #dfebf2;border-radius:12px;padding:12px 16px;
+  }
+  #conditionedMonthlySheet .conditioned-stat span{font-size:11px;color:#657d91;display:block;}
+  #conditionedMonthlySheet .conditioned-stat strong{font-size:28px;color:#156c9d;display:block;margin-top:4px;}
+  #conditionedMonthlySheet .conditioned-chart-wrap{
+    border:1px solid #e3eaf0;border-radius:13px;margin:12px 28px 8px;
+    padding:16px 15px 12px;
+  }
+  #conditionedMonthlySheet .conditioned-chart-title{font-size:13px;color:#314b62;margin:0 0 12px;}
+  #conditionedMonthlySheet .conditioned-chart{
+    max-height:365px;min-height:84px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;
+  }
+  #conditionedMonthlySheet .conditioned-chart-row{
+    display:grid;grid-template-columns:84px minmax(0,1fr) 38px;align-items:center;gap:10px;min-height:23px;
+  }
+  #conditionedMonthlySheet .conditioned-chart-label{font-size:11px;color:#687f92;font-weight:650;}
+  #conditionedMonthlySheet .conditioned-chart-track{
+    display:flex;height:15px;background:#edf2f6;border-radius:4px;overflow:hidden;
+  }
+  #conditionedMonthlySheet .conditioned-chart-track span{height:100%;min-width:0;display:block;}
+  #conditionedMonthlySheet .conditioned-segment-new{background:#238657;}
+  #conditionedMonthlySheet .conditioned-segment-requested{background:#2482bd;}
+  #conditionedMonthlySheet .conditioned-chart-value{text-align:right;color:#344e63;font-size:11px;}
+  #conditionedMonthlySheet .conditioned-legend{display:flex;gap:18px;flex-wrap:wrap;margin-top:13px;font-size:11px;color:#586e81;}
+  #conditionedMonthlySheet .conditioned-legend span{display:inline-flex;align-items:center;gap:6px;}
+  #conditionedMonthlySheet .conditioned-dot{display:inline-block;width:10px;height:10px;border-radius:2px;}
+  #conditionedMonthlySheet .conditioned-chart-explanation{
+    font-size:11px;color:#73879a;margin:10px 28px 22px;line-height:1.5;
+  }
+  @media(max-width:520px){
+    #conditionedMonthlySheet .conditioned-summary{margin:10px 14px;gap:8px;}
+    #conditionedMonthlySheet .conditioned-chart-wrap{margin:12px 14px 8px;padding:12px 9px;}
+    #conditionedMonthlySheet .conditioned-chart-row{grid-template-columns:62px minmax(0,1fr) 26px;gap:5px;}
+    #conditionedMonthlySheet .monthly-created-tabs{padding:12px 14px 5px;flex-wrap:wrap;}
+    #conditionedMonthlySheet .monthly-created-head{padding:18px 16px 13px;}
+    #conditionedMonthlySheet .conditioned-chart-explanation{margin:10px 14px 18px;}
+  }
+
 </style>
 <link rel="stylesheet" href="/src/intervention-ui.css">
 <link rel="stylesheet" href="/src/intervention-premium.css">
@@ -728,15 +778,15 @@
         <span class="monthly-stat-note">Cajas enviadas a Iron Mountain</span>
         <button id="btnMonthlyShippedDetail" type="button" class="monthly-shipped-detail-button" aria-haspopup="dialog" aria-controls="monthlyShippedSheet">Ver detalle <span aria-hidden="true">↗</span></button>
       </article>
-      <article class="sync-stat monthly-cargo-stat requested">
+      <article class="sync-stat monthly-cargo-stat conditioned">
         <span class="monthly-stat-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M20 20H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2Z"/></svg></span>
-        <span class="sync-stat-label">CARGOS SOLICITADOS IM EN CD SANTA ANITA</span>
-        <div class="monthly-requested-total">
-          <strong id="monthlyCargosRequested" class="sync-stat-value" aria-label="Cajas pendientes por solicitud">—</strong>
-          <span class="monthly-requested-unit">cajas</span>
+        <span class="sync-stat-label">CAJAS ACONDICIONADAS PARA ENVÍO</span>
+        <div class="monthly-conditioned-total">
+          <strong id="monthlyBoxesConditioned" class="sync-stat-value" aria-label="Cajas acondicionadas este mes pendientes de envío">—</strong>
+          <span class="monthly-conditioned-unit">cajas</span>
         </div>
-        <span class="monthly-stat-note" id="requestedIMNote">— cargos</span>
-        <button id="btnRequestedIMDetail" type="button" class="monthly-created-detail-button" aria-haspopup="dialog" aria-controls="requestedIMSheet">Ver detalle <span aria-hidden="true">↗</span></button>
+        <span class="monthly-stat-note" id="conditionedMonthlyNote">Preparadas este mes · Pendientes de envío a IM</span>
+        <button id="btnRequestedIMDetail" type="button" class="monthly-created-detail-button" aria-haspopup="dialog" aria-controls="conditionedMonthlySheet">Ver detalle <span aria-hidden="true">↗</span></button>
       </article>
     </div>
     <div class="sync-panel-footer">
@@ -1404,6 +1454,39 @@
 
 </div>
 
+
+
+<dialog id="conditionedMonthlySheet" class="monthly-created-sheet conditioned-monthly-sheet" aria-labelledby="conditionedMonthlyTitle">
+  <div class="monthly-created-head">
+    <div class="monthly-created-heading">
+      <span class="monthly-created-eyebrow">KÁRDEX DIGITAL · ACONDICIONAMIENTO</span>
+      <h2 id="conditionedMonthlyTitle">Cajas acondicionadas para envío</h2>
+      <p>Productividad de preparación para Iron Mountain</p>
+    </div>
+    <button id="btnCloseConditionedMonthly" type="button" class="monthly-created-close" aria-label="Cerrar detalle">✕</button>
+  </div>
+  <div class="monthly-created-tabs" role="tablist" aria-label="Periodo del KPI">
+    <button type="button" class="monthly-created-tab" role="tab" aria-selected="true" data-prepared-period="dia">Por día</button>
+    <button type="button" class="monthly-created-tab" role="tab" aria-selected="false" data-prepared-period="semana">Por semana</button>
+    <button type="button" class="monthly-created-tab" role="tab" aria-selected="false" data-prepared-period="mes">Por mes</button>
+    <button type="button" class="monthly-created-tab" role="tab" aria-selected="false" data-prepared-period="anio">Por año</button>
+  </div>
+  <div class="conditioned-summary">
+    <div class="conditioned-stat"><span>Preparadas este mes</span><strong id="conditionedMonthlyPrepared">—</strong></div>
+    <div class="conditioned-stat"><span>Pendientes de envío este mes</span><strong id="conditionedMonthlyPending">—</strong></div>
+  </div>
+  <div class="conditioned-chart-wrap">
+    <h3 class="conditioned-chart-title">Evolución de cajas acondicionadas</h3>
+    <div id="conditionedMonthlyChart" class="conditioned-chart" role="list" aria-live="polite">Consultando acondicionamientos…</div>
+    <div class="conditioned-legend" aria-label="Clasificación de cajas">
+      <span><i class="conditioned-dot" style="background:#238657"></i> Cajas nuevas</span>
+      <span><i class="conditioned-dot" style="background:#2482bd"></i> Cajas solicitadas acondicionadas</span>
+    </div>
+  </div>
+  <p id="conditionedMonthlyStatus" class="conditioned-chart-explanation">
+    Solo cuenta preparaciones finalizadas; las solicitudes y recepciones no cuentan por sí solas.
+  </p>
+</dialog>
 
 <dialog id="requestedIMSheet" class="expiry-sheet prepared-im-sheet" aria-labelledby="requestedIMTitle">
   <div class="expiry-sheet-header">
