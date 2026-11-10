@@ -229,6 +229,12 @@ test('sin configuración previa muestra correo real y abre Outlook con cuenta ac
   assert.equal(document.querySelector('#req4MailFrom').textContent,'Cuenta activa de Outlook al redactar');
   document.querySelector('#req4MailOutlook').click();
   assert.ok(opened?.startsWith('mailto:joramos@farmaciasperuanas.pe,alopezv@farmaciasperuanas.pe,bsalvador@farmaciasperuanas.pe?'));
+  // Outlook interpreta el '+' literalmente en mailto, aunque URLSearchParams
+  // lo decodifique como espacio. Validamos también la URL cruda.
+  assert.doesNotMatch(opened,/\+/);
+  assert.match(opened,/subject=Solicitud%20de%20100%20cajas%20nuevas%20a%20IM/);
+  assert.match(opened,/body=Buenas%20tardes%2C%20estimados%3A/);
+  assert.match(opened,/%0D%0A%0D%0A/);
   const query=new URL(opened).searchParams;
   assert.equal(query.get('cc'),'fp-qs-liquidaciones@intercorpretail.pe');
   assert.equal(query.get('subject'),'Solicitud de 100 cajas nuevas a IM | CD Santa Anita |');
@@ -236,4 +242,25 @@ test('sin configuración previa muestra correo real y abre Outlook con cuenta ac
   assert.doesNotMatch(query.get('body'),/Requerimiento:|Fecha de solicitud:|Solicitante:|Cantidad solicitada:|Firma pendiente de confirmar/);
   assert.equal(writes,0);
   assert.equal(document.querySelector('#req4MailBadge').textContent,'No enviado');
+});
+
+test('mailto preserva espacios y tildes sin signos + con cantidades distintas',async()=>{
+  let url='';
+  window.HTMLAnchorElement.prototype.click=function(){url=this.href;};
+  const repo={
+    pickupMailConfig:async()=>({sender:'',name:'',company:''}),
+    requirementsMail:async()=>({estado:'NO_ENVIADO'})
+  };
+  const ui=setupRequirementsMail(root,{repository:repo,
+    context:()=>({mailAccess:true,mailPreviewMode:false,id:actor})});
+  ui.update([{...supply,cantidadCajas:32}],{cajas:[]});
+  document.querySelector('#req4MailGenerate').click();
+  await flush();
+  document.querySelector('#req4MailOutlook').click();
+  assert.doesNotMatch(url,/\+/);
+  assert.match(url,/subject=Solicitud%20de%2032%20cajas%20nuevas%20a%20IM/);
+  assert.match(url,/Quedamos%20atentos%20a%20su%20confirmaci%C3%B3n/);
+  const parsed=new URL(url).searchParams;
+  assert.match(parsed.get('body'),/Por medio del presente, solicitamos 32 cajas nuevas/);
+  assert.match(parsed.get('body'),/\r\n\r\n/);
 });
