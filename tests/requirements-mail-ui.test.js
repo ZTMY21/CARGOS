@@ -80,7 +80,7 @@ test('cambio de cuenta durante carga descarta correo y destinatarios anteriores'
   resolve(config);
   await flush();
   assert.equal(document.querySelector('#req4MailResult').hidden,false);
-  assert.equal(document.querySelector('#req4MailFrom').textContent,'Pendiente de confirmar (sin remitente configurado)');
+  assert.equal(document.querySelector('#req4MailFrom').textContent,'admin@example.com');
   assert.equal(document.querySelector('#req4MailTo').textContent,'joramos@farmaciasperuanas.pe; alopezv@farmaciasperuanas.pe; bsalvador@farmaciasperuanas.pe');
 });
 
@@ -89,7 +89,8 @@ test('simular con los destinatarios indicados funciona incluso si la configuraci
   document.querySelector('#req4MailExample').click();
   await flush();
   assert.equal(document.querySelector('#req4MailResult').hidden,false);
-  assert.match(document.querySelector('#req4MailSubject').textContent,/SIMULACIÓN-100/);
+  assert.equal(document.querySelector('#req4MailSubject').textContent,'Solicitud de 100 cajas nuevas a IM | CD Santa Anita |');
+  assert.match(document.querySelector('#req4MailBody').textContent,/Requerimiento: SIMULACIÓN-100/);
   assert.equal(document.querySelector('#req4MailTo').textContent,'joramos@farmaciasperuanas.pe; alopezv@farmaciasperuanas.pe; bsalvador@farmaciasperuanas.pe');
   assert.equal(document.querySelector('#req4MailCc').textContent,'fp-qs-liquidaciones@intercorpretail.pe');
   assert.match(document.querySelector('#req4MailStatus').textContent,/Falta confirmar el remitente/);
