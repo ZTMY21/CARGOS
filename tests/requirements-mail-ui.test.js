@@ -93,7 +93,7 @@ test('simular con los destinatarios indicados funciona incluso si la configuraci
   assert.doesNotMatch(document.querySelector('#req4MailBody').textContent,/Requerimiento:|Fecha de solicitud:|Solicitante:|Cantidad solicitada:|Firma pendiente de confirmar|Farmacias Peruanas/);
   assert.equal(document.querySelector('#req4MailTo').textContent,'joramos@farmaciasperuanas.pe; alopezv@farmaciasperuanas.pe; bsalvador@farmaciasperuanas.pe');
   assert.equal(document.querySelector('#req4MailCc').textContent,'fp-qs-liquidaciones@intercorpretail.pe');
-  assert.match(document.querySelector('#req4MailStatus').textContent,/Falta confirmar el remitente/);
+  assert.match(document.querySelector('#req4MailStatus').textContent,/Se enviará manualmente desde tu cuenta de Outlook/);
 });
 
 test('no permite generar un correo de préstamo sin cajas registradas',async()=>{
