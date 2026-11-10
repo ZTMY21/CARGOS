@@ -1,5 +1,14 @@
 import {REQ_TYPES} from './rules.js';
 
+// Destinatarios exclusivos de solicitud de cajas, confirmados por el usuario.
+// No cambia la configuración del aviso de recojo.
+export const REQUEST_MAIL_TO = Object.freeze([
+  'joramos@farmaciasperuanas.pe',
+  'alopezv@farmaciasperuanas.pe',
+  'bsalvador@farmaciasperuanas.pe'
+]);
+export const REQUEST_MAIL_CC = Object.freeze(['fp-qs-liquidaciones@intercorpretail.pe']);
+
 const clean=value=>String(value??'').replace(/[\r\n\x00-\x1f\x7f]/g,' ').trim();
 const validEmail=value=>/^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/i.test(clean(value));
 const escapeHtml=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -17,16 +26,19 @@ export function composeRequirementsMail(row,boxes=[],config={},options={}){
   const count=supply?Number(row.cantidadCajas):boxes.length;
   if(!Number.isSafeInteger(count)||count<1||(supply&&count>100))
     throw Error(supply?'La solicitud debe tener entre 1 y 100 cajas.':'No hay cajas registradas en este préstamo.');
-  const sender=simulation?'remitente@example.invalid':clean(config.sender);
-  const to=simulation?['destinatario@example.invalid']:Array.isArray(config.to)?config.to.map(clean):[];
-  const cc=simulation?[]:Array.isArray(config.cc)?config.cc.map(clean):[];
-  if(!validEmail(sender)||!to.length||!to.every(validEmail)||!cc.every(validEmail))
-    throw Error('No se pudieron recuperar los destinatarios de Aviso de recojo.');
-  const name=clean(config.name)||(simulation?'Remitente de prueba':'');
-  const company=clean(config.company)||(simulation?'Farmacias Peruanas':'');
+  const preview=options.preview===true;
+  const sender=simulation?'remitente@example.invalid':clean(config.sender)||(preview?'remitente@example.invalid':'');
+  const to=simulation?['destinatario@example.invalid']:[...REQUEST_MAIL_TO];
+  const cc=simulation?[]:[...REQUEST_MAIL_CC];
+  if(!validEmail(sender)||!to.every(validEmail)||!cc.every(validEmail))
+    throw Error('El remitente de Aviso de recojo no está configurado.');
+  const name=clean(config.name)||((simulation||preview)?'Firma pendiente de confirmar':'');
+  const company=clean(config.company)||((simulation||preview)?'Farmacias Peruanas':'');
   if(!name||!company)throw Error('La firma de Aviso de recojo está incompleta.');
   const number=clean(row.numero)||'SIN NÚMERO';
-  const subject='Solicitud de '+count+' '+(supply?'cajas nuevas':'cajas en préstamo')+' | CD Santa Anita | '+number;
+  const subject=supply
+    ?'Solicitud de '+count+' '+(count===1?'caja nueva':'cajas nuevas')+' a IM | CD Santa Anita |'
+    :'Solicitud de '+count+' '+(count===1?'caja en préstamo':'cajas en préstamo')+' a IM | CD Santa Anita |';
   const greeting='Buenas tardes, estimados:';
   const intro=supply
     ?'Por medio del presente, solicitamos '+count+' '+(count===1?'caja nueva':'cajas nuevas')+' para el acondicionamiento de documentos en el CD Santa Anita.'
@@ -59,5 +71,6 @@ export function composeRequirementsMail(row,boxes=[],config={},options={}){
     '--'+boundary,'Content-Type: text/html; charset=UTF-8','Content-Transfer-Encoding: base64','',b64(html),
     '--'+boundary+'--',''].join('\r\n');
   return {subject,text,html,eml,from:sender,to,cc,count,kind:supply?'nuevas':'prestamo',
+    senderConfigured:validEmail(clean(config.sender)),
     filename:'solicitud_cajas_'+number.replace(/[^a-z0-9-]/gi,'').slice(0,24)+(simulation?'_PRUEBA':'')+'.eml'};
 }
