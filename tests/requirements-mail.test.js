@@ -94,3 +94,11 @@ test('El HTML y el texto de Outlook omiten todos los campos eliminados, incluso 
   }
   assert.match(mail.text,/Responsable de archivo/);
 });
+
+test('El HTML del correo empieza con el saludo, sin cabecera de empresa ni asunto repetido',()=>{
+  const mail=composeRequirementsMail(newBoxes,[],{},{preview:true});
+  assert.doesNotMatch(mail.html,/<h[1-6]\b|Gestión documental · CD Santa Anita|<[^>]+>Farmacias Peruanas<\/h2>/);
+  assert.doesNotMatch(mail.html,/Solicitud de 100 cajas nuevas a IM \| CD Santa Anita \|/);
+  assert.match(mail.html,/<p>Buenas tardes, estimados:<\/p>/);
+  assert.equal(mail.subject,'Solicitud de 100 cajas nuevas a IM | CD Santa Anita |');
+});
