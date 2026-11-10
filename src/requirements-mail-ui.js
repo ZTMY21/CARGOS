@@ -133,7 +133,7 @@ export function setupRequirementsMail(root,{repository,context}){
         renderDraft();
         setStatus('Simulación con datos ficticios: el correo real de Aviso de recojo no está configurado o no respondió.');
       }
-    }finally{busy=false;renderRows();}
+    }finally{busy=false;renderRows();renderDraft();}
   }
   function download(){
     if(!context().mailAccess||!currentDraft||currentDraft.sent||busy)return;
