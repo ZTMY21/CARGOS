@@ -102,6 +102,8 @@ async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recov
     attachConditioningWorkspace:()=>null,inventoryConditioning:()=>doc=>doc,
     attachBoxScanSheets:()=>null,attachBoxScanner:()=>({activate:()=>{},deactivate:()=>{},reset:()=>{}}),
     attachInterventionExperience:()=>{},attachPreparedMonthlyKpi:()=>null,
+    // El modal de Gestión de cajas pertenece solo a Resumen; simulación en pruebas VM.
+    attachResumenBoxDetails:()=>({open:()=>{}}),
     summarizeBoxPreparationBatch,physicalBoxKey,validDate,
     createClient:(url,key,options)=>{state.authOptions=options?.auth;return client;},KardexRepository:FakeRepository,reqFromDb,docFromDb,reqEstado,docEstado,fmtDate,escapeHtml,invoiceSearchPresentation,buildWorkbook:async(...args)=>{state.exportCalls.push(args);return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},buildCargoWorkbook:async(cargo)=>{state.guestExport=cargo;return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},buildExistenciasReport:async(...args)=>{state.reportArgs=args;return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},serializeExistenciasReport:async()=>{state.serializedReport=true;return new Uint8Array([1]);},parseWorkbook,highlightMatch,normalizeSearch,filterDocuments,filterRequirements,assignedBoxCode,cargoYear,invoiceLocation,locationLabel,groupsForCodes,
     __SUPABASE_URL__:'https://example.supabase.co',__SUPABASE_ANON_KEY__:'sb_publishable_test',__REQ4_ISOLATED__:isolatedPreview,__RECEPTION_PREVIEW__:receptionPreview,confirm:()=>true,alert:()=>{}});

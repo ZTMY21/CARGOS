@@ -72,6 +72,55 @@
   #grp-resumen summary{background:#fff;border-bottom:1px solid #edf0f3;}
   #grp-resumen summary .stitle{color:#7d1421;}
   #grp-resumen .group-body{padding:20px 22px 24px;}
+  /* Accesos en la misma barra de «Resumen», junto a la flecha.
+     Son controles hermanos de <details>, para no interferir con el despliegue. */
+  #resumenHeaderShell{position:relative;}
+  #resumenHeaderShell[hidden]{display:none!important;}
+  #resumenHeaderShell > #grp-resumen > summary{
+    padding-right:20px;min-height:70px;
+  }
+  #resumenHeaderShell .resumen-report-actions{
+    position:absolute;z-index:3;right:48px;top:14px;
+    display:flex;align-items:center;justify-content:flex-end;gap:9px;
+    margin:0;
+  }
+  #resumenHeaderShell .resumen-report-actions .excel-link-button{
+    display:inline-flex;align-items:center;justify-content:center;gap:7px;
+    min-height:37px;border-radius:8px;padding:8px 13px;
+    font-family:inherit;font-size:12px;font-weight:750;line-height:1.25;
+    text-decoration:none;white-space:nowrap;
+  }
+  #resumenHeaderShell .resumen-report-actions .resumen-report-export{
+    background:#24864a;border:1px solid #24864a;color:#fff;
+  }
+  #resumenHeaderShell .resumen-report-actions .resumen-report-export:hover{
+    background:#1c6e3b;border-color:#1c6e3b;color:#fff;
+  }
+  #resumenHeaderShell .resumen-report-actions .resumen-report-history{
+    background:#eef2f6;border:1px solid #cbd7e4;color:#31506c;
+  }
+  #resumenHeaderShell .resumen-report-actions .resumen-report-history:hover{
+    background:#dce7ef;border-color:#aebecb;color:#203b53;
+  }
+  #resumenHeaderShell .resumen-report-actions .excel-link-button svg{flex:none;}
+  #resumenHeaderShell .resumen-report-actions .excel-link-button[hidden]{display:none!important;}
+  @media(max-width:800px){
+    #resumenHeaderShell > #grp-resumen > summary{
+      min-height:125px;padding-right:20px;padding-bottom:65px;align-items:flex-start;
+    }
+    #resumenHeaderShell .resumen-report-actions{
+      left:16px;right:16px;top:67px;justify-content:flex-start;flex-wrap:wrap;
+    }
+  }
+  @media(max-width:430px){
+    #resumenHeaderShell > #grp-resumen > summary{min-height:156px;padding-bottom:94px;}
+    #resumenHeaderShell .resumen-report-actions{
+      top:60px;flex-direction:column;align-items:stretch;gap:6px;
+    }
+    #resumenHeaderShell .resumen-report-actions .excel-link-button{
+      width:100%;min-height:35px;text-align:center;
+    }
+  }
   #grp-resumen .kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:13px;}
   #grp-resumen .kpi{
     --accent:#861724;position:relative;isolation:isolate;overflow:hidden;
@@ -643,10 +692,11 @@
   .previous-cargo-pending{color:#8893a2;font-size:12px;}
   .previous-cargo-error{color:#8a6671;font-size:11px;}
 
-  /* KPI celeste, diferencia visual de la tarjeta verde de cajas enviadas IM. */
+  /* Tarjeta de seguimiento: igual superficie blanca que los otros KPI,
+     manteniendo únicamente el acento celeste en el borde superior. */
   #googleSyncPanel .monthly-cargo-stat.conditioned{
     --monthly-accent:#168fc6;--monthly-tint:#dbf3ff;
-    background:#effaff;border:1px solid #b9e5f7;border-top:3px solid #168fc6;
+    background:#ffffff;border:1px solid #dee4ea;border-top:3px solid #168fc6;
   }
   #googleSyncPanel .monthly-cargo-stat.conditioned .sync-stat-value{
     color:#1187bd;
@@ -658,10 +708,10 @@
     color:#56788d;
   }
   #googleSyncPanel #btnRequestedIMDetail{
-    background:#e2f4ff;color:#116d99;border:1px solid #a1d6ee;
+    background:#e0f5ff;color:#086b9b;border:1px solid #87d3f2;
   }
   #googleSyncPanel #btnRequestedIMDetail:hover{
-    background:#cdeeff;border-color:#72c0e4;
+    background:#c9efff;border-color:#50b8e5;
   }
   #googleSyncPanel #btnRequestedIMDetail:focus-visible{
     outline:2px solid #118cce;outline-offset:2px;
@@ -967,6 +1017,197 @@
     .req4-mail-fields{grid-template-columns:50px minmax(0,1fr);padding:13px}
   }
 
+
+  /* Vista previa · reordenamiento exclusivamente de Resumen.
+     Reutiliza las tarjetas y estilos existentes: no altera los otros módulos. */
+  #googleSyncPanel > #resumenHeaderShell{margin:2px 0 22px;}
+  #resumenHeaderShell > #grp-resumen{margin:0;}
+  #googleSyncPanel > #googleSyncContent{border-top:1px solid #e6eaf0;padding-top:19px;}
+  #grp-resumen .kpis.summary-primary{grid-template-columns:repeat(3,minmax(0,1fr));}
+  #grp-resumen .summary-box-area{margin-top:24px;padding:17px 18px 19px;border:1px solid #e0e6ec;border-radius:11px;background:#f9fafb;}
+  #grp-resumen .summary-box-heading{font-size:15px;font-weight:750;color:#293748;margin:0 0 5px;}
+  #grp-resumen .summary-box-desc{font-size:12px;color:#627589;margin:0 0 14px;}
+  #grp-resumen .kpis.summary-box-top{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:13px;}
+  #grp-resumen .summary-box-top .kpi{min-height:140px;}
+  /* La tarjeta adicional «Solicitudes a IM» permanece en su módulo original,
+     pero no forma parte de los cinco indicadores de esta vista Resumen. */
+  #grp-resumen .summary-box-top .kpi:not(.kpi-summary-requested):not(.kpi-summary-to-condition):not(.kpi-summary-process){display:none;}
+  #grp-resumen .kpi-summary-requested{--accent:#526b82;}
+  #grp-resumen .summary-box-subheading{font-size:13px;font-weight:750;color:#293748;margin:20px 0 12px;}
+
+  /* Vista previa: detalle administrativo en Resumen; aislado de los demás módulos. */
+  .summary-detail-dialog{
+    box-sizing:border-box;width:min(980px,calc(100vw - 26px));max-width:980px;
+    max-height:min(90vh,920px);border:1px solid #dce5ec;border-radius:14px;
+    padding:0;overflow:hidden;background:#fff;color:#18374f;
+    font:13px/1.5 Arial,Helvetica,sans-serif;
+    box-shadow:0 24px 76px #102d4652;
+  }
+  .summary-detail-dialog::backdrop{background:#122e46a1;backdrop-filter:blur(2px);}
+  .summary-detail-dialog .summary-detail-head{
+    display:flex;justify-content:space-between;align-items:flex-start;gap:15px;
+    padding:22px 25px 15px;border-bottom:1px solid #e8eef3;background:#fff;
+  }
+  .summary-detail-dialog .summary-detail-identity{display:flex;align-items:flex-start;gap:15px;min-width:0;}
+  .summary-detail-dialog .summary-detail-icon{
+    display:grid;place-items:center;width:35px;height:35px;border:1px solid #b7cddd;
+    background:#edf5fb;border-radius:8px;color:#28648e;font-size:22px;flex:none;
+  }
+  .summary-detail-dialog h2{color:#183750;font-size:23px;line-height:1.2;margin:0 0 4px;font-weight:750;}
+  .summary-detail-dialog .summary-detail-head p{color:#71879a;font-size:12px;margin:0;}
+  .summary-detail-dialog .summary-detail-close,
+  .summary-detail-dialog .summary-detail-retry{
+    border:1px solid #d7e2eb;border-radius:8px;background:#fff;color:#315c7e;
+    padding:8px 16px;font:12px Arial,Helvetica,sans-serif;cursor:pointer;
+  }
+  .summary-detail-dialog .summary-detail-close:hover,
+  .summary-detail-dialog .summary-detail-retry:hover{background:#eef5fa;}
+  .summary-detail-dialog .summary-detail-content{padding:21px 25px 26px;overflow:auto;max-height:calc(90vh - 84px);}
+  .summary-detail-dialog .summary-detail-stats{
+    display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:0;
+    padding:15px 17px;border-radius:10px;background:#edf5fc;margin-bottom:18px;
+  }
+  .summary-detail-dialog .summary-detail-stat{padding:0 16px;border-right:1px solid #cadce9;display:flex;gap:2px;align-items:baseline;flex-wrap:wrap;}
+  .summary-detail-dialog .summary-detail-stat:first-child{padding-left:0;}
+  .summary-detail-dialog .summary-detail-stat:last-child{border-right:0;}
+  .summary-detail-dialog .summary-detail-stat strong{color:#193a56;font-size:27px;line-height:1.2;}
+  .summary-detail-dialog .summary-detail-stat span{color:#38556f;font-size:12px;}
+  .summary-detail-dialog .summary-detail-section-title{font-size:14px;font-weight:750;color:#16374f;margin:24px 0 12px;}
+  .summary-detail-dialog .summary-detail-timeline{list-style:none;margin:0;padding:0 0 0 8px;}
+  .summary-detail-dialog .summary-detail-event{
+    display:flex;align-items:center;gap:14px;margin:0 0 7px 8px;padding:12px 14px;
+    min-height:62px;position:relative;background:#edf5fc;border:1px solid #d8e9f7;border-radius:9px;
+  }
+  .summary-detail-dialog .summary-detail-event.partial{background:#fff7e8;border-color:#f3dcae;}
+  .summary-detail-dialog .summary-detail-event.complete{background:#ecf8f2;border-color:#c6e7d3;}
+  .summary-detail-dialog .summary-event-marker{width:11px;height:11px;background:#397caa;border-radius:50%;flex:none;}
+  .summary-detail-dialog .summary-detail-event.partial .summary-event-marker{background:#b97813;}
+  .summary-detail-dialog .summary-detail-event.complete .summary-event-marker{background:#198356;}
+  .summary-detail-dialog .summary-event-copy{display:flex;flex-direction:column;min-width:0;flex:1;}
+  .summary-detail-dialog .summary-event-copy strong{font-size:13px;color:#193a56;}
+  .summary-detail-dialog .summary-event-copy span{font-size:12px;color:#607991;}
+  .summary-detail-dialog .summary-event-tag{
+    padding:4px 9px;border-radius:999px;background:#d9eefe;color:#276a93;
+    font-size:11px;font-weight:700;white-space:nowrap;
+  }
+  .summary-detail-dialog .partial .summary-event-tag{background:#ffecc5;color:#8a5a00;}
+  .summary-detail-dialog .complete .summary-event-tag{background:#d2eddd;color:#21704c;}
+  .summary-detail-dialog .summary-detail-event time{font-size:12px;color:#516c84;white-space:nowrap;}
+  .summary-detail-dialog .summary-event-request{color:#6b849b;font-size:11px;margin:-4px 0 15px 38px;}
+  .summary-detail-dialog .summary-reception-strip{
+    display:flex;justify-content:space-between;align-items:center;gap:14px;
+    border:1px solid #dce7ef;border-radius:9px;padding:12px 14px;background:#f7fafc;
+  }
+  .summary-detail-dialog .summary-reception-strip>div{display:flex;flex-direction:column;gap:3px;}
+  .summary-detail-dialog .summary-reception-strip strong{font-size:14px;color:#173853;}
+  .summary-detail-dialog .summary-reception-strip span{font-size:12px;color:#58738d;}
+  .summary-detail-dialog .summary-reception-state{font-weight:750;padding:4px 8px;border-radius:7px;white-space:nowrap;}
+  .summary-detail-dialog .summary-reception-state.partial{color:#946004;background:#fff0d2;}
+  .summary-detail-dialog .summary-reception-state.complete{color:#126a43;background:#def4e9;}
+  .summary-detail-dialog .summary-detail-progress{display:block;width:100%;height:8px;margin:13px 0 3px;accent-color:#b97813;}
+  .summary-detail-dialog .summary-detail-progress.process{accent-color:#2486b8;}
+  .summary-detail-dialog .summary-detail-helper{font-size:12px;color:#627b90;margin:10px 0;}
+  .summary-detail-dialog .summary-detail-empty{padding:18px;border:1px dashed #ccdce8;background:#f8fafc;border-radius:9px;color:#58728a;font-size:13px;}
+  .summary-detail-dialog .summary-process-toolbar{max-width:410px;margin:10px 0 13px;}
+  .summary-detail-dialog .summary-process-toolbar label{display:block;color:#4f6479;font-size:12px;font-weight:700;margin-bottom:6px;}
+  .summary-detail-dialog .summary-process-toolbar input{width:100%;border:1px solid #cbd8e4;border-radius:8px;padding:10px;font-size:13px;background:white;}
+  .summary-detail-dialog .summary-process-table-wrap{width:100%;max-height:400px;overflow:auto;border:1px solid #dfe6ec;border-radius:9px;}
+  .summary-detail-dialog .summary-process-table{border-collapse:collapse;width:100%;min-width:700px;font-size:12px;}
+  .summary-detail-dialog .summary-process-table th{position:sticky;top:0;background:#eef4f9;color:#3a556e;text-align:left;padding:11px 10px;font-weight:750;}
+  .summary-detail-dialog .summary-process-table td{padding:12px 10px;border-top:1px solid #e5ebf1;color:#344e64;vertical-align:top;}
+  .summary-detail-dialog .summary-process-table tr[hidden]{display:none;}
+  .summary-detail-dialog .summary-process-status{background:#e0f5e9;color:#14653e;border-radius:6px;padding:5px 8px;white-space:nowrap;font-size:11px;}
+  .summary-detail-dialog .summary-process-details summary{color:#24739f;cursor:pointer;font-weight:750;white-space:nowrap;}
+  .summary-detail-dialog .summary-process-details span{display:block;margin-top:7px;max-width:175px;overflow-wrap:anywhere;}
+  @media(max-width:670px){
+    .summary-detail-dialog .summary-detail-head,.summary-detail-dialog .summary-detail-content{padding:14px;}
+    .summary-detail-dialog .summary-detail-stats{gap:12px;grid-template-columns:repeat(2,minmax(0,1fr));}
+    .summary-detail-dialog .summary-detail-stat{padding:0;border-right:0;}
+    .summary-detail-dialog .summary-detail-event{flex-wrap:wrap;gap:7px;}
+    .summary-detail-dialog .summary-detail-event time{margin-left:24px;}
+  }
+
+
+  /* Vista previa de Resumen: solicitudes de cajas a IM para consulta de facturas. */
+  #grp-resumen .kpis.summary-box-loans{display:grid;grid-template-columns:minmax(0,1fr);gap:13px;}
+  #grp-resumen .kpi-summary-loans{--accent:#6c5597;min-height:125px;border-top:3px solid var(--accent);}
+  #grp-resumen .summary-loan-flex{display:flex;align-items:center;justify-content:space-between;gap:24px;flex-wrap:wrap;}
+  #grp-resumen .summary-loan-flex .n{font-size:30px;}
+  #grp-resumen .summary-loan-flex .pct-txt{font-size:12px;}
+  #grp-resumen .summary-loan-secondary{
+    display:flex;align-items:baseline;gap:10px;padding:12px 16px;
+    background:#f1eef7;border:1px solid #e4dbee;border-radius:9px;min-width:185px;
+  }
+  #grp-resumen .summary-loan-secondary strong{color:#684f93;font-size:24px;line-height:1;}
+  #grp-resumen .summary-loan-secondary span{font-size:11px;font-weight:700;color:#6d6284;}
+  @media(max-width:700px){#grp-resumen .summary-loan-secondary{min-width:0;width:100%;}}
+
+  #grp-resumen .kpis.summary-box-bottom{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px;}
+  #grp-resumen .summary-box-bottom .kpi{min-height:132px;}
+  #grp-resumen .kpi-summary-prepared-requested{--accent:#8966bb;background:#f7f2ff;border:1px solid #e1d2f7;border-top:3px solid var(--accent);}
+  #grp-resumen .kpi-summary-prepared-requested .l,#grp-resumen .kpi-summary-prepared-requested .pct-txt{color:#7452a3;}
+  #grp-resumen .kpi-summary-prepared-new{--accent:#16815c;background:#edfaf3;border:1px solid #bde5ce;border-top:3px solid var(--accent);}
+  #grp-resumen .kpi-summary-prepared-new .l,#grp-resumen .kpi-summary-prepared-new .pct-txt{color:#186948;}
+
+  /* Resumen · Cargos por año compacto, antes de Actividad mensual. */
+  #grp-resumen .summary-annual-compact{
+    margin-top:20px;padding:17px 18px 15px;background:#fff;
+    border:1px solid #e1e6eb;border-radius:11px;
+  }
+  #grp-resumen .summary-annual-heading{
+    display:flex;justify-content:space-between;align-items:flex-start;
+    gap:12px;margin-bottom:13px;
+  }
+  #grp-resumen .summary-annual-heading h3{
+    margin:0 0 5px;color:#293748;font-size:15px;font-weight:750;
+  }
+  #grp-resumen .summary-annual-heading p{color:#627589;font-size:12px;margin:0;}
+  #grp-resumen .summary-annual-icon{
+    font-size:22px;line-height:1;color:#647d92;
+    background:#f0f5f8;border-radius:8px;padding:8px 10px;
+  }
+  #grp-resumen .summary-annual-grid{
+    display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;
+  }
+  #grp-resumen .summary-annual-tile{
+    box-sizing:border-box;display:flex;flex-direction:column;align-items:center;
+    justify-content:center;gap:5px;min-height:93px;width:100%;
+    padding:12px 8px;border:1px solid #dfe6ec;border-radius:9px;
+    background:#fff;color:#27394b;text-align:center;font-family:inherit;
+    text-decoration:none;box-shadow:none;
+  }
+  #grp-resumen button.summary-annual-tile{cursor:pointer;}
+  #grp-resumen button.summary-annual-tile:hover{
+    background:#f5faff;border-color:#8db9d3;
+  }
+  #grp-resumen button.summary-annual-tile:focus-visible{
+    outline:2px solid #287dae;outline-offset:2px;
+  }
+  #grp-resumen .summary-annual-tile.is-current{
+    background:#f2faf6;border-color:#b6dac3;
+  }
+  #grp-resumen .summary-annual-year{font-size:12px;font-weight:750;color:#50677d;}
+  #grp-resumen .summary-annual-tile.is-current .summary-annual-year{color:#23734c;}
+  #grp-resumen .summary-annual-count{
+    font-size:23px;line-height:1.1;font-variant-numeric:tabular-nums;
+    font-weight:800;color:#23465f;
+  }
+  #grp-resumen .summary-annual-tile.is-current .summary-annual-count{color:#1a8053;}
+  #grp-resumen .summary-annual-unit{font-size:10px;color:#7a8a98;}
+  #grp-resumen .summary-annual-note{
+    margin:12px 0 0;color:#7a8998;font-size:11px;
+  }
+  @media(max-width:760px){
+    #grp-resumen .summary-annual-grid{grid-template-columns:repeat(2,minmax(0,1fr));}
+    #grp-resumen .summary-annual-compact{padding:14px;}
+  }
+
+  #grp-resumen .year-section{display:none!important;}
+  @media(max-width:700px){
+    #grp-resumen .kpis.summary-primary,#grp-resumen .kpis.summary-box-top,#grp-resumen .kpis.summary-box-bottom{grid-template-columns:1fr;}
+    #grp-resumen .summary-box-area{padding:13px;}
+  }
+
 </style>
 <link rel="stylesheet" href="/src/intervention-ui.css">
 <link rel="stylesheet" href="/src/intervention-premium.css">
@@ -1030,15 +1271,33 @@
       <button id="workspaceTabCorreos" class="workspace-tab" type="button" role="tab" data-workspace="correos"
         aria-selected="false" aria-controls="grp-correos" tabindex="-1">Avisos de recojo</button>
     </nav>
+  <div class="resumen-header-shell" id="resumenHeaderShell">
+    <details class="group" id="grp-resumen" open>
+      <summary><span class="stitle">Resumen<small>Indicadores generales</small></span><span class="chev">▶</span></summary>
+      <div class="group-body">
+        <div id="resumenTablas"></div>
+      </div>
+    </details>
+    <div class="resumen-report-actions" aria-label="Accesos a reportes y consultas">
+        <button id="btnExportar" class="excel-link-button resumen-report-export" type="button" hidden>
+          <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6M8 13h8M8 17h8"/></svg>
+          <span>Reporte de existencias</span>
+        </button>
+        <a id="btnOpenIronMountainHistorical" class="excel-link-button historical-excel-link resumen-report-history" href="https://docs.google.com/spreadsheets/d/1YKp7q-CPOHI6R7RwJ-ekgrpb5KEIloP9/edit?usp=drivesdk" target="_blank" rel="noopener noreferrer">
+          <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 2.6-6.4L3 8"/><path d="M3 3v5h5M12 7v5l3 2"/></svg>
+          <span>Histórico IM</span>
+        </a>
+    </div>
+  </div>
     <div id="googleSyncContent">
     <div class="monthly-panel-title">
       <div>
-        <h2 id="googleSyncTitle">Actividad de cargos de este mes</h2>
-        <p class="monthly-panel-subtitle">Indicadores mensuales del Kardex Digital</p>
+        <h2 id="googleSyncTitle">Indicadores mensuales del Kárdex Digital</h2>
+        <p class="monthly-panel-subtitle">Seguimiento de cargos, envíos y preparación de cajas</p>
       </div>
       <span class="monthly-panel-period" id="monthlyCargoPeriod">Mes actual</span>
     </div>
-    <div class="sync-stats monthly-cargo-stats" aria-label="Actividad mensual de cargos">
+    <div class="sync-stats monthly-cargo-stats" aria-label="Indicadores mensuales del Kárdex Digital">
       <article class="sync-stat monthly-cargo-stat created">
         <span class="monthly-stat-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M8 13h8"/><path d="M8 17h8"/></svg></span>
         <span class="sync-stat-label">CARGOS EN ESTE MES</span>
@@ -1055,24 +1314,16 @@
       </article>
       <article class="sync-stat monthly-cargo-stat conditioned">
         <span class="monthly-stat-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="m12 2 9 5-9 5-9-5 9-5Z"/><path d="M3 7v10l9 5 9-5V7M12 12v10"/><path d="m16 15 2 2 4-4"/></svg></span>
-        <span class="sync-stat-label">CAJAS ACONDICIONADAS PARA ENVÍO</span>
+        <span class="sync-stat-label">SEGUIMIENTO DE LA PREPARACIÓN DE CAJAS</span>
         <div class="monthly-conditioned-total">
-          <strong id="monthlyBoxesConditioned" class="sync-stat-value" aria-label="Cajas acondicionadas este mes pendientes de envío">—</strong>
+          <strong id="monthlyBoxesConditioned" class="sync-stat-value" aria-label="Total de cajas acondicionadas durante el mes">—</strong>
           <span class="monthly-conditioned-unit">cajas</span>
         </div>
-        <span class="monthly-stat-note" id="conditionedMonthlyNote">Preparadas este mes · Pendientes de envío a IM</span>
+        <span class="monthly-stat-note" id="conditionedMonthlyNote">Cajas acondicionadas durante el mes</span>
         <button id="btnRequestedIMDetail" type="button" class="monthly-created-detail-button" aria-haspopup="dialog" aria-controls="conditionedMonthlySheet">Ver detalle <span aria-hidden="true">↗</span></button>
       </article>
     </div>
-    <div class="sync-panel-footer">
-      <div class="sync-panel-actions">
-        <div class="google-excel-links" aria-label="Enlaces y reporte de cargos">
-          <button id="btnExportar" class="excel-link-button" type="button" hidden>Reporte de Existencias</button>
-          <a id="btnOpenIronMountainExcel" class="excel-link-button" href="https://drive.google.com/file/d/14tW2-XqukNYozn4P67A7lrhjFfPveAmv/view?usp=drivesdk" target="_blank" rel="noopener noreferrer">Cargos Enviados</a>
-          <a id="btnOpenIronMountainHistorical" class="excel-link-button historical-excel-link" href="https://docs.google.com/spreadsheets/d/1YKp7q-CPOHI6R7RwJ-ekgrpb5KEIloP9/edit?usp=drivesdk" target="_blank" rel="noopener noreferrer">Histórico IM</a>
-        </div>
-      </div>
-    </div>
+
     </div>
   </section>
   <!-- Vista de detalle mensual/anual en la demo; no modifica el resumen inferior. -->
@@ -1164,12 +1415,7 @@
     </div>
   </dialog>
   <p id="readOnlyNotice" hidden>Invitado · Solo consulta de cargos y facturas</p>
-  <details class="group" id="grp-resumen" open>
-    <summary><span class="stitle">Resumen<small>Indicadores generales</small></span><span class="chev">▶</span></summary>
-    <div class="group-body">
-      <div id="resumenTablas"></div>
-    </div>
-  </details>
+
 
   <!-- ================= REQUERIMIENTOS ================= -->
   <details class="group" id="grp-requerimientos" open>
@@ -1713,22 +1959,22 @@
       </div>
     </div>
     <section class="conditioned-main">
-      <h2 id="conditionedMonthlyTitle">Cajas acondicionadas para envío</h2>
+      <h2 id="conditionedMonthlyTitle">Evolución del acondicionamiento</h2>
       <span class="conditioned-main-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" stroke-linecap="round"><path d="m12 2 9 5-9 5-9-5 9-5Z"/><path d="M3 7v10l9 5 9-5V7M12 12v10"/><path d="m16 15 2 2 4-4"/></svg></span>
       <strong id="conditionedMonthlyPending" class="conditioned-primary-number">—</strong>
-      <p id="conditionedPeriodLabel" class="conditioned-period-note">Este mes · Pendientes de envío a IM</p>
+      <p id="conditionedPeriodLabel" class="conditioned-period-note">Total de cajas acondicionadas durante el mes</p>
     </section>
     <div class="conditioned-breakdown">
-      <span id="conditionedMonthlyNew">— cajas nuevas</span>
-      <span id="conditionedMonthlyRequested">— cajas solicitadas acondicionadas</span>
+      <span id="conditionedMonthlyNew">— cajas nuevas acondicionadas</span>
+      <span id="conditionedMonthlyRequested">— cajas por solicitud acondicionadas</span>
     </div>
     <div class="conditioned-graph-header">
-      <h3>Evolución de cajas preparadas</h3>
-      <p>Selecciona el periodo para explorar la gráfica.</p>
+      <h3>Preparación de cajas por período</h3>
+      <p>Consulta la evolución por día, semana, mes o año. Cada barra representa cajas con preparación registrada.</p>
     </div>
     <div class="conditioned-tabs" role="tablist" aria-label="Periodo del KPI">
-      <button type="button" class="conditioned-period-tab" role="tab" aria-selected="true" data-prepared-period="dia">Día</button>
-      <button type="button" class="conditioned-period-tab" role="tab" aria-selected="false" data-prepared-period="semana">Semana</button>
+      <button type="button" class="conditioned-period-tab" role="tab" aria-selected="false" data-prepared-period="dia">Día</button>
+      <button type="button" class="conditioned-period-tab" role="tab" aria-selected="true" data-prepared-period="semana">Semana</button>
       <button type="button" class="conditioned-period-tab" role="tab" aria-selected="false" data-prepared-period="mes">Mes</button>
       <button type="button" class="conditioned-period-tab" role="tab" aria-selected="false" data-prepared-period="anio">Año</button>
     </div>
@@ -1738,8 +1984,7 @@
       <div class="conditioned-legend" aria-label="Clasificación de cajas">
         <span><i class="conditioned-dot" style="background:#329edb"></i>Cajas nuevas</span>
         <span><i class="conditioned-dot" style="background:#9974d1"></i>Cajas solicitadas</span>
-        <span id="conditionedHistoricalLegend" style="display:none"><i class="conditioned-dot" style="background:#8695a5"></i>Histórico IM · envío sin fecha de preparación</span>
-      </div>
+              </div>
       <p id="conditionedMonthlyStatus" class="conditioned-chart-explanation">La gráfica conserva el historial de preparación, incluso de cajas que posteriormente fueron enviadas.</p>
     </div>
   </div>

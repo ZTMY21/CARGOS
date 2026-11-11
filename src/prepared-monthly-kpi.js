@@ -46,6 +46,8 @@ export function summarizeConditionedBoxes(rows=[],today=new Date(),historical=[]
       historicalBoxes.set(String(year),count);
   }
   return {registros,historicalBoxes,mesPreparadas:mes.length,mesPendientes:pendientes.length,
+    mesNuevas:mes.filter(r=>r.origen==='nueva').length,
+    mesSolicitadas:mes.filter(r=>r.origen==='solicitada').length,
     pendientesNuevas:pendientes.filter(r=>r.origen==='nueva').length,
     pendientesSolicitadas:pendientes.filter(r=>r.origen==='solicitada').length,
     currentDay,currentMonth,currentYear};
@@ -158,7 +160,7 @@ export function attachPreparedMonthlyKpi({repository,isAdmin,appReady}) {
   const params=new URLSearchParams(window.location.search);
   const demo=params.get('demo-kpi')==='1' && /-ztmy1\.vercel\.app$/i.test(window.location.hostname)
     && !['kardex-digital-santa-anita-ztmy1.vercel.app','kardex-digital-santa-anita-git-main-ztmy1.vercel.app'].includes(window.location.hostname);
-  let view='dia',summary=null,request=0;
+  let view='semana',summary=null,request=0;
   const format=n=>new Intl.NumberFormat('es-PE').format(n);
   const formatMonth=value=>{
     const [year,month]=value.split('-').map(Number);
@@ -178,14 +180,15 @@ export function attachPreparedMonthlyKpi({repository,isAdmin,appReady}) {
       return;
     }
     el('conditionedDataSource').textContent=demo?'Datos de ejemplo':'Acondicionamiento + Maestro IM';
-    el('conditionedMonthlyPending').textContent=format(summary.mesPendientes);
-    el('conditionedMonthlyNew').textContent=format(summary.pendientesNuevas)+' cajas nuevas';
-    el('conditionedMonthlyRequested').textContent=format(summary.pendientesSolicitadas)+' cajas solicitadas acondicionadas';
+    el('conditionedMonthlyPending').textContent=format(summary.mesPreparadas);
+    el('conditionedMonthlyNew').textContent=format(summary.mesNuevas)+' cajas nuevas acondicionadas';
+    el('conditionedMonthlyRequested').textContent=format(summary.mesSolicitadas)+' cajas por solicitud acondicionadas';
     el('conditionedPeriodLabel').textContent=
-      formatMonth(summary.currentMonth)+' · Pendientes de envío a IM';
+      formatMonth(summary.currentMonth)+' · Total acondicionado';
     const buckets=timeline(summary,view);
-    el('conditionedHistoricalLegend').style.display=view==='anio'?'inline-flex':'none';
-    chart.innerHTML=groupedChartSvg(buckets);
+    // La productividad cuenta solamente cajas con fecha real de acondicionamiento.
+    // No sumar los envíos históricos que carecen de fecha de preparación.
+    chart.innerHTML=groupedChartSvg(buckets.map(item=>({...item,historicas:0})));
     const tip=el('conditionedMonthlyTooltip');
     tip.hidden=true;
     const card=modal.querySelector('.conditioned-chart-card');
@@ -202,8 +205,6 @@ export function attachPreparedMonthlyKpi({repository,isAdmin,appReady}) {
         'Cajas nuevas: '+format(item.nuevas)+'</div>'+
         '<div class="conditioned-tooltip-row"><span class="conditioned-tooltip-dot" style="background:#9974d1"></span>'+
         'Cajas solicitadas: '+format(item.solicitadas)+'</div>'+
-        (item.historicas?'<div class="conditioned-tooltip-row"><span class="conditioned-tooltip-dot" style="background:#8695a5"></span>'+
-          'Envíos históricos sin fecha de preparación: '+format(item.historicas)+'</div>':'')+
         '<div class="conditioned-tooltip-total">Total con fecha de preparación: '+format(item.total)+' cajas</div>';
       tip.style.left=x+'px';
       tip.style.top=y+'px';
@@ -220,9 +221,7 @@ export function attachPreparedMonthlyKpi({repository,isAdmin,appReady}) {
     });
     status.textContent=demo
       ? 'Datos ilustrativos, no extraídos del aplicativo. Prueba los filtros Día, Semana, Mes y Año.'
-      : view==='anio'
-        ? 'Las barras azul y morada cuentan cajas con fecha real de preparación. La barra gris es una referencia de envíos históricos sin fecha de acondicionamiento (por año de envío); no se suma a las preparadas ni se inventan fechas. Los años sin registros permanecen sin estimación.'
-        : 'La gráfica mide cajas preparadas en cada periodo, incluyendo registros del Maestro IM, y conserva su historial incluso después del envío. El número principal solo incluye las preparadas este mes que siguen pendientes de envío.';
+      : 'Las barras muestran cajas nuevas y por solicitud con fecha real de acondicionamiento. Se contabilizan aunque ya se hayan enviado a IM. Los históricos sin fecha de preparación no se incluyen ni se estiman.';
   }
   async function refresh(){
     if(!demo && (!isAdmin()||!appReady()))return;
@@ -236,8 +235,8 @@ export function attachPreparedMonthlyKpi({repository,isAdmin,appReady}) {
         !Array.isArray(archive?.historicos))throw new Error('Respuesta no disponible');
       summary=summarizeConditionedBoxes(mergeConditionedHistory(data.listado,archive.listado),
         demo?new Date('2026-11-09T20:00:00-05:00'):new Date(),archive.historicos);
-      metric.textContent=format(summary.mesPendientes);
-      note.textContent='Preparadas este mes · Pendientes de envío a IM';
+      metric.textContent=format(summary.mesPreparadas);
+      note.textContent='Cajas acondicionadas durante el mes';
       render();
     } catch {
       if(current!==request)return;
@@ -255,7 +254,7 @@ export function attachPreparedMonthlyKpi({repository,isAdmin,appReady}) {
     refresh,
     open(){
       if(!demo && (!isAdmin()||!appReady()))return;
-      view='dia';
+      view='semana';
       if(!modal.open)modal.showModal();
       render();void refresh();
     }
