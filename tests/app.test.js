@@ -921,8 +921,8 @@ test('administrator summary shows white colored cards and transparent heart logo
 
   const admin=await app({isAdmin:true});
   try {
-    const cards=admin.node('resumenTablas').querySelectorAll('.kpis > .kpi');
-    assert.equal(cards.length,6);
+    const cards=admin.node('resumenTablas').querySelectorAll('.summary-primary > .kpi');
+    assert.equal(cards.length,3);
     assert.equal(admin.node('resumenTablas').querySelectorAll('.kpi-summary-total').length,1);
     assert.equal(admin.node('resumenTablas').querySelectorAll('.kpi-summary-sent').length,1);
     assert.equal(admin.node('resumenTablas').querySelectorAll('.kpi-summary-process').length,1);
@@ -935,10 +935,11 @@ test('administrator summary shows white colored cards and transparent heart logo
     const process=summary.querySelector('.kpi-summary-process .n');
     const pending=summary.querySelector('.kpi-summary-pending .n');
     assert.match(total.textContent,/folios/);
-    assert.equal(pending.querySelector('.folios-inline'),null);
-    assert.doesNotMatch(sent.textContent,/folios/);
+    assert.match(sent.querySelector('.folios-inline')?.textContent??'',/folios/);
+    assert.match(pending.querySelector('.folios-inline')?.textContent??'',/folios/);
+    assert.match(summary.querySelector('.kpi-summary-pending .pct-txt')?.textContent??'',/^\d+%$/);
+    assert.match(summary.querySelector('.kpi-summary-sent .pct-txt')?.textContent??'',/^\d+%$/);
     assert.doesNotMatch(process.textContent,/folios/);
-    assert.equal(sent.querySelector('.folios-inline'),null);
     assert.equal(process.querySelector('.folios-inline'),null);
     assert.equal(admin.node('resumenTablas').querySelectorAll('#yearSummaryGrid .periodo-fila').length,1);
     assert.equal(admin.node('resumenTablas').querySelectorAll('#imYearSummaryGrid .periodo-fila').length,7);
