@@ -1021,7 +1021,7 @@ test('Resumen suma el mismo respaldo histórico en total, enviados y pendientes 
   };
   const currentPending={
     ...docRow,id:randomUUID(),kardex:'SA-99003',cargos:['9900'],
-    fecha_origen:'2026-01-01',anio_origen:2026,periodo:'2026-01-01',
+    fecha_origen:'2026-10-01',anio_origen:2026,periodo:'2026-10-01',
     hoja_origen:'CARGOS NUEVOS 2026',
     caja_asignada:null,folios:35
   };
@@ -1037,10 +1037,16 @@ test('Resumen suma el mismo respaldo histórico en total, enviados y pendientes 
     assert.equal(value('summaryTotalFolios'),'(435 folios)');
     assert.equal(value('summarySentSource'),'(100 folios)');
     assert.equal(value('summaryPendingFolios'),'(335 folios)');
-    assert.ok(435>=100,'el total de folios no puede ser inferior al enviado');
+    assert.equal(value('summaryUpcomingFolios'),'(35 folios)');
+    assert.equal(value('summaryOverdueFolios'),'(300 folios)');
+    assert.equal(100+335,435,'folios enviados y pendientes deben conciliar el total');
+    assert.equal(35+300,335,'folios por vencer y vencidos deben conciliar Pendiente IM');
     assert.equal(root.querySelector('.kpi-summary-total .n').textContent.trim().match(/^\d+/)[0],'3');
     assert.equal(root.querySelector('.kpi-summary-sent .n').textContent.trim().match(/^\d+/)[0],'1');
     assert.equal(root.querySelector('.kpi-summary-pending .n').textContent.trim().match(/^\d+/)[0],'2');
+    assert.equal(root.querySelector('.kpi-summary-expiring .n').textContent.trim().match(/^\d+/)[0],'1');
+    assert.equal(root.querySelector('.kpi-summary-overdue .n').textContent.trim().match(/^\d+/)[0],'1');
+    assert.match(root.querySelector('.kpi-summary-pending .pct-txt').textContent,/^\d+%$/);
     assert.doesNotMatch(root.querySelector('#summarySentSource').textContent,/registros históricos/);
   }finally{a.close();}
 });

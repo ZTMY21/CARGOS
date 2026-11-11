@@ -510,7 +510,9 @@ function updateSummaryFolioLabels(){
   for(const [id,rows] of [
     ['summaryTotalFolios',resumenSummaryDocs],
     ['summarySentSource',resumenLastSentDocs],
-    ['summaryPendingFolios',resumenLastPendingDocs]
+    ['summaryPendingFolios',resumenLastPendingDocs],
+    ['summaryUpcomingFolios',expiryGroups.upcoming],
+    ['summaryOverdueFolios',expiryGroups.overdue]
   ]){
     const node=document.getElementById(id);
     if(node)node.textContent=' ('+foliosResumenTexto(rows)+')';
@@ -1009,8 +1011,10 @@ function renderDocs(){
   expiryGroups = cargoExpiryGroups(summaryDocs, new Date());
   const grupoPorVencer = expiryGroups.upcoming;
   const grupoVencidos = expiryGroups.overdue;
-  const cargosPorVencer = cargosDe(grupoPorVencer), foliosPorVencer = foliosDe(grupoPorVencer);
-  const cargosVencidos = cargosDe(grupoVencidos), foliosVencidos = foliosDe(grupoVencidos);
+  const cargosPorVencer = cargosDe(grupoPorVencer);
+  const cargosVencidos = cargosDe(grupoVencidos);
+  // Estas alertas deben usar exactamente la misma función de folios que
+  // Pendiente de Envío a IM; la unión de ambos grupos es su base.
   resumenLastPendingDocs=[...grupoPorVencer,...grupoVencidos];
   // Coincide exactamente con el detalle de cajas pendientes en la hoja IM.
   // El histórico de documentos no es la fuente de este indicador.
@@ -1099,12 +1103,12 @@ function renderDocs(){
       <div class="kpis" aria-label="Alertas de cargos pendientes">
         <div class="kpi kpi-color kpi-summary-expiring">
           <div class="expiry-card-heading"><div class="l">Cargos por Vencer</div><button id="btnCargosPorVencer" type="button" class="expiry-detail-button" data-expiry="upcoming" aria-label="Ver detalle de cargos por vencer" aria-haspopup="dialog" aria-controls="cargoExpirySheet">Ver detalle</button></div>
-          <div class="n">${fmtNum(cargosPorVencer)}<span class="folios-inline"> (${fmtNum(foliosPorVencer)} folios)</span></div>
+          <div class="n">${fmtNum(cargosPorVencer)}<span class="folios-inline" id="summaryUpcomingFolios" title="Folio registrado o, si falta, cantidad de documentos del cargo como referencia; no son páginas verificadas."> (${foliosResumenTexto(grupoPorVencer)})</span></div>
           <div class="pct-txt">${pct(cargosPorVencer,baseAlerta)}</div>
         </div>
         <div class="kpi kpi-color kpi-summary-overdue">
           <div class="expiry-card-heading"><div class="l">Cargos Vencidos</div><button id="btnCargosVencidos" type="button" class="expiry-detail-button" data-expiry="overdue" aria-label="Ver detalle de cargos vencidos" aria-haspopup="dialog" aria-controls="cargoExpirySheet">Ver detalle</button></div>
-          <div class="n">${fmtNum(cargosVencidos)}<span class="folios-inline"> (${fmtNum(foliosVencidos)} folios)</span></div>
+          <div class="n">${fmtNum(cargosVencidos)}<span class="folios-inline" id="summaryOverdueFolios" title="Folio registrado o, si falta, cantidad de documentos del cargo como referencia; no son páginas verificadas."> (${foliosResumenTexto(grupoVencidos)})</span></div>
           <div class="pct-txt">${pct(cargosVencidos,baseAlerta)}</div>
         </div>
       </div>
