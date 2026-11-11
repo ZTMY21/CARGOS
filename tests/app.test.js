@@ -985,7 +985,7 @@ test('Resumen concilia enviados históricos solicitados sin alterar los estados 
     now:Date.parse('2026-11-11T14:00:00Z')});
   try {
     const root=a.node('resumenTablas');
-    const count=selector=>Number(root.querySelector(selector+' .n').textContent.match(/^\\d+/)[0]);
+    const count=selector=>Number(root.querySelector(selector+' .n').textContent.match(/^\d+/)[0]);
     assert.equal(count('.kpi-summary-total'),3);
     assert.equal(count('.kpi-summary-sent'),2);
     assert.equal(count('.kpi-summary-pending'),1);
