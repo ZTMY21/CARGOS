@@ -1092,13 +1092,13 @@ function renderDocs(){
         <span class="summary-annual-icon" aria-hidden="true">▥</span>
       </div>
       <div class="summary-annual-grid" id="compactYearGrid" aria-label="Conteos de cargos por año">
-        \${compactYearCards}
+        ${compactYearCards}
       </div>
-      <p class="summary-annual-note">\${isolatedRequirements
+      <p class="summary-annual-note">${isolatedRequirements
         ? 'Conteos anuales de referencia. La consulta detallada corresponde al histórico completo.'
         : 'Selecciona un año con cargos para consultarlos en Existencias.'}</p>
     </section>
-    \${receptionPreview ? '<p class="expiry-note">Preview de recepción · los guardados se hacen en el Maestro de prueba. Las solicitudes conciliadas identifican los códigos que ya constan en Iron Mountain.</p>' : isolatedRequirements ? '<p class="expiry-note">Intervención 4 · Base aislada de pruebas con una muestra de registros reales. Consolidación en Excel pendiente.</p>' : ''}
+    ${receptionPreview ? '<p class="expiry-note">Preview de recepción · los guardados se hacen en el Maestro de prueba. Las solicitudes conciliadas identifican los códigos que ya constan en Iron Mountain.</p>' : isolatedRequirements ? '<p class="expiry-note">Intervención 4 · Base aislada de pruebas con una muestra de registros reales. Consolidación en Excel pendiente.</p>' : ''}
     ${expiryGroups.unknown.length ? `<p class="expiry-note">${fmtNum(cargosDe(expiryGroups.unknown))} cargos de 2025/2026 sin fecha válida para calcular el vencimiento; no se incluyen en estas alertas.</p>` : ''}
     <section class="year-section periodo-box" aria-labelledby="year-summary-heading">
       <h3 class="year-heading" id="year-summary-heading">Cargos por Año</h3>
