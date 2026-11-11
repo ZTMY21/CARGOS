@@ -937,8 +937,8 @@ test('administrator summary shows white colored cards and transparent heart logo
     assert.match(total.textContent,/folios/);
     assert.match(sent.querySelector('.folios-inline')?.textContent??'',/folios/);
     assert.match(pending.querySelector('.folios-inline')?.textContent??'',/folios/);
-    assert.match(summary.querySelector('.kpi-summary-pending .pct-txt')?.textContent??'',/^\\d+%$/);
-    assert.match(summary.querySelector('.kpi-summary-sent .pct-txt')?.textContent??'',/^\\d+%$/);
+    assert.match(summary.querySelector('.kpi-summary-pending .pct-txt')?.textContent??'',/^\d+%$/);
+    assert.match(summary.querySelector('.kpi-summary-sent .pct-txt')?.textContent??'',/^\d+%$/);
     assert.doesNotMatch(process.textContent,/folios/);
     assert.equal(process.querySelector('.folios-inline'),null);
     assert.equal(admin.node('resumenTablas').querySelectorAll('#yearSummaryGrid .periodo-fila').length,1);
