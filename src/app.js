@@ -945,7 +945,7 @@ function renderDocs(){
     ? fmtNum(foliosEnviados)+' folios'
     : foliosEnviados===0
       ? 'folios sin registrar'
-      : fmtNum(foliosEnviados)+' folios registrados · '+fmtNum(cargosEnviadosSinFolios)+' cargos sin dato';
+      : fmtNum(foliosEnviados)+' folios registrados · '+fmtNum(cargosEnviadosSinFolios)+(cargosEnviadosSinFolios===1?' cargo':' cargos')+' sin dato';
   const cargosEnProceso = cargosDe(grupoProceso);
 
   expiryGroups = cargoExpiryGroups(summaryDocs, new Date());
