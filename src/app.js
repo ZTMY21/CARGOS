@@ -936,6 +936,7 @@ function renderDocs(){
   const grupoEnviado = summaryDocs.filter(d=>isSentIm(d.estado));
   const grupoProceso = summaryDocs.filter(d=>d.estado==='En Proceso de Acondicionamiento');
   const cargosEnviados = cargosDe(grupoEnviado);
+  const foliosEnviados = foliosDe(grupoEnviado);
   const cargosEnProceso = cargosDe(grupoProceso);
 
   expiryGroups = cargoExpiryGroups(summaryDocs, new Date());
@@ -943,6 +944,7 @@ function renderDocs(){
   const grupoVencidos = expiryGroups.overdue;
   const cargosPorVencer = cargosDe(grupoPorVencer), foliosPorVencer = foliosDe(grupoPorVencer);
   const cargosVencidos = cargosDe(grupoVencidos), foliosVencidos = foliosDe(grupoVencidos);
+  const foliosPendientesIM = foliosPorVencer + foliosVencidos;
   // Coincide exactamente con el detalle de cajas pendientes en la hoja IM.
   // El histórico de documentos no es la fuente de este indicador.
   const cajasPreparadas=preparedImSummary?.cajas;
@@ -1016,12 +1018,13 @@ function renderDocs(){
       </div>
       <div class="kpi kpi-color kpi-summary-sent">
         <div class="l">Enviado Iron Mountain</div>
-        <div class="n">${fmtNum(cargosEnviados)}</div>
+        <div class="n">${fmtNum(cargosEnviados)}<span class="folios-inline"> (${fmtNum(foliosEnviados)} folios)</span></div>
         <div class="pct-txt">${pct(cargosEnviados,totalCargos)}</div>
       </div>
       <div class="kpi kpi-color kpi-summary-pending">
         <div class="l">Pendiente de Envío a IM</div>
-        <div class="n">${fmtNum(baseAlerta)}</div>
+        <div class="n">${fmtNum(baseAlerta)}<span class="folios-inline"> (${fmtNum(foliosPendientesIM)} folios)</span></div>
+        <div class="pct-txt">${pct(baseAlerta,totalCargos)}</div>
       </div>
     </div>
     <div class="resumen-titulo-alerta">Cargos de 2025 y 2026 pendientes de envío · Plazo de 6 meses</div>
