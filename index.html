@@ -72,6 +72,37 @@
   #grp-resumen summary{background:#fff;border-bottom:1px solid #edf0f3;}
   #grp-resumen summary .stitle{color:#7d1421;}
   #grp-resumen .group-body{padding:20px 22px 24px;}
+  /* Resumen: acciones administrativas a la derecha del encabezado, antes de los KPI. */
+  #grp-resumen .resumen-report-actions{
+    display:flex;align-items:center;justify-content:flex-end;gap:9px;
+    flex-wrap:wrap;margin:-2px 0 17px;
+  }
+  #grp-resumen .resumen-report-actions .excel-link-button{
+    display:inline-flex;align-items:center;justify-content:center;gap:7px;
+    min-height:37px;border-radius:8px;padding:8px 13px;
+    font-family:inherit;font-size:12px;font-weight:750;line-height:1.25;
+    text-decoration:none;white-space:nowrap;
+  }
+  #grp-resumen .resumen-report-actions .resumen-report-export{
+    background:#24864a;border:1px solid #24864a;color:#fff;
+  }
+  #grp-resumen .resumen-report-actions .resumen-report-export:hover{
+    background:#1c6e3b;border-color:#1c6e3b;color:#fff;
+  }
+  #grp-resumen .resumen-report-actions .resumen-report-history{
+    background:#eef2f6;border:1px solid #cbd7e4;color:#31506c;
+  }
+  #grp-resumen .resumen-report-actions .resumen-report-history:hover{
+    background:#dce7ef;border-color:#aebecb;color:#203b53;
+  }
+  #grp-resumen .resumen-report-actions .excel-link-button svg{flex:none;}
+  #grp-resumen .resumen-report-actions .excel-link-button[hidden]{display:none!important;}
+  @media(max-width:610px){
+    #grp-resumen .resumen-report-actions{justify-content:stretch;gap:8px;}
+    #grp-resumen .resumen-report-actions .excel-link-button{
+      flex:1 1 155px;white-space:normal;text-align:center;
+    }
+  }
   #grp-resumen .kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:13px;}
   #grp-resumen .kpi{
     --accent:#861724;position:relative;isolation:isolate;overflow:hidden;
@@ -1224,6 +1255,16 @@
   <details class="group" id="grp-resumen" open>
     <summary><span class="stitle">Resumen<small>Indicadores generales</small></span><span class="chev">▶</span></summary>
     <div class="group-body">
+      <div class="resumen-report-actions" aria-label="Accesos a reportes y consultas">
+        <button id="btnExportar" class="excel-link-button resumen-report-export" type="button" hidden>
+          <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6M8 13h8M8 17h8"/></svg>
+          <span>Reporte de existencias</span>
+        </button>
+        <a id="btnOpenIronMountainHistorical" class="excel-link-button historical-excel-link resumen-report-history" href="https://docs.google.com/spreadsheets/d/1YKp7q-CPOHI6R7RwJ-ekgrpb5KEIloP9/edit?usp=drivesdk" target="_blank" rel="noopener noreferrer">
+          <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 2.6-6.4L3 8"/><path d="M3 3v5h5M12 7v5l3 2"/></svg>
+          <span>Histórico IM</span>
+        </a>
+      </div>
       <div id="resumenTablas"></div>
     </div>
   </details>
@@ -1261,15 +1302,7 @@
         <button id="btnRequestedIMDetail" type="button" class="monthly-created-detail-button" aria-haspopup="dialog" aria-controls="conditionedMonthlySheet">Ver detalle <span aria-hidden="true">↗</span></button>
       </article>
     </div>
-    <div class="sync-panel-footer">
-      <div class="sync-panel-actions">
-        <div class="google-excel-links" aria-label="Enlaces y reporte de cargos">
-          <button id="btnExportar" class="excel-link-button" type="button" hidden>Reporte de Existencias</button>
-          <a id="btnOpenIronMountainExcel" class="excel-link-button" href="https://drive.google.com/file/d/14tW2-XqukNYozn4P67A7lrhjFfPveAmv/view?usp=drivesdk" target="_blank" rel="noopener noreferrer">Cargos Enviados</a>
-          <a id="btnOpenIronMountainHistorical" class="excel-link-button historical-excel-link" href="https://docs.google.com/spreadsheets/d/1YKp7q-CPOHI6R7RwJ-ekgrpb5KEIloP9/edit?usp=drivesdk" target="_blank" rel="noopener noreferrer">Histórico IM</a>
-        </div>
-      </div>
-    </div>
+
     </div>
   </section>
   <!-- Vista de detalle mensual/anual en la demo; no modifica el resumen inferior. -->
