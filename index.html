@@ -978,6 +978,11 @@
   #grp-resumen .summary-box-desc{font-size:12px;color:#627589;margin:0 0 14px;}
   #grp-resumen .kpis.summary-box-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px;}
   #grp-resumen .summary-box-grid .kpi{min-height:125px;}
+  /* Flujo de cajas: solicitud → por acondicionar → preparación → listas para envío. */
+  #grp-resumen .summary-box-grid > .kpi:not(.kpi-summary-to-condition):not(.kpi-summary-process):not(.kpi-summary-prepared){order:0;}
+  #grp-resumen .summary-box-grid > .kpi-summary-to-condition{order:1;}
+  #grp-resumen .summary-box-grid > .kpi-summary-process{order:2;}
+  #grp-resumen .summary-box-grid > .kpi-summary-prepared{order:3;}
   #grp-resumen .year-section{display:none!important;}
   @media(max-width:700px){
     #grp-resumen .kpis.summary-primary,#grp-resumen .kpis.summary-box-grid{grid-template-columns:1fr;}
