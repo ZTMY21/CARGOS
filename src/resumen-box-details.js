@@ -35,9 +35,9 @@ function requestMarkup(rows) {
   const requests=requestsOf(rows);
   const current=requests.at(-1);
   const history=[...requests].reverse().map(row=>
-    eventMarkup('Solicitud de cajas nuevas',formatNumber(row.cantidadCajas)+' cajas solicitadas',
-      dateOnly(dateValue(row)),'request','Solicitud')+
-    '<div class="summary-event-request">'+safe(row.numero||'Requerimiento sin número')+'</div>'
+    eventMarkup('Solicitud de cajas nuevas',formatNumber(row.cantidadCajas)+' cajas solicitadas'+
+      ' · '+String(row.numero||'Requerimiento sin número'),
+      dateOnly(dateValue(row)),'request','Solicitud')
   );
   return '<div class="summary-detail-stats">'+labelCard(current?formatNumber(current.cantidadCajas):'—','cajas de la solicitud vigente')+
     labelCard(formatNumber(requests.length),'solicitudes registradas')+'</div>'+
@@ -102,8 +102,9 @@ function processMarkup(rows,request,reception) {
   if(!request)return '<p class="summary-detail-empty">Todavía no se ha registrado un requerimiento de cajas nuevas.</p>';
   const total=numeric(request.cantidadCajas);
   const key=String(request.id||'');
-  const receptionCodes=new Set((reception?.id===request.id?reception.lecturas:[]||[])
-    .map(r=>physicalBoxKey(r.codigo)).filter(Boolean));
+  const readings=String(reception?.id||'')===String(request.id) && Array.isArray(reception?.lecturas)
+    ? reception.lecturas : [];
+  const receptionCodes=new Set(readings.map(r=>physicalBoxKey(r.codigo)).filter(Boolean));
   const valid=new Map();
   for(const row of rows){
     if(row?.origen!=='nueva'||!row.preparada)continue;
