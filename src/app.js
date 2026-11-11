@@ -6,6 +6,7 @@ import {attachBoxScanSheets} from './box-scan-sheet-ui.js';
 import {attachConditioningWorkspace} from './conditioning-workspace.js';
 import {attachPreparedMonthlyKpi} from './prepared-monthly-kpi.js';
 import {summarizeBoxPreparationBatch} from './conditioning-batch-summary.js';
+import {attachResumenBoxDetails} from './resumen-box-details.js';
 import {inventoryConditioning} from './conditioning-inventory.js';
 import {attachBoxConditioning} from './box-conditioning-ui.js';
 import {attachPickupMail} from './pickup-mail-ui.js';
@@ -1018,13 +1019,13 @@ function renderDocs(){
       <p class="summary-box-desc">Seguimiento de la solicitud, registro, acondicionamiento y preparación de cajas</p>
       <div class="kpis summary-box-top" aria-label="Solicitud y acondicionamiento de cajas">
         <div class="kpi kpi-color kpi-summary-requested">
-          <div class="l">Cajas solicitadas</div>
+          <div class="expiry-card-heading"><div class="l">Cajas solicitadas</div><button type="button" class="expiry-detail-button" data-resumen-box="solicitudes" aria-haspopup="dialog" aria-controls="summaryBoxDetailDialog">Ver detalle</button></div>
           <div class="n">${cajasSolicitadas > 0 ? fmtNum(cajasSolicitadas) : "—"}</div>
           <div class="pct-txt">Última solicitud de cajas nuevas</div>
         </div>
         ${isAdmin ? requestCards(reqs,requestTracking,avanceLote) : ""}
       <div class="kpi kpi-color kpi-summary-process">
-        <div class="l">En Proceso de Acondicionamiento</div>
+        <div class="expiry-card-heading"><div class="l">En Proceso de Acondicionamiento</div><button type="button" class="expiry-detail-button" data-resumen-box="acondicionamiento" aria-haspopup="dialog" aria-controls="summaryBoxDetailDialog">Ver detalle</button></div>
         <div class="n">${avanceLote?.prepared == null ? '—' : fmtNum(avanceLote.prepared)+'/'+fmtNum(avanceLote.total)}</div>
         <div class="pct-txt">${avanceLote?.preparedPct == null ? 'Consultando cajas preparadas' : avanceLote.preparedPct+'% acondicionadas'}</div>
         ${avanceLote?.prepared != null ? `<progress class="conditioning-batch-progress" value="${avanceLote.prepared}" max="${avanceLote.total}" aria-label="Porcentaje de cajas terminadas de acondicionar"></progress>` : ''}
@@ -1482,9 +1483,23 @@ function openCargoExpiry(group) {
   }
   sheet.querySelector('.expiry-table-wrap').scrollTop = 0;
 }
+// Resumen únicamente: detalles de las tres etapas del flujo de cajas.
+const resumenBoxDetails=attachResumenBoxDetails({
+  repository,
+  getState:()=>({requests:reqs,tracking:requestTracking,
+    reception:conditioningBatchSources.reception,
+    preparedRows:conditioningBatchSources.preparedRows,
+    allowed:appReady&&isAdmin})
+});
 document.getElementById('resumenTablas').addEventListener('click', event => {
-  const requestCard = event.target.closest('button[data-req-card]');
-  if (requestCard) { requestUI.showCard(requestCard.dataset.reqCard); return; }
+  const resumenButton=event.target.closest('button[data-resumen-box]');
+  if(resumenButton){resumenBoxDetails.open(resumenButton.dataset.resumenBox,resumenButton);return;}
+  const requestCard=event.target.closest('button[data-req-card]');
+  if(requestCard) {
+    if(requestCard.dataset.reqCard==='nuevas')resumenBoxDetails.open('recepcion',requestCard);
+    else requestUI.showCard(requestCard.dataset.reqCard);
+    return;
+  }
   const button = event.target.closest('button[data-expiry]');
   if (button) openCargoExpiry(button.dataset.expiry);
   const preparedButton=event.target.closest('button[data-prepared-im]');
