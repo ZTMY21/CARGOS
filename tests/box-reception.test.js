@@ -157,7 +157,7 @@ test('la API de recepción queda cerrada fuera de su rama y ante una base no ais
   }
 });
 
-test('Supabase aplica propiedad, límite, conciliación idempotente y bloqueo hasta que todas las cajas estén listas',async()=>{
+test('Supabase comparte recepción entre administradores, aplica límites, conciliación idempotente y bloqueos',async()=>{
   const db=new PGlite();
   const owner='11111111-1111-4111-8111-111111111111';
   const stranger='22222222-2222-4222-8222-222222222222';
@@ -205,6 +205,7 @@ test('Supabase aplica propiedad, límite, conciliación idempotente y bloqueo ha
     await migration('20261107233000_recepcion_conciliada.sql');
     await migration('20261108001800_recepcion_maestro_drive.sql');
     await migration('20261108090000_acondicionamiento_integral.sql');
+    await migration('20261111135000_recepcion_admins_compartida.sql');
     await actor(owner);
     await db.exec(`
       insert into private.recepcion_maestro_prueba(archivo,secreto_hash,codigos)
@@ -218,12 +219,18 @@ test('Supabase aplica propiedad, límite, conciliación idempotente y bloqueo ha
     await assert.rejects(op('leer',id,'T940021000'),/incompleto/);
     await assert.rejects(op('leer',id,'T9900000700'),/ya está registrada/);
     await actor(stranger);
-    await assert.rejects(op('leer',id,codes[0].codigo),/otro administrador/);
+    const compartida=await op('estado',null,null);
+    assert.equal(compartida.id,id,'todos los administradores ven la solicitud activa');
+    assert.equal(compartida.lecturas.length,0);
+    assert.equal((await op('leer',id,codes[0].codigo)).lecturas.length,1,
+      'otro administrador puede registrar la primera caja de la misma solicitud');
     const other=await req('crear',{tipo:'nuevas',cantidad:1});
     await actor(user);
+    await assert.rejects(op('estado',id,null),/Solo administradores/);
     await assert.rejects(op('leer',id,codes[0].codigo),/Solo administradores/);
     await actor(owner);
-    assert.equal((await op('leer',id,codes[0].codigo)).lecturas.length,1);
+    assert.equal((await op('estado',id,null)).lecturas.length,1,
+      'la cuenta principal ve el avance realizado por otro administrador');
     assert.equal((await op('leer',id,codes[0].clave)).duplicada,true);
     const lookup=code=>one("select public.kardex_acondicionamiento('buscar',$1) result",[code]);
     assert.equal((await lookup(codes[0].clave)).status,'inexistente');
@@ -232,6 +239,10 @@ test('Supabase aplica propiedad, límite, conciliación idempotente y bloqueo ha
     await actor(owner);
     await assert.rejects(commit('completa',id,0,{}),/todavía/);
     assert.equal((await commit('parcial',id,0,{[codes[0].clave]:901})).lecturas[0].correlativo,901);
+    await actor(stranger);
+    assert.equal((await op('estado',id,null)).lecturas[0].correlativo,901,
+      'el historial y avance guardados son compartidos');
+    await actor(owner);
     const box=await lookup('P'+codes[0].clave);
     assert.equal(box.status,'disponible');
     assert.equal(box.origen,'nueva');
