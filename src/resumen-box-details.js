@@ -45,6 +45,30 @@ function requestMarkup(rows) {
     (history.length?'<ol class="summary-detail-timeline">'+history.join('')+'</ol>':
       '<p class="summary-detail-empty">Todavía no hay solicitudes de cajas nuevas registradas.</p>');
 }
+function loanMarkup(state) {
+  const loans=(state.requests||[]).filter(row=>row.tipo===REQ_TYPES[1]);
+  const active=loans.filter(row=>row.estadoV4!=='Devuelto'&&!row.fechaDevolucion);
+  const boxes=state.tracking?.cajas;
+  const pending=Array.isArray(boxes)?boxes.filter(box=>!box.devolucion):null;
+  const keys=new Set((pending||[]).map(box=>physicalBoxKey(box.codigo||box.clave)).filter(Boolean));
+  const total=pending==null?'—':formatNumber(keys.size);
+  const items=[...loans].reverse().map(row=>{
+    const associated=(boxes||[]).filter(box=>String(box.requerimiento||'')===String(row.id));
+    const codes=[...new Set(associated.map(box=>box.codigo).filter(Boolean))];
+    const returned=row.estadoV4==='Devuelto'||!!row.fechaDevolucion;
+    const detail=codes.length?codes.join(' · '):'Consulta de cajas sin códigos disponibles';
+    return eventMarkup('Solicitud a Iron Mountain · '+String(row.numero||'Sin número'),
+      detail,dateOnly(dateValue(row)),
+      returned?'complete':'request',returned?'Devuelta':'Solicitud');
+  });
+  return '<div class="summary-detail-stats">'+labelCard(total,'cajas con solicitud activa')+
+    labelCard(formatNumber(active.length),'solicitudes activas')+
+    labelCard(formatNumber(loans.length),'solicitudes registradas')+'</div>'+
+    '<p class="summary-detail-helper">Se consideran únicamente las solicitudes a Iron Mountain para búsqueda o préstamo de cajas, no los pedidos de cajas nuevas.</p>'+
+    '<h3 class="summary-detail-section-title">Historial de solicitudes a Iron Mountain</h3>'+
+    (items.length?'<ol class="summary-detail-timeline">'+items.join('')+'</ol>':
+      '<p class="summary-detail-empty">No hay solicitudes a Iron Mountain registradas.</p>');
+}
 function receiptMarkup(state) {
   const request=requestCurrent(state.requests);
   if(!request)return '<p class="summary-detail-empty">No hay una solicitud de cajas nuevas para consultar.</p>';
@@ -159,6 +183,7 @@ export function attachResumenBoxDetails({repository,getState}) {
   let active='',currentRequest=null,returnTo=null,version=0;
   const titles={solicitudes:['Cajas solicitadas','Historial de solicitudes de cajas nuevas'],
     recepcion:['Cajas para acondicionar','Recepción y registro de cajas nuevas'],
+    solicitudesIM:['Solicitudes a Iron Mountain','Préstamos y búsquedas de cajas almacenadas en IM'],
     acondicionamiento:['En proceso de acondicionamiento','Cajas nuevas acondicionadas de la solicitud vigente']};
   function applyProcessFilter() {
     const field=content.querySelector('#summaryProcessSearch');
@@ -201,6 +226,7 @@ export function attachResumenBoxDetails({repository,getState}) {
     const state=getState();
     if(type==='solicitudes')content.innerHTML=requestMarkup(state.requests);
     if(type==='recepcion')content.innerHTML=receiptMarkup(state);
+    if(type==='solicitudesIM')content.innerHTML=loanMarkup(state);
     if(type==='acondicionamiento')void loadProcess(++version);
   }
   return {open};
