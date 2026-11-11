@@ -350,7 +350,8 @@ function setAvailability() {
   if (isolatedRequirements) {
     document.getElementById('btnRefreshNewCargos').hidden = true;
     for (const id of ['btnOpenIronMountainExcel','btnOpenIronMountainHistorical','preparedImOpenExcel']) {
-      document.getElementById(id).hidden = true;
+      const link=document.getElementById(id);
+      if(link)link.hidden=true;
     }
   }
 }
@@ -1771,8 +1772,8 @@ function downloadExcel(wb,name,serializer=()=>wb.xlsx.writeBuffer()) {
 }
 document.getElementById('btnExportar').addEventListener('click',async event=>{
   if(!isAdmin || !appReady)return;
-  const button=event.currentTarget,label=button.textContent;
-  button.disabled=true;button.textContent='Preparando reporte…';
+  const button=event.currentTarget,labelNode=button.querySelector('span')||button,label=labelNode.textContent;
+  button.disabled=true;labelNode.textContent='Preparando reporte…';
   try {
     // Exportar siempre el corte más reciente de Supabase, incluso si la
     // sincronización llegó mientras el administrador tenía el panel abierto.
@@ -1784,9 +1785,9 @@ document.getElementById('btnExportar').addEventListener('click',async event=>{
     await downloadExcel(wb,`Kardex_Santa_Anita_${limaDate()}.xlsx`,
       ()=>serializeExistenciasReport(wb,
         year=>repository.reportOriginalRows(year,source),
-        (year,count)=>{button.textContent='Exportando '+year+' · '+count.toLocaleString('es-PE')+' filas…';}));
+        (year,count)=>{labelNode.textContent='Exportando '+year+' · '+count.toLocaleString('es-PE')+' filas…';}));
   } catch(error) { alert(`No se pudo exportar el reporte: ${readableError(error)}`); }
-  finally { button.textContent=label;button.disabled=false; }
+  finally { labelNode.textContent=label;button.disabled=false; }
 });
 document.getElementById('btnImportar').addEventListener('click', ()=>document.getElementById('fileImportar').click());
 document.getElementById('fileImportar').addEventListener('change', async ev => {
