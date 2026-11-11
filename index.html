@@ -976,16 +976,22 @@
   #grp-resumen .summary-box-area{margin-top:24px;padding:17px 18px 19px;border:1px solid #e0e6ec;border-radius:11px;background:#f9fafb;}
   #grp-resumen .summary-box-heading{font-size:15px;font-weight:750;color:#293748;margin:0 0 5px;}
   #grp-resumen .summary-box-desc{font-size:12px;color:#627589;margin:0 0 14px;}
-  #grp-resumen .kpis.summary-box-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px;}
-  #grp-resumen .summary-box-grid .kpi{min-height:125px;}
-  /* Flujo de cajas: solicitud → por acondicionar → preparación → listas para envío. */
-  #grp-resumen .summary-box-grid > .kpi:not(.kpi-summary-to-condition):not(.kpi-summary-process):not(.kpi-summary-prepared){order:0;}
-  #grp-resumen .summary-box-grid > .kpi-summary-to-condition{order:1;}
-  #grp-resumen .summary-box-grid > .kpi-summary-process{order:2;}
-  #grp-resumen .summary-box-grid > .kpi-summary-prepared{order:3;}
+  #grp-resumen .kpis.summary-box-top{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:13px;}
+  #grp-resumen .summary-box-top .kpi{min-height:140px;}
+  /* La tarjeta adicional «Solicitudes a IM» permanece en su módulo original,
+     pero no forma parte de los cinco indicadores de esta vista Resumen. */
+  #grp-resumen .summary-box-top .kpi:not(.kpi-summary-requested):not(.kpi-summary-to-condition):not(.kpi-summary-process){display:none;}
+  #grp-resumen .kpi-summary-requested{--accent:#526b82;}
+  #grp-resumen .summary-box-subheading{font-size:13px;font-weight:750;color:#293748;margin:20px 0 12px;}
+  #grp-resumen .kpis.summary-box-bottom{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px;}
+  #grp-resumen .summary-box-bottom .kpi{min-height:132px;}
+  #grp-resumen .kpi-summary-prepared-requested{--accent:#8966bb;background:#f7f2ff;border:1px solid #e1d2f7;border-top:3px solid var(--accent);}
+  #grp-resumen .kpi-summary-prepared-requested .l,#grp-resumen .kpi-summary-prepared-requested .pct-txt{color:#7452a3;}
+  #grp-resumen .kpi-summary-prepared-new{--accent:#16815c;background:#edfaf3;border:1px solid #bde5ce;border-top:3px solid var(--accent);}
+  #grp-resumen .kpi-summary-prepared-new .l,#grp-resumen .kpi-summary-prepared-new .pct-txt{color:#186948;}
   #grp-resumen .year-section{display:none!important;}
   @media(max-width:700px){
-    #grp-resumen .kpis.summary-primary,#grp-resumen .kpis.summary-box-grid{grid-template-columns:1fr;}
+    #grp-resumen .kpis.summary-primary,#grp-resumen .kpis.summary-box-top,#grp-resumen .kpis.summary-box-bottom{grid-template-columns:1fr;}
     #grp-resumen .summary-box-area{padding:13px;}
   }
 
