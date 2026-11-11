@@ -1,0 +1,172 @@
+{
+  "date": "2026-10-29",
+  "timezone": "America/Lima",
+  "base_commit": "0e59e69aec6a3e11d945fe3e9a0af5b5a1ea8332",
+  "database_changes_applied": false,
+  "production_deployed": false,
+  "logs_last_24h": {
+    "result": [
+      {
+        "failures": 15,
+        "median_ms": 2018,
+        "p95_ms": 9201,
+        "path": "/rest/v1/rpc/kardex_snapshot",
+        "requests": 335
+      },
+      {
+        "failures": 266,
+        "median_ms": 8364,
+        "p95_ms": 10188.449999999997,
+        "path": "/rest/v1/rpc/kardex_previous_cargos",
+        "requests": 278
+      }
+    ]
+  },
+  "pg_stat_statements": [
+    {
+      "role": "authenticated",
+      "queryid": "9175761125950409773",
+      "calls": 5983,
+      "mean_ms": "748.30",
+      "max_ms": "7994.03",
+      "total_ms": "4477104.69",
+      "rows": 5983,
+      "shared_blks_hit": 90935301,
+      "shared_blks_read": 58,
+      "temp_blks_written": 2331467,
+      "query": "WITH pgrst_source AS (SELECT pgrst_call.pgrst_scalar FROM (SELECT \"public\".\"kardex_snapshot\"() pgrst_scalar) pgrst_call) SELECT $3::bigint AS total_result_set, $4 AS page_total, coalesce(json_agg(_postgrest_t.pgrst_scalar)->$5, $6) AS body, nullif(current_setting($7, $8), $9) AS response_headers, nullif(current_setting($10, $11), $12) AS response_status, $13 AS response_inserted FROM (SELECT \"kardex_snapshot\".* FROM \"pgrst_source\" AS \"kardex_snapshot\"   LIMIT $1 OFFSET $2) _postgrest_t"
+    }
+  ],
+  "volume": [
+    {
+      "documentos": 3408,
+      "normalized_characters": 40112907,
+      "largest_normalized": 44674,
+      "combined_characters": 40116314,
+      "invoice_count": 2781113
+    }
+  ],
+  "health": [
+    {
+      "jsonb_build_object": {
+        "blocked": 0,
+        "connections": {
+          "limit": 60,
+          "total": 30,
+          "active": 2,
+          "waiting": 0
+        },
+        "database_stats": {
+          "blks_hit": 4398683349,
+          "blks_read": 11587,
+          "deadlocks": 0,
+          "temp_bytes": 32781353672,
+          "stats_reset": "2026-10-02T18:01:15.201525+00:00"
+        },
+        "statement_stats_reset": "2026-10-14T03:52:24.632171+00:00"
+      }
+    }
+  ],
+  "previous_cargos": {
+    "input": "100 most recent document IDs ordered by kardex descending",
+    "before": {
+      "error": {
+        "name": "HttpException",
+        "message": "Failed to run sql query: ERROR:  57014: canceling statement due to statement timeout\n"
+      }
+    },
+    "after_authenticated": [
+      {
+        "ms": 2137.773,
+        "hits": 11852,
+        "temp_blocks": 9787
+      },
+      {
+        "ms": 1774.245,
+        "hits": 11852,
+        "temp_blocks": 9787
+      },
+      {
+        "ms": 1930.188,
+        "hits": 11852,
+        "temp_blocks": 9787
+      }
+    ],
+    "expected_digest": [
+      {
+        "digest": "2bc58ad8c45fd7fefb62a98d31747731",
+        "documents": 100
+      }
+    ],
+    "actual_digest": [
+      {
+        "digest": "2bc58ad8c45fd7fefb62a98d31747731",
+        "documents": 100
+      }
+    ]
+  },
+  "snapshot": {
+    "role": "postgres",
+    "method": "before: existing RPC; after: equivalent SELECT with proposed summary view; existing enable_nestloop=off preserved",
+    "measurements": [
+      {
+        "before": {
+          "ms": 809.629,
+          "hits": 32702,
+          "temp_blocks": 419
+        },
+        "after": {
+          "ms": 467.475,
+          "hits": 11291,
+          "temp_blocks": 0
+        }
+      },
+      {
+        "before": {
+          "ms": 680.525,
+          "hits": 32702,
+          "temp_blocks": 419
+        },
+        "after": {
+          "ms": 326.42,
+          "hits": 11291,
+          "temp_blocks": 0
+        }
+      },
+      {
+        "before": {
+          "ms": 692.842,
+          "hits": 32702,
+          "temp_blocks": 419
+        },
+        "after": {
+          "ms": 321.561,
+          "hits": 11291,
+          "temp_blocks": 0
+        }
+      }
+    ],
+    "parity": [
+      {
+        "identical": true,
+        "old_rows": 3408,
+        "new_rows": 3408
+      }
+    ]
+  },
+  "search_parity": [
+    {
+      "identical": true,
+      "total": 1,
+      "page_rows": 1
+    }
+  ],
+  "limitations": [
+    "No DDL or data changes were applied to Supabase.",
+    "Authenticated SQL timing uses a transaction-local role and existing account claim; it is not a password login test.",
+    "No live authenticated browser end-to-end test or production load test.",
+    "SQL remains a proposal outside the migrations folder.",
+    "Full test suite: 112 passed / 25 existing failures, with no new failures versus base using repaired test harness."
+  ],
+  "review_base_commit": "fe7a79c2209f83804e327a1496ea111977a7f746"
+}

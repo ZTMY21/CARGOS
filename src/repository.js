@@ -64,13 +64,36 @@ function checked(result) {
   return result.data;
 }
 export class KardexRepository {
-  constructor(client) { this.client = client; }
+  constructor(client) { this.client = client; this.previousQueue=Promise.resolve(); }
   async snapshot() { return checked(await this.client.rpc('kardex_snapshot')); }
   async access() { return checked(await this.client.rpc('kardex_access')); }
   async preparedImDetails() { return checked(await this.client.rpc('kardex_prepared_im_detail')); }
   async requestedIMDetails() { return checked(await this.client.rpc('kardex_requested_im_detail')); }
   async shippedIMBoxesMonthly() { return checked(await this.client.rpc('kardex_im_boxes_sent_monthly')); }
-  async previousCargos(ids) { return checked(await this.client.rpc('kardex_previous_cargos',{p_documento_ids:ids})); }
+  async previousCargos(ids, {signal, onBatch=()=>{}}={}) {
+    const result={};
+    // Keep the RPC's 100-ID bound and serialize overlapping pages. The SQL
+    // proposal optimizes a full page with a single protected catalog scan.
+    const unique=[...new Set(ids)];
+    for(let offset=0;offset<unique.length;offset+=100) {
+      if(signal?.aborted)throw signal.reason || new DOMException('Aborted','AbortError');
+      const batch=unique.slice(offset,offset+100);
+      const job=this.previousQueue.then(async()=>{
+        if(signal?.aborted)throw signal.reason || new DOMException('Aborted','AbortError');
+        let request=this.client.rpc('kardex_previous_cargos',{p_documento_ids:batch});
+        if(signal)request=request.abortSignal(signal);
+        return checked(await request);
+      });
+      this.previousQueue=job.catch(()=>{});
+      const data=await job;
+      if(!data || typeof data!=='object' || Array.isArray(data)
+        || batch.some(id=>!Array.isArray(data[id])))
+        throw new Error('Respuesta incompleta al consultar cargos anteriores.');
+      Object.assign(result,data);
+      onBatch(data);
+    }
+    return result;
+  }
   async requestAdminAccess() { return checked(await this.client.rpc('kardex_admin_apply')); }
   async pendingAdminRequests() { return checked(await this.client.rpc('kardex_admin_pending')); }
   async reviewAdminRequest(id,approved) { return checked(await this.client.rpc('kardex_admin_review',{p_id:id,p_approve:approved})); }

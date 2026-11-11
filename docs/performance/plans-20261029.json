@@ -1,0 +1,748 @@
+{
+  "before": {
+    "Node Type": "Aggregate",
+    "Plan Rows": 1,
+    "Plans": [
+      {
+        "Node Type": "Result",
+        "Subplan Name": "CTE requested",
+        "Plan Rows": 5,
+        "Plans": [
+          {
+            "Node Type": "Limit",
+            "Subplan Name": "InitPlan 2",
+            "Plan Rows": 100,
+            "Plans": [
+              {
+                "Node Type": "Result",
+                "Subplan Name": "InitPlan 1",
+                "Plan Rows": 1
+              },
+              {
+                "Node Type": "Index Scan",
+                "Relation Name": "documentos",
+                "Index Name": "documentos_kardex_key",
+                "Plan Rows": 1704,
+                "Filter": "(InitPlan 1).col1"
+              }
+            ]
+          },
+          {
+            "Node Type": "Limit",
+            "Subplan Name": "InitPlan 4",
+            "Plan Rows": 100,
+            "Plans": [
+              {
+                "Node Type": "Result",
+                "Subplan Name": "InitPlan 3",
+                "Plan Rows": 1
+              },
+              {
+                "Node Type": "Index Scan",
+                "Relation Name": "documentos",
+                "Index Name": "documentos_kardex_key",
+                "Plan Rows": 1704,
+                "Filter": "(InitPlan 3).col1"
+              }
+            ]
+          },
+          {
+            "Node Type": "Limit",
+            "Subplan Name": "InitPlan 6",
+            "Plan Rows": 100,
+            "Plans": [
+              {
+                "Node Type": "Result",
+                "Subplan Name": "InitPlan 5",
+                "Plan Rows": 1
+              },
+              {
+                "Node Type": "Index Scan",
+                "Relation Name": "documentos",
+                "Index Name": "documentos_kardex_key",
+                "Plan Rows": 1704,
+                "Filter": "(InitPlan 5).col1"
+              }
+            ]
+          },
+          {
+            "Node Type": "Result",
+            "Subplan Name": "InitPlan 7",
+            "Plan Rows": 1
+          },
+          {
+            "Node Type": "Result",
+            "Subplan Name": "InitPlan 8",
+            "Plan Rows": 1
+          },
+          {
+            "Node Type": "Index Scan",
+            "Relation Name": "documentos",
+            "Index Name": "documentos_pkey",
+            "Plan Rows": 5,
+            "Filter": "(InitPlan 8).col1"
+          }
+        ]
+      },
+      {
+        "Node Type": "Aggregate",
+        "Subplan Name": "CTE codes",
+        "Plan Rows": 15,
+        "Plans": [
+          {
+            "Node Type": "Nested Loop",
+            "Plan Rows": 15,
+            "Plans": [
+              {
+                "Node Type": "CTE Scan",
+                "CTE Name": "requested",
+                "Plan Rows": 5
+              },
+              {
+                "Node Type": "Function Scan",
+                "Plan Rows": 3,
+                "Filter": "((code ~ '[0-9]'::text) AND (length(code) >= 7))"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "Node Type": "Hash Join",
+        "Plan Rows": 5,
+        "Hash Cond": "(grouped.current_id = r.id)",
+        "Plans": [
+          {
+            "Node Type": "Aggregate",
+            "Plan Rows": 7,
+            "Plans": [
+              {
+                "Node Type": "Incremental Sort",
+                "Plan Rows": 7,
+                "Plans": [
+                  {
+                    "Node Type": "Subquery Scan",
+                    "Plan Rows": 7,
+                    "Plans": [
+                      {
+                        "Node Type": "Aggregate",
+                        "Plan Rows": 7,
+                        "Plans": [
+                          {
+                            "Node Type": "Result",
+                            "Subplan Name": "InitPlan 11",
+                            "Plan Rows": 1
+                          },
+                          {
+                            "Node Type": "Result",
+                            "Subplan Name": "InitPlan 12",
+                            "Plan Rows": 1
+                          },
+                          {
+                            "Node Type": "Incremental Sort",
+                            "Plan Rows": 7,
+                            "Plans": [
+                              {
+                                "Node Type": "Nested Loop",
+                                "Plan Rows": 7,
+                                "Plans": [
+                                  {
+                                    "Node Type": "Nested Loop",
+                                    "Plan Rows": 7,
+                                    "Plans": [
+                                      {
+                                        "Node Type": "Nested Loop",
+                                        "Plan Rows": 14,
+                                        "Join Filter": "((p_1.id <> r_1.id) AND (string_to_array(p_1.busqueda_facturas, ','::text) @> ARRAY[c.code]) AND (ROW(COALESCE(p_1.anio_origen, (EXTRACT(year FROM p_1.fecha_origen))::integer, (EXTRACT(year FROM p_1.fecha_registro))::integer), COALESCE(p_1.fecha_origen, p_1.fecha_registro), p_1.kardex) < ROW(r_1.year_cargo, r_1.date_cargo, r_1.kardex)))",
+                                        "Plans": [
+                                          {
+                                            "Node Type": "Merge Join",
+                                            "Plan Rows": 5,
+                                            "Plans": [
+                                              {
+                                                "Node Type": "Sort",
+                                                "Plan Rows": 15,
+                                                "Plans": [
+                                                  {
+                                                    "Node Type": "CTE Scan",
+                                                    "CTE Name": "codes",
+                                                    "Plan Rows": 15
+                                                  }
+                                                ]
+                                              },
+                                              {
+                                                "Node Type": "Sort",
+                                                "Plan Rows": 5,
+                                                "Plans": [
+                                                  {
+                                                    "Node Type": "CTE Scan",
+                                                    "CTE Name": "requested",
+                                                    "Plan Rows": 5
+                                                  }
+                                                ]
+                                              }
+                                            ]
+                                          },
+                                          {
+                                            "Node Type": "Materialize",
+                                            "Plan Rows": 1704,
+                                            "Plans": [
+                                              {
+                                                "Node Type": "Seq Scan",
+                                                "Relation Name": "documentos",
+                                                "Plan Rows": 1704,
+                                                "Filter": "(InitPlan 12).col1"
+                                              }
+                                            ]
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "Node Type": "Index Scan",
+                                        "Relation Name": "documentos",
+                                        "Index Name": "documentos_pkey",
+                                        "Plan Rows": 1,
+                                        "Filter": "(InitPlan 11).col1"
+                                      }
+                                    ]
+                                  },
+                                  {
+                                    "Node Type": "Function Scan",
+                                    "Plan Rows": 1,
+                                    "Filter": "(NULLIF(btrim(cargo), ''::text) IS NOT NULL)"
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "Node Type": "Hash",
+            "Plan Rows": 5,
+            "Plans": [
+              {
+                "Node Type": "CTE Scan",
+                "CTE Name": "requested",
+                "Plan Rows": 5
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "after": {
+    "Node Type": "Aggregate",
+    "Plan Rows": 1,
+    "Actual Rows": 1,
+    "Actual Loops": 1,
+    "Shared Hit Blocks": 11852,
+    "Shared Read Blocks": 0,
+    "Temp Written Blocks": 9787,
+    "Plans": [
+      {
+        "Node Type": "Result",
+        "Subplan Name": "CTE catalog",
+        "Plan Rows": 1704,
+        "Actual Rows": 3408,
+        "Actual Loops": 1,
+        "Shared Hit Blocks": 623,
+        "Shared Read Blocks": 0,
+        "Temp Written Blocks": 0,
+        "Plans": [
+          {
+            "Node Type": "Result",
+            "Subplan Name": "InitPlan 1",
+            "Plan Rows": 1,
+            "Actual Rows": 1,
+            "Actual Loops": 1,
+            "Shared Hit Blocks": 6,
+            "Shared Read Blocks": 0,
+            "Temp Written Blocks": 0
+          },
+          {
+            "Node Type": "Result",
+            "Subplan Name": "InitPlan 2",
+            "Plan Rows": 1,
+            "Actual Rows": 1,
+            "Actual Loops": 1,
+            "Shared Hit Blocks": 6,
+            "Shared Read Blocks": 0,
+            "Temp Written Blocks": 0
+          },
+          {
+            "Node Type": "Seq Scan",
+            "Relation Name": "documentos",
+            "Plan Rows": 1704,
+            "Actual Rows": 3408,
+            "Actual Loops": 1,
+            "Filter": "(InitPlan 2).col1",
+            "Shared Hit Blocks": 617,
+            "Shared Read Blocks": 0,
+            "Temp Written Blocks": 0
+          }
+        ]
+      },
+      {
+        "Node Type": "Result",
+        "Subplan Name": "CTE requested",
+        "Plan Rows": 10,
+        "Actual Rows": 100,
+        "Actual Loops": 1,
+        "Shared Hit Blocks": 1217,
+        "Shared Read Blocks": 0,
+        "Temp Written Blocks": 0,
+        "Plans": [
+          {
+            "Node Type": "Limit",
+            "Subplan Name": "InitPlan 5",
+            "Plan Rows": 100,
+            "Actual Rows": 100,
+            "Actual Loops": 1,
+            "Shared Hit Blocks": 61,
+            "Shared Read Blocks": 0,
+            "Temp Written Blocks": 0,
+            "Plans": [
+              {
+                "Node Type": "Result",
+                "Subplan Name": "InitPlan 4",
+                "Plan Rows": 1,
+                "Actual Rows": 1,
+                "Actual Loops": 1,
+                "Shared Hit Blocks": 6,
+                "Shared Read Blocks": 0,
+                "Temp Written Blocks": 0
+              },
+              {
+                "Node Type": "Index Scan",
+                "Relation Name": "documentos",
+                "Index Name": "documentos_kardex_key",
+                "Plan Rows": 1704,
+                "Actual Rows": 100,
+                "Actual Loops": 1,
+                "Filter": "(InitPlan 4).col1",
+                "Shared Hit Blocks": 61,
+                "Shared Read Blocks": 0,
+                "Temp Written Blocks": 0
+              }
+            ]
+          },
+          {
+            "Node Type": "Limit",
+            "Subplan Name": "InitPlan 7",
+            "Plan Rows": 100,
+            "Actual Rows": 100,
+            "Actual Loops": 1,
+            "Shared Hit Blocks": 466,
+            "Shared Read Blocks": 0,
+            "Temp Written Blocks": 0,
+            "Plans": [
+              {
+                "Node Type": "Result",
+                "Subplan Name": "InitPlan 6",
+                "Plan Rows": 1,
+                "Actual Rows": 1,
+                "Actual Loops": 1,
+                "Shared Hit Blocks": 411,
+                "Shared Read Blocks": 0,
+                "Temp Written Blocks": 0
+              },
+              {
+                "Node Type": "Index Scan",
+                "Relation Name": "documentos",
+                "Index Name": "documentos_kardex_key",
+                "Plan Rows": 1704,
+                "Actual Rows": 100,
+                "Actual Loops": 1,
+                "Filter": "(InitPlan 6).col1",
+                "Shared Hit Blocks": 466,
+                "Shared Read Blocks": 0,
+                "Temp Written Blocks": 0
+              }
+            ]
+          },
+          {
+            "Node Type": "Limit",
+            "Subplan Name": "InitPlan 9",
+            "Plan Rows": 100,
+            "Actual Rows": 100,
+            "Actual Loops": 1,
+            "Shared Hit Blocks": 61,
+            "Shared Read Blocks": 0,
+            "Temp Written Blocks": 0,
+            "Plans": [
+              {
+                "Node Type": "Result",
+                "Subplan Name": "InitPlan 8",
+                "Plan Rows": 1,
+                "Actual Rows": 1,
+                "Actual Loops": 1,
+                "Shared Hit Blocks": 6,
+                "Shared Read Blocks": 0,
+                "Temp Written Blocks": 0
+              },
+              {
+                "Node Type": "Index Scan",
+                "Relation Name": "documentos",
+                "Index Name": "documentos_kardex_key",
+                "Plan Rows": 1704,
+                "Actual Rows": 100,
+                "Actual Loops": 1,
+                "Filter": "(InitPlan 8).col1",
+                "Shared Hit Blocks": 61,
+                "Shared Read Blocks": 0,
+                "Temp Written Blocks": 0
+              }
+            ]
+          },
+          {
+            "Node Type": "Result",
+            "Subplan Name": "InitPlan 10",
+            "Plan Rows": 1,
+            "Actual Rows": 1,
+            "Actual Loops": 1,
+            "Shared Hit Blocks": 6,
+            "Shared Read Blocks": 0,
+            "Temp Written Blocks": 0
+          },
+          {
+            "Node Type": "CTE Scan",
+            "CTE Name": "catalog",
+            "Plan Rows": 10,
+            "Actual Rows": 100,
+            "Actual Loops": 1,
+            "Filter": "(id = ANY ((InitPlan 5).col1))",
+            "Shared Hit Blocks": 684,
+            "Shared Read Blocks": 0,
+            "Temp Written Blocks": 0
+          }
+        ]
+      },
+      {
+        "Node Type": "Aggregate",
+        "Subplan Name": "CTE codes",
+        "Plan Rows": 30,
+        "Actual Rows": 78576,
+        "Actual Loops": 1,
+        "Shared Hit Blocks": 310,
+        "Shared Read Blocks": 0,
+        "Temp Written Blocks": 607,
+        "Plans": [
+          {
+            "Node Type": "Nested Loop",
+            "Plan Rows": 30,
+            "Actual Rows": 80407,
+            "Actual Loops": 1,
+            "Shared Hit Blocks": 310,
+            "Shared Read Blocks": 0,
+            "Temp Written Blocks": 0,
+            "Plans": [
+              {
+                "Node Type": "CTE Scan",
+                "CTE Name": "requested",
+                "Plan Rows": 10,
+                "Actual Rows": 100,
+                "Actual Loops": 1,
+                "Shared Hit Blocks": 0,
+                "Shared Read Blocks": 0,
+                "Temp Written Blocks": 0
+              },
+              {
+                "Node Type": "Function Scan",
+                "Plan Rows": 3,
+                "Actual Rows": 804,
+                "Actual Loops": 100,
+                "Filter": "((code ~ '[0-9]'::text) AND (length(code) >= 7))",
+                "Shared Hit Blocks": 310,
+                "Shared Read Blocks": 0,
+                "Temp Written Blocks": 0
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "Node Type": "Hash Join",
+        "Subplan Name": "CTE code_matches",
+        "Plan Rows": 2556,
+        "Actual Rows": 1997,
+        "Actual Loops": 1,
+        "Join Filter": "(p_2.id <> c.id)",
+        "Hash Cond": "((unnest(string_to_array(p_2.busqueda_facturas, ','::text))) = c.code)",
+        "Shared Hit Blocks": 10623,
+        "Shared Read Blocks": 0,
+        "Temp Written Blocks": 9787,
+        "Plans": [
+          {
+            "Node Type": "ProjectSet",
+            "Plan Rows": 17040,
+            "Actual Rows": 2781113,
+            "Actual Loops": 1,
+            "Shared Hit Blocks": 10313,
+            "Shared Read Blocks": 0,
+            "Temp Written Blocks": 0,
+            "Plans": [
+              {
+                "Node Type": "CTE Scan",
+                "CTE Name": "catalog",
+                "Plan Rows": 1704,
+                "Actual Rows": 3408,
+                "Actual Loops": 1,
+                "Shared Hit Blocks": 0,
+                "Shared Read Blocks": 0,
+                "Temp Written Blocks": 0
+              }
+            ]
+          },
+          {
+            "Node Type": "Hash",
+            "Plan Rows": 30,
+            "Actual Rows": 78576,
+            "Actual Loops": 1,
+            "Shared Hit Blocks": 310,
+            "Shared Read Blocks": 0,
+            "Temp Written Blocks": 1235,
+            "Plans": [
+              {
+                "Node Type": "CTE Scan",
+                "CTE Name": "codes",
+                "Plan Rows": 30,
+                "Actual Rows": 78576,
+                "Actual Loops": 1,
+                "Shared Hit Blocks": 310,
+                "Shared Read Blocks": 0,
+                "Temp Written Blocks": 993
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "Node Type": "Hash Join",
+        "Plan Rows": 10,
+        "Actual Rows": 100,
+        "Actual Loops": 1,
+        "Hash Cond": "(grouped.current_id = r.id)",
+        "Shared Hit Blocks": 11852,
+        "Shared Read Blocks": 0,
+        "Temp Written Blocks": 9787,
+        "Plans": [
+          {
+            "Node Type": "Aggregate",
+            "Plan Rows": 28,
+            "Actual Rows": 69,
+            "Actual Loops": 1,
+            "Shared Hit Blocks": 10635,
+            "Shared Read Blocks": 0,
+            "Temp Written Blocks": 9787,
+            "Plans": [
+              {
+                "Node Type": "Incremental Sort",
+                "Plan Rows": 28,
+                "Actual Rows": 365,
+                "Actual Loops": 1,
+                "Shared Hit Blocks": 10635,
+                "Shared Read Blocks": 0,
+                "Temp Written Blocks": 9787,
+                "Plans": [
+                  {
+                    "Node Type": "Subquery Scan",
+                    "Plan Rows": 28,
+                    "Actual Rows": 365,
+                    "Actual Loops": 1,
+                    "Shared Hit Blocks": 10623,
+                    "Shared Read Blocks": 0,
+                    "Temp Written Blocks": 9787,
+                    "Plans": [
+                      {
+                        "Node Type": "Aggregate",
+                        "Plan Rows": 28,
+                        "Actual Rows": 365,
+                        "Actual Loops": 1,
+                        "Shared Hit Blocks": 10623,
+                        "Shared Read Blocks": 0,
+                        "Temp Written Blocks": 9787,
+                        "Plans": [
+                          {
+                            "Node Type": "Sort",
+                            "Plan Rows": 28,
+                            "Actual Rows": 1617,
+                            "Actual Loops": 1,
+                            "Shared Hit Blocks": 10623,
+                            "Shared Read Blocks": 0,
+                            "Temp Written Blocks": 9787,
+                            "Plans": [
+                              {
+                                "Node Type": "Nested Loop",
+                                "Plan Rows": 28,
+                                "Actual Rows": 1617,
+                                "Actual Loops": 1,
+                                "Shared Hit Blocks": 10623,
+                                "Shared Read Blocks": 0,
+                                "Temp Written Blocks": 9787,
+                                "Plans": [
+                                  {
+                                    "Node Type": "Hash Join",
+                                    "Plan Rows": 28,
+                                    "Actual Rows": 1617,
+                                    "Actual Loops": 1,
+                                    "Hash Cond": "(p.id = p_1.id)",
+                                    "Shared Hit Blocks": 10623,
+                                    "Shared Read Blocks": 0,
+                                    "Temp Written Blocks": 9787,
+                                    "Plans": [
+                                      {
+                                        "Node Type": "CTE Scan",
+                                        "CTE Name": "catalog",
+                                        "Plan Rows": 1704,
+                                        "Actual Rows": 3408,
+                                        "Actual Loops": 1,
+                                        "Shared Hit Blocks": 0,
+                                        "Shared Read Blocks": 0,
+                                        "Temp Written Blocks": 0
+                                      },
+                                      {
+                                        "Node Type": "Hash",
+                                        "Plan Rows": 28,
+                                        "Actual Rows": 1617,
+                                        "Actual Loops": 1,
+                                        "Shared Hit Blocks": 10623,
+                                        "Shared Read Blocks": 0,
+                                        "Temp Written Blocks": 9787,
+                                        "Plans": [
+                                          {
+                                            "Node Type": "Hash Join",
+                                            "Plan Rows": 28,
+                                            "Actual Rows": 1617,
+                                            "Actual Loops": 1,
+                                            "Join Filter": "(ROW(p_1.year_cargo, p_1.date_cargo, p_1.kardex) < ROW(r_1.year_cargo, r_1.date_cargo, r_1.kardex))",
+                                            "Hash Cond": "(p_1.id = m.previous_id)",
+                                            "Shared Hit Blocks": 10623,
+                                            "Shared Read Blocks": 0,
+                                            "Temp Written Blocks": 9787,
+                                            "Plans": [
+                                              {
+                                                "Node Type": "CTE Scan",
+                                                "CTE Name": "catalog",
+                                                "Plan Rows": 1704,
+                                                "Actual Rows": 3408,
+                                                "Actual Loops": 1,
+                                                "Shared Hit Blocks": 0,
+                                                "Shared Read Blocks": 0,
+                                                "Temp Written Blocks": 0
+                                              },
+                                              {
+                                                "Node Type": "Hash",
+                                                "Plan Rows": 128,
+                                                "Actual Rows": 1997,
+                                                "Actual Loops": 1,
+                                                "Shared Hit Blocks": 10623,
+                                                "Shared Read Blocks": 0,
+                                                "Temp Written Blocks": 9787,
+                                                "Plans": [
+                                                  {
+                                                    "Node Type": "Hash Join",
+                                                    "Plan Rows": 128,
+                                                    "Actual Rows": 1997,
+                                                    "Actual Loops": 1,
+                                                    "Hash Cond": "(m.current_id = r_1.id)",
+                                                    "Shared Hit Blocks": 10623,
+                                                    "Shared Read Blocks": 0,
+                                                    "Temp Written Blocks": 9787,
+                                                    "Plans": [
+                                                      {
+                                                        "Node Type": "CTE Scan",
+                                                        "CTE Name": "code_matches",
+                                                        "Plan Rows": 2556,
+                                                        "Actual Rows": 1997,
+                                                        "Actual Loops": 1,
+                                                        "Shared Hit Blocks": 10623,
+                                                        "Shared Read Blocks": 0,
+                                                        "Temp Written Blocks": 9787
+                                                      },
+                                                      {
+                                                        "Node Type": "Hash",
+                                                        "Plan Rows": 10,
+                                                        "Actual Rows": 100,
+                                                        "Actual Loops": 1,
+                                                        "Shared Hit Blocks": 0,
+                                                        "Shared Read Blocks": 0,
+                                                        "Temp Written Blocks": 0,
+                                                        "Plans": [
+                                                          {
+                                                            "Node Type": "CTE Scan",
+                                                            "CTE Name": "requested",
+                                                            "Plan Rows": 10,
+                                                            "Actual Rows": 100,
+                                                            "Actual Loops": 1,
+                                                            "Shared Hit Blocks": 0,
+                                                            "Shared Read Blocks": 0,
+                                                            "Temp Written Blocks": 0
+                                                          }
+                                                        ]
+                                                      }
+                                                    ]
+                                                  }
+                                                ]
+                                              }
+                                            ]
+                                          }
+                                        ]
+                                      }
+                                    ]
+                                  },
+                                  {
+                                    "Node Type": "Function Scan",
+                                    "Plan Rows": 1,
+                                    "Actual Rows": 1,
+                                    "Actual Loops": 1617,
+                                    "Filter": "(NULLIF(btrim(cargo), ''::text) IS NOT NULL)",
+                                    "Shared Hit Blocks": 0,
+                                    "Shared Read Blocks": 0,
+                                    "Temp Written Blocks": 0
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "Node Type": "Hash",
+            "Plan Rows": 10,
+            "Actual Rows": 100,
+            "Actual Loops": 1,
+            "Shared Hit Blocks": 1217,
+            "Shared Read Blocks": 0,
+            "Temp Written Blocks": 0,
+            "Plans": [
+              {
+                "Node Type": "CTE Scan",
+                "CTE Name": "requested",
+                "Plan Rows": 10,
+                "Actual Rows": 100,
+                "Actual Loops": 1,
+                "Shared Hit Blocks": 1217,
+                "Shared Read Blocks": 0,
+                "Temp Written Blocks": 0
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
