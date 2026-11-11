@@ -948,7 +948,7 @@ function renderDocs(){
   const solicitudCajas = receptionPresentation && isAdmin
     ? reqs.findLast(row=>row.tipo==='Cajas nuevas para acondicionar' && Number(row.cantidadCajas)>0)
     : null;
-  const cajasSolicitadas = Number(solicitudCajas?.cantidadCajas)||0;
+  const cajasSolicitadas = Number((isAdmin ? reqs.filter(row=>row.tipo==="Cajas nuevas para acondicionar" && Number(row.cantidadCajas)>0).at(-1) : null)?.cantidadCajas)||0;
   const avanceLote=summarizeBoxPreparationBatch(solicitudCajas,requestTracking,
     conditioningBatchSources.reception,conditioningBatchSources.preparedRows);
 
@@ -1015,24 +1015,39 @@ function renderDocs(){
     </div>
     <section class="summary-box-area" aria-labelledby="summary-box-heading">
       <h3 class="summary-box-heading" id="summary-box-heading">Gestión de cajas</h3>
-      <p class="summary-box-desc">Solicitudes, cajas por acondicionar, avance de preparación y cajas listas para envío</p>
-      <div class="kpis summary-box-grid" aria-label="Indicadores de gestión de cajas">
-      <div class="kpi kpi-color kpi-summary-prepared" aria-label="Cajas preparadas para envío a Iron Mountain">
-        <div class="expiry-card-heading">
-          <div class="l">Cajas preparadas para envío</div>
-          <button id="btnPreparedImDetail" type="button" class="expiry-detail-button" data-prepared-im="detail" aria-label="Ver detalle de cajas preparadas para envío" aria-haspopup="dialog" aria-controls="preparedImSheet">Ver detalle</button>
+      <p class="summary-box-desc">Seguimiento de la solicitud, registro, acondicionamiento y preparación de cajas</p>
+      <div class="kpis summary-box-top" aria-label="Solicitud y acondicionamiento de cajas">
+        <div class="kpi kpi-color kpi-summary-requested">
+          <div class="l">Cajas solicitadas</div>
+          <div class="n">${cajasSolicitadas > 0 ? fmtNum(cajasSolicitadas) : "—"}</div>
+          <div class="pct-txt">Última solicitud de cajas nuevas</div>
         </div>
-        <div class="n" id="preparedImSummaryMetric">${cajasPreparadas == null?'—':fmtNum(cajasPreparadas)}</div>
-        <div class="pct-txt">Sin fecha de envío · Pendientes de envío a Iron Mountain</div>
-      </div>
-      ${isAdmin ? requestCards(reqs,requestTracking,avanceLote) : ''}
-
+        ${isAdmin ? requestCards(reqs,requestTracking,avanceLote) : ""}
       <div class="kpi kpi-color kpi-summary-process">
         <div class="l">En Proceso de Acondicionamiento</div>
         <div class="n">${avanceLote?.prepared == null ? '—' : fmtNum(avanceLote.prepared)+'/'+fmtNum(avanceLote.total)}</div>
         <div class="pct-txt">${avanceLote?.preparedPct == null ? 'Consultando cajas preparadas' : avanceLote.preparedPct+'% acondicionadas'}</div>
         ${avanceLote?.prepared != null ? `<progress class="conditioning-batch-progress" value="${avanceLote.prepared}" max="${avanceLote.total}" aria-label="Porcentaje de cajas terminadas de acondicionar"></progress>` : ''}
       </div>
+      </div>
+      <h4 class="summary-box-subheading">Cajas preparadas para envío</h4>
+      <div class="kpis summary-box-bottom" aria-label="Cajas preparadas pendientes de envío, según su clasificación">
+        <div class="kpi kpi-color kpi-summary-prepared kpi-summary-prepared-requested" aria-label="Cajas preparadas para envío solicitadas">
+          <div class="expiry-card-heading">
+            <div class="l">Cajas preparadas para envío solicitadas</div>
+            <button id="btnPreparedImDetailRequested" type="button" class="expiry-detail-button" data-prepared-im="solicitadas" aria-haspopup="dialog" aria-controls="preparedImSheet">Ver detalle</button>
+          </div>
+          <div class="n" id="preparedImRequestedMetric">${preparedImSummary?.solicitadas == null ? "—" : fmtNum(preparedImSummary.solicitadas)}</div>
+          <div class="pct-txt">Por solicitud · Sin fecha de envío a IM</div>
+        </div>
+        <div class="kpi kpi-color kpi-summary-prepared kpi-summary-prepared-new" aria-label="Cajas preparadas para envío nuevas">
+          <div class="expiry-card-heading">
+            <div class="l">Cajas preparadas para envío nuevas</div>
+            <button id="btnPreparedImDetailNew" type="button" class="expiry-detail-button" data-prepared-im="nuevas" aria-haspopup="dialog" aria-controls="preparedImSheet">Ver detalle</button>
+          </div>
+          <div class="n" id="preparedImNewMetric">${preparedImSummary?.nuevas == null ? "—" : fmtNum(preparedImSummary.nuevas)}</div>
+          <div class="pct-txt">Cajas nuevas · Sin fecha de envío a IM</div>
+        </div>
       </div>
     </section>
     ${receptionPreview ? '<p class="expiry-note">Preview de recepción · los guardados se hacen en el Maestro de prueba. Las solicitudes conciliadas identifican los códigos que ya constan en Iron Mountain.</p>' : isolatedRequirements ? '<p class="expiry-note">Intervención 4 · Base aislada de pruebas con una muestra de registros reales. Consolidación en Excel pendiente.</p>' : ''}
@@ -1201,6 +1216,29 @@ function renderDocs(){
 }
 
 
+// Solo Resumen: clasificación de cajas listas para envío en el Maestro IM.
+function preparedBoxGroup(box) {
+  const classification=String(box?.clasificacion_caja??box?.clasificacion??box?.origen??'').trim().toLowerCase();
+  if(/solicitud|solicitad|pr[eé]stamo|devoluci[oó]n/.test(classification))return 'solicitadas';
+  if(/nuev/.test(classification))return 'nuevas';
+  return '';
+}
+function summarizedPreparedGroups(rows) {
+  const requested=new Set(),newBoxes=new Set();
+  for(const row of rows){
+    if(String(row?.fecha_envio??'').trim())continue;
+    const code=physicalBoxKey(row?.codigo_caja);
+    const type=preparedBoxGroup(row);
+    if(!code || !type)continue;
+    (type==='solicitadas'?requested:newBoxes).add(code);
+  }
+  // Nunca contar dos veces el mismo código si el Maestro tiene clasificaciones contradictorias.
+  for(const code of requested)newBoxes.delete(code);
+  return {solicitadas:requested.size,nuevas:newBoxes.size};
+}
+let preparedImActiveType=null;
+let preparedImReturnId='btnPreparedImDetailRequested';
+
 function closePreparedIm() {
   const dialog=document.getElementById('preparedImSheet');
   preparedImFetchEpoch++;
@@ -1215,12 +1253,12 @@ function renderPreparedImDetail() {
   if(!dialog.open || !isAdmin) return;
   const input=document.getElementById('preparedImSearch');
   const filter=input.value.trim().toLocaleLowerCase('es-PE');
-  const rows=preparedImRows.filter(b=>!filter || [
+  const rows=preparedImRows.filter(b=>preparedBoxGroup(b)===preparedImActiveType && String(b.fecha_envio??'').trim()==='' && (!filter || [
     b.codigo_caja,b.numeros_cargos,b.clasificacion_caja,...(b.cargos||[]),b.responsable_preparacion,
     b.responsable_entrega,b.responsable_recibe,b.placa_transporte
-  ].some(x=>String(x||'').toLocaleLowerCase('es-PE').includes(filter)));
+  ].some(x=>String(x||'').toLocaleLowerCase('es-PE').includes(filter))));
   const totalCargos=new Set(rows.flatMap(b=>(b.cargos||[]).map(c=>String(c)))).size;
-  const totalCajas=new Set(rows.map(b=>String(b.codigo_caja||'').trim()).filter(Boolean)).size;
+  const totalCajas=new Set(rows.map(b=>physicalBoxKey(b.codigo_caja)).filter(Boolean)).size;
   document.getElementById('preparedImCount').textContent=
     `${fmtNum(totalCajas)} cajas · ${fmtNum(totalCargos)} cargos sin envío${filter?' · Filtro aplicado':''}`;
   const field=(name,value,fallback='Pendiente')=>
@@ -1272,13 +1310,15 @@ async function reloadPreparedImSummary() {
       if(!box || !date)continue;
       returnDates.set(box,returnDates.has(box) && returnDates.get(box)!==date ? null : date);
     }
-    preparedImSummary={...summarizePreparedIm(rows),returnDates};
+    preparedImSummary={...summarizePreparedIm(rows),...summarizedPreparedGroups(rows),returnDates};
   } catch(error) {
     if(epoch!==preparedImSummaryEpoch || generation!==authGeneration || !appReady || !isAdmin)return;
     preparedImSummary=null; // No presentar una cantidad anterior como actual.
   }
-  const metric=document.getElementById('preparedImSummaryMetric');
-  if(metric)metric.textContent=preparedImSummary?fmtNum(preparedImSummary.cajas):'—';
+  for(const [type,id] of [['solicitadas','preparedImRequestedMetric'],['nuevas','preparedImNewMetric']]) {
+    const metric=document.getElementById(id);
+    if(metric)metric.textContent=preparedImSummary?fmtNum(preparedImSummary[type]):'—';
+  }
   if(document.getElementById('requestedIMSheet').open)renderRequestedIM();
 }
 async function reloadPreparedImDetail() {
@@ -1297,10 +1337,17 @@ async function reloadPreparedImDetail() {
     document.getElementById('preparedImList').textContent='No se pudo consultar el detalle: '+readableError(error);
   }
 }
-function openPreparedIm() {
-  if(!appReady || !isAdmin) return;
+function openPreparedIm(type) {
+  if(!appReady || !isAdmin || !['solicitadas','nuevas'].includes(type)) return;
+  preparedImActiveType=type;
+  preparedImReturnId=type==='solicitadas'?'btnPreparedImDetailRequested':'btnPreparedImDetailNew';
+  document.getElementById('preparedImTitle').textContent='Cajas preparadas para envío '+type;
+  document.getElementById('preparedImRule').textContent=
+    (type==='solicitadas'?'Solo cajas clasificadas «Por solicitud»':'Solo cajas clasificadas como nuevas')+
+    ' en el Excel Maestro, sin fecha de envío a Iron Mountain. El detalle no modifica los registros.';
   const dialog=document.getElementById('preparedImSheet');
   if(!dialog.open)dialog.showModal();
+  document.getElementById('preparedImSearch').value='';
   document.getElementById('preparedImList').textContent='Consultando cajas preparadas…';
   void reloadPreparedImDetail();
 }
@@ -1376,7 +1423,8 @@ document.getElementById('preparedImSheet').addEventListener('close',()=>{
   preparedImRows=[];
   document.getElementById('preparedImSearch').value='';
   document.getElementById('preparedImList').textContent='';
-  if(appReady && isAdmin) document.getElementById('btnPreparedImDetail')?.focus();
+  if(appReady && isAdmin) document.getElementById(preparedImReturnId)?.focus();
+  preparedImActiveType=null;
 });
 document.getElementById('preparedImSearch').addEventListener('input',renderPreparedImDetail);
 document.getElementById('btnPreparedImRefresh').addEventListener('click',()=>void reloadPreparedImDetail());
@@ -1439,7 +1487,8 @@ document.getElementById('resumenTablas').addEventListener('click', event => {
   if (requestCard) { requestUI.showCard(requestCard.dataset.reqCard); return; }
   const button = event.target.closest('button[data-expiry]');
   if (button) openCargoExpiry(button.dataset.expiry);
-  if(event.target.closest('button[data-prepared-im]')) openPreparedIm();
+  const preparedButton=event.target.closest('button[data-prepared-im]');
+  if(preparedButton) openPreparedIm(preparedButton.dataset.preparedIm);
 });
 document.getElementById('btnCloseCargoExpiry').addEventListener('click', closeCargoExpiry);
 document.getElementById('cargoExpirySheet').addEventListener('close', () => {
