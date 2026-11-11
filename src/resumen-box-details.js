@@ -59,15 +59,22 @@ function receiptMarkup(state) {
   const fullyReceived=!!complete.length || !!currentTracking?.confirmada || !!request.fechaRecepcion;
   const pending=Math.max(0,total-saved);
   const percentage=total?Math.round(saved/total*100):0;
-  const timeline=partial.map(e=>eventMarkup('Guardado parcial de recepción',
-    formatNumber(e.datos.cantidad)+' de '+formatNumber(total)+' cajas registradas en el Excel',
-    dateTime(e.registrado), 'partial', 'Parcial'));
-  if(complete.length)for(const e of complete)timeline.push(eventMarkup('Recepción completa',
-    formatNumber(total)+' de '+formatNumber(total)+' cajas registradas en el Excel',
-    dateTime(e.registrado),'complete','Completa'));
-  if(!timeline.length && saved)timeline.push(eventMarkup(
-    'Avance registrado',formatNumber(saved)+' de '+formatNumber(total)+' cajas registradas',
-    'Sin fecha de guardado disponible','partial','Avance'));
+  // El detalle de Resumen es un estado acumulado: no repetir una tarjeta por guardado.
+  // Los movimientos históricos permanecen intactos en su origen; solo mostramos el último.
+  const latestComplete=complete.at(-1);
+  const latestPartial=partial.at(-1);
+  const latest=latestComplete||latestPartial;
+  const timeline=latest
+    ? [eventMarkup(
+        latestComplete?'Recepción completa':'Guardado parcial de recepción',
+        formatNumber(latestComplete?total:numeric(latest.datos?.cantidad))+
+          ' de '+formatNumber(total)+' cajas registradas en el Excel',
+        dateTime(latest.registrado),
+        latestComplete?'complete':'partial',
+        latestComplete?'Completa':'Parcial')]
+    : saved ? [eventMarkup(
+        'Avance registrado',formatNumber(saved)+' de '+formatNumber(total)+' cajas registradas',
+        'Sin fecha de guardado disponible','partial','Avance')] : [];
   return '<div class="summary-detail-stats">'+
     labelCard(formatNumber(total),'cajas solicitadas')+
     labelCard(formatNumber(saved),'cajas registradas')+
@@ -79,7 +86,7 @@ function receiptMarkup(state) {
     (fullyReceived?'Recepción completa':'Recepción parcial')+'</span></div>'+
     '<progress class="summary-detail-progress" value="'+saved+'" max="'+Math.max(total,1)+'" aria-label="Avance de recepción de cajas"></progress>'+
     '<p class="summary-detail-helper">'+percentage+'% registradas · '+formatNumber(pending)+' cajas pendientes</p>'+
-    '<h3 class="summary-detail-section-title">Historial de recepción</h3>'+
+    '<h3 class="summary-detail-section-title">Último movimiento de recepción</h3>'+
     (timeline.length?'<ol class="summary-detail-timeline">'+timeline.join('')+'</ol>':
        '<p class="summary-detail-empty">Todavía no existen movimientos de guardado parcial para este requerimiento.</p>');
 }
