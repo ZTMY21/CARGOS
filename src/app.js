@@ -415,6 +415,7 @@ async function refreshData() {
       clearPreviousCargoCache();
       populateYearOptions();
       renderReqs(); renderDocs();
+      if(isAdmin)loadSummarySentSource();
       if(isAdmin) {
         if (document.getElementById('preparedImSheet').open) void reloadPreparedImDetail();
         if(appReady) {
@@ -467,6 +468,63 @@ let editingReqId = null;
 let editingReqVersion = null;
 
 let docs = [];
+// Datos de consulta usados únicamente por los KPI de Resumen.
+let resumenArchiveMeta = null;
+let resumenArchiveMetaUser = null;
+let resumenArchiveMetaTotal = -1;
+let resumenArchiveMetaLoading = false;
+let resumenLastSentDocs = [];
+function isHistoricalImSentSource(doc){
+  return /^Cargos enviados 20(?:20|21|22|23|24|25)$/i.test(String(doc?.hojaOrigen||'').trim())
+    && /hoja de origen declara cargos enviados/i.test(String(doc?.estadoOrigen||''));
+}
+function isSentInSummary(doc){
+  // Una caja solicitada a IM puede estar temporalmente fuera, pero su cargo
+  // ya fue enviado según el histórico. No cambiar su estado operacional.
+  return isSentIm(doc.estado) ||
+    (doc.estado==='Caja solicitada' && isHistoricalImSentSource(doc));
+}
+function summarySentSourceText(){
+  const verifiedFolios=resumenLastSentDocs.reduce((total,d)=>total+(parseInt(d.folios,10)||0),0);
+  const historical=resumenLastSentDocs.filter(isHistoricalImSentSource);
+  const known=resumenArchiveMetaUser===currentUserId && resumenArchiveMeta instanceof Map;
+  let registeredRows=0,missing=0;
+  if(known){
+    for(const doc of historical){
+      const count=resumenArchiveMeta.get(doc.id);
+      if(count==null || !Number.isFinite(Number(count)))missing++;
+      else registeredRows+=Number(count);
+    }
+  }
+  const components=[];
+  if(verifiedFolios>0)components.push(fmtNum(verifiedFolios)+' folios comprobados');
+  if(historical.length){
+    if(known){
+      components.push(fmtNum(registeredRows)+' registros históricos'+(missing?' · '+fmtNum(missing)+' cargos sin detalle':''));
+    }else components.push('consultando registros históricos');
+  }
+  return components.join(' · ') || 'sin detalle documental';
+}
+function updateSummarySentSource(){
+  const node=document.getElementById('summarySentSource');
+  if(node)node.textContent=' ('+summarySentSourceText()+')';
+}
+function loadSummarySentSource(){
+  if(!isAdmin||!currentUserId||resumenArchiveMetaLoading)return;
+  if(resumenArchiveMetaUser===currentUserId && resumenArchiveMetaTotal===docs.length)return;
+  resumenArchiveMetaLoading=true;
+  const requestedUser=currentUserId,requestedTotal=docs.length;
+  // El RPC de reporte es de solo lectura; no altera existencias ni las hojas.
+  void repository.reportDocs(resumenLastSentDocs).then(rows=>{
+    if(currentUserId!==requestedUser || !isAdmin)return;
+    resumenArchiveMeta=new Map((rows||[]).map(d=>[d.id,d.cantidadRegistros]));
+    resumenArchiveMetaUser=requestedUser;
+    resumenArchiveMetaTotal=requestedTotal;
+    updateSummarySentSource();
+  }).catch(()=>{
+    // El KPI de cargos no debe bloquearse por la consulta auxiliar de metadatos.
+  }).finally(()=>{resumenArchiveMetaLoading=false;});
+}
 let editingDocId = null;
 let editingDocVersion = null;
 let currentSustentoImagen = '';
@@ -922,7 +980,7 @@ function renderDocs(){
   const filters=appliedFilters;
   const search=filters.query;
   const enriched = docs.map(d => ({...d, ...computeDocEstado(d)}));
-  const ranked = [...enriched].sort((a,b)=>Number(isSentIm(b.estado))-Number(isSentIm(a.estado)));
+  const ranked = [...enriched].sort((a,b)=>Number(isSentInSummary(b))-Number(isSentInSummary(a)));
   const summaryDocs = uniqueCargoDocuments(ranked);
 
   const cargosDe = arr => arr.reduce((s,d)=> s + (d.cargos||[]).length, 0);
@@ -933,19 +991,13 @@ function renderDocs(){
   const cargosPorAnio = cargoTotalsByYear(enriched);
   const totalCargos = [...cargosPorAnio.values()].reduce((sum,n)=>sum+n,0);
   const totalFolios = foliosDe(enriched);
-  const grupoEnviado = summaryDocs.filter(d=>isSentIm(d.estado));
+  const grupoEnviado = summaryDocs.filter(isSentInSummary);
+  resumenLastSentDocs = grupoEnviado;
   const grupoProceso = summaryDocs.filter(d=>d.estado==='En Proceso de Acondicionamiento');
   const cargosEnviados = cargosDe(grupoEnviado);
   const foliosEnviados = foliosDe(grupoEnviado);
-  // Los registros históricos IM suelen tener folios NULL: son datos no disponibles,
-  // no cero páginas. Mostrar únicamente cifras verificadas y la falta de cobertura.
-  const enviadosSinFolios = grupoEnviado.filter(d=>!(Number(d.folios)>0));
-  const cargosEnviadosSinFolios = cargosDe(enviadosSinFolios);
-  const etiquetaFoliosEnviados = cargosEnviadosSinFolios===0
-    ? fmtNum(foliosEnviados)+' folios'
-    : foliosEnviados===0
-      ? 'folios sin registrar'
-      : fmtNum(foliosEnviados)+' folios registrados · '+fmtNum(cargosEnviadosSinFolios)+(cargosEnviadosSinFolios===1?' cargo':' cargos')+' sin dato';
+  // Los folios efectivos solamente se calculan desde d.folios.
+  // Los registros originales del histórico no equivalen a páginas.
   const cargosEnProceso = cargosDe(grupoProceso);
 
   expiryGroups = cargoExpiryGroups(summaryDocs, new Date());
@@ -1027,7 +1079,7 @@ function renderDocs(){
       </div>
       <div class="kpi kpi-color kpi-summary-sent">
         <div class="l">Enviado Iron Mountain</div>
-        <div class="n">${fmtNum(cargosEnviados)}<span class="folios-inline" title="El histórico IM solo suma folios que tienen cantidad de páginas registrada; los valores vacíos no equivalen a cero."> (${etiquetaFoliosEnviados})</span></div>
+        <div class="n">${fmtNum(cargosEnviados)}<span class="folios-inline" id="summarySentSource" title="Cantidad real de registros de archivo; no equivale a número de páginas cuando el origen no indica sus folios."> (${summarySentSourceText()})</span></div>
         <div class="pct-txt">${pct(cargosEnviados,totalCargos)}</div>
       </div>
       <div class="kpi kpi-color kpi-summary-pending">
