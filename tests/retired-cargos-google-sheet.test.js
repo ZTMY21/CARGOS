@@ -21,11 +21,14 @@ test('cargos antiguos: se retiran controles y consultas de sincronización de la
 test('se conservan carga por Excel, indicadores, navegación e Iron Mountain',()=>{
   for(const id of [
     'googleSyncPanel','workspaceTabs','googleSyncContent',
-    'monthlyCargosCreated','monthlyCargosShipped','monthlyCargosRequested',
+    'monthlyCargosCreated','monthlyCargosShipped','monthlyBoxesConditioned',
     'btnMonthlyCreatedDetail','btnExportar','scanFile','scanValidate','scanSave',
-    'btnOpenIronMountainExcel','btnOpenIronMountainHistorical'
+    'btnOpenIronMountainHistorical','resumenHeaderShell'
   ])assert.match(html,new RegExp('id="'+id+'"'));
-  assert.match(html,/14tW2-XqukNYozn4P67A7lrhjFfPveAmv/);
+  // Cargos Enviados ya tiene su acceso en otro módulo y no se duplica en Resumen.
+  assert.doesNotMatch(html,/id="btnOpenIronMountainExcel"/);
+  assert.match(html,/id="resumenHeaderShell"/);
+  assert.match(html,/id="btnOpenIronMountainHistorical"/);
   assert.match(app,/reloadPreparedImSummary/);
   assert.match(app,/reloadShippedBoxesSummary/);
   assert.match(app,/attachScanImport/);
