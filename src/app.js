@@ -415,7 +415,7 @@ async function refreshData() {
       clearPreviousCargoCache();
       populateYearOptions();
       renderReqs(); renderDocs();
-      if(isAdmin)loadSummarySentSource();
+      if(isAdmin)loadSummaryFolioMetadata();
       if(isAdmin) {
         if (document.getElementById('preparedImSheet').open) void reloadPreparedImDetail();
         if(appReady) {
@@ -473,7 +473,9 @@ let resumenArchiveMeta = null;
 let resumenArchiveMetaUser = null;
 let resumenArchiveMetaTotal = -1;
 let resumenArchiveMetaLoading = false;
+let resumenSummaryDocs = [];
 let resumenLastSentDocs = [];
+let resumenLastPendingDocs = [];
 function isHistoricalImSentSource(doc){
   return /^Cargos enviados 20(?:20|21|22|23|24|25)$/i.test(String(doc?.hojaOrigen||'').trim())
     && /hoja de origen declara cargos enviados/i.test(String(doc?.estadoOrigen||''));
@@ -484,45 +486,49 @@ function isSentInSummary(doc){
   return isSentIm(doc.estado) ||
     (doc.estado==='Caja solicitada' && isHistoricalImSentSource(doc));
 }
-function summarySentSourceText(){
-  const verifiedFolios=resumenLastSentDocs.reduce((total,d)=>total+(parseInt(d.folios,10)||0),0);
-  const historical=resumenLastSentDocs.filter(isHistoricalImSentSource);
-  const known=resumenArchiveMetaUser===currentUserId && resumenArchiveMeta instanceof Map;
-  let registeredRows=0,missing=0;
-  if(known){
-    for(const doc of historical){
-      const count=resumenArchiveMeta.get(doc.id);
-      if(count==null || !Number.isFinite(Number(count)))missing++;
-      else registeredRows+=Number(count);
-    }
-  }
-  const components=[];
-  if(verifiedFolios>0)components.push(fmtNum(verifiedFolios)+' folios comprobados');
-  if(historical.length){
-    if(known){
-      components.push(fmtNum(registeredRows)+' registros históricos'+(missing?' · '+fmtNum(missing)+' cargos sin detalle':''));
-    }else components.push('consultando registros históricos');
-  }
-  return components.join(' · ') || 'sin detalle documental';
+function foliosResumenDoc(doc){
+  const folios=Number(doc.folios);
+  if(Number.isFinite(folios) && folios>0)return folios;
+  // Únicamente si falta el total de páginas, usar los documentos originales.
+  // Es una referencia para la interfaz, no una conversión certificada a páginas.
+  const count=resumenArchiveMetaUser===currentUserId && resumenArchiveMeta instanceof Map
+    ? Number(resumenArchiveMeta.get(doc.id)) : NaN;
+  return Number.isFinite(count) && count>0 ? count : 0;
 }
-function updateSummarySentSource(){
-  const node=document.getElementById('summarySentSource');
-  if(node)node.textContent=' ('+summarySentSourceText()+')';
+function foliosResumenDe(rows){
+  return rows.reduce((total,doc)=>total+foliosResumenDoc(doc),0);
 }
-function loadSummarySentSource(){
+function foliosResumenTexto(rows){
+  const necesitaRespaldo=rows.some(doc=>!(Number(doc.folios)>0));
+  const disponible=resumenArchiveMetaUser===currentUserId
+    && resumenArchiveMeta instanceof Map && resumenArchiveMetaTotal===docs.length;
+  if(necesitaRespaldo && !disponible)return 'calculando folios';
+  return fmtNum(foliosResumenDe(rows))+' folios';
+}
+function updateSummaryFolioLabels(){
+  for(const [id,rows] of [
+    ['summaryTotalFolios',resumenSummaryDocs],
+    ['summarySentSource',resumenLastSentDocs],
+    ['summaryPendingFolios',resumenLastPendingDocs]
+  ]){
+    const node=document.getElementById(id);
+    if(node)node.textContent=' ('+foliosResumenTexto(rows)+')';
+  }
+}
+function loadSummaryFolioMetadata(){
   if(!isAdmin||!currentUserId||resumenArchiveMetaLoading)return;
   if(resumenArchiveMetaUser===currentUserId && resumenArchiveMetaTotal===docs.length)return;
   resumenArchiveMetaLoading=true;
   const requestedUser=currentUserId,requestedTotal=docs.length;
-  // El RPC de reporte es de solo lectura; no altera existencias ni las hojas.
-  void repository.reportDocs(resumenLastSentDocs).then(rows=>{
-    if(currentUserId!==requestedUser || !isAdmin)return;
-    resumenArchiveMeta=new Map((rows||[]).map(d=>[d.id,d.cantidadRegistros]));
+  // Consulta de solo lectura, exclusivamente para las etiquetas de Resumen.
+  void repository.reportDocs(resumenSummaryDocs).then(rows=>{
+    if(currentUserId!==requestedUser||!isAdmin)return;
+    resumenArchiveMeta=new Map((rows||[]).map(doc=>[doc.id,doc.cantidadRegistros]));
     resumenArchiveMetaUser=requestedUser;
     resumenArchiveMetaTotal=requestedTotal;
-    updateSummarySentSource();
+    updateSummaryFolioLabels();
   }).catch(()=>{
-    // El KPI de cargos no debe bloquearse por la consulta auxiliar de metadatos.
+    // No bloquear los contadores de cargos ni usar valores sin verificar.
   }).finally(()=>{resumenArchiveMetaLoading=false;});
 }
 let editingDocId = null;
@@ -990,14 +996,13 @@ function renderDocs(){
   // registros históricos ni contar facturas repetidas del cargo actual.
   const cargosPorAnio = cargoTotalsByYear(enriched);
   const totalCargos = [...cargosPorAnio.values()].reduce((sum,n)=>sum+n,0);
-  const totalFolios = foliosDe(enriched);
+  // Los tres KPI comparten la misma base y la misma función de folios.
+  resumenSummaryDocs=summaryDocs;
   const grupoEnviado = summaryDocs.filter(isSentInSummary);
   resumenLastSentDocs = grupoEnviado;
   const grupoProceso = summaryDocs.filter(d=>d.estado==='En Proceso de Acondicionamiento');
   const cargosEnviados = cargosDe(grupoEnviado);
-  const foliosEnviados = foliosDe(grupoEnviado);
-  // Los folios efectivos solamente se calculan desde d.folios.
-  // Los registros originales del histórico no equivalen a páginas.
+  // Para el histórico sin páginas verificadas, la cifra de registros es referencial.
   const cargosEnProceso = cargosDe(grupoProceso);
 
   expiryGroups = cargoExpiryGroups(summaryDocs, new Date());
@@ -1005,7 +1010,7 @@ function renderDocs(){
   const grupoVencidos = expiryGroups.overdue;
   const cargosPorVencer = cargosDe(grupoPorVencer), foliosPorVencer = foliosDe(grupoPorVencer);
   const cargosVencidos = cargosDe(grupoVencidos), foliosVencidos = foliosDe(grupoVencidos);
-  const foliosPendientesIM = foliosPorVencer + foliosVencidos;
+  resumenLastPendingDocs=[...grupoPorVencer,...grupoVencidos];
   // Coincide exactamente con el detalle de cajas pendientes en la hoja IM.
   // El histórico de documentos no es la fuente de este indicador.
   const cajasPreparadas=preparedImSummary?.cajas;
@@ -1074,17 +1079,17 @@ function renderDocs(){
     <div class="kpis summary-primary" aria-label="Estado de todos los cargos">
       <div class="kpi kpi-color kpi-summary-total">
         <div class="l">Total de Cargos</div>
-        <div class="n">${fmtNum(totalCargos)}<span class="folios-inline"> (${fmtNum(totalFolios)} folios)</span></div>
+        <div class="n">${fmtNum(totalCargos)}<span class="folios-inline" id="summaryTotalFolios" title="Folio registrado o, si falta, cantidad de documentos del cargo como referencia; no son páginas verificadas."> (${foliosResumenTexto(resumenSummaryDocs)})</span></div>
         <div class="pct-txt">${pct(totalCargos,totalCargos)}</div>
       </div>
       <div class="kpi kpi-color kpi-summary-sent">
         <div class="l">Enviado Iron Mountain</div>
-        <div class="n">${fmtNum(cargosEnviados)}<span class="folios-inline" id="summarySentSource" title="Cantidad real de registros de archivo; no equivale a número de páginas cuando el origen no indica sus folios."> (${summarySentSourceText()})</span></div>
+        <div class="n">${fmtNum(cargosEnviados)}<span class="folios-inline" id="summarySentSource" title="Folio registrado o, si falta, cantidad de documentos del cargo como referencia; no son páginas verificadas."> (${foliosResumenTexto(resumenLastSentDocs)})</span></div>
         <div class="pct-txt">${pct(cargosEnviados,totalCargos)}</div>
       </div>
       <div class="kpi kpi-color kpi-summary-pending">
         <div class="l">Pendiente de Envío a IM</div>
-        <div class="n">${fmtNum(baseAlerta)}<span class="folios-inline"> (${fmtNum(foliosPendientesIM)} folios)</span></div>
+        <div class="n">${fmtNum(baseAlerta)}<span class="folios-inline" id="summaryPendingFolios" title="Folio registrado o, si falta, cantidad de documentos del cargo como referencia; no son páginas verificadas."> (${foliosResumenTexto(resumenLastPendingDocs)})</span></div>
         <div class="pct-txt">${pct(baseAlerta,totalCargos)}</div>
       </div>
     </div>
