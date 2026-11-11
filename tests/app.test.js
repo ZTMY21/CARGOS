@@ -24,7 +24,7 @@ const flush=()=>new Promise(resolve=>setTimeout(resolve,20));
 const reqRow={id:randomUUID(),numero:'REQ-00001',tipo:'Cajas nuevas para acondicionar',fecha_solicitud:'2026-10-01',cantidad_cajas:2,numeros_cargo:'',fecha_recepcion:'2026-10-02',fecha_devolucion:null,usuario:'Juan',updated_at:'2026-10-13T00:00:00.123456Z'};
 const docRow={id:randomUUID(),kardex:'SA-00001',fecha_registro:'2026-10-13',tipo_doc:'Facturas-Guia',periodo:'2026-01-01',ubicacion:'Santa Anita',folios:30,cargos:['C001'],caja_asignada:reqRow.id,f_envio:null,sustento:'',sustento_imagen:'',usuario:'Juan',facturas:'F-001',obs:'',updated_at:'2026-10-13T00:00:00.123456Z'};
 
-async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recovery=false,adminLink='',loginError=null,isolatedPreview=false,receptionPreview=false,annualReference=null,loanMatches={},requestAction=null,enableSearch=false,username='',previousMapping={},initialDocs=[docRow],initialReqs=[reqRow],initialTracking=null,now=Date.now()}={}) {
+async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recovery=false,adminLink='',loginError=null,isolatedPreview=false,receptionPreview=false,annualReference=null,loanMatches={},requestAction=null,enableSearch=false,username='',previousMapping={},initialDocs=[docRow],initialReqs=[reqRow],initialTracking=null,archiveCounts={},now=Date.now()}={}) {
   const html=await readFile(new URL('../index.html',import.meta.url),'utf8');
   const source=(await readFile(new URL('../src/app.js',import.meta.url),'utf8')).replace(/^import .*;\n/gm,'');
   const dom=new JSDOM(html,{url:'https://kardex.example.test'+adminLink+(recovery?'#type=recovery':''),runScripts:'outside-only'});
@@ -32,6 +32,7 @@ async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recov
   dom.window.HTMLDialogElement.prototype.showModal=function(){this.open=true;};
   dom.window.HTMLDialogElement.prototype.close=function(){if(this.open){this.open=false;this.dispatchEvent(new dom.window.Event('close'));}};
   const state={reqs:structuredClone(initialReqs),docs:structuredClone(initialDocs),tracking:structuredClone(initialTracking),updates:[],snapshots:0,events:[],status:null,authCallback:null};
+  state.archiveCounts=structuredClone(archiveCounts);
   state.session=signedIn?{user:{id:'owner',email:'owner@example.test',user_metadata:username?{kardex_username:username}:{}}}:null;
   state.syncRow={enabled:true,status:'Revisión completada: 276 cargos ya registrados. 1480 filas pendientes.',
     last_checked_at:'2026-10-17T03:09:17Z',
@@ -58,7 +59,11 @@ async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recov
     async requestBoxes(query){return structuredClone(loanMatches[query]||[]);}
     async requestTracking(){return structuredClone(state.tracking || {cajas:[],movimientos:[]});}
     async requestAction(id,action,data){return requestAction(id,action,data,state);}
-    async reportDocs(rows,year=null){state.reportRequestedYear=year;return rows.filter(d=>year===null||cargoYear(d)===String(year));}
+    async reportDocs(rows,year=null){
+      state.reportRequestedYear=year;
+      return rows.filter(d=>year===null||cargoYear(d)===String(year))
+        .map(doc=>({...doc,cantidadRegistros:state.archiveCounts[doc.id]??null}));
+    }
     async fetchDoc(id){state.fetchedId=id;return docFromDb({...state.docs.find(d=>d.id===id),facturas:'F-001, F-002, F-003, F-004'});}
     async access(){state.loadingDuringAccess={loading:!dom.window.document.getElementById('sessionLoading').hidden,login:!dom.window.document.getElementById('authOverlay').hidden};return {allowed,is_admin:isAdmin};}
     async preparedImDetails(){state.preparedImCalls=(state.preparedImCalls||0)+1;return structuredClone(state.preparedImRows||[]);}
@@ -950,11 +955,12 @@ test('administrator summary shows white colored cards and transparent heart logo
 });
 
 
-test('Resumen muestra solamente folios comprobados y no inventa páginas históricas',async()=>{
+test('Resumen presenta un único formato de folios para los tres indicadores',async()=>{
   const missing=await app({initialDocs:[{...docRow,im_confirmado:true,folios:null}]});
   try{
     const sent=missing.node('resumenTablas').querySelector('.kpi-summary-sent');
-    assert.match(sent.querySelector('.n').textContent,/sin detalle documental/);
+    await flush();
+    assert.match(sent.querySelector('.n').textContent,/— folios/);
     assert.doesNotMatch(sent.querySelector('.n').textContent,/\(0 folios\)/);
     assert.equal(sent.querySelector('.pct-txt').textContent,'100%');
   }finally{missing.close();}
@@ -964,7 +970,8 @@ test('Resumen muestra solamente folios comprobados y no inventa páginas histór
   ]});
   try {
     const sent=withOneKnown.node('resumenTablas').querySelector('.kpi-summary-sent');
-    assert.match(sent.querySelector('.folios-inline').textContent,/18 folios comprobados/);
+    await flush();
+    assert.match(sent.querySelector('.folios-inline').textContent,/18 folios/);
     assert.doesNotMatch(sent.querySelector('.folios-inline').textContent,/folios sin registrar|0 folios/);
     assert.equal(sent.querySelector('.pct-txt').textContent,'100%');
   }finally{withOneKnown.close();}
@@ -991,9 +998,50 @@ test('Resumen concilia enviados históricos solicitados sin alterar los estados 
     assert.equal(count('.kpi-summary-pending'),1);
     assert.equal(root.querySelector('.kpi-summary-sent .pct-txt').textContent,'67%');
     assert.equal(root.querySelector('.kpi-summary-pending .pct-txt').textContent,'33%');
-    assert.match(root.querySelector('#summarySentSource').textContent,/registros históricos/);
+    assert.match(root.querySelector('#summarySentSource').textContent,/folios/);
+    assert.doesNotMatch(root.querySelector('#summarySentSource').textContent,/registros históricos/);
     assert.doesNotMatch(root.querySelector('#summarySentSource').textContent,/0 folios|folios sin registrar/);
     assert.equal(a.state.docs[0].im_live_clasificacion,'POR SOLICITUD');
+  }finally{a.close();}
+});
+
+test('Resumen suma el mismo respaldo histórico en total, enviados y pendientes sin tocar operaciones',async()=>{
+  const sent={
+    ...docRow,id:randomUUID(),kardex:'SA-99001',cargos:['4500'],
+    fecha_origen:'2024-01-01',anio_origen:2024,periodo:'2024-01-01',
+    hoja_origen:'Cargos enviados 2024',
+    estado_origen:'La hoja de origen declara cargos enviados',
+    im_historical_decision:'historico',caja_asignada:null,folios:null
+  };
+  const oldPending={
+    ...docRow,id:randomUUID(),kardex:'SA-99002',cargos:['8800'],
+    fecha_origen:'2025-01-01',anio_origen:2025,periodo:'2025-01-01',
+    hoja_origen:'Cargos enviados 2025',
+    estado_origen:'',caja_asignada:null,folios:null
+  };
+  const currentPending={
+    ...docRow,id:randomUUID(),kardex:'SA-99003',cargos:['9900'],
+    fecha_origen:'2026-01-01',anio_origen:2026,periodo:'2026-01-01',
+    hoja_origen:'CARGOS NUEVOS 2026',
+    caja_asignada:null,folios:35
+  };
+  const a=await app({
+    initialDocs:[sent,oldPending,currentPending],
+    archiveCounts:{[sent.id]:100,[oldPending.id]:300},
+    now:Date.parse('2026-11-11T15:00:00Z')
+  });
+  try{
+    await flush();
+    const root=a.node('resumenTablas');
+    const value=id=>root.querySelector('#'+id)?.textContent?.trim();
+    assert.equal(value('summaryTotalFolios'),'(435 folios)');
+    assert.equal(value('summarySentSource'),'(100 folios)');
+    assert.equal(value('summaryPendingFolios'),'(335 folios)');
+    assert.ok(435>=100,'el total de folios no puede ser inferior al enviado');
+    assert.equal(root.querySelector('.kpi-summary-total .n').textContent.trim().match(/^\d+/)[0],'3');
+    assert.equal(root.querySelector('.kpi-summary-sent .n').textContent.trim().match(/^\d+/)[0],'1');
+    assert.equal(root.querySelector('.kpi-summary-pending .n').textContent.trim().match(/^\d+/)[0],'2');
+    assert.doesNotMatch(root.querySelector('#summarySentSource').textContent,/registros históricos/);
   }finally{a.close();}
 });
 
