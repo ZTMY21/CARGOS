@@ -1097,6 +1097,60 @@
   #grp-resumen .kpi-summary-prepared-requested .l,#grp-resumen .kpi-summary-prepared-requested .pct-txt{color:#7452a3;}
   #grp-resumen .kpi-summary-prepared-new{--accent:#16815c;background:#edfaf3;border:1px solid #bde5ce;border-top:3px solid var(--accent);}
   #grp-resumen .kpi-summary-prepared-new .l,#grp-resumen .kpi-summary-prepared-new .pct-txt{color:#186948;}
+
+  /* Resumen · Cargos por año compacto, antes de Actividad mensual. */
+  #grp-resumen .summary-annual-compact{
+    margin-top:20px;padding:17px 18px 15px;background:#fff;
+    border:1px solid #e1e6eb;border-radius:11px;
+  }
+  #grp-resumen .summary-annual-heading{
+    display:flex;justify-content:space-between;align-items:flex-start;
+    gap:12px;margin-bottom:13px;
+  }
+  #grp-resumen .summary-annual-heading h3{
+    margin:0 0 5px;color:#293748;font-size:15px;font-weight:750;
+  }
+  #grp-resumen .summary-annual-heading p{color:#627589;font-size:12px;margin:0;}
+  #grp-resumen .summary-annual-icon{
+    font-size:22px;line-height:1;color:#647d92;
+    background:#f0f5f8;border-radius:8px;padding:8px 10px;
+  }
+  #grp-resumen .summary-annual-grid{
+    display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;
+  }
+  #grp-resumen .summary-annual-tile{
+    box-sizing:border-box;display:flex;flex-direction:column;align-items:center;
+    justify-content:center;gap:5px;min-height:93px;width:100%;
+    padding:12px 8px;border:1px solid #dfe6ec;border-radius:9px;
+    background:#fff;color:#27394b;text-align:center;font-family:inherit;
+    text-decoration:none;box-shadow:none;
+  }
+  #grp-resumen button.summary-annual-tile{cursor:pointer;}
+  #grp-resumen button.summary-annual-tile:hover{
+    background:#f5faff;border-color:#8db9d3;
+  }
+  #grp-resumen button.summary-annual-tile:focus-visible{
+    outline:2px solid #287dae;outline-offset:2px;
+  }
+  #grp-resumen .summary-annual-tile.is-current{
+    background:#f2faf6;border-color:#b6dac3;
+  }
+  #grp-resumen .summary-annual-year{font-size:12px;font-weight:750;color:#50677d;}
+  #grp-resumen .summary-annual-tile.is-current .summary-annual-year{color:#23734c;}
+  #grp-resumen .summary-annual-count{
+    font-size:23px;line-height:1.1;font-variant-numeric:tabular-nums;
+    font-weight:800;color:#23465f;
+  }
+  #grp-resumen .summary-annual-tile.is-current .summary-annual-count{color:#1a8053;}
+  #grp-resumen .summary-annual-unit{font-size:10px;color:#7a8a98;}
+  #grp-resumen .summary-annual-note{
+    margin:12px 0 0;color:#7a8998;font-size:11px;
+  }
+  @media(max-width:760px){
+    #grp-resumen .summary-annual-grid{grid-template-columns:repeat(2,minmax(0,1fr));}
+    #grp-resumen .summary-annual-compact{padding:14px;}
+  }
+
   #grp-resumen .year-section{display:none!important;}
   @media(max-width:700px){
     #grp-resumen .kpis.summary-primary,#grp-resumen .kpis.summary-box-top,#grp-resumen .kpis.summary-box-bottom{grid-template-columns:1fr;}
