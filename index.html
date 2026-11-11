@@ -1229,12 +1229,12 @@
     <div id="googleSyncContent">
     <div class="monthly-panel-title">
       <div>
-        <h2 id="googleSyncTitle">Actividad de cargos de este mes</h2>
-        <p class="monthly-panel-subtitle">Indicadores mensuales del Kardex Digital</p>
+        <h2 id="googleSyncTitle">Indicadores mensuales del Kárdex Digital</h2>
+        <p class="monthly-panel-subtitle">Seguimiento de cargos, envíos y preparación de cajas</p>
       </div>
       <span class="monthly-panel-period" id="monthlyCargoPeriod">Mes actual</span>
     </div>
-    <div class="sync-stats monthly-cargo-stats" aria-label="Actividad mensual de cargos">
+    <div class="sync-stats monthly-cargo-stats" aria-label="Indicadores mensuales del Kárdex Digital">
       <article class="sync-stat monthly-cargo-stat created">
         <span class="monthly-stat-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M8 13h8"/><path d="M8 17h8"/></svg></span>
         <span class="sync-stat-label">CARGOS EN ESTE MES</span>
@@ -1251,12 +1251,12 @@
       </article>
       <article class="sync-stat monthly-cargo-stat conditioned">
         <span class="monthly-stat-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="m12 2 9 5-9 5-9-5 9-5Z"/><path d="M3 7v10l9 5 9-5V7M12 12v10"/><path d="m16 15 2 2 4-4"/></svg></span>
-        <span class="sync-stat-label">CAJAS ACONDICIONADAS PARA ENVÍO</span>
+        <span class="sync-stat-label">SEGUIMIENTO DE LA PREPARACIÓN DE CAJAS</span>
         <div class="monthly-conditioned-total">
-          <strong id="monthlyBoxesConditioned" class="sync-stat-value" aria-label="Cajas acondicionadas este mes pendientes de envío">—</strong>
+          <strong id="monthlyBoxesConditioned" class="sync-stat-value" aria-label="Total de cajas acondicionadas durante el mes">—</strong>
           <span class="monthly-conditioned-unit">cajas</span>
         </div>
-        <span class="monthly-stat-note" id="conditionedMonthlyNote">Preparadas este mes · Pendientes de envío a IM</span>
+        <span class="monthly-stat-note" id="conditionedMonthlyNote">Cajas acondicionadas durante el mes</span>
         <button id="btnRequestedIMDetail" type="button" class="monthly-created-detail-button" aria-haspopup="dialog" aria-controls="conditionedMonthlySheet">Ver detalle <span aria-hidden="true">↗</span></button>
       </article>
     </div>
@@ -1904,22 +1904,22 @@
       </div>
     </div>
     <section class="conditioned-main">
-      <h2 id="conditionedMonthlyTitle">Cajas acondicionadas para envío</h2>
+      <h2 id="conditionedMonthlyTitle">Evolución del acondicionamiento</h2>
       <span class="conditioned-main-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" stroke-linecap="round"><path d="m12 2 9 5-9 5-9-5 9-5Z"/><path d="M3 7v10l9 5 9-5V7M12 12v10"/><path d="m16 15 2 2 4-4"/></svg></span>
       <strong id="conditionedMonthlyPending" class="conditioned-primary-number">—</strong>
-      <p id="conditionedPeriodLabel" class="conditioned-period-note">Este mes · Pendientes de envío a IM</p>
+      <p id="conditionedPeriodLabel" class="conditioned-period-note">Total de cajas acondicionadas durante el mes</p>
     </section>
     <div class="conditioned-breakdown">
-      <span id="conditionedMonthlyNew">— cajas nuevas</span>
-      <span id="conditionedMonthlyRequested">— cajas solicitadas acondicionadas</span>
+      <span id="conditionedMonthlyNew">— cajas nuevas acondicionadas</span>
+      <span id="conditionedMonthlyRequested">— cajas por solicitud acondicionadas</span>
     </div>
     <div class="conditioned-graph-header">
-      <h3>Evolución de cajas preparadas</h3>
-      <p>Selecciona el periodo para explorar la gráfica.</p>
+      <h3>Preparación de cajas por período</h3>
+      <p>Consulta la evolución por día, semana, mes o año. Cada barra representa cajas con preparación registrada.</p>
     </div>
     <div class="conditioned-tabs" role="tablist" aria-label="Periodo del KPI">
-      <button type="button" class="conditioned-period-tab" role="tab" aria-selected="true" data-prepared-period="dia">Día</button>
-      <button type="button" class="conditioned-period-tab" role="tab" aria-selected="false" data-prepared-period="semana">Semana</button>
+      <button type="button" class="conditioned-period-tab" role="tab" aria-selected="false" data-prepared-period="dia">Día</button>
+      <button type="button" class="conditioned-period-tab" role="tab" aria-selected="true" data-prepared-period="semana">Semana</button>
       <button type="button" class="conditioned-period-tab" role="tab" aria-selected="false" data-prepared-period="mes">Mes</button>
       <button type="button" class="conditioned-period-tab" role="tab" aria-selected="false" data-prepared-period="anio">Año</button>
     </div>
@@ -1929,8 +1929,7 @@
       <div class="conditioned-legend" aria-label="Clasificación de cajas">
         <span><i class="conditioned-dot" style="background:#329edb"></i>Cajas nuevas</span>
         <span><i class="conditioned-dot" style="background:#9974d1"></i>Cajas solicitadas</span>
-        <span id="conditionedHistoricalLegend" style="display:none"><i class="conditioned-dot" style="background:#8695a5"></i>Histórico IM · envío sin fecha de preparación</span>
-      </div>
+              </div>
       <p id="conditionedMonthlyStatus" class="conditioned-chart-explanation">La gráfica conserva el historial de preparación, incluso de cajas que posteriormente fueron enviadas.</p>
     </div>
   </div>
