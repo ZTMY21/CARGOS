@@ -7,6 +7,7 @@ import {attachConditioningWorkspace} from './conditioning-workspace.js';
 import {attachPreparedMonthlyKpi} from './prepared-monthly-kpi.js';
 import {summarizeBoxPreparationBatch} from './conditioning-batch-summary.js';
 import {attachResumenBoxDetails} from './resumen-box-details.js';
+import {attachResumenPickupOverview} from './resumen-pickup-overview.js';
 import {inventoryConditioning} from './conditioning-inventory.js';
 import {attachBoxConditioning} from './box-conditioning-ui.js';
 import {attachPickupMail} from './pickup-mail-ui.js';
@@ -52,6 +53,7 @@ let boxConditioningController=null;
 let applyConditioningToDoc=doc=>doc;
 let boxScanSheetController=null;
 let pickupMailController=null;
+let resumenPickupController=null;
 let appReady = false, isAdmin = false, mutationBusy = false, channelReady = false;
 let adminRequestStatus = null;
 let adminRequestsTimer = null, adminRequestsEpoch = 0;
@@ -297,6 +299,7 @@ function selectWorkspaceTab(tab,focus=false) {
   if(focus)(document.querySelector(`#workspaceTabs [data-workspace="${tab}"]`)
     || (tab==='solicitudes'?document.getElementById('btnTopAdminRequests'):null))?.focus();
   if(tab==='solicitudes')void refreshAdminRequests();
+  if(tab==='resumen')void resumenPickupController?.refresh();
   if(receptionEnabled && (tab==='resumen'||tab==='requerimientos'))void refreshData().catch(()=>{});
 }
 document.getElementById('btnTopAdminRequests').addEventListener('click',()=>{
@@ -411,6 +414,7 @@ async function refreshData() {
       clearPreviousCargoCache();
       populateYearOptions();
       renderReqs(); renderDocs();
+      if(appReady && isAdmin && activeWorkspaceTab==='resumen')void resumenPickupController?.refresh();
       if(isAdmin) {
         if (document.getElementById('preparedImSheet').open) void reloadPreparedImDetail();
         if(appReady) {
@@ -950,6 +954,12 @@ function renderDocs(){
     ? reqs.findLast(row=>row.tipo==='Cajas nuevas para acondicionar' && Number(row.cantidadCajas)>0)
     : null;
   const cajasSolicitadas = Number((isAdmin ? reqs.filter(row=>row.tipo==="Cajas nuevas para acondicionar" && Number(row.cantidadCajas)>0).at(-1) : null)?.cantidadCajas)||0;
+  // Resumen de solicitudes a Iron Mountain: préstamo/búsqueda, nunca suministro de cajas nuevas.
+  const solicitudesIMActivas=reqs.filter(row=>row.tipo==='Préstamo de Cajas (búsqueda de documentos)' &&
+    row.estadoV4!=='Devuelto'&&!row.fechaDevolucion).length;
+  const cajasSolicitadasIM=requestTracking
+    ? new Set((requestTracking.cajas||[]).filter(row=>!row.devolucion)
+        .map(row=>physicalBoxKey(row.codigo||row.clave)).filter(Boolean)).size : null;
   const avanceLote=summarizeBoxPreparationBatch(solicitudCajas,requestTracking,
     conditioningBatchSources.reception,conditioningBatchSources.preparedRows);
 
@@ -1031,6 +1041,20 @@ function renderDocs(){
         ${avanceLote?.prepared != null ? `<progress class="conditioning-batch-progress" value="${avanceLote.prepared}" max="${avanceLote.total}" aria-label="Porcentaje de cajas terminadas de acondicionar"></progress>` : ''}
       </div>
       </div>
+      <h4 class="summary-box-subheading">Solicitudes a Iron Mountain</h4>
+      <div class="kpis summary-box-loans" aria-label="Seguimiento de solicitudes de cajas almacenadas en Iron Mountain">
+        <div class="kpi kpi-color kpi-summary-loans">
+          <div class="expiry-card-heading">
+            <div class="l">Cajas solicitadas a IM</div>
+            <button type="button" class="expiry-detail-button" data-resumen-box="solicitudesIM" aria-haspopup="dialog" aria-controls="summaryBoxDetailDialog">Ver detalle</button>
+          </div>
+          <div class="summary-loan-flex">
+            <div><div class="n">${cajasSolicitadasIM==null?'—':fmtNum(cajasSolicitadasIM)}</div>
+              <div class="pct-txt">Cajas con solicitud activa a IM</div></div>
+            <div class="summary-loan-secondary"><strong>${fmtNum(solicitudesIMActivas)}</strong><span>Solicitudes activas</span></div>
+          </div>
+        </div>
+      </div>
       <h4 class="summary-box-subheading">Cajas preparadas para envío</h4>
       <div class="kpis summary-box-bottom" aria-label="Cajas preparadas pendientes de envío, según su clasificación">
         <div class="kpi kpi-color kpi-summary-prepared kpi-summary-prepared-requested" aria-label="Cajas preparadas para envío solicitadas">
@@ -1050,6 +1074,35 @@ function renderDocs(){
           <div class="pct-txt">Cajas nuevas · Sin fecha de envío a IM</div>
         </div>
       </div>
+      <section class="summary-pickup-section" aria-label="Seguimiento de recojo de cajas">
+        <div class="summary-pickup-heading"><h4 class="summary-box-subheading">Seguimiento de recojo a Iron Mountain</h4>
+          <p>Estado de los avisos, la programación y los retiros respaldados con sustento</p></div>
+        <div class="kpis summary-pickup-grid">
+          <div class="kpi kpi-color summary-pickup-card summary-pickup-new">
+            <div class="expiry-card-heading">
+              <div class="l">Cajas nuevas</div>
+              <button type="button" class="expiry-detail-button" data-summary-pickup="NUEVAS" aria-haspopup="dialog" aria-controls="summaryPickupDialog">Ver seguimiento</button>
+            </div>
+            <div class="summary-pickup-metrics">
+              <div><strong id="summaryPickupNewAvailable">—</strong><span>Disponibles para aviso</span></div>
+              <div><strong id="summaryPickupNewScheduled">—</strong><span>Recojo programado</span></div>
+              <div><strong id="summaryPickupNewWithdrawn">—</strong><span>Retiradas con sustento</span></div>
+            </div>
+          </div>
+          <div class="kpi kpi-color summary-pickup-card summary-pickup-return">
+            <div class="expiry-card-heading">
+              <div class="l">Cajas por devolución</div>
+              <button type="button" class="expiry-detail-button" data-summary-pickup="DEVOLUCION" aria-haspopup="dialog" aria-controls="summaryPickupDialog">Ver seguimiento</button>
+            </div>
+            <div class="summary-pickup-metrics">
+              <div><strong id="summaryPickupReturnAvailable">—</strong><span>Disponibles para aviso</span></div>
+              <div><strong id="summaryPickupReturnScheduled">—</strong><span>Recojo programado</span></div>
+              <div><strong id="summaryPickupReturnWithdrawn">—</strong><span>Retiradas con sustento</span></div>
+            </div>
+          </div>
+        </div>
+        <p class="summary-pickup-note" id="summaryPickupSourceNote">Consultando avisos y recojos…</p>
+      </section>
     </section>
     ${receptionPreview ? '<p class="expiry-note">Preview de recepción · los guardados se hacen en el Maestro de prueba. Las solicitudes conciliadas identifican los códigos que ya constan en Iron Mountain.</p>' : isolatedRequirements ? '<p class="expiry-note">Intervención 4 · Base aislada de pruebas con una muestra de registros reales. Consolidación en Excel pendiente.</p>' : ''}
     ${expiryGroups.unknown.length ? `<p class="expiry-note">${fmtNum(cargosDe(expiryGroups.unknown))} cargos de 2025/2026 sin fecha válida para calcular el vencimiento; no se incluyen en estas alertas.</p>` : ''}
@@ -1494,6 +1547,8 @@ const resumenBoxDetails=attachResumenBoxDetails({
 document.getElementById('resumenTablas').addEventListener('click', event => {
   const resumenButton=event.target.closest('button[data-resumen-box]');
   if(resumenButton){resumenBoxDetails.open(resumenButton.dataset.resumenBox,resumenButton);return;}
+  const pickupButton=event.target.closest('button[data-summary-pickup]');
+  if(pickupButton){resumenPickupController?.open(pickupButton.dataset.summaryPickup,pickupButton);return;}
   const requestCard=event.target.closest('button[data-req-card]');
   if(requestCard) {
     if(requestCard.dataset.reqCard==='nuevas')resumenBoxDetails.open('recepcion',requestCard);
@@ -1894,6 +1949,7 @@ async function handleSession(session) {
     await refreshData();
     if (generation !== authGeneration) return;
     appReady = true;
+    if(isAdmin)void resumenPickupController?.refresh();
     if(isAdmin) {
       void reloadPreparedImSummary();
       void reloadRequestedIM();
@@ -2251,6 +2307,13 @@ pickupMailController=attachPickupMail({
   workflow:typeof __PICKUP_LIVE__!=='undefined'&&__PICKUP_LIVE__
     ? createLivePickupWorkflow(supabase,{onChanged:refreshData,
       refreshMaster:()=>repository.syncIMMaster({projectionOnly:true})}) : null
+});
+
+// Estado de programación y retiro de cajas: nueva visualización de solo lectura en Resumen.
+resumenPickupController=attachResumenPickupOverview({
+  client:supabase,
+  allowed:()=>appReady&&isAdmin&&activeWorkspaceTab==='resumen',
+  enabled:typeof __PICKUP_LIVE__!=='undefined'&&__PICKUP_LIVE__
 });
 
 // Fase 2: USB-HID en modo teclado, identificación opcional con consentimiento WebHID y consulta sin escrituras.
