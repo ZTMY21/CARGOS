@@ -949,6 +949,27 @@ test('administrator summary shows white colored cards and transparent heart logo
   finally{guest.close();}
 });
 
+
+test('Resumen muestra folios reales o sin registro, sin convertir ausencias históricas en cero',async()=>{
+  const missing=await app({initialDocs:[{...docRow,im_confirmado:true,folios:null}]});
+  try{
+    const sent=missing.node('resumenTablas').querySelector('.kpi-summary-sent');
+    assert.match(sent.querySelector('.n').textContent,/folios sin registrar/);
+    assert.doesNotMatch(sent.querySelector('.n').textContent,/\(0 folios\)/);
+    assert.equal(sent.querySelector('.pct-txt').textContent,'100%');
+  }finally{missing.close();}
+  const withOneKnown=await app({initialDocs:[
+    {...docRow,im_confirmado:true,folios:18},
+    {...docRow,id:randomUUID(),kardex:'SA-00002',cargos:['C002'],im_confirmado:true,folios:null}
+  ]});
+  try {
+    const sent=withOneKnown.node('resumenTablas').querySelector('.kpi-summary-sent');
+    assert.match(sent.querySelector('.folios-inline').textContent,/18 folios registrados/);
+    assert.match(sent.querySelector('.folios-inline').textContent,/1 cargo sin dato/);
+    assert.equal(sent.querySelector('.pct-txt').textContent,'100%');
+  }finally{withOneKnown.close();}
+});
+
 test('admin summary groups Excel cargo years and refreshes 2026 after Google-sync events',async()=>{
   const a=await app({isAdmin:true});
   try {

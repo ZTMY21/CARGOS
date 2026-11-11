@@ -937,6 +937,15 @@ function renderDocs(){
   const grupoProceso = summaryDocs.filter(d=>d.estado==='En Proceso de Acondicionamiento');
   const cargosEnviados = cargosDe(grupoEnviado);
   const foliosEnviados = foliosDe(grupoEnviado);
+  // Los registros históricos IM suelen tener folios NULL: son datos no disponibles,
+  // no cero páginas. Mostrar únicamente cifras verificadas y la falta de cobertura.
+  const enviadosSinFolios = grupoEnviado.filter(d=>!(Number(d.folios)>0));
+  const cargosEnviadosSinFolios = cargosDe(enviadosSinFolios);
+  const etiquetaFoliosEnviados = cargosEnviadosSinFolios===0
+    ? fmtNum(foliosEnviados)+' folios'
+    : foliosEnviados===0
+      ? 'folios sin registrar'
+      : fmtNum(foliosEnviados)+' folios registrados · '+fmtNum(cargosEnviadosSinFolios)+(cargosEnviadosSinFolios===1?' cargo':' cargos')+' sin dato';
   const cargosEnProceso = cargosDe(grupoProceso);
 
   expiryGroups = cargoExpiryGroups(summaryDocs, new Date());
@@ -1018,7 +1027,7 @@ function renderDocs(){
       </div>
       <div class="kpi kpi-color kpi-summary-sent">
         <div class="l">Enviado Iron Mountain</div>
-        <div class="n">${fmtNum(cargosEnviados)}<span class="folios-inline"> (${fmtNum(foliosEnviados)} folios)</span></div>
+        <div class="n">${fmtNum(cargosEnviados)}<span class="folios-inline" title="El histórico IM solo suma folios que tienen cantidad de páginas registrada; los valores vacíos no equivalen a cero."> (${etiquetaFoliosEnviados})</span></div>
         <div class="pct-txt">${pct(cargosEnviados,totalCargos)}</div>
       </div>
       <div class="kpi kpi-color kpi-summary-pending">
