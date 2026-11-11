@@ -935,7 +935,7 @@ test('administrator summary shows white colored cards and transparent heart logo
     const process=summary.querySelector('.kpi-summary-process .n');
     const pending=summary.querySelector('.kpi-summary-pending .n');
     assert.match(total.textContent,/folios/);
-    assert.match(sent.querySelector('.folios-inline')?.textContent??'',/folios/);
+    assert.match(sent.querySelector('.folios-inline')?.textContent??'',/folios|registros|detalle documental/);
     assert.match(pending.querySelector('.folios-inline')?.textContent??'',/folios/);
     assert.match(summary.querySelector('.kpi-summary-pending .pct-txt')?.textContent??'',/^\d+%$/);
     assert.match(summary.querySelector('.kpi-summary-sent .pct-txt')?.textContent??'',/^\d+%$/);
@@ -950,11 +950,11 @@ test('administrator summary shows white colored cards and transparent heart logo
 });
 
 
-test('Resumen muestra folios reales o sin registro, sin convertir ausencias históricas en cero',async()=>{
+test('Resumen muestra solamente folios comprobados y no inventa páginas históricas',async()=>{
   const missing=await app({initialDocs:[{...docRow,im_confirmado:true,folios:null}]});
   try{
     const sent=missing.node('resumenTablas').querySelector('.kpi-summary-sent');
-    assert.match(sent.querySelector('.n').textContent,/folios sin registrar/);
+    assert.match(sent.querySelector('.n').textContent,/sin detalle documental/);
     assert.doesNotMatch(sent.querySelector('.n').textContent,/\(0 folios\)/);
     assert.equal(sent.querySelector('.pct-txt').textContent,'100%');
   }finally{missing.close();}
@@ -964,10 +964,37 @@ test('Resumen muestra folios reales o sin registro, sin convertir ausencias hist
   ]});
   try {
     const sent=withOneKnown.node('resumenTablas').querySelector('.kpi-summary-sent');
-    assert.match(sent.querySelector('.folios-inline').textContent,/18 folios registrados/);
-    assert.match(sent.querySelector('.folios-inline').textContent,/1 cargo sin dato/);
+    assert.match(sent.querySelector('.folios-inline').textContent,/18 folios comprobados/);
+    assert.doesNotMatch(sent.querySelector('.folios-inline').textContent,/folios sin registrar|0 folios/);
     assert.equal(sent.querySelector('.pct-txt').textContent,'100%');
   }finally{withOneKnown.close();}
+});
+
+test('Resumen concilia enviados históricos solicitados sin alterar los estados operativos',async()=>{
+  const oldSent=(year,cargo)=>({
+    ...docRow,id:randomUUID(),kardex:'SA-'+year,
+    periodo:year+'-02-10',fecha_origen:year+'-02-10',anio_origen:Number(year),
+    cargos:[cargo],caja_asignada:null,folios:null,
+    hoja_origen:'Cargos enviados '+year,
+    estado_origen:'La hoja de origen declara cargos enviados',
+    im_live_codigo_caja:'CAJA-'+cargo,im_live_clasificacion:'POR SOLICITUD',im_live_fecha_envio:null
+  });
+  const fresh={...docRow,id:randomUUID(),kardex:'SA-77777',caja_asignada:null,
+    cargos:['9900'],periodo:'2026-04-10',fecha_origen:'2026-04-10',anio_origen:2026,folios:65};
+  const a=await app({initialDocs:[oldSent('2024','4300'),oldSent('2025','5200'),fresh],
+    now:Date.parse('2026-11-11T14:00:00Z')});
+  try {
+    const root=a.node('resumenTablas');
+    const count=selector=>Number(root.querySelector(selector+' .n').textContent.match(/^\\d+/)[0]);
+    assert.equal(count('.kpi-summary-total'),3);
+    assert.equal(count('.kpi-summary-sent'),2);
+    assert.equal(count('.kpi-summary-pending'),1);
+    assert.equal(root.querySelector('.kpi-summary-sent .pct-txt').textContent,'67%');
+    assert.equal(root.querySelector('.kpi-summary-pending .pct-txt').textContent,'33%');
+    assert.match(root.querySelector('#summarySentSource').textContent,/registros históricos/);
+    assert.doesNotMatch(root.querySelector('#summarySentSource').textContent,/0 folios|folios sin registrar/);
+    assert.equal(a.state.docs[0].im_live_clasificacion,'POR SOLICITUD');
+  }finally{a.close();}
 });
 
 test('admin summary groups Excel cargo years and refreshes 2026 after Google-sync events',async()=>{
