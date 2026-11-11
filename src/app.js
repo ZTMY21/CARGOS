@@ -278,6 +278,9 @@ function updateWorkspaceVisibility() {
     section.hidden=adminReady ? !active : name!=='existencias';
     if(active)section.open=true;
   }
+  // El contenedor del encabezado comparte la visibilidad de la sección Resumen.
+  document.getElementById('resumenHeaderShell').hidden=
+    document.getElementById('grp-resumen').hidden;
   for(const button of document.querySelectorAll('#workspaceTabs [data-workspace]')) {
     const active=adminReady && button.dataset.workspace===activeWorkspaceTab;
     button.setAttribute('aria-selected',String(active));
