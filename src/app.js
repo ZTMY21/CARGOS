@@ -982,7 +982,7 @@ function renderDocs(){
     : annualEmpty;
 
   document.getElementById('resumenTablas').innerHTML = `
-    <div class="kpis" aria-label="Estado de todos los cargos">
+    <div class="kpis summary-primary" aria-label="Estado de todos los cargos">
       <div class="kpi kpi-color kpi-summary-total">
         <div class="l">Total de Cargos</div>
         <div class="n">${fmtNum(totalCargos)}<span class="folios-inline"> (${fmtNum(totalFolios)} folios)</span></div>
@@ -992,12 +992,6 @@ function renderDocs(){
         <div class="l">Enviado Iron Mountain</div>
         <div class="n">${fmtNum(cargosEnviados)}</div>
         <div class="pct-txt">${pct(cargosEnviados,totalCargos)}</div>
-      </div>
-      <div class="kpi kpi-color kpi-summary-process">
-        <div class="l">En Proceso de Acondicionamiento</div>
-        <div class="n">${avanceLote?.prepared == null ? '—' : fmtNum(avanceLote.prepared)+'/'+fmtNum(avanceLote.total)}</div>
-        <div class="pct-txt">${avanceLote?.preparedPct == null ? 'Consultando cajas preparadas' : avanceLote.preparedPct+'% acondicionadas'}</div>
-        ${avanceLote?.prepared != null ? `<progress class="conditioning-batch-progress" value="${avanceLote.prepared}" max="${avanceLote.total}" aria-label="Porcentaje de cajas terminadas de acondicionar"></progress>` : ''}
       </div>
       <div class="kpi kpi-color kpi-summary-pending">
         <div class="l">Pendiente de Envío a IM</div>
@@ -1019,7 +1013,10 @@ function renderDocs(){
         </div>
       </div>
     </div>
-    <div class="prepared-row${isAdmin ? ' with-request-cards' : ''}">
+    <section class="summary-box-area" aria-labelledby="summary-box-heading">
+      <h3 class="summary-box-heading" id="summary-box-heading">Gestión de cajas</h3>
+      <p class="summary-box-desc">Solicitudes, cajas por acondicionar, avance de preparación y cajas listas para envío</p>
+      <div class="kpis summary-box-grid" aria-label="Indicadores de gestión de cajas">
       <div class="kpi kpi-color kpi-summary-prepared" aria-label="Cajas preparadas para envío a Iron Mountain">
         <div class="expiry-card-heading">
           <div class="l">Cajas preparadas para envío</div>
@@ -1029,7 +1026,15 @@ function renderDocs(){
         <div class="pct-txt">Sin fecha de envío · Pendientes de envío a Iron Mountain</div>
       </div>
       ${isAdmin ? requestCards(reqs,requestTracking,avanceLote) : ''}
-    </div>
+
+      <div class="kpi kpi-color kpi-summary-process">
+        <div class="l">En Proceso de Acondicionamiento</div>
+        <div class="n">${avanceLote?.prepared == null ? '—' : fmtNum(avanceLote.prepared)+'/'+fmtNum(avanceLote.total)}</div>
+        <div class="pct-txt">${avanceLote?.preparedPct == null ? 'Consultando cajas preparadas' : avanceLote.preparedPct+'% acondicionadas'}</div>
+        ${avanceLote?.prepared != null ? `<progress class="conditioning-batch-progress" value="${avanceLote.prepared}" max="${avanceLote.total}" aria-label="Porcentaje de cajas terminadas de acondicionar"></progress>` : ''}
+      </div>
+      </div>
+    </section>
     ${receptionPreview ? '<p class="expiry-note">Preview de recepción · los guardados se hacen en el Maestro de prueba. Las solicitudes conciliadas identifican los códigos que ya constan en Iron Mountain.</p>' : isolatedRequirements ? '<p class="expiry-note">Intervención 4 · Base aislada de pruebas con una muestra de registros reales. Consolidación en Excel pendiente.</p>' : ''}
     ${expiryGroups.unknown.length ? `<p class="expiry-note">${fmtNum(cargosDe(expiryGroups.unknown))} cargos de 2025/2026 sin fecha válida para calcular el vencimiento; no se incluyen en estas alertas.</p>` : ''}
     <section class="year-section periodo-box" aria-labelledby="year-summary-heading">
