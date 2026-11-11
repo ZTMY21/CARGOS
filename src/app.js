@@ -951,8 +951,6 @@ function renderDocs(){
     : null;
   const cajasSolicitadas = Number((isAdmin ? reqs.filter(row=>row.tipo==="Cajas nuevas para acondicionar" && Number(row.cantidadCajas)>0).at(-1) : null)?.cantidadCajas)||0;
   // Resumen de solicitudes a Iron Mountain: préstamo/búsqueda, nunca suministro de cajas nuevas.
-  const solicitudesIMActivas=reqs.filter(row=>row.tipo==='Préstamo de Cajas (búsqueda de documentos)' &&
-    row.estadoV4!=='Devuelto'&&!row.fechaDevolucion).length;
   const cajasSolicitadasIM=requestTracking
     ? new Set((requestTracking.cajas||[]).filter(row=>!row.devolucion)
         .map(row=>physicalBoxKey(row.codigo||row.clave)).filter(Boolean)).size : null;
@@ -1037,20 +1035,6 @@ function renderDocs(){
         ${avanceLote?.prepared != null ? `<progress class="conditioning-batch-progress" value="${avanceLote.prepared}" max="${avanceLote.total}" aria-label="Porcentaje de cajas terminadas de acondicionar"></progress>` : ''}
       </div>
       </div>
-      <h4 class="summary-box-subheading">Solicitudes a Iron Mountain</h4>
-      <div class="kpis summary-box-loans" aria-label="Seguimiento de solicitudes de cajas almacenadas en Iron Mountain">
-        <div class="kpi kpi-color kpi-summary-loans">
-          <div class="expiry-card-heading">
-            <div class="l">Cajas para revisión de facturas</div>
-            <button type="button" class="expiry-detail-button" data-resumen-box="solicitudesIM" aria-haspopup="dialog" aria-controls="summaryBoxDetailDialog">Ver detalle</button>
-          </div>
-          <div class="summary-loan-flex">
-            <div><div class="n">${cajasSolicitadasIM==null?'—':fmtNum(cajasSolicitadasIM)}</div>
-              <div class="pct-txt">Solicitadas a Iron Mountain</div></div>
-            <div class="summary-loan-secondary"><strong>${fmtNum(solicitudesIMActivas)}</strong><span>Solicitudes activas</span></div>
-          </div>
-        </div>
-      </div>
       <h4 class="summary-box-subheading">Cajas preparadas para envío</h4>
       <div class="kpis summary-box-bottom" aria-label="Cajas preparadas pendientes de envío, según su clasificación">
         <div class="kpi kpi-color kpi-summary-prepared kpi-summary-prepared-requested" aria-label="Cajas preparadas para envío solicitadas">
@@ -1070,7 +1054,17 @@ function renderDocs(){
           <div class="pct-txt">Cajas nuevas · Sin fecha de envío a IM</div>
         </div>
       </div>
-
+      <h4 class="summary-box-subheading">Solicitudes a Iron Mountain</h4>
+      <div class="kpis summary-box-loans" aria-label="Seguimiento de solicitudes de cajas almacenadas en Iron Mountain">
+        <div class="kpi kpi-color kpi-summary-loans">
+          <div class="expiry-card-heading">
+            <div class="l">Cajas para revisión de facturas</div>
+            <button type="button" class="expiry-detail-button" data-resumen-box="solicitudesIM" aria-haspopup="dialog" aria-controls="summaryBoxDetailDialog">Ver detalle</button>
+          </div>
+          <div class="n">${cajasSolicitadasIM==null?'—':fmtNum(cajasSolicitadasIM)}</div>
+          <div class="pct-txt">Solicitadas a Iron Mountain</div>
+        </div>
+      </div>
     </section>
     ${receptionPreview ? '<p class="expiry-note">Preview de recepción · los guardados se hacen en el Maestro de prueba. Las solicitudes conciliadas identifican los códigos que ya constan en Iron Mountain.</p>' : isolatedRequirements ? '<p class="expiry-note">Intervención 4 · Base aislada de pruebas con una muestra de registros reales. Consolidación en Excel pendiente.</p>' : ''}
     ${expiryGroups.unknown.length ? `<p class="expiry-note">${fmtNum(cargosDe(expiryGroups.unknown))} cargos de 2025/2026 sin fecha válida para calcular el vencimiento; no se incluyen en estas alertas.</p>` : ''}
