@@ -503,7 +503,8 @@ function foliosResumenTexto(rows){
   const disponible=resumenArchiveMetaUser===currentUserId
     && resumenArchiveMeta instanceof Map && resumenArchiveMetaTotal===docs.length;
   if(necesitaRespaldo && !disponible)return 'calculando folios';
-  return fmtNum(foliosResumenDe(rows))+' folios';
+  const total=foliosResumenDe(rows);
+  return total>0 ? fmtNum(total)+' folios' : '— folios';
 }
 function updateSummaryFolioLabels(){
   for(const [id,rows] of [
