@@ -977,6 +977,23 @@ function renderDocs(){
   ).join('') || annualEmpty;
   const aniosOrdenados = [...annualCounts.keys()].sort((a,b)=>
     a==='Sin año' ? 1 : b==='Sin año' ? -1 : Number(a)-Number(b));
+  // Vista compacta para gerencia: los números provienen del mismo mapa del total de cargos.
+  const compactYears=Array.from({length:7},(_,i)=>String(2020+i));
+  const compactUnknown=Number(annualCounts.get('Sin año')||0);
+  const compactYearCards=compactYears.map(anio=>{
+    const count=Number(annualCounts.get(anio)||0);
+    const inner='<span class="summary-annual-year">'+anio+'</span>'+
+      '<strong class="summary-annual-count">'+fmtNum(count)+'</strong>'+
+      '<span class="summary-annual-unit">cargos</span>';
+    return !isolatedRequirements && count>0
+      ? '<button type="button" class="summary-annual-tile'+(anio==='2026'?' is-current':'')+
+        '" data-compact-year="'+anio+'" aria-label="Ver '+fmtNum(count)+' cargos de '+anio+
+        ' en Existencias" title="Consultar cargos de '+anio+' en Existencias">'+inner+'</button>'
+      : '<div class="summary-annual-tile'+(anio==='2026'?' is-current':'')+'">'+inner+'</div>';
+  }).join('')+(compactUnknown>0?'<div class="summary-annual-tile summary-annual-unknown">'+
+    '<span class="summary-annual-year">Sin año</span>'+
+    '<strong class="summary-annual-count">'+fmtNum(compactUnknown)+'</strong>'+
+    '<span class="summary-annual-unit">cargos</span></div>':'');
   const porPeriodoHtml = aniosOrdenados.length
     ? aniosOrdenados.map(a=>`<div class="periodo-fila ${a==='2026'?'year-current':''}">
          <span class="year-label">${escapeHtml(a)}</span>
@@ -1066,7 +1083,22 @@ function renderDocs(){
         </div>
       </div>
     </section>
-    ${receptionPreview ? '<p class="expiry-note">Preview de recepción · los guardados se hacen en el Maestro de prueba. Las solicitudes conciliadas identifican los códigos que ya constan en Iron Mountain.</p>' : isolatedRequirements ? '<p class="expiry-note">Intervención 4 · Base aislada de pruebas con una muestra de registros reales. Consolidación en Excel pendiente.</p>' : ''}
+    <section class="summary-annual-compact" aria-labelledby="summaryAnnualCompactTitle">
+      <div class="summary-annual-heading">
+        <div>
+          <h3 id="summaryAnnualCompactTitle">Cargos por año</h3>
+          <p>Distribución de cargos históricos · 2020–2026</p>
+        </div>
+        <span class="summary-annual-icon" aria-hidden="true">▥</span>
+      </div>
+      <div class="summary-annual-grid" id="compactYearGrid" aria-label="Conteos de cargos por año">
+        \${compactYearCards}
+      </div>
+      <p class="summary-annual-note">\${isolatedRequirements
+        ? 'Conteos anuales de referencia. La consulta detallada corresponde al histórico completo.'
+        : 'Selecciona un año con cargos para consultarlos en Existencias.'}</p>
+    </section>
+    \${receptionPreview ? '<p class="expiry-note">Preview de recepción · los guardados se hacen en el Maestro de prueba. Las solicitudes conciliadas identifican los códigos que ya constan en Iron Mountain.</p>' : isolatedRequirements ? '<p class="expiry-note">Intervención 4 · Base aislada de pruebas con una muestra de registros reales. Consolidación en Excel pendiente.</p>' : ''}
     ${expiryGroups.unknown.length ? `<p class="expiry-note">${fmtNum(cargosDe(expiryGroups.unknown))} cargos de 2025/2026 sin fecha válida para calcular el vencimiento; no se incluyen en estas alertas.</p>` : ''}
     <section class="year-section periodo-box" aria-labelledby="year-summary-heading">
       <h3 class="year-heading" id="year-summary-heading">Cargos por Año</h3>
@@ -1078,6 +1110,19 @@ function renderDocs(){
       <div class="year-grid" id="imYearSummaryGrid" aria-live="polite">${enviadosPorAnioHtml}</div>
     </section>
   `;
+  document.getElementById('compactYearGrid').addEventListener('click',event=>{
+    const button=event.target.closest('button[data-compact-year]');
+    if(!button || !appReady || !isAdmin)return;
+    const year=button.dataset.compactYear;
+    if(!year || !Array.from(document.getElementById('filtroAnio').options).some(option=>option.value===year))return;
+    document.getElementById('buscar').value='';
+    for(const id of ['filtroEstado','filtroUbicacion','filtroFactura'])document.getElementById(id).value='';
+    document.getElementById('filtroTipo').value='solo-cargos';
+    document.getElementById('filtroAnio').value=year;
+    selectWorkspaceTab('existencias',true);
+    searchNow();
+    document.getElementById('grp-existencias').scrollIntoView({behavior:'smooth',block:'start'});
+  });
   document.getElementById('yearSummaryGrid').addEventListener('click',event=>{
     const button=event.target.closest('button[data-cargo-year]');
     if(!button || !appReady || !isAdmin)return;
