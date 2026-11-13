@@ -3,7 +3,11 @@ import assert from 'node:assert/strict';
 import {randomBytes,randomUUID} from 'node:crypto';
 import {readFile} from 'node:fs/promises';
 import {PGlite} from '@electric-sql/pglite';
-import {sha256,seal,unseal} from '../server/archive/security.js';
+import {PDFDocument} from 'pdf-lib';
+import {sha256,seal,unseal,validateInput} from '../server/archive/security.js';
+import {ArchiveRepository} from '../server/archive/repository.js';
+import {ArchiveService} from '../server/archive/service.js';
+import {MemoryDrive} from '../server/archive/demo.js';
 import {createConnectHandler} from '../api/drive-connect.js';
 import {handle} from '../supabase/functions/kardex-drive-metadata/index.ts';
 test('runtime SQL isolates encrypted settings and consumes OAuth sessions exactly once',async()=>{
@@ -25,6 +29,73 @@ test('metadata capability cannot proxy business tables or unauthenticated reques
  assert.equal((await call({capability:cap,operation:'metadata',path:'documentos?select=*'})).status,403);
  assert.equal((await call({capability:cap,operation:'metadata',path:'rpc/kardex_live_ingest',method:'POST',payload:{}})).status,403);
  assert.equal(forwarded,0);
+});
+test('pickup PDF uploads and resumes the same job after an empty PostgREST 201',async()=>{
+ const url='https://fixture.supabase.co';
+ const cap=randomBytes(32).toString('base64');
+ const env={get:name=>({SUPABASE_URL:url,SUPABASE_SERVICE_ROLE_KEY:'fixture-server-key'})[name]};
+ const db=new PGlite();
+ try{
+  await db.exec('create role anon; create role authenticated; create role service_role bypassrls; create table public.documentos(id uuid primary key); create table public.importaciones(id uuid primary key)');
+  for(const path of ['../db/proposals/drive-archive.sql',
+    '../supabase/migrations/20261031204200_drive_first_global_and_staged_evidence.sql',
+    '../supabase/migrations/20261113170611_allow_pickup_pdf_archive_jobs.sql']){
+   await db.exec(await readFile(new URL(path,import.meta.url),'utf8'));
+  }
+  const rest=async(address,options)=>{
+   const {pathname,searchParams}=new URL(address);
+   const payload=options.body?JSON.parse(options.body):null;
+   if(pathname.endsWith('/kardex_drive_runtime_access')){
+    assert.equal(payload.p_key_sha256,sha256(cap));
+    return Response.json({authorized:true});
+   }
+   if(pathname.endsWith('/kardex_drive_claim')){
+    return Response.json((await db.query('select public.kardex_drive_claim($1,$2) as row',[payload.p_id,payload.p_owner])).rows[0].row);
+   }
+   if(pathname.endsWith('/kardex_drive_save')){
+    return Response.json((await db.query('select public.kardex_drive_save($1,$2,$3,$4) as row',[
+     payload.p_id,payload.p_owner,JSON.stringify(payload.p_patch),payload.p_release
+    ])).rows[0].row);
+   }
+   assert.equal(pathname,'/rest/v1/kardex_drive_jobs');
+   if(options.method==='POST'){
+    assert.equal(options.headers.Prefer,'resolution=ignore-duplicates,return=minimal');
+    await db.query('insert into public.kardex_drive_jobs(id,idempotency_key,document_id,data) values ($1,$2,$3,$4) on conflict(idempotency_key) do nothing',[
+     payload.id,payload.idempotency_key,payload.document_id,JSON.stringify(payload.data)
+    ]);
+    return new Response(null,{status:201});
+   }
+   const column=searchParams.has('id')?'id':'idempotency_key';
+   return Response.json((await db.query('select * from public.kardex_drive_jobs where '+column+'=$1',[searchParams.get(column).slice(3)])).rows);
+  };
+  const viaGateway=(address,options)=>handle(new Request(address,options),env,rest);
+  const repo=new ArchiveRepository({SUPABASE_URL:url,KARDEX_DRIVE_METADATA_KEY:cap},{fetcher:viaGateway});
+  const directRepo=new ArchiveRepository({SUPABASE_URL:url,SUPABASE_SERVICE_ROLE_KEY:'fixture-server-key'},{fetcher:rest});
+  const drive=new MemoryDrive();
+  const service=new ArchiveService(repo,drive,randomBytes(32).toString('base64'));
+  const pdf=await PDFDocument.create();pdf.addPage();
+  const bytes=Buffer.from(await pdf.save()),digest=sha256(bytes);
+  const batch=randomUUID(),visit=randomUUID(),actor=randomUUID();
+  const input={documentId:null,sourceKey:`pickup:${batch}:${visit}:${actor}`,
+   sourceVersion:'sha256:'+digest,name:`IM_RECOJO_2026-11-13_AV-${batch.slice(0,8)}_${visit}.pdf`,
+   sha256:digest,size:bytes.length,mime:'application/pdf',category:'scans'};
+  // The failed production attempt had already inserted this pending row before returning an error.
+  const validated=validateInput(input);
+  const pendingId=randomUUID();
+  await db.query('insert into public.kardex_drive_jobs(id,idempotency_key,data) values ($1,$2,$3)',[
+   pendingId,validated.key,JSON.stringify({...validated,status:'pending',offset:0})
+  ]);
+  const started=await service.start(input);
+  assert.equal(started.id,pendingId);
+  await service.chunk(started.id,0,bytes);
+  const saved=await service.finish(started.id);
+  assert.equal(saved.backendVerified,true);
+  assert.deepEqual(Buffer.from(await (await service.download(saved.id)).response.arrayBuffer()),bytes);
+  assert.equal((await service.start(input)).id,pendingId);
+  assert.equal((await directRepo.create(validated)).id,pendingId);
+  assert.equal(drive.created,1);
+  assert.equal((await db.query('select count(*)::int as n from public.kardex_drive_jobs')).rows[0].n,1);
+ }finally{await db.close();}
 });
 test('OAuth state is cookie-bound, one-use and never returns provider credentials',async()=>{
  const key=randomBytes(32).toString('base64'),env={VERCEL_ENV:'preview',KARDEX_DRIVE_CONNECT_ENABLED:'true',GOOGLE_DRIVE_CLIENT_ID:'client',GOOGLE_DRIVE_CLIENT_SECRET:'private-client-secret',KARDEX_DRIVE_METADATA_KEY:randomBytes(32).toString('base64'),KARDEX_DRIVE_SESSION_KEY:key,GOOGLE_DRIVE_REDIRECT_URI:'https://kardex-digital-santa-anita-test-ztmy1.vercel.app/api/drive-connect',GOOGLE_DRIVE_ROOT_FOLDER_ID:'approved-root',GOOGLE_DRIVE_OWNER_EMAIL:'owner@example.test',GOOGLE_DRIVE_FOLDER_IDS_JSON:JSON.stringify(Object.fromEntries(['scans','originals','backups','history','manifests'].map(k=>[k,'approved-folder-'+k])))};

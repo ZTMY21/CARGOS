@@ -7,7 +7,11 @@ export class ArchiveRepository {
     if(this.env.KARDEX_DRIVE_METADATA_KEY)return gateway(this.env,{operation:'metadata',path,method:options.method||'GET',payload:options.body?JSON.parse(options.body):undefined},this.fetch);
     const r=await this.fetch(this.env.SUPABASE_URL+'/rest/v1/'+path,{...options,headers:{apikey:this.env.SUPABASE_SERVICE_ROLE_KEY,Authorization:'Bearer '+this.env.SUPABASE_SERVICE_ROLE_KEY,'Content-Type':'application/json',...options.headers},signal:AbortSignal.timeout(15000),redirect:'error'});
     if(!r.ok)throw new ArchiveError(r.status===404?'ARCHIVE_SCHEMA_PENDING':'ARCHIVE_DATABASE_ERROR',503);
-    if(r.status===204)return null;return r.json();
+    if(r.status===204||options.headers?.Prefer==='resolution=ignore-duplicates,return=minimal'){
+      await r.body?.cancel();
+      return null;
+    }
+    return r.json();
   }
   unpack(row){return row?{...row.data,id:row.id,key:row.idempotency_key}:null;}
   async create(input){
