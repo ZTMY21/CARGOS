@@ -7,7 +7,7 @@ const doc = (fechaOrigen, extra={}) => ({kardex:'SA-00001',cargos:['660A'],anioO
 test('only 2025/2026 cargos pending shipment enter the expiry groups, including historical dates', () => {
   const groups = cargoExpiryGroups([
     doc('2025-01-01',{anioOrigen:2025}),doc('2026-09-30'),
-    doc('2024-01-01',{anioOrigen:2024}),doc('2026-01-01',{anioOrigen:2027}),
+    doc('2024-01-01',{anioOrigen:2024}),doc('2027-01-01',{anioOrigen:2027}),
     doc('2026-01-01',{imConfirmado:true}),
     doc('2026-01-01',{fEnvio:'2026-10-01',sustento:'Guía'}),
     doc('2026-01-01',{fEnvio:'2026-10-01',tieneSustentoImagen:true}),
@@ -63,12 +63,13 @@ test('missing, impossible and future source dates are not replaced with import d
   assert.equal(groups.overdue.length,1);
   assert.equal(groups.upcoming.length,0);
 });
-test('an explicit accounting period takes precedence; the source year and full cargo codes are preserved', () => {
+test('the accounting period sets the due date and the original date sets the cargo year', () => {
   const groups=cargoExpiryGroups([
     doc('2025-12-30',{periodo:'2026-09-01',cargos:['001','001A']}),
     doc('2025-12-30',{kardex:'SA-00002'})
   ],now);
-  assert.equal(groups.overdue[0].expiry.year,'2026');
+  assert.equal(groups.overdue[0].expiry.year,'2025');
+  assert.equal(groups.upcoming[0].expiry.year,'2025');
   assert.equal(groups.upcoming[0].expiry.baseDate,'2026-09-01');
   assert.deepEqual(groups.upcoming[0].cargos,['001','001A']);
   assert.deepEqual(groups.upcoming[0].expiry.time,{months:4,days:11});

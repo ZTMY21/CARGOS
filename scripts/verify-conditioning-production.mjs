@@ -4,6 +4,7 @@ import {readMasterDrive,readHistoryDrive} from '../server/im-master-drive.js';
 import {appendReceivedBoxes} from '../server/reception-workbook.js';
 import {readHistoryBoxes} from '../server/im-history-workbook.js';
 import {updateConditioningWorkbooks} from '../server/conditioning-workbooks.js';
+import {createExistenciasSourcesReader} from '../api/existencias-sources.js';
 
 const env=process.env;
 try{
@@ -36,6 +37,11 @@ try{
   if(!first.maestro.equals(second.maestro)||!first.historico.equals(second.historico))
     throw Error('PRODUCTION_FILE_RETRY_NOT_IDEMPOTENT');
   console.log('Acondicionamiento: permisos, revisiones y escritura simulada del Maestro e Histórico verificados.');
+  const started=Date.now();
+  const {folios,rows}=await createExistenciasSourcesReader(client)();
+  if(!folios.length||!rows.length)throw Error('EXISTENCIAS_DRIVE_SOURCE_EMPTY');
+  console.log('Reporte de Existencias: lectura de Drive verificada para '+folios.length+' cargos en '+
+    Math.round((Date.now()-started)/1000)+' s.');
 }catch(error){
   const code=String(error.code||error.message||'').match(/^[A-Z0-9_]{3,100}$/)?.[0]||'PRODUCTION_WORKBOOK_CHECK_FAILED';
   console.error('Acondicionamiento: '+code);

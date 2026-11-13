@@ -16,7 +16,9 @@ import {attachInterventionExperience} from './intervention-experience.js';
 import { createClient } from '@supabase/supabase-js';
 import { computeReqEstado as reqEstado, computeDocEstado as docEstado, fmtDate, escapeHtml, limaDate, validDate, isSentIm, usesHistoricalImDecision, historicalShipmentDetails, HISTORICAL_IM_NOTE } from './rules.js';
 import { KardexRepository, reqFromDb, docFromDb } from './repository.js';
-import { buildCargoWorkbook, buildExistenciasReport, serializeExistenciasReport, parseWorkbook } from './excel-api.js';
+import { buildCargoWorkbook, parseWorkbook } from './excel-api.js';
+import { loadExistenciasFolios, prepareExistenciasExport } from './existencias-export.js';
+import { reportCargoCode } from './existencias-data.js';
 import { highlightMatch, normalizeSearch, filterDocuments, filterRequirements, invoiceSearchPresentation, assignedBoxCode, physicalBoxKey } from './search.js';
 import './connection.css';
 import { cargoYear, locationLabel, groupsForCodes } from './cargo-details.js';
@@ -469,10 +471,9 @@ let editingReqVersion = null;
 
 let docs = [];
 // Datos de consulta usados únicamente por los KPI de Resumen.
-let resumenArchiveMeta = null;
-let resumenArchiveMetaUser = null;
-let resumenArchiveMetaTotal = -1;
-let resumenArchiveMetaLoading = false;
+let resumenFolioSnapshot = null;
+let resumenFolioLoading = false;
+let resumenFolioRefreshRequested = false;
 let resumenSummaryDocs = [];
 let resumenLastSentDocs = [];
 let resumenLastPendingDocs = [];
@@ -486,24 +487,20 @@ function isSentInSummary(doc){
   return isSentIm(doc.estado) ||
     (doc.estado==='Caja solicitada' && isHistoricalImSentSource(doc));
 }
-function foliosResumenDoc(doc){
-  const folios=Number(doc.folios);
-  if(Number.isFinite(folios) && folios>0)return folios;
-  // Únicamente si falta el total de páginas, usar los documentos originales.
-  // Es una referencia para la interfaz, no una conversión certificada a páginas.
-  const count=resumenArchiveMetaUser===currentUserId && resumenArchiveMeta instanceof Map
-    ? Number(resumenArchiveMeta.get(doc.id)) : NaN;
-  return Number.isFinite(count) && count>0 ? count : 0;
-}
-function foliosResumenDe(rows){
-  return rows.reduce((total,doc)=>total+foliosResumenDoc(doc),0);
-}
 function foliosResumenTexto(rows){
-  const necesitaRespaldo=rows.some(doc=>!(Number(doc.folios)>0));
-  const disponible=resumenArchiveMetaUser===currentUserId
-    && resumenArchiveMeta instanceof Map && resumenArchiveMetaTotal===docs.length;
-  if(necesitaRespaldo && !disponible)return 'calculando folios';
-  const total=foliosResumenDe(rows);
+  if(!rows.length)return '— folios';
+  if(resumenFolioSnapshot?.generation!==authGeneration)return 'calculando folios';
+  if(!resumenFolioSnapshot.byDoc)return 'folios sin verificar';
+  let total=0;
+  for(const doc of rows){
+    const indexed=resumenFolioSnapshot.byDoc.get(doc.id);
+    if(!indexed||indexed.updatedAt!==doc.updatedAt)return 'calculando folios';
+    for(const cargo of doc.cargos){
+      const value=indexed.foliosPorCargo[reportCargoCode(cargo)];
+      if(!Number.isFinite(value))return 'calculando folios';
+      total+=value;
+    }
+  }
   return total>0 ? fmtNum(total)+' folios' : '— folios';
 }
 function updateSummaryFolioLabels(){
@@ -518,21 +515,26 @@ function updateSummaryFolioLabels(){
     if(node)node.textContent=' ('+foliosResumenTexto(rows)+')';
   }
 }
-function loadSummaryFolioMetadata(){
-  if(!isAdmin||!currentUserId||resumenArchiveMetaLoading)return;
-  if(resumenArchiveMetaUser===currentUserId && resumenArchiveMetaTotal===docs.length)return;
-  resumenArchiveMetaLoading=true;
-  const requestedUser=currentUserId,requestedTotal=docs.length;
-  // Consulta de solo lectura, exclusivamente para las etiquetas de Resumen.
-  void repository.reportDocs(resumenSummaryDocs).then(rows=>{
-    if(currentUserId!==requestedUser||!isAdmin)return;
-    resumenArchiveMeta=new Map((rows||[]).map(doc=>[doc.id,doc.cantidadRegistros]));
-    resumenArchiveMetaUser=requestedUser;
-    resumenArchiveMetaTotal=requestedTotal;
-    updateSummaryFolioLabels();
-  }).catch(()=>{
-    // No bloquear los contadores de cargos ni usar valores sin verificar.
-  }).finally(()=>{resumenArchiveMetaLoading=false;});
+async function loadSummaryFolioMetadata(){
+  if(!isAdmin||!currentUserId)return;
+  resumenFolioRefreshRequested=true;
+  if(resumenFolioLoading)return;
+  resumenFolioLoading=true;
+  try{
+    while(resumenFolioRefreshRequested&&isAdmin&&currentUserId){
+      resumenFolioRefreshRequested=false;
+      const generation=authGeneration;
+      try{
+        const rows=await loadExistenciasFolios(repository,resumenSummaryDocs);
+        if(generation!==authGeneration||!isAdmin)continue;
+        resumenFolioSnapshot={generation,byDoc:new Map(rows.map(doc=>[doc.id,doc]))};
+      }catch{
+        if(generation!==authGeneration||!isAdmin)continue;
+        resumenFolioSnapshot={generation,byDoc:null};
+      }
+      updateSummaryFolioLabels();
+    }
+  }finally{resumenFolioLoading=false;}
 }
 let editingDocId = null;
 let editingDocVersion = null;
@@ -1084,17 +1086,17 @@ function renderDocs(){
     <div class="kpis summary-primary" aria-label="Estado de todos los cargos">
       <div class="kpi kpi-color kpi-summary-total">
         <div class="l">Total de Cargos</div>
-        <div class="n">${fmtNum(totalCargos)}<span class="folios-inline" id="summaryTotalFolios" title="Folio registrado o, si falta, cantidad de documentos del cargo como referencia; no son páginas verificadas."> (${foliosResumenTexto(resumenSummaryDocs)})</span></div>
+        <div class="n">${fmtNum(totalCargos)}<span class="folios-inline" id="summaryTotalFolios" title="Páginas registradas en Google Drive y datos históricos. Si faltan páginas, se usa la cantidad de registros como referencia."> (${foliosResumenTexto(resumenSummaryDocs)})</span></div>
         <div class="pct-txt">${pct(totalCargos,totalCargos)}</div>
       </div>
       <div class="kpi kpi-color kpi-summary-sent">
         <div class="l">Enviado Iron Mountain</div>
-        <div class="n">${fmtNum(cargosEnviados)}<span class="folios-inline" id="summarySentSource" title="Folio registrado o, si falta, cantidad de documentos del cargo como referencia; no son páginas verificadas."> (${foliosResumenTexto(resumenLastSentDocs)})</span></div>
+        <div class="n">${fmtNum(cargosEnviados)}<span class="folios-inline" id="summarySentSource" title="Páginas registradas en Google Drive y datos históricos. Si faltan páginas, se usa la cantidad de registros como referencia."> (${foliosResumenTexto(resumenLastSentDocs)})</span></div>
         <div class="pct-txt">${pct(cargosEnviados,totalCargos)}</div>
       </div>
       <div class="kpi kpi-color kpi-summary-pending">
         <div class="l">Pendiente de Envío a IM</div>
-        <div class="n">${fmtNum(baseAlerta)}<span class="folios-inline" id="summaryPendingFolios" title="Folio registrado o, si falta, cantidad de documentos del cargo como referencia; no son páginas verificadas."> (${foliosResumenTexto(resumenLastPendingDocs)})</span></div>
+        <div class="n">${fmtNum(baseAlerta)}<span class="folios-inline" id="summaryPendingFolios" title="Páginas registradas en Google Drive y datos históricos. Si faltan páginas, se usa la cantidad de registros como referencia."> (${foliosResumenTexto(resumenLastPendingDocs)})</span></div>
         <div class="pct-txt">${pct(baseAlerta,totalCargos)}</div>
       </div>
     </div>
@@ -1103,12 +1105,12 @@ function renderDocs(){
       <div class="kpis" aria-label="Alertas de cargos pendientes">
         <div class="kpi kpi-color kpi-summary-expiring">
           <div class="expiry-card-heading"><div class="l">Cargos por Vencer</div><button id="btnCargosPorVencer" type="button" class="expiry-detail-button" data-expiry="upcoming" aria-label="Ver detalle de cargos por vencer" aria-haspopup="dialog" aria-controls="cargoExpirySheet">Ver detalle</button></div>
-          <div class="n">${fmtNum(cargosPorVencer)}<span class="folios-inline" id="summaryUpcomingFolios" title="Folio registrado o, si falta, cantidad de documentos del cargo como referencia; no son páginas verificadas."> (${foliosResumenTexto(grupoPorVencer)})</span></div>
+          <div class="n">${fmtNum(cargosPorVencer)}<span class="folios-inline" id="summaryUpcomingFolios" title="Páginas registradas en Google Drive y datos históricos. Si faltan páginas, se usa la cantidad de registros como referencia."> (${foliosResumenTexto(grupoPorVencer)})</span></div>
           <div class="pct-txt">${pct(cargosPorVencer,baseAlerta)}</div>
         </div>
         <div class="kpi kpi-color kpi-summary-overdue">
           <div class="expiry-card-heading"><div class="l">Cargos Vencidos</div><button id="btnCargosVencidos" type="button" class="expiry-detail-button" data-expiry="overdue" aria-label="Ver detalle de cargos vencidos" aria-haspopup="dialog" aria-controls="cargoExpirySheet">Ver detalle</button></div>
-          <div class="n">${fmtNum(cargosVencidos)}<span class="folios-inline" id="summaryOverdueFolios" title="Folio registrado o, si falta, cantidad de documentos del cargo como referencia; no son páginas verificadas."> (${foliosResumenTexto(grupoVencidos)})</span></div>
+          <div class="n">${fmtNum(cargosVencidos)}<span class="folios-inline" id="summaryOverdueFolios" title="Páginas registradas en Google Drive y datos históricos. Si faltan páginas, se usa la cantidad de registros como referencia."> (${foliosResumenTexto(grupoVencidos)})</span></div>
           <div class="pct-txt">${pct(cargosVencidos,baseAlerta)}</div>
         </div>
       </div>
@@ -1852,17 +1854,10 @@ document.getElementById('btnExportar').addEventListener('click',async event=>{
   const button=event.currentTarget,labelNode=button.querySelector('span')||button,label=labelNode.textContent;
   button.disabled=true;labelNode.textContent='Preparando reporte…';
   try {
-    // Exportar siempre el corte más reciente de Supabase, incluso si la
-    // sincronización llegó mientras el administrador tenía el panel abierto.
-    const latest=await repository.snapshot();
-    const currentDocs=latest.documentos.map(docFromDb);
-    const currentReqs=latest.requerimientos.map(reqFromDb);
-    const source=await repository.reportDocs(currentDocs);
-    const wb=await buildExistenciasReport(source,new Date(),currentReqs);
-    await downloadExcel(wb,`Kardex_Santa_Anita_${limaDate()}.xlsx`,
-      ()=>serializeExistenciasReport(wb,
-        year=>repository.reportOriginalRows(year,source),
-        (year,count)=>{labelNode.textContent='Exportando '+year+' · '+count.toLocaleString('es-PE')+' filas…';}));
+    const {workbook,serialize}=await prepareExistenciasExport(repository,
+      (year,count)=>{labelNode.textContent='Exportando '+year+' · '+count.toLocaleString('es-PE')+' filas…';},
+      {includeConditioning:receptionEnabled});
+    await downloadExcel(workbook,`Kardex_Santa_Anita_${limaDate()}.xlsx`,serialize);
   } catch(error) { alert(`No se pudo exportar el reporte: ${readableError(error)}`); }
   finally { labelNode.textContent=label;button.disabled=false; }
 });

@@ -8,6 +8,7 @@ import {computeReqEstado as reqEstado,computeDocEstado as docEstado,fmtDate,esca
 import {reqFromDb,docFromDb,KardexRepository} from '../src/repository.js';
 import {buildWorkbook,parseWorkbook} from '../src/excel.js';
 import {highlightMatch,normalizeSearch,filterDocuments,filterRequirements,invoiceSearchPresentation,assignedBoxCode,physicalBoxKey} from '../src/search.js';
+import {applyExistenciasFolios,reportCargoCode} from '../src/existencias-data.js';
 import {cargoYear,invoiceLocation,locationLabel,groupsForCodes} from '../src/cargo-details.js';
 import {cargoTotalsByYear,uniqueCargoDocuments} from '../src/cargo-year.js';
 import {cargoExpiryGroups,formatCargoDuration} from '../src/cargo-expiry.js';
@@ -24,7 +25,7 @@ const flush=()=>new Promise(resolve=>setTimeout(resolve,20));
 const reqRow={id:randomUUID(),numero:'REQ-00001',tipo:'Cajas nuevas para acondicionar',fecha_solicitud:'2026-10-01',cantidad_cajas:2,numeros_cargo:'',fecha_recepcion:'2026-10-02',fecha_devolucion:null,usuario:'Juan',updated_at:'2026-10-13T00:00:00.123456Z'};
 const docRow={id:randomUUID(),kardex:'SA-00001',fecha_registro:'2026-10-13',tipo_doc:'Facturas-Guia',periodo:'2026-01-01',ubicacion:'Santa Anita',folios:30,cargos:['C001'],caja_asignada:reqRow.id,f_envio:null,sustento:'',sustento_imagen:'',usuario:'Juan',facturas:'F-001',obs:'',updated_at:'2026-10-13T00:00:00.123456Z'};
 
-async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recovery=false,adminLink='',loginError=null,isolatedPreview=false,receptionPreview=false,annualReference=null,loanMatches={},requestAction=null,enableSearch=false,username='',previousMapping={},initialDocs=[docRow],initialReqs=[reqRow],initialTracking=null,archiveCounts={},now=Date.now()}={}) {
+async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recovery=false,adminLink='',loginError=null,isolatedPreview=false,receptionPreview=false,annualReference=null,loanMatches={},requestAction=null,enableSearch=false,username='',previousMapping={},initialDocs=[docRow],initialReqs=[reqRow],initialTracking=null,archiveCounts={},driveFolios={},now=Date.now()}={}) {
   const html=await readFile(new URL('../index.html',import.meta.url),'utf8');
   const source=(await readFile(new URL('../src/app.js',import.meta.url),'utf8')).replace(/^import .*;\n/gm,'');
   const dom=new JSDOM(html,{url:'https://kardex.example.test'+adminLink+(recovery?'#type=recovery':''),runScripts:'outside-only'});
@@ -33,6 +34,7 @@ async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recov
   dom.window.HTMLDialogElement.prototype.close=function(){if(this.open){this.open=false;this.dispatchEvent(new dom.window.Event('close'));}};
   const state={reqs:structuredClone(initialReqs),docs:structuredClone(initialDocs),tracking:structuredClone(initialTracking),updates:[],snapshots:0,events:[],status:null,authCallback:null};
   state.archiveCounts=structuredClone(archiveCounts);
+  state.driveFolios=structuredClone(driveFolios);
   state.session=signedIn?{user:{id:'owner',email:'owner@example.test',user_metadata:username?{kardex_username:username}:{}}}:null;
   state.syncRow={enabled:true,status:'Revisión completada: 276 cargos ya registrados. 1480 filas pendientes.',
     last_checked_at:'2026-10-17T03:09:17Z',
@@ -110,7 +112,7 @@ async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recov
     // El modal de Gestión de cajas pertenece solo a Resumen; simulación en pruebas VM.
     attachResumenBoxDetails:()=>({open:()=>{}}),
     summarizeBoxPreparationBatch,physicalBoxKey,validDate,
-    createClient:(url,key,options)=>{state.authOptions=options?.auth;return client;},KardexRepository:FakeRepository,reqFromDb,docFromDb,reqEstado,docEstado,fmtDate,escapeHtml,invoiceSearchPresentation,buildWorkbook:async(...args)=>{state.exportCalls.push(args);return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},buildCargoWorkbook:async(cargo)=>{state.guestExport=cargo;return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},buildExistenciasReport:async(...args)=>{state.reportArgs=args;return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},serializeExistenciasReport:async()=>{state.serializedReport=true;return new Uint8Array([1]);},parseWorkbook,highlightMatch,normalizeSearch,filterDocuments,filterRequirements,assignedBoxCode,cargoYear,invoiceLocation,locationLabel,groupsForCodes,
+    createClient:(url,key,options)=>{state.authOptions=options?.auth;return client;},KardexRepository:FakeRepository,reqFromDb,docFromDb,reqEstado,docEstado,fmtDate,escapeHtml,invoiceSearchPresentation,buildWorkbook:async(...args)=>{state.exportCalls.push(args);return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},buildCargoWorkbook:async(cargo)=>{state.guestExport=cargo;return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},reportCargoCode,loadExistenciasFolios:async(repo,docs)=>applyExistenciasFolios(await repo.reportDocs(docs),new Map(Object.entries(state.driveFolios))),prepareExistenciasExport:async(repo)=>{const snapshot=await repo.snapshot();state.reportDocs=await repo.reportDocs(snapshot.documentos.map(docFromDb));return {workbook:{},serialize:async()=>{state.serializedReport=true;return new Uint8Array([1]);}};},parseWorkbook,highlightMatch,normalizeSearch,filterDocuments,filterRequirements,assignedBoxCode,cargoYear,invoiceLocation,locationLabel,groupsForCodes,
     __SUPABASE_URL__:'https://example.supabase.co',__SUPABASE_ANON_KEY__:'sb_publishable_test',__REQ4_ISOLATED__:isolatedPreview,__RECEPTION_PREVIEW__:receptionPreview,confirm:()=>true,alert:()=>{}});
   await vm.runInContext(`(async()=>{${source}})()`,context);
   const node=id=>dom.window.document.getElementById(id);
@@ -631,14 +633,12 @@ test('administrator downloads report on demand with the Lima date and all snapsh
  const a=await app();
  try{
   const button=a.node('btnExportar');
-  assert.equal(button.previousElementSibling,a.node('btnOpenGoogleExcel'));
-  assert.equal(button.closest('#googleSyncContent'),a.node('googleSyncContent'));
+  assert.equal(button.closest('.resumen-report-actions').id,'');
+  assert.equal(button.nextElementSibling,a.node('btnOpenIronMountainHistorical'));
   assert.equal(a.node('workspaceTabResumen').getAttribute('aria-selected'),'true');
-  assert.equal(a.dom.window.getComputedStyle(button).backgroundColor,'rgb(36, 134, 74)');
   button.click();await flush();
   assert.equal(a.state.reportRequestedYear,null);
-  assert.equal(a.state.reportArgs[0].length,1);
-  assert.equal(a.state.reportArgs.length,3);
+  assert.equal(a.state.reportDocs.length,1);
   assert.equal(a.state.serializedReport,true);
   assert.match(a.state.downloadName,/^Kardex_Santa_Anita_\d{4}-\d{2}-\d{2}\.xlsx$/);
  }finally{a.close();}
@@ -1026,7 +1026,7 @@ test('Resumen suma el mismo respaldo histórico en total, enviados y pendientes 
     caja_asignada:null,folios:35
   };
   const a=await app({
-    initialDocs:[sent,oldPending,currentPending],
+    initialDocs:[sent,oldPending,currentPending],driveFolios:{'2026:9900':70},
     archiveCounts:{[sent.id]:100,[oldPending.id]:300},
     now:Date.parse('2026-11-11T15:00:00Z')
   });
@@ -1034,13 +1034,13 @@ test('Resumen suma el mismo respaldo histórico en total, enviados y pendientes 
     await flush();
     const root=a.node('resumenTablas');
     const value=id=>root.querySelector('#'+id)?.textContent?.trim();
-    assert.equal(value('summaryTotalFolios'),'(435 folios)');
+    assert.equal(value('summaryTotalFolios'),'(470 folios)');
     assert.equal(value('summarySentSource'),'(100 folios)');
-    assert.equal(value('summaryPendingFolios'),'(335 folios)');
-    assert.equal(value('summaryUpcomingFolios'),'(35 folios)');
+    assert.equal(value('summaryPendingFolios'),'(370 folios)');
+    assert.equal(value('summaryUpcomingFolios'),'(70 folios)');
     assert.equal(value('summaryOverdueFolios'),'(300 folios)');
-    assert.equal(100+335,435,'folios enviados y pendientes deben conciliar el total');
-    assert.equal(35+300,335,'folios por vencer y vencidos deben conciliar Pendiente IM');
+    assert.equal(100+370,470,'folios enviados y pendientes deben conciliar el total');
+    assert.equal(70+300,370,'folios por vencer y vencidos deben conciliar Pendiente IM');
     assert.equal(root.querySelector('.kpi-summary-total .n').textContent.trim().match(/^\d+/)[0],'3');
     assert.equal(root.querySelector('.kpi-summary-sent .n').textContent.trim().match(/^\d+/)[0],'1');
     assert.equal(root.querySelector('.kpi-summary-pending .n').textContent.trim().match(/^\d+/)[0],'2');
@@ -1048,6 +1048,12 @@ test('Resumen suma el mismo respaldo histórico en total, enviados y pendientes 
     assert.equal(root.querySelector('.kpi-summary-overdue .n').textContent.trim().match(/^\d+/)[0],'1');
     assert.match(root.querySelector('.kpi-summary-pending .pct-txt').textContent,/^\d+%$/);
     assert.doesNotMatch(root.querySelector('#summarySentSource').textContent,/registros históricos/);
+    a.state.driveFolios['2026:9900']=85;
+    a.dom.window.dispatchEvent(new a.dom.window.Event('focus'));
+    await new Promise(resolve=>setTimeout(resolve,250));
+    assert.equal(a.node('summaryTotalFolios').textContent.trim(),'(485 folios)');
+    assert.equal(a.node('summaryPendingFolios').textContent.trim(),'(385 folios)');
+    assert.equal(a.node('summaryUpcomingFolios').textContent.trim(),'(85 folios)');
   }finally{a.close();}
 });
 
