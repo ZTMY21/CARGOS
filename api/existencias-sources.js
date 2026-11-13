@@ -36,8 +36,30 @@ async function metadata(client,source){
   return file;
 }
 async function bytesFor(client,file){
-  const response=await client.request(prefix+file.id+'?alt=media&supportsAllDrives=true');
-  const buffer=Buffer.from(await response.arrayBuffer());
+  const url=prefix+file.id+'?alt=media&supportsAllDrives=true';
+  const size=Number(file.size),partSize=4*1024**2;
+  let buffer;
+  if(size<=partSize){
+    const response=await client.request(url);
+    buffer=Buffer.from(await response.arrayBuffer());
+  }else{
+    buffer=Buffer.alloc(size);
+    const offsets=Array.from({length:Math.ceil(size/partSize)},(_,i)=>i*partSize);
+    let cursor=0;
+    await Promise.all(Array.from({length:4},async()=>{
+      while(cursor<offsets.length){
+        const start=offsets[cursor++],end=Math.min(start+partSize,size)-1;
+        const response=await client.request(url,{headers:{Range:'bytes='+start+'-'+end}});
+        if(response.status!==206||response.headers.get('content-range')!=='bytes '+start+'-'+end+'/'+size){
+          await response.body?.cancel();
+          throw new ArchiveError('Drive no devolvió el tramo solicitado de '+file.name+'.',502);
+        }
+        const part=Buffer.from(await response.arrayBuffer());
+        if(part.length!==end-start+1)throw new ArchiveError('La lectura de '+file.name+' está incompleta.',502);
+        part.copy(buffer,start);
+      }
+    }));
+  }
   if(buffer.byteLength!==Number(file.size)||createHash('md5').update(buffer).digest('hex')!==file.md5Checksum.toLowerCase())
     throw new ArchiveError('Un Excel de Drive cambió durante la lectura. Vuelve a generar el reporte.',409);
   return buffer;
