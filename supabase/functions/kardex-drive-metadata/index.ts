@@ -76,9 +76,15 @@ export async function handle(req:Request,env:{get(name:string):string|undefined}
     if(!patch||Object.keys(patch).some(k=>!fields.includes(k)))return json({error:'INVALID_PATCH'},400);
    }
   }else return json({error:'PATH_NOT_ALLOWED'},403);
-  const r=await fetcher(base+'/rest/v1'+url.pathname+url.search,{method,headers:{...headers,...(method==='POST'&&url.pathname==='/kardex_drive_jobs'?{Prefer:'resolution=ignore-duplicates,return=minimal'}:{})},body:method==='POST'?JSON.stringify(body.payload):undefined,signal:AbortSignal.timeout(15000),redirect:'error'});
+  const createsJob=method==='POST'&&url.pathname==='/kardex_drive_jobs';
+  const r=await fetcher(base+'/rest/v1'+url.pathname+url.search,{method,headers:{...headers,...(createsJob?{Prefer:'resolution=ignore-duplicates,return=minimal'}:{})},body:method==='POST'?JSON.stringify(body.payload):undefined,signal:AbortSignal.timeout(15000),redirect:'error'});
   if(!r.ok)return json({error:r.status===404?'ARCHIVE_SCHEMA_PENDING':'ARCHIVE_DATABASE_ERROR'},503);
-  if(r.status===204)return new Response(null,{status:204,headers:{'Cache-Control':'no-store'}});return json(await r.json());
+  // PostgREST acknowledges return=minimal inserts with an empty 201, even on an idempotent retry.
+  if(createsJob||r.status===204){
+    await r.body?.cancel();
+    return new Response(null,{status:204,headers:{'Cache-Control':'no-store'}});
+  }
+  return json(await r.json());
  }catch{return json({error:'ARCHIVE_GATEWAY_UNAVAILABLE'},503);}
 }
 declare const Deno:{env:{get(name:string):string|undefined};serve(handler:(req:Request)=>Promise<Response>):void};
