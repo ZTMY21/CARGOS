@@ -41,45 +41,71 @@ async function metadata(client,source){
     throw new ArchiveError('No se pudo verificar la identidad o el acceso a '+file.name+'.',409);
   return file;
 }
-async function bytesFor(client,file){
-  const url=prefix+file.id+'?alt=media';
+function providerMediaUrl(value){
+  const url=new URL(value);
+  const host=url.hostname;
+  const trusted=host==='www.googleapis.com'||host==='drive.google.com'||host==='drive.usercontent.google.com'
+    ||host==='googleusercontent.com'||host.endsWith('.googleusercontent.com');
+  if(!trusted||url.protocol!=='https:'||url.username||url.password||url.port)
+    throw new ArchiveError('EXISTENCIAS_DRIVE_DOWNLOAD_LINK_INVALID',502);
+  return url;
+}
+
+async function readMedia(client,address,signal){
+  let url=providerMediaUrl(address);
   const token=await client.token();
-  const read=async(range)=>{
-    let response;
-    try{
-      response=await client.fetch(url,{headers:{Authorization:'Bearer '+token,...(range?{Range:range}:{})},
-        signal:AbortSignal.timeout(22000),redirect:'error'});
-    }catch{
-      throw new ArchiveError('EXISTENCIAS_DRIVE_DOWNLOAD_TIMEOUT',503);
+  for(let hops=0;hops<4;hops++){
+    const sendToken=url.hostname==='www.googleapis.com'||url.hostname==='drive.google.com'
+      ||url.hostname==='drive.usercontent.google.com';
+    const response=await client.fetch(url.href,{
+      headers:sendToken?{Authorization:'Bearer '+token}:{},signal,redirect:'manual'
+    });
+    if([301,302,303,307,308].includes(response.status)){
+      const destination=response.headers.get('location');
+      await response.body?.cancel();
+      if(!destination)break;
+      url=providerMediaUrl(new URL(destination,url).href);
+      continue;
     }
     if(!response.ok){
       await response.body?.cancel();
       throw new ArchiveError('EXISTENCIAS_DRIVE_DOWNLOAD_HTTP_'+response.status,502);
     }
-    return response;
-  };
-  const size=Number(file.size),partSize=4*1024**2;
+    return Buffer.from(await response.arrayBuffer());
+  }
+  throw new ArchiveError('EXISTENCIAS_DRIVE_DOWNLOAD_LINK_INVALID',502);
+}
+
+async function downloadAddress(client,file){
+  const endpoint=prefix+file.id+'/download?revisionId='+encodeURIComponent(file.headRevisionId);
+  const open=async(url,method)=>(await (await client.request(url,{method})).json());
+  let operation=await open(endpoint,'POST');
+  for(let wait=0;!operation.done&&wait<3;wait++){
+    const name=String(operation.name||'').replace(/^operations\//,'');
+    if(!/^[a-zA-Z0-9._~=%+-]+$/.test(name))break;
+    await client.sleep(1000*2**wait);
+    operation=await open('https://www.googleapis.com/drive/v3/operations/'+encodeURIComponent(name),'GET');
+  }
+  if(!operation.done||!operation.response?.downloadUri)
+    throw new ArchiveError('EXISTENCIAS_DRIVE_DOWNLOAD_OPERATION_UNAVAILABLE',503);
+  return operation.response.downloadUri;
+}
+
+async function bytesFor(client,file){
+  const url=prefix+file.id+'?alt=media';
   let buffer;
-  if(size<=partSize){
-    const response=await read();
-    buffer=Buffer.from(await response.arrayBuffer());
-  }else{
-    buffer=Buffer.alloc(size);
-    const offsets=Array.from({length:Math.ceil(size/partSize)},(_,i)=>i*partSize);
-    let cursor=0;
-    await Promise.all(Array.from({length:4},async()=>{
-      while(cursor<offsets.length){
-        const start=offsets[cursor++],end=Math.min(start+partSize,size)-1;
-        const response=await read('bytes='+start+'-'+end);
-        if(response.status!==206||response.headers.get('content-range')!=='bytes '+start+'-'+end+'/'+size){
-          await response.body?.cancel();
-          throw new ArchiveError('Drive no devolvió el tramo solicitado de '+file.name+'.',502);
-        }
-        const part=Buffer.from(await response.arrayBuffer());
-        if(part.length!==end-start+1)throw new ArchiveError('La lectura de '+file.name+' está incompleta.',502);
-        part.copy(buffer,start);
-      }
-    }));
+  try{
+    const large=Number(file.size)>4*1024**2;
+    if(large){
+      // Drive can prepare a version-specific download link for large binary files.
+      const address=await downloadAddress(client,file).catch(()=>url);
+      buffer=await readMedia(client,address,AbortSignal.timeout(45000));
+    }else buffer=await readMedia(client,url,AbortSignal.timeout(15000));
+  }catch(error){
+    if(error instanceof ArchiveError)throw error;
+    const cause=String(error?.cause?.code||error?.code||error?.name||'NETWORK_ERROR').toUpperCase();
+    const safe=/^[A-Z0-9_]{3,40}$/.test(cause)?cause:'NETWORK_ERROR';
+    throw new ArchiveError('EXISTENCIAS_DRIVE_MEDIA_'+safe,503);
   }
   if(buffer.byteLength!==Number(file.size)||createHash('md5').update(buffer).digest('hex')!==file.md5Checksum.toLowerCase())
     throw new ArchiveError('Un Excel de Drive cambió durante la lectura. Vuelve a generar el reporte.',409);
@@ -100,8 +126,9 @@ export function createExistenciasSourcesReader(client){
     if(cache?.key===key)return cache;
     if(inFlight?.key===key)return inFlight.promise;
     const promise=(async()=>{
-      const original=await readExistenciasMaster(await bytesFor(client,before[0]));
-      const clean=await readExistenciasMaster(await bytesFor(client,before[1]));
+      const [originalBytes,cleanBytes]=await Promise.all(before.map(file=>bytesFor(client,file)));
+      const original=await readExistenciasMaster(originalBytes);
+      const clean=await readExistenciasMaster(cleanBytes);
       const rows=reconcileExistenciasMasters(original,clean);
       const after=await Promise.all(sources.slice(0,2).map(source=>metadata(client,source)));
       if(after.map(revision).join('|')!==key)
@@ -150,7 +177,7 @@ export function createExistenciasSourcesHandler({env=process.env,fetcher=fetch}=
       res.setHeader('Content-Type','application/json; charset=utf-8');
       const messages={LOGIN_REQUIRED:'Inicia sesión para generar el reporte.',
         EXISTENCIAS_DRIVE_METADATA_TIMEOUT:'Google Drive no respondió al verificar los archivos maestros.',
-        EXISTENCIAS_DRIVE_DOWNLOAD_TIMEOUT:'Google Drive demoró en entregar los archivos maestros. Vuelve a intentar.',
+        EXISTENCIAS_DRIVE_MEDIA_TIMEOUTERROR:'Google Drive demoró en entregar los archivos maestros. Vuelve a intentar.',
         SESSION_INVALID:'Tu sesión venció. Vuelve a iniciar sesión.',
         ACCESS_DENIED:'Solo los administradores pueden generar el reporte.',
         DRIVE_FILE_MISSING:'La integración del aplicativo no puede leer uno de los Excel de Drive.',
