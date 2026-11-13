@@ -2,6 +2,8 @@ import {validatePickupPdf,validDate} from './pickup-workflow-demo.js';
 
 const uploadMessages={
   ARCHIVE_GATEWAY_UNAVAILABLE:'No se pudo iniciar o continuar la carga del PDF. Pulsa Confirmar recojo para reintentar.',
+  DRIVE_NETWORK_ERROR:'Se interrumpió la conexión con Google Drive. Pulsa Confirmar recojo para retomar la carga.',
+  UPLOAD_SESSION_EXPIRED:'La sesión de carga del PDF venció. Pulsa Confirmar recojo para reiniciarla.',
   TRANSFER_BUSY:'El PDF todavía se está procesando. Espera unos segundos y pulsa Confirmar recojo.',
   PICKUP_EVIDENCE_CONFLICT:'Esta carga ya se inició con otra fecha o PDF. Usa los datos originales o cierra el formulario y vuelve a abrirlo.'
 };

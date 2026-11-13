@@ -23,9 +23,11 @@ export class DriveClient {
   }
   validSession(url){const u=new URL(url);if(u.protocol!=='https:'||u.hostname!=='www.googleapis.com'||!u.pathname.startsWith('/upload/drive/v3/files')||u.username||u.password)throw new ArchiveError('INVALID_UPLOAD_SESSION',502);return u.href;}
   async request(url,options={},accepted=[]){
+    // Drive's resumable protocol uses 308 as a progress response. Never follow redirects.
+    const redirect=accepted.includes(308)?'manual':'error';
     for(let i=0;i<3;i++){
       let r;
-      try{r=await this.fetch(url,{...options,headers:{...options.headers,Authorization:'Bearer '+await this.token()},signal:AbortSignal.timeout(20000),redirect:'error'});}catch(error){if(error instanceof ArchiveError)throw error;if(i===2)throw new ArchiveError('DRIVE_NETWORK_ERROR',503);await this.sleep(150*2**i);continue;}
+      try{r=await this.fetch(url,{...options,headers:{...options.headers,Authorization:'Bearer '+await this.token()},signal:AbortSignal.timeout(20000),redirect});}catch(error){if(error instanceof ArchiveError)throw error;if(i===2)throw new ArchiveError('DRIVE_NETWORK_ERROR',503);await this.sleep(150*2**i);continue;}
       if(r.ok||accepted.includes(r.status))return r;
       if(r.status===401){this.cached=null;if(i<2)continue;}
       if((r.status===429||r.status>=500)&&i<2){await r.body?.cancel();await this.sleep(Math.min(2000,Math.max(150*2**i,Number(r.headers.get('retry-after'))*1000||0)));continue;}
@@ -58,6 +60,7 @@ export class DriveClient {
     const r=await this.request(this.validSession(session),{method:'PUT',headers:{'Content-Type':'application/octet-stream','Content-Range':query?`bytes */${size}`:`bytes ${offset}-${offset+body.length-1}/${size}`},body:query?Buffer.alloc(0):body},[308,404,410]);
     await r.body?.cancel();
     if([404,410].includes(r.status))throw new ArchiveError('UPLOAD_SESSION_EXPIRED',409);
+    if(r.status===308&&r.headers.has('location'))throw new ArchiveError('DRIVE_UNEXPECTED_REDIRECT',502);
     if(r.status!==308)return size;
     const range=r.headers.get('range');return range?Number(range.match(/^bytes=0-(\d+)$/)?.[1])+1:0;
   }

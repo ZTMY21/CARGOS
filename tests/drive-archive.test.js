@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {randomBytes,randomUUID} from 'node:crypto';
+import {createServer} from 'node:http';
 import {readFile,mkdtemp,writeFile,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
@@ -57,6 +58,38 @@ test('archive: upload capability URLs are encrypted and tampering is rejected',(
 });
 test('archive: Google retry is bounded and never sends bearer tokens to arbitrary hosts',async()=>{
  let calls=0;const d=new DriveClient({},{sleep:async()=>{},fetcher:async url=>{if(url.includes('oauth2'))return Response.json({access_token:'test-only',expires_in:3600});calls++;return calls<3?new Response('',{status:503}):Response.json({ok:true});}});assert.deepEqual(await (await d.request('https://www.googleapis.com/drive/v3/files')).json(),{ok:true});assert.equal(calls,3);assert.throws(()=>d.validSession('https://attacker.example/upload/drive/v3/files'));
+});
+test('archive: fetch reads Google resumable 308 progress without following redirects',async()=>{
+ const requests=[];
+ const bytes=Buffer.alloc(256*1024+9,42);
+ let received=0,redirect=false;
+ const server=createServer(async(req,res)=>{
+  requests.push(req.headers['content-range']);
+  if(redirect){res.writeHead(308,{Location:'/unexpected-redirect'}).end();return;}
+  for await(const chunk of req)received+=chunk.length;
+  if(received===bytes.length)res.writeHead(201).end();
+  else res.writeHead(308,received?{Range:'bytes=0-'+(received-1)}:{}).end();
+ });
+ await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+ const session='https://www.googleapis.com/upload/drive/v3/files?upload_id=fixture';
+ const client=new DriveClient({},{sleep:async()=>{},fetcher:(url,options)=>{
+  assert.equal(url,session);
+  return fetch('http://127.0.0.1:'+server.address().port,options);
+ }});
+ client.token=async()=> 'fixture-token';
+ try{
+  const total=bytes.length,firstChunk=256*1024;
+  assert.equal(await client.progress(session,total),0);
+  assert.equal(await client.progress(session,total,bytes.subarray(0,firstChunk),0),firstChunk);
+  assert.equal(await client.progress(session,total),firstChunk);
+  assert.equal(await client.progress(session,total,bytes.subarray(firstChunk),firstChunk),total);
+  redirect=true;
+  await assert.rejects(client.progress(session,total),{code:'DRIVE_UNEXPECTED_REDIRECT'});
+  assert.deepEqual(requests,[
+   `bytes */${total}`,`bytes 0-${firstChunk-1}/${total}`,`bytes */${total}`,
+   `bytes ${firstChunk}-${total-1}/${total}`,`bytes */${total}`
+  ]);
+ }finally{await new Promise(resolve=>server.close(resolve));}
 });
 test('archive: user metadata never authorizes access; membership RPC must grant it',async()=>{
  let calls=0;await assert.rejects(authorize({headers:{authorization:'Bearer test.jwt'}},{SUPABASE_URL:'https://sandbox.test',SUPABASE_ANON_KEY:'public'},{admin:true,fetcher:async()=>{calls++;return calls===1?Response.json({user_metadata:{is_admin:true}}):Response.json({allowed:true,is_admin:false});}}),{code:'ACCESS_DENIED'});assert.equal(calls,2);
