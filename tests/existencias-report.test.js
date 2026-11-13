@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import ExcelJS from 'exceljs';
 import JSZip from 'jszip';
 import {buildExistenciasReport,buildAnnualCargoReport,serializeExistenciasReport,
-  REPORT_YEARS,CARGO_COLUMNS,ORIGINAL_COLUMNS,REQ_COLUMNS} from '../src/existencias-report.js';
+  REPORT_YEARS,CARGO_COLUMNS,ORIGINAL_COLUMNS,REQ_COLUMNS,IM_COLUMNS} from '../src/existencias-report.js';
 
 const now=new Date('2026-10-28T02:00:00Z');
 const base={id:'base',kardex:'SA-00001',cargos:['653'],anioOrigen:2026,fechaOrigen:'2026-01-06',
@@ -41,13 +41,14 @@ test('reporte conserva barra inferior y enlaza cada año a su propia hoja',async
   assert.match(summaryXml,/ref="C19"[^>]*location="&apos;Cargos 2026&apos;!A1"/);
   assert.match(summaryXml,/ref="C25"[^>]*location="&apos;Cargos 2020&apos;!A1"/);
   assert.match(summaryXml,/ref="B4"[^>]*location="&apos;Cargos&apos;!A1"/);
-  assert.match(summaryXml,/ref="C4"[^>]*location="&apos;Requerimientos&apos;!A1"/);
+  assert.match(summaryXml,/ref="C4"[^>]*location="&apos;Histórico IM&apos;!A1"/);
   assert.doesNotMatch(summaryRels,/TargetMode="External"/);
   const wb=new ExcelJS.Workbook();await wb.xlsx.load(raw);
   assert.deepEqual(wb.worksheets.map(s=>s.name),
-    ['Resumen','Cargos',...REPORT_YEARS.slice().reverse().map(year=>'Cargos '+year),'Requerimientos']);
+    ['Resumen','Cargos',...REPORT_YEARS.slice().reverse().map(year=>'Cargos '+year),'Histórico IM','Cajas solicitadas']);
   const res=wb.getWorksheet('Resumen'),cargos=wb.getWorksheet('Cargos'),
-    detail=wb.getWorksheet('Cargos 2026'),req=wb.getWorksheet('Requerimientos');
+    detail=wb.getWorksheet('Cargos 2026'),req=wb.getWorksheet('Cajas solicitadas'),
+    im=wb.getWorksheet('Histórico IM');
   assert.equal(res.getCell('B7').value,'6 (48 folios)');
   assert.equal(res.getCell('B8').numFmt,'0%');
   assert.equal(res.getCell('B6').fill.fgColor.argb,'FFC00000');
@@ -55,16 +56,17 @@ test('reporte conserva barra inferior y enlaza cada año a su propia hoja',async
   assert.deepEqual(REPORT_YEARS.map((_,i)=>res.getCell('B'+(19+i)).value),REPORT_YEARS.slice().reverse());
   assert.equal(res.getCell('C19').value,'1');
   assert.equal(res.getCell('C25').value,'0');
-  assert.deepEqual(cargos.getRow(1).values.slice(1,17),CARGO_COLUMNS);
+  assert.deepEqual(cargos.getRow(1).values.slice(1,13),CARGO_COLUMNS);
   assert.deepEqual(detail.getRow(1).values.slice(1,12),ORIGINAL_COLUMNS);
-  assert.deepEqual(req.getRow(1).values.slice(1,11),REQ_COLUMNS);
+  assert.deepEqual(req.getRow(1).values.slice(1,14),REQ_COLUMNS);
+  assert.deepEqual(im.getRow(1).values.slice(1,21),IM_COLUMNS);
   assert.equal(req.rowCount,1);
   assert.equal(cargos.getCell('A2').value,'SA-00001');
   assert.equal(cargos.getCell('A8').value,'SA-00020');
   assert.equal(cargos.getCell('E8').value,'Iron Mountain');
-  assert.equal(cargos.getCell('M8').value,'Enviado');
-  assert.equal(cargos.getCell('O8').value,'Responsable del envío');
-  assert.equal(cargos.getCell('G8').value,3);
+  assert.equal(cargos.getCell('I8').value,'Enviado');
+  assert.equal(cargos.getCell('K8').value,'Responsable del envío');
+  assert.equal(cargos.getCell('G8').value,'653');
   assert.equal(detail.rowCount,3);
   assert.equal(detail.getCell('B2').value,'653');
   assert.equal(detail.getCell('D2').value,'01FF0100084457');
@@ -83,8 +85,8 @@ test('2026 une cargos repetidos del resumen, pero Cargos conserva todos los Kard
   assert.equal(wb.getWorksheet('Cargos').rowCount,4);
   assert.equal(buildAnnualCargoReport([base,{...base,id:'duplicate'},added],2026,now)
     .getWorksheet('Detalle de Cargo 2026').rowCount,3);
-  const a={...base,id:'a',anioOrigen:2024,cargos:['0028']};
-  const b={...base,id:'b',anioOrigen:2024,cargos:['28']};
+  const a={...base,id:'a',anioOrigen:2024,fechaOrigen:'2024-01-01',cargos:['0028']};
+  const b={...base,id:'b',anioOrigen:2024,fechaOrigen:'2024-01-01',cargos:['28']};
   assert.equal(buildAnnualCargoReport([a,b],2024,now)
     .getWorksheet('Detalle de Cargo 2024').rowCount,3);
 });
@@ -119,14 +121,26 @@ test('porcentajes vencidos y por vencer coinciden con base 100 por número de ca
   assert.equal(res.getCell('B14').numFmt,'0%');
 });
 
-test('el responsable del envío sigue correcto, sin usuario de importación',()=>{
-  const sent={...base,imLiveCodigoCaja:'CAJA',imLiveFechaEnvio:'2026-10-27',
-    imLiveResponsableEntrega:'Entrega registrada',usuario:'Importación Excel',obs:'secreto'};
-  const row=buildExistenciasReport([sent],now).getWorksheet('Cargos').getRow(2);
-  assert.equal(row.getCell(5).value,'Iron Mountain');
-  assert.equal(row.getCell(11).value,'27/10/2026');
-  assert.equal(row.getCell(15).value,'Entrega registrada');
-  assert.equal(row.getCell(16).value,'');
+test('Usuario Registro usa el envío que corresponde y reserva No identificado para Histórico',()=>{
+  const sent={...base,imLiveCodigoCaja:'T1234567890',imLiveFechaEnvio:'2026-10-27',
+    imLiveResponsableEntrega:'Responsable proyectado',usuario:'Importación Excel'};
+  const historical={...base,id:'hist',kardex:'SA-00002',fechaOrigen:'2024-01-05',
+    imHistoricalDecision:'historico',usuario:'Importación Excel'};
+  const pending={...base,id:'pending',kardex:'SA-00003',usuario:'Importación Excel'};
+  const noName={...sent,id:'unknown',kardex:'SA-00004',cargos:['654'],imLiveResponsableEntrega:''};
+  const sentArchive={...sent,id:'archive',kardex:'SA-00005',cargos:['655']};
+  const withName={...pending,id:'registered',kardex:'SA-00006',usuario:'Usuario original'};
+  const record={box:'1234567890',date:'2026-10-27',cargos:['0653'],name:'Nombre en Maestro IM'};
+  const registered={...record,cargos:['655'],name:'Nombre en Histórico IM'};
+  const wrongDate={...record,date:'2026-10-26',cargos:['654'],name:'Envío distinto'};
+  const wrongBox={...record,box:'1234567891',cargos:['654'],name:'Caja distinta'};
+  const sheet=buildExistenciasReport([sent,historical,pending,noName,sentArchive,withName],now,[],{
+    masterUsers:[record,wrongDate,wrongBox],registeredUsers:[registered]
+  }).getWorksheet('Cargos');
+  assert.equal(sheet.getCell('H2').value,'27/10/2026');
+  assert.equal(sheet.getCell('L2').value,'T1234567890');
+  assert.deepEqual(Array.from({length:6},(_,i)=>sheet.getCell('K'+(i+2)).value),
+    ['Nombre en Maestro IM','No identificado','','','Nombre en Histórico IM','Usuario original']);
 });
 
 test('exportación ordena Cargo ascendente y Grupo 1, 2, 3 sin alterar el orden original del grupo',async()=>{
@@ -171,10 +185,10 @@ test('el reporte incluye históricos como enviados y conserva las fechas efectiv
   const summary=wb.getWorksheet('Resumen'), cargos=wb.getWorksheet('Cargos');
   assert.match(summary.getCell('B7').value,/^3 /);
   assert.match(summary.getCell('C7').value,/^2 /);
-  assert.match(summary.getCell('E7').value,/^1 /);
-  assert.equal(cargos.getCell('K3').value,'');
-  assert.equal(cargos.getCell('M3').value,'Histórico');
+  assert.match(summary.getCell('D7').value,/^1 /);
+  assert.equal(cargos.getCell('H3').value,'');
+  assert.equal(cargos.getCell('I3').value,'Histórico');
   assert.equal(cargos.getCell('E3').value,'Iron Mountain');
-  assert.equal(cargos.getCell('K4').value,'03/12/2024');
-  assert.equal(cargos.getCell('O4').value,'Responsable documentado');
+  assert.equal(cargos.getCell('H4').value,'03/12/2024');
+  assert.equal(cargos.getCell('K4').value,'Responsable documentado');
 });

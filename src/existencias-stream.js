@@ -1,11 +1,10 @@
 import JSZip from 'jszip';
-import {sourceRecords} from './cargo-details.js';
+import {cargoYear,sourceRecords} from './cargo-details.js';
+import {ORIGINAL_COLUMNS as FIELDS} from './existencias-data.js';
 
 // OOXML en flujo: evita construir millones de objetos de celda en ExcelJS.
-// Las hojas de Resumen, Cargos y Requerimientos son las creadas por ExcelJS.
+// ExcelJS genera las hojas auxiliares y el formato base de las hojas anuales.
 const encoder=new TextEncoder();
-const FIELDS=['Fecha','Cargo','Grupo','Codigo','Archivo_Principal','PDF',
-  'Total_Paginas','Tipo','Fuente','Observaciones','ESTADO_REGULARIZADO'];
 const LETTERS='ABCDEFGHIJK';
 const CRC_TABLE=Uint32Array.from({length:256},(_,i)=>{
   let c=i;
@@ -27,7 +26,7 @@ function rowXml(row,index,styleId){
     const value=row[FIELDS[c]];
     if(value===undefined||value===null||value==='')continue;
     const cell=LETTERS[c]+index;
-    if(c===6 && Number.isFinite(Number(value)) && String(value).trim()!==''){
+    if((typeof value==='number'||c===6)&&Number.isFinite(Number(value))&&String(value).trim()!==''){
       html+='<c r="'+cell+'" s="'+styleId+'"><v>'+Number(value)+'</v></c>';
     }else{
       html+='<c r="'+cell+'" s="'+styleId+'" t="inlineStr"><is><t xml:space="preserve">'
@@ -84,12 +83,12 @@ function compareDetails(a,b){
 async function* annualXml(xml,year,docSource,progress){
   const template=annualTemplate(xml);
   yield encoder.encode(template.before);
-  let rowIndex=2,buffer='',currentCargo=null,cargoRows=[];
+  let rowIndex=2,buffer='',currentCargo=null,cargoRows=[],preserveSequence=false;
   // Agrupa registros de un mismo cargo, incluso si provienen de varios
   // Kardex. Ordena primero Cargo y luego Grupo; conserva el orden de origen
   // dentro de cada grupo para no alterar la secuencia real de documentos.
   async function* flushCargo(){
-    cargoRows.sort(compareDetails);
+    if(!preserveSequence)cargoRows.sort(compareDetails);
     for(const row of cargoRows){
       if(rowIndex>1048576)throw new Error('El detalle de '+year+' supera el máximo de filas de Excel.');
       buffer+=rowXml(row,rowIndex++,template.styleId);
@@ -104,16 +103,18 @@ async function* annualXml(xml,year,docSource,progress){
     }
     cargoRows=[];
   }
-  for await(const {doc,origin} of docSource(year)){
+  for await(const {doc,origin,records,preserveSequence:keepOrder} of docSource(year)){
     const cargo=normalizedCargo((doc.cargos||[])[0]);
     if(currentCargo!==null&&cargo!==currentCargo){
       for await(const chunk of flushCargo())yield chunk;
     }
+    if(currentCargo!==cargo)preserveSequence=false;
     currentCargo=cargo;
-    const original=await sourceRecords(origin||doc.datosOrigen||{});
+    preserveSequence||=!!keepOrder;
+    const original=records??await sourceRecords(origin||doc.datosOrigen||{});
     const rows=original.length?original:fallbackRows(doc,origin);
     for(const row of rows){
-      cargoRows.push({ ...row, Cargo:String(row.Cargo??'').trim()||cargo });
+      cargoRows.push({...row,Cargo:row.Cargo==null||String(row.Cargo).trim()===''?cargo:row.Cargo});
     }
   }
   for await(const chunk of flushCargo())yield chunk;
@@ -181,7 +182,7 @@ class ZipStreamWriter {
 }
 function defaultSource(docs){
   return async function* (year){
-    const rows=docs.filter(d=>String(d.anioOrigen||d.fechaOrigen?.slice(0,4))===String(year))
+    const rows=docs.filter(d=>cargoYear(d)===String(year))
       .sort((a,b)=>String(a.cargos?.[0]||'').localeCompare(String(b.cargos?.[0]||''),'es',{numeric:true}));
     for(const doc of rows)yield {doc,origin:doc.datosOrigen||{}};
   };
