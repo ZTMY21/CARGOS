@@ -25,7 +25,13 @@ const prefix='https://www.googleapis.com/drive/v3/files/';
 const fields=encodeURIComponent('id,name,mimeType,size,version,headRevisionId,md5Checksum,trashed,parents,capabilities(canDownload)');
 const revision=file=>[file.version,file.headRevisionId,file.md5Checksum,file.size].join(':');
 async function metadata(client,source){
-  const file=await (await client.request(prefix+source.id+'?supportsAllDrives=true&fields='+fields)).json();
+  let file;
+  try{
+    file=await (await client.request(prefix+source.id+'?fields='+fields+'&supportsAllDrives=true')).json();
+  }catch(error){
+    if(error.code==='DRIVE_NETWORK_ERROR')throw new ArchiveError('EXISTENCIAS_DRIVE_METADATA_TIMEOUT',503);
+    throw error;
+  }
   const matchesName=typeof source.name==='string'?file.name===source.name:source.name.test(file.name);
   if(file.id!==source.id||!matchesName||file.trashed||file.capabilities?.canDownload!==true||
     (source.parent&&!file.parents?.includes(source.parent))||
@@ -36,11 +42,26 @@ async function metadata(client,source){
   return file;
 }
 async function bytesFor(client,file){
-  const url=prefix+file.id+'?alt=media&supportsAllDrives=true';
+  const url=prefix+file.id+'?alt=media';
+  const token=await client.token();
+  const read=async(range)=>{
+    let response;
+    try{
+      response=await client.fetch(url,{headers:{Authorization:'Bearer '+token,...(range?{Range:range}:{})},
+        signal:AbortSignal.timeout(22000),redirect:'error'});
+    }catch{
+      throw new ArchiveError('EXISTENCIAS_DRIVE_DOWNLOAD_TIMEOUT',503);
+    }
+    if(!response.ok){
+      await response.body?.cancel();
+      throw new ArchiveError('EXISTENCIAS_DRIVE_DOWNLOAD_HTTP_'+response.status,502);
+    }
+    return response;
+  };
   const size=Number(file.size),partSize=4*1024**2;
   let buffer;
   if(size<=partSize){
-    const response=await client.request(url);
+    const response=await read();
     buffer=Buffer.from(await response.arrayBuffer());
   }else{
     buffer=Buffer.alloc(size);
@@ -49,7 +70,7 @@ async function bytesFor(client,file){
     await Promise.all(Array.from({length:4},async()=>{
       while(cursor<offsets.length){
         const start=offsets[cursor++],end=Math.min(start+partSize,size)-1;
-        const response=await client.request(url,{headers:{Range:'bytes='+start+'-'+end}});
+        const response=await read('bytes='+start+'-'+end);
         if(response.status!==206||response.headers.get('content-range')!=='bytes '+start+'-'+end+'/'+size){
           await response.body?.cancel();
           throw new ArchiveError('Drive no devolvió el tramo solicitado de '+file.name+'.',502);
@@ -128,6 +149,8 @@ export function createExistenciasSourcesHandler({env=process.env,fetcher=fetch}=
       res.statusCode=error instanceof ArchiveError?error.status:503;
       res.setHeader('Content-Type','application/json; charset=utf-8');
       const messages={LOGIN_REQUIRED:'Inicia sesión para generar el reporte.',
+        EXISTENCIAS_DRIVE_METADATA_TIMEOUT:'Google Drive no respondió al verificar los archivos maestros.',
+        EXISTENCIAS_DRIVE_DOWNLOAD_TIMEOUT:'Google Drive demoró en entregar los archivos maestros. Vuelve a intentar.',
         SESSION_INVALID:'Tu sesión venció. Vuelve a iniciar sesión.',
         ACCESS_DENIED:'Solo los administradores pueden generar el reporte.',
         DRIVE_FILE_MISSING:'La integración del aplicativo no puede leer uno de los Excel de Drive.',
