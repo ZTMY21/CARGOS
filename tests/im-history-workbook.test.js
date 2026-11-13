@@ -17,6 +17,12 @@ async function sourceWorkbook(){
   sheet.addRow(HEADERS);
   sheet.addRow([625,new Date('2025-10-18T00:00:00Z'),'ANTERIOR','T2044084018',
       '0326-0325-0324',new Date('2025-06-27T00:00:00Z'),'','','']);
+  sheet.getRow(2).height=15;
+  for(const column of 'ABCDEFGHI')sheet.getCell(column+'2').font={
+    name:'Calibri',size:11,color:{argb:'FF000000'}
+  };
+  sheet.getCell('B2').numFmt='dd/mm/yyyy';
+  sheet.getCell('F2').numFmt='dd/mm/yyyy';
   const extra=wb.addWorksheet('Hoja1');
   extra.getCell('A1').value='CONSERVAR SEGUNDA HOJA';
   const raw=Buffer.from(await wb.xlsx.writeBuffer());
@@ -56,6 +62,10 @@ test('registra una caja confirmada, conserva la otra hoja y respeta columnas',as
   assert.equal(sh.getCell('G3').value,'ENCARGADO');
   assert.equal(sh.getCell('H3').value,'IRON MOUNTAIN');
   assert.equal(sh.getCell('I3').value,'ABC-123');
+  assert.equal(sh.getCell('B3').value.toISOString().slice(0,10),'2026-10-30');
+  assert.equal(sh.getCell('F3').value.toISOString().slice(0,10),'2026-11-05');
+  for(const column of 'ABCDEFGHI')assert.deepEqual(sh.getCell(column+'3').style,sh.getCell(column+'2').style);
+  assert.equal(sh.getRow(3).height,sh.getRow(2).height);
   const zip=await JSZip.loadAsync(result.bytes);
   const sheetXml=await zip.file('xl/worksheets/sheet1.xml').async('string');
   assert.match(sheetXml,/<c r="B3"[^>]*>/,'fecha de preparación confirmada en negro');
