@@ -56,24 +56,33 @@ test('la ruta exige administrador, comprueba integridad y vuelve a leer al cambi
     [IM_MASTER_FILE_ID,{name:'CARGOS_ENVIADOS_IRON_MOUNTAIN_MAESTRO.xlsm',parent:IM_MASTER_PARENT_ID,mime:MASTERS.original.mime,bytes:im}]
   ]);
   const driveReads=new Map();
-  const rangeReads=new Map();
+  const downloadOperations=new Set();
   let revision=1,changed=false,allow=false;
   const handler=createExistenciasSourcesHandler({env:{SUPABASE_URL:'https://test.invalid',SUPABASE_ANON_KEY:'public'},fetcher:async (raw,options)=>{
     const url=new URL(raw);
     if(url.pathname.endsWith('/auth/v1/user'))return Response.json({id:'fixture'});
     if(url.pathname.endsWith('/kardex_access'))return Response.json({allowed:true,is_admin:allow});
     if(url.pathname==='/token')return Response.json({access_token:'fixture-token'});
+    if(url.hostname==='www.googleapis.com'&&url.pathname.endsWith('/download')){
+      const id=url.pathname.split('/').at(-2);
+      assert.equal(options.method,'POST');
+      assert.equal(url.searchParams.get('revisionId'),'r'+revision);
+      downloadOperations.add(id);
+      return Response.json({done:true,response:{downloadUri:'https://drive.usercontent.google.com/download?id='+id}});
+    }
+    if(url.hostname==='drive.usercontent.google.com'){
+      const id=url.searchParams.get('id');
+      assert.equal(options.headers.Authorization,'Bearer fixture-token');
+      return new Response(null,{status:302,headers:{Location:'https://files.googleusercontent.com/'+id}});
+    }
     const id=url.pathname.split('/').at(-1),f=files.get(id);
     if(!f)throw Error('Unexpected URL');
+    if(url.hostname==='files.googleusercontent.com'){
+      assert.equal(options.headers.Authorization,undefined);
+      driveReads.set(id,(driveReads.get(id)||0)+1);
+      return new Response(f.bytes);
+    }
     if(url.searchParams.get('alt')==='media'){
-      const range=options?.headers?.Range?.match(/^bytes=(\d+)-(\d+)$/);
-      if(range){
-        rangeReads.set(id,(rangeReads.get(id)||0)+1);
-        const start=Number(range[1]),end=Number(range[2]);
-        if(start===0)driveReads.set(id,(driveReads.get(id)||0)+1);
-        return new Response(f.bytes.subarray(start,end+1),{status:206,
-          headers:{'Content-Range':'bytes '+start+'-'+end+'/'+f.bytes.length}});
-      }
       driveReads.set(id,(driveReads.get(id)||0)+1);
       if(changed&&id===IM_MASTER_FILE_ID)revision++;
       return new Response(f.bytes);
@@ -95,7 +104,7 @@ test('la ruta exige administrador, comprueba integridad y vuelve a leer al cambi
     const summary=await response.json();
     assert.deepEqual(summary,{folios:[['2026:933',5],['2026:934',1],['2025:931',4]]});
     assert.equal(driveReads.has(IM_HISTORY_FILE_ID),false);
-    assert.equal(rangeReads.get(original),2);
+    assert.equal(downloadOperations.has(original),true);
     response=await get();
     assert.equal(response.status,200);
     const result=JSON.parse(gunzipSync(Buffer.from(await response.arrayBuffer())));
