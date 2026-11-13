@@ -283,11 +283,13 @@ export function attachPickupWorkflow({workflow,showPreview,notify}){
     partial.onchange=()=>{list.hidden=!partial.checked;groups.hidden=partial.checked;};
     const verified=create('input');verified.type='checkbox';verified.required=true;
     const checked=create('label');checked.append(verified,document.createTextNode('He verificado cajas y sustento.'));
+    const status=create('p',null,'hint');status.setAttribute('aria-live','polite');
     const actions=create('div',null,'actions pickup-footer');
     const submit=create('button','Confirmar recojo','pickup-primary');submit.type='submit';
-    actions.append(button('Cancelar',close),submit);
+    const cancel=button('Cancelar',close);
+    actions.append(cancel,submit);
     form.append(create('h4','Confirmar retiro físico · '+reference(batch)),dateLabel,create('h4','¿Qué se llevaron?'),
-      groups,partialLabel,list,fileLabel,create('p','1–2 páginas · Recomendado hasta 2 MB · Máximo 5 MB','hint'),checked,actions);
+      groups,partialLabel,list,fileLabel,create('p','1–2 páginas · Recomendado hasta 2 MB · Máximo 5 MB','hint'),checked,status,actions);
     if(state.simulation)fileLabel.after(create('p','Usa el PDF ficticio disponible al comienzo de la vista previa.','hint'));
     const log=create('section',null,'pickup-stage-card');
     log.append(create('h4','Historial de recojos'),create('p',state.simulation?
@@ -296,18 +298,29 @@ export function attachPickupWorkflow({workflow,showPreview,notify}){
     grid.append(form,log);
     const visitId=crypto.randomUUID();
     form.onsubmit=event=>{
-      event.preventDefault();submit.disabled=true;
+      event.preventDefault();
+      if(busy||!active)return;
       void act(async()=>{
+        const fields=[...form.elements];
+        const preventClose=event=>event.preventDefault();
+        dialog.addEventListener('cancel',preventClose);
+        for(const field of fields)field.disabled=true;
+        status.textContent='Guardando el PDF y registrando el recojo…';
         try{
           const codes=partial.checked?[...list.querySelectorAll(':checked')].map(input=>input.value):
             pending.filter(box=>groupInputs.some(input=>input.checked&&input.value===box.type)).map(box=>box.code);
           const result=await workflow.confirm(batch.id,{visitId,codes,date:date.value,file:file.files[0]});
           close();notify(result?.verified?'Recojo confirmado · Sincronizado.':'Recojo confirmado · Sincronización pendiente.');
         }catch(error){
-          const current=await workflow.state();
-          if(current.batches.some(item=>item.id===batch.id&&item.visits.some(visit=>visit.id===visitId)))close();
-          throw error;
-        }finally{submit.disabled=false;}
+          const current=await workflow.state().catch(()=>null);
+          const saved=current?.batches.find(item=>item.id===batch.id)?.visits.find(visit=>visit.id===visitId);
+          if(saved){
+            close();notify(saved.synced?'Recojo confirmado · Sincronizado.':'Recojo confirmado · Sincronización pendiente.');
+          }else status.textContent=error.message||'No se pudo confirmar el recojo. Reintenta.';
+        }finally{
+          dialog.removeEventListener('cancel',preventClose);
+          for(const field of fields)field.disabled=false;
+        }
       });
     };
     dialog.append(grid);

@@ -1,5 +1,11 @@
 import {validatePickupPdf,validDate} from './pickup-workflow-demo.js';
 
+const uploadMessages={
+  ARCHIVE_GATEWAY_UNAVAILABLE:'No se pudo iniciar o continuar la carga del PDF. Pulsa Confirmar recojo para reintentar.',
+  TRANSFER_BUSY:'El PDF todavía se está procesando. Espera unos segundos y pulsa Confirmar recojo.',
+  PICKUP_EVIDENCE_CONFLICT:'Esta carga ya se inició con otra fecha o PDF. Usa los datos originales o cierra el formulario y vuelve a abrirlo.'
+};
+
 export function createLivePickupWorkflow(client,{onChanged,refreshMaster}={}){
   const rpc=async(name,args)=>{
     const {data,error}=await client.rpc(name,args);
@@ -19,7 +25,9 @@ export function createLivePickupWorkflow(client,{onChanged,refreshMaster}={}){
       body:binary||JSON.stringify(body||{})});
     if(response.ok&&blob)return response.blob();
     const data=await response.json().catch(()=>({}));
-    if(!response.ok)throw Error(data.message||data.error||'No se pudo completar la operación.');
+    if(!response.ok)throw Object.assign(Error(data.message||data.error||'No se pudo completar la operación.'),{
+      code:data.code||data.error||data.message
+    });
     return data;
   }
   const pickup=(action,id,data,blob)=>request('/api/pickup-mail',{body:{action,id,...data},blob});
@@ -51,11 +59,15 @@ export function createLivePickupWorkflow(client,{onChanged,refreshMaster}={}){
       await validatePickupPdf(bytes);
       const sha256=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)),x=>x.toString(16).padStart(2,'0')).join('');
       const auth=await session();
-      const archive=(action,{job,offset,body,binary}={})=>{
+      const archive=async(action,{job,offset,body,binary}={})=>{
         const query=new URLSearchParams({action});
         if(job)query.set('id',job);
         if(offset!==undefined)query.set('offset',String(offset));
-        return request('/api/drive-archive?'+query,{body,binary,auth});
+        try{return await request('/api/drive-archive?'+query,{body,binary,auth});}
+        catch(error){
+          if(Object.hasOwn(uploadMessages,error.code))error.message=uploadMessages[error.code];
+          throw error;
+        }
       };
       const sourceKey='pickup:'+id+':'+visitId+':'+auth.user.id;
       let job=await archive('start',{body:{documentId:null,sourceKey,sourceVersion:'sha256:'+sha256,
@@ -65,7 +77,7 @@ export function createLivePickupWorkflow(client,{onChanged,refreshMaster}={}){
         const offset=job.offset;
         try{job=await archive('chunk',{job:job.id,offset,binary:bytes.subarray(offset,offset+1024**2)});}
         catch(error){
-          if(error.message!=='OFFSET_CONFLICT')throw error;
+          if(error.code!=='OFFSET_CONFLICT')throw error;
           job=await archive('reconcile',{job:job.id});
         }
         if(job.offset<=offset)throw Error('Google Drive no avanzó la carga. Reintenta.');

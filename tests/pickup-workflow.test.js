@@ -100,6 +100,84 @@ test('el PDF se analiza, debe tener 1 o 2 páginas y máximo 5 MB',async()=>{
   await assert.rejects(validatePickupPdf(await doc.save()),/1 o 2 páginas/);
 });
 
+test('el formulario conserva el sustento y reintenta la misma visita si falla la carga',async()=>{
+  const {JSDOM}=await import('jsdom');
+  const {attachPickupWorkflow}=await import('../src/pickup-workflow-ui.js');
+  const {createLivePickupWorkflow}=await import('../src/pickup-workflow-live.js');
+  const dom=new JSDOM(await readFile(new URL('../index.html',import.meta.url),'utf8'));
+  const oldDocument=globalThis.document,oldFetch=globalThis.fetch;
+  globalThis.document=dom.window.document;
+  const dialog=document.getElementById('pickupDialog');
+  dialog.showModal=()=>dialog.setAttribute('open','');
+  dialog.close=()=>dialog.removeAttribute('open');
+  const id=crypto.randomUUID(),user=crypto.randomUUID(),job=crypto.randomUUID();
+  const box=byType('NUEVAS')[0];
+  const batch={id,status:'CONFIRMADO',boxes:[box],visits:[],schedule:{NUEVAS:'2026-11-13'}};
+  const doc=await PDFDocument.create();
+  doc.addPage();
+  const file=new Blob([await doc.save()],{type:'application/pdf'});
+  const messages=[],sources=[];
+  let firstReadback=true,archiveInput;
+  const workflow=createLivePickupWorkflow({
+    auth:{getSession:async()=>({data:{session:{access_token:'fixture',user:{id:user}}}})},
+    rpc:async()=>{
+      if(sources.length===1&&firstReadback){firstReadback=false;throw Error('No se pudo leer el historial');}
+      return {data:{available:[],batches:[batch]}};
+    }
+  });
+  globalThis.fetch=async(path,options)=>{
+    if(path.includes('action=start')){
+      archiveInput=JSON.parse(options.body);
+      sources.push(archiveInput.sourceKey);
+      return sources.length===1?Response.json({error:'ARCHIVE_GATEWAY_UNAVAILABLE'},{status:503}):
+        Response.json({id:job,status:'uploading',offset:0});
+    }
+    if(path.includes('action=chunk')){
+      assert.equal(options.body.byteLength,file.size);
+      return Response.json({id:job,status:'uploaded',offset:file.size});
+    }
+    if(path.includes('action=finish')){
+      return Response.json({id:job,status:'verified',backendVerified:true,sha256:archiveInput.sha256});
+    }
+    assert.equal(path,'/api/pickup-mail');
+    const visit=sources[0].split(':')[2];
+    assert.deepEqual(JSON.parse(options.body),{action:'confirm',id,visit,codes:[box.code],date:'2026-11-13',job});
+    batch.visits.push({id:visit,date:'2026-11-13',codes:[box.code],actor:'Prueba',synced:true});
+    return Response.json({id:visit,verified:true});
+  };
+  const waitFor=async predicate=>{
+    for(let attempt=0;attempt<50&&!predicate();attempt++)await new Promise(resolve=>setTimeout(resolve,10));
+    assert.ok(predicate());
+  };
+  try{
+    const ui=attachPickupWorkflow({workflow,showPreview(){},notify:message=>messages.push(message)});
+    await ui.activate();
+    [...document.querySelectorAll('#pickupMailBatches button')].find(b=>b.textContent==='Adjuntar sustento PDF').click();
+    const form=dialog.querySelector('form');
+    const submit=form.querySelector('button[type=submit]');
+    form.querySelector('input[type=date]').value='2026-11-13';
+    const group=form.querySelector('input[value=NUEVAS]');
+    group.checked=true;
+    form.querySelector('input[required][type=checkbox]').checked=true;
+    const input=form.querySelector('input[type=file]');
+    Object.defineProperty(input,'files',{value:[file]});
+    form.dispatchEvent(new dom.window.Event('submit',{cancelable:true}));
+    await waitFor(()=>form.textContent.includes('Pulsa Confirmar recojo para reintentar.')&&!submit.disabled);
+    assert.ok(dialog.open&&group.checked);
+    assert.equal(input.files[0],file);
+    assert.deepEqual(messages,[]);
+    form.dispatchEvent(new dom.window.Event('submit',{cancelable:true}));
+    await waitFor(()=>messages.includes('Recojo confirmado · Sincronizado.'));
+    assert.equal(dialog.open,false);
+    assert.deepEqual(sources,[sources[0],sources[0]]);
+    assert.equal(batch.visits.length,1);
+  }finally{
+    globalThis.document=oldDocument;
+    globalThis.fetch=oldFetch;
+    dom.window.close();
+  }
+});
+
 test('la bandeja permite seleccionar ambas clases aunque la consulta a Drive falle',async()=>{
   const {JSDOM}=await import('jsdom');
   const {attachPickupWorkflow}=await import('../src/pickup-workflow-ui.js');
