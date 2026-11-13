@@ -118,6 +118,30 @@ const movementHeaders={
   S:'RESPONSABLE DE RECEPCIÓN DEL RETORNO',T:'CARGOS DEL RETORNO'
 };
 
+const sheetPath='xl/worksheets/sheet1.xml';
+const shipmentRowPattern=row=>new RegExp('<row\\b[^>]*\\br="'+row+'"[^>]*>[\\s\\S]*?<\\/row>');
+const showsFullDate=cell=>['d','m','y'].every(part=>cell.numFmt?.toLowerCase().includes(part));
+
+function shipmentFormat(sheet,xml,before){
+  for(let row=before-1;row>1;row--){
+    if(!boxKey(sheet.getCell('D'+row).value)||
+      !['B','F'].every(column=>showsFullDate(sheet.getCell(column+row))))continue;
+    const source=xml.match(shipmentRowPattern(row))?.[0];
+    if(!source)continue;
+    const styles=Object.fromEntries([...source.matchAll(/<c\b[^>]*\br="([A-I])\d+"[^>]*>/g)]
+      .map(match=>[match[1],Number(match[0].match(/\bs="(\d+)"/)?.[1]||0)]));
+    for(const column of 'ABCDEFGHI')styles[column]??=0;
+    const height=source.match(/^<row\b[^>]*>/)?.[0].match(/\s(?:ht|customHeight)="[^"]*"/g)?.join('')||'';
+    return {styles,height};
+  }
+  return null;
+}
+
+function applyShipmentHeight(xml,row,height){
+  return xml.replace(shipmentRowPattern(row),record=>record.replace(/^<row\b[^>]*>/,head=>
+    head.replace(/\s(?:ht|customHeight)="[^"]*"/g,'').replace(/>$/,height+'>')));
+}
+
 export async function mergeIronMountainHistory(historyBytes,masterRows){
   if(!Buffer.isBuffer(historyBytes)||!Array.isArray(masterRows))
     throw Error('IM_HISTORY_INVALID_INPUT');
@@ -197,22 +221,22 @@ export async function mergeIronMountainHistory(historyBytes,masterRows){
 
   // Escribir solo sheet1.xml conserva las otras hojas, estilos, fórmulas y relaciones.
   const zip=await JSZip.loadAsync(historyBytes);
-  const file=zip.file('xl/worksheets/sheet1.xml');
+  const file=zip.file(sheetPath);
   if(!file)throw Error('IM_HISTORY_WORKSHEET_MISSING');
   let xml=await file.async('string');
-  const styles=await zip.file('xl/styles.xml')?.async('string')||'';
-  const approvedStyle=Number(styles.match(/<(?:x:)?cellXfs[^>]*\bcount="(\d+)"/)?.[1])>33;
+  const format=pending.length?shipmentFormat(sheet,xml,lastOccupied+1):null;
   if(updates.length)checkHeaders(sheet,movementHeaders);
   for(const [i,item] of pending.entries()){
     const row=lastOccupied+i+1;
     if(Array.from({length:9},(_,j)=>sheet.getRow(row).getCell(j+1).value)
       .some(value=>value!=null&&value!==''))throw Error('IM_HISTORY_TARGET_ROW_POPULATED');
     xml=writeWorksheetCells(xml,row,{
-      A:maxNumber+i+1,B:approvedStyle?serial(item.preparacion):displayExcelDate(item.preparacion),
-      C:item.responsable,D:item.caja,E:item.celda,F:approvedStyle?serial(item.envio):displayExcelDate(item.envio),
+      A:maxNumber+i+1,B:format?serial(item.preparacion):displayExcelDate(item.preparacion),
+      C:item.responsable,D:item.caja,E:item.celda,F:format?serial(item.envio):displayExcelDate(item.envio),
       G:item.entrega||'',H:item.recibe||'',I:item.placa||''
-    },approvedStyle?{A:9,B:33,C:9,D:9,E:9,F:33,G:9,H:9,I:9}:{});
-    entries.push({row,caja:item.caja,fecha_envio:item.envio});
+    },format?.styles);
+    if(format)xml=applyShipmentHeight(xml,row,format.height);
+    entries.push({row,caja:item.caja,fecha_envio:dateISO(item.envio)});
   }
   if(updates.length){
     xml=writeWorksheetCells(xml,1,movementHeaders);
@@ -232,15 +256,18 @@ export async function mergeIronMountainHistory(historyBytes,masterRows){
       }
     }
   }
-  zip.file('xl/worksheets/sheet1.xml',xml);
+  zip.file(sheetPath,xml);
   const bytes=await zip.generateAsync({type:'nodebuffer',compression:'DEFLATE'});
   const verify=await loadHistoryWorkbook(bytes);
   if(verify.worksheets.length!==workbook.worksheets.length)
     throw Error('IM_HISTORY_SHEETS_CHANGED');
   const sh=verify.getWorksheet('REGISTRO');
-  for(const entry of entries){
-    if(boxKey(sh.getRow(entry.row).getCell(4).value)!==boxKey(entry.caja) ||
-       dateISO(sh.getRow(entry.row).getCell(6).value)!==entry.fecha_envio)
+  for(const [index,entry] of entries.entries()){
+    const row=sh.getRow(entry.row);
+    if(boxKey(row.getCell('D').value)!==boxKey(entry.caja) ||
+       dateISO(row.getCell('B').value)!==dateISO(pending[index].preparacion) ||
+       dateISO(row.getCell('F').value)!==entry.fecha_envio ||
+       (format&&!['B','F'].every(column=>showsFullDate(row.getCell(column)))))
       throw Error('IM_HISTORY_READBACK_FAILED');
   }
   for(const entry of updates){
