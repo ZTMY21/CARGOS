@@ -119,28 +119,33 @@ function* responseChunks(rows,metadata){
   yield ']}';
 }
 export function createExistenciasSourcesReader(client){
-  let cache,inFlight;
-  async function masters(){
-    const before=await Promise.all(sources.slice(0,2).map(source=>metadata(client,source)));
+  const summary={};
+  const report={};
+  async function masters(foliosOnly){
+    // Los folios del Resumen se suman desde el original. El Excel depurado
+    // se contrasta al exportar el reporte completo.
+    const selected=sources.slice(0,foliosOnly?1:2);
+    const state=foliosOnly?summary:report;
+    const before=await Promise.all(selected.map(source=>metadata(client,source)));
     const key=before.map(revision).join('|');
-    if(cache?.key===key)return cache;
-    if(inFlight?.key===key)return inFlight.promise;
+    if(state.cache?.key===key)return state.cache;
+    if(state.inFlight?.key===key)return state.inFlight.promise;
     const promise=(async()=>{
       const [originalBytes,cleanBytes]=await Promise.all(before.map(file=>bytesFor(client,file)));
       const original=await readExistenciasMaster(originalBytes);
-      const clean=await readExistenciasMaster(cleanBytes);
-      const rows=reconcileExistenciasMasters(original,clean);
-      const after=await Promise.all(sources.slice(0,2).map(source=>metadata(client,source)));
+      const rows=foliosOnly?original:reconcileExistenciasMasters(original,await readExistenciasMaster(cleanBytes));
+      if(!rows.length)throw Error('La hoja 2026 del maestro no contiene cargos.');
+      const after=await Promise.all(selected.map(source=>metadata(client,source)));
       if(after.map(revision).join('|')!==key)
         throw new ArchiveError('Un Excel de Drive cambió durante la lectura. Vuelve a generar el reporte.',409);
-      return cache={key,rows,folios:summarizeExistenciasFolios(rows)};
+      return state.cache={key,folios:summarizeExistenciasFolios(rows),...(foliosOnly?{}:{rows})};
     })();
-    inFlight={key,promise};
+    state.inFlight={key,promise};
     try{return await promise;}
-    finally{if(inFlight?.promise===promise)inFlight=null;}
+    finally{if(state.inFlight?.promise===promise)state.inFlight=null;}
   }
   return async({foliosOnly=false}={})=>{
-    const {key,rows,folios}=await masters();
+    const {key,rows,folios}=await masters(foliosOnly);
     if(foliosOnly)return {folios};
     const before=await Promise.all(sources.slice(2).map(source=>metadata(client,source)));
     const versions=before.map(revision);

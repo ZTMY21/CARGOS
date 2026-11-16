@@ -57,6 +57,7 @@ test('la ruta exige administrador, comprueba integridad y vuelve a leer al cambi
   ]);
   const driveReads=new Map();
   const downloadOperations=new Set();
+  const metadataReads=new Set();
   let revision=1,changed=false,allow=false;
   const handler=createExistenciasSourcesHandler({env:{SUPABASE_URL:'https://test.invalid',SUPABASE_ANON_KEY:'public'},fetcher:async (raw,options)=>{
     const url=new URL(raw);
@@ -87,6 +88,7 @@ test('la ruta exige administrador, comprueba integridad y vuelve a leer al cambi
       if(changed&&id===IM_MASTER_FILE_ID)revision++;
       return new Response(f.bytes);
     }
+    metadataReads.add(id);
     return Response.json({id,name:f.name,mimeType:f.mime||MASTERS.depurado.mime,parents:[f.parent],size:String(f.bytes.length),
       capabilities:{canDownload:true},version:String(revision),headRevisionId:'r'+revision,
       md5Checksum:createHash('md5').update(f.bytes).digest('hex')});
@@ -103,8 +105,11 @@ test('la ruta exige administrador, comprueba integridad y vuelve a leer al cambi
     assert.equal(response.status,200);
     const summary=await response.json();
     assert.deepEqual(summary,{folios:[['2026:933',5],['2026:934',1],['2025:931',4]]});
-    assert.equal(driveReads.has(IM_HISTORY_FILE_ID),false);
-    assert.equal(downloadOperations.has(original),true);
+    assert.deepEqual([...metadataReads],[original]);
+    assert.deepEqual([...downloadOperations],[original]);
+    assert.deepEqual([...driveReads],[[original,1]]);
+    await (await get('/?view=folios')).arrayBuffer();
+    assert.equal(driveReads.get(original),1);
     response=await get();
     assert.equal(response.status,200);
     const result=JSON.parse(gunzipSync(Buffer.from(await response.arrayBuffer())));
@@ -112,11 +117,13 @@ test('la ruta exige administrador, comprueba integridad y vuelve a leer al cambi
     assert.deepEqual(result.folios,summary.folios);
     assert.equal(result.history.length,1);
     assert.deepEqual(result.registeredUsers,[{box:'T2044202100',date:'2026-11-01',cargos:['1'],name:'Persona registrada'}]);
-    await (await get()).arrayBuffer();
-    assert.equal(driveReads.get(original),1);
-    revision++;
+    assert.equal(driveReads.get(MASTERS.depurado.id),1);
     await (await get()).arrayBuffer();
     assert.equal(driveReads.get(original),2);
+    revision++;
+    assert.deepEqual(await (await get('/?view=folios')).json(),summary);
+    assert.equal(driveReads.get(original),3);
+    assert.equal(driveReads.get(MASTERS.depurado.id),1);
     changed=true;
     response=await get();
     assert.equal(response.status,409);
