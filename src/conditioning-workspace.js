@@ -1,5 +1,6 @@
 import {escapeHtml,fmtDate,limaDate} from './rules.js';
 import {physicalBoxKey} from './search.js';
+import {boxPreparationRows} from './conditioning-batch-summary.js';
 import {drawBoxBarcode} from './box-code128.js';
 import {scanConditioningBox} from './conditioning-camera.js';
 
@@ -19,7 +20,7 @@ const cargoLabels={
 const date=value=>value?fmtDate(value):'—';
 const badge=origin=>'<span class="acond-tag" data-origin="'+escapeHtml(origin)+'">'+escapeHtml(names[origin]||'—')+'</span>';
 
-export function attachConditioningWorkspace({repository,live=false,onChanged=()=>{},scanCamera=scanConditioningBox}){
+export function attachConditioningWorkspace({repository,live=false,onChanged=()=>{},scanCamera=scanConditioningBox,getRequest=()=>null}){
   const el=id=>document.getElementById(id);
   el('grp-acondicionamiento').querySelector('.group-body')
     .replaceWith(el('conditioningWorkspaceTemplate').content.cloneNode(true));
@@ -155,18 +156,16 @@ export function attachConditioningWorkspace({repository,live=false,onChanged=()=
   async function refresh(){
     const version=++listVersion;
     try{
-      const [data,reception]=await Promise.all([call('listar'),repository.reception()]);
+      const request=getRequest();
+      const [data,reception]=await Promise.all([call('listar'),repository.reception('estado',request?.id)]);
+      const shipped=reception ? await repository.conditioningBatchShipments(reception.id) : [];
       if(!active||version!==listVersion)return;
       const supply=Number(reception?.cantidad)||0;
       const receptionCount=el('acondReceptionCount');
       let prepared=data.preparadas;
       if(supply){
         const readings=reception.lecturas||[];
-        const saved=new Set(readings.filter(row=>row.guardado).map(row=>physicalBoxKey(row.codigo)).filter(Boolean));
-        const inRequest=new Set(data.listado.filter(row=>row.origen==='nueva'&&
-          (!row.solicitud||row.solicitud===reception.id))
-          .map(row=>physicalBoxKey(row.codigo)).filter(key=>saved.has(key)));
-        prepared=inRequest.size;
+        prepared=Math.min(supply,boxPreparationRows(String(reception.id),reception,data.listado,shipped).length);
         receptionCount.textContent=readings.length+' de '+supply+' registradas · '+
           Math.max(0,supply-readings.length)+' por registrar';
       }

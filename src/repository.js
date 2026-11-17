@@ -89,6 +89,9 @@ export class KardexRepository {
   async conditioning(action,args={}) {
     return checked(await this.client.rpc('kardex_acondicionamiento',{p_accion:action,...args}));
   }
+  async conditioningBatchShipments(id) {
+    return checked(await this.client.rpc('kardex_acond_envios_lote',{p_id:id}));
+  }
   async conditioningExcel(action) {
     const {session}=checked(await this.client.auth.getSession());
     if(!session)throw Error('Inicia sesión para verificar el Excel.');

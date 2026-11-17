@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
+import {summarizeBoxPreparationBatch} from '../src/conditioning-batch-summary.js';
 import {attachConditioningWorkspace} from '../src/conditioning-workspace.js';
 import {JSDOM} from 'jsdom';
 import ExcelJS from 'exceljs';
@@ -136,13 +137,17 @@ test('avance de preparación usa la misma solicitud y el total del Centro de esc
     codigo:'T'+String(9400000000+i),guardado:'2026-11-08',origen:'maestro'
   }));
   const listado=lecturas.slice(0,7).map(({codigo},i)=>({
-    codigo:codigo.replace(/^T/,'TD'),origen:'nueva',...(i===0?{}:{solicitud:'vigente'})
+    codigo:codigo.replace(/^T/,'TD'),origen:'nueva',preparada:'2026-11-08',...(i===0?{}:{solicitud:'vigente'})
   }));
-  listado.push({codigo:lecturas[7].codigo,origen:'nueva',solicitud:'anterior'});
-  listado.push({codigo:lecturas[8].codigo,origen:'solicitada'});
+  listado.push({codigo:lecturas[7].codigo,origen:'nueva',solicitud:'anterior',preparada:'2026-11-08'});
+  listado.push({codigo:lecturas[8].codigo,origen:'solicitada',preparada:'2026-11-08'});
   const repository={
     async conditioning(){return {nuevas:30,solicitadas:1,preparadas:9,listado};},
-    async reception(){return {id:'vigente',cantidad:100,lecturas};}
+    async reception(){return {id:'vigente',cantidad:100,lecturas};},
+    async conditioningBatchShipments(){return [
+      {codigo:lecturas[9].codigo,origen:'nueva',solicitud:'vigente',enviada:'2026-11-10'},
+      {codigo:lecturas[0].codigo,origen:'nueva',solicitud:'vigente',enviada:'2026-11-10'}
+    ];}
   };
   const controller=attachConditioningWorkspace({repository});
   try{
@@ -152,20 +157,25 @@ test('avance de preparación usa la misma solicitud y el total del Centro de esc
     await settle();
     assert.equal(el('acondNew').textContent,'100');
     assert.equal(el('acondReceptionCount').textContent,'30 de 100 registradas · 70 por registrar');
-    assert.equal(el('acondPrepared').textContent,'7 de 100');
-    assert.equal(el('acondPercent').textContent,'7%');
+    assert.equal(el('acondPrepared').textContent,'8 de 100');
+    assert.equal(el('acondPercent').textContent,'8%');
+    const summary=summarizeBoxPreparationBatch(
+      {id:'vigente',tipo:'Cajas nuevas para acondicionar',cantidadCajas:100},
+      null,await repository.reception(),listado,await repository.conditioningBatchShipments());
+    assert.equal(el('acondPrepared').textContent,summary.prepared+' de '+summary.total);
+    assert.equal(el('acondPercent').textContent,summary.preparedPct+'%');
 
     const codigo='T9400000080';
     lecturas.push({codigo,guardado:null,origen:'escaneo'});
-    listado.push({codigo,origen:'nueva',solicitud:'vigente'});
+    listado.push({codigo,origen:'nueva',solicitud:'vigente',preparada:'2026-11-08'});
     controller.activate();
     await settle();
     assert.equal(el('acondReceptionCount').textContent,'31 de 100 registradas · 69 por registrar');
-    assert.equal(el('acondPrepared').textContent,'7 de 100');
+    assert.equal(el('acondPrepared').textContent,'8 de 100');
     lecturas.at(-1).guardado='2026-11-08';
     controller.activate();
     await settle();
-    assert.equal(el('acondPrepared').textContent,'8 de 100');
+    assert.equal(el('acondPrepared').textContent,'9 de 100');
   }finally{
     controller.reset();
     dom.window.close();

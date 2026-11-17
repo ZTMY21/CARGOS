@@ -1,7 +1,7 @@
 // Vista previa de Resumen: ventanas de consulta de cajas. No modifica otros módulos ni guarda datos.
 import {escapeHtml as safe,fmtDate,REQ_TYPES} from './rules.js';
 import {physicalBoxKey} from './search.js';
-import {summarizeBoxPreparationBatch} from './conditioning-batch-summary.js';
+import {boxPreparationRows,summarizeBoxPreparationBatch} from './conditioning-batch-summary.js';
 
 const formatNumber=value=>new Intl.NumberFormat('es-PE').format(Number(value)||0);
 const numeric=value=>Number.isFinite(Number(value))?Number(value):0;
@@ -126,27 +126,15 @@ function processRowMarkup(row) {
   const cargoText=safe(cargos.join(' - '));
   return '<tr data-summary-process-item data-search="'+safe([row.codigo,...cargos,row.responsable].join(' ').toLowerCase())+'">'+
     '<td><strong>'+code+'</strong></td><td>'+safe(String(cargos.length))+'</td><td>'+stamp+'</td>'+
-    '<td>'+person+'</td><td><span class="summary-process-status">Caja acondicionada</span></td>'+
+    '<td>'+person+'</td><td><span class="summary-process-status">'+
+    (row.enviada?'Enviada a Iron Mountain':'Caja acondicionada')+'</span></td>'+
     '<td><details class="summary-process-details"><summary>Ver cargos</summary><span>'+cargoText+'</span></details></td></tr>';
 }
-function processMarkup(rows,request,reception) {
+function processMarkup(rows,request,reception,shipped) {
   if(!request)return '<p class="summary-detail-empty">Todavía no se ha registrado un requerimiento de cajas nuevas.</p>';
   const total=numeric(request.cantidadCajas);
-  const key=String(request.id||'');
-  const readings=String(reception?.id||'')===String(request.id) && Array.isArray(reception?.lecturas)
-    ? reception.lecturas : [];
-  const receptionCodes=new Set(readings.map(r=>physicalBoxKey(r.codigo)).filter(Boolean));
-  const valid=new Map();
-  for(const row of rows){
-    if(row?.origen!=='nueva'||!row.preparada)continue;
-    const code=physicalBoxKey(row.codigo||row.clave);
-    if(!code)continue;
-    const linked=String(row.solicitud||'')===key||
-      (!row.solicitud&&receptionCodes.has(code));
-    if(!linked||!cargoList(row).length)continue; // No incluir cajas con solo código.
-    if(!valid.has(code)||String(row.preparada)>String(valid.get(code).preparada))valid.set(code,row);
-  }
-  const prepared=[...valid.values()].sort((a,b)=>String(b.preparada).localeCompare(String(a.preparada)));
+  const prepared=boxPreparationRows(String(request.id),reception,rows,shipped)
+    .sort((a,b)=>String(b.preparada||'').localeCompare(String(a.preparada||'')));
   const count=prepared.length;
   const pct=total?Math.round(100*count/total):0;
   return '<div class="summary-detail-stats">'+labelCard(formatNumber(total),'cajas solicitadas')+
@@ -204,10 +192,18 @@ export function attachResumenBoxDetails({repository,getState}) {
     const state=getState(),request=requestCurrent(state.requests);
     content.innerHTML='<p class="summary-detail-empty">Consultando cajas acondicionadas de la solicitud vigente…</p>';
     try{
-      const [live,reception]=await Promise.all([repository.conditioning('listar'),repository.reception().catch(()=>state.reception)]);
+      if(!request){
+        content.innerHTML=processMarkup([],null,null,[]);
+        return;
+      }
+      const [live,reception,shipped]=await Promise.all([
+        repository.conditioning('listar'),
+        repository.reception('estado',request.id).catch(()=>state.reception),
+        repository.conditioningBatchShipments(request.id)
+      ]);
       if(call!==version||!modal.open||active!=='acondicionamiento')return;
       if(!Array.isArray(live?.listado))throw Error('Sin listado de acondicionamiento disponible');
-      content.innerHTML=processMarkup(live.listado,request,reception||state.reception);
+      content.innerHTML=processMarkup(live.listado,request,reception||state.reception,shipped);
     }catch(error){
       if(call!==version||!modal.open)return;
       content.innerHTML='<p class="summary-detail-empty">No se pudo consultar el listado de acondicionamiento. '+safe(error.message||'Revisa la conexión e inténtalo otra vez.')+'</p>'+

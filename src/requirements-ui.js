@@ -7,9 +7,23 @@ const kinds = {nuevas: 'Cajas nuevas', prestamo: 'Solicitudes a IM'};
 const steps = {nuevas: ['Cantidad', 'Solicitar'], prestamo: ['Buscar', 'Seleccionar', 'Solicitar']};
 const supplyBlockedMessage = 'No se pueden solicitar más cajas a Iron Mountain';
 
-function supplyAvailability(rows, tracking) {
+function supplyAvailability(rows, tracking, usesReception) {
   const supplies = rows.filter(row => row.tipo === REQ_TYPES[0]);
   const confirmed = tracking?.suministro;
+  if(usesReception){
+    const receipts=new Map(confirmed?.solicitudes?.map(row=>[row.id,row]));
+    let blocked=!confirmed, pending=0;
+    for(const row of supplies){
+      const quantity=Number(row.cantidadCajas);
+      if(!(quantity>0))continue;
+      const receipt=receipts.get(row.id);
+      const registered=Number(receipt?.guardadas)||0;
+      pending+=Math.max(0,quantity-registered);
+      if(!receipt?.confirmada || !row.fechaRecepcion || row.estadoV4!=='Recibido' ||
+        Number(row.recibidoV4)!==quantity || registered!==quantity)blocked=true;
+    }
+    return {pending,blocked,verified:!!confirmed};
+  }
   const known = new Set(confirmed?.solicitudes?.map(row => row.id));
   const missing = supplies.filter(row => !known.has(row.id)).reduce((total,row) => total + Number(row.cantidadCajas),0);
   const pending = Number(confirmed?.pendientes || 0) + missing;
@@ -133,13 +147,13 @@ export function setupRequirements(root, {repository, context, refresh, onKindCha
 
   function renderAvailability() {
     const supply = kind.value === 'nuevas';
-    const availability = supplyAvailability(rows,tracking);
+    const availability = supplyAvailability(rows,tracking,showReception);
     const blocked = supply && (availability.blocked || supplyRejected);
     const notice = find('SupplyLock');
     notice.hidden = !blocked;
     notice.innerHTML = availability.verified || supplyRejected
-      ? `<strong>${supplyBlockedMessage}</strong><p>${receptionEnabled ? 'Completa el acondicionamiento de la solicitud anterior.' : 'Completa el envío a IM de las cajas pendientes para solicitar más.'}${availability.pending ? ` Quedan ${availability.pending} cajas pendientes.` : ''}</p>`
-      : `<strong>Verificando ${receptionEnabled ? 'el acondicionamiento' : 'el envío'} de las cajas.</strong><p>Actualiza los datos si no se completa la consulta.</p>`;
+      ? `<strong>${supplyBlockedMessage}</strong><p>${showReception ? 'Confirma la recepción completa de las cajas anteriores en Control de cajas.' : 'Completa el envío a IM de las cajas pendientes para solicitar más.'}${availability.pending ? ` Quedan ${availability.pending} cajas pendientes.` : ''}</p>`
+      : `<strong>Verificando ${showReception ? 'la recepción' : 'el envío'} de las cajas.</strong><p>Actualiza los datos si no se completa la consulta.</p>`;
     qty.disabled = !supply || blocked || busy;
     find('Submit').disabled = !allowed() || busy || blocked;
   }
@@ -283,7 +297,7 @@ export function setupRequirements(root, {repository, context, refresh, onKindCha
     const loan = kind.value === 'prestamo';
     const status = find('Status');
     const count = Number(qty.value);
-    if (!loan && (supplyAvailability(rows,tracking).blocked || supplyRejected)) {
+    if (!loan && (supplyAvailability(rows,tracking,showReception).blocked || supplyRejected)) {
       status.textContent = supplyBlockedMessage;
       renderAvailability();
       return;
@@ -388,7 +402,7 @@ export function setupRequirements(root, {repository, context, refresh, onKindCha
         ? [...list].reverse().map(row=>receiptHistory(row)).join('')
         : `<div class="req4-request-list" role="list">${detailsList(list,tracking,supply)}</div>`
         : '<p class="req4-empty">Sin requerimientos registrados.</p>'}
-      ${supply && supplyAvailability(rows,tracking).blocked ? `<div class="req4-supply-lock"><strong>${supplyBlockedMessage}</strong><p>${receptionEnabled ? 'Las nuevas solicitudes se habilitan al completar el acondicionamiento de las cajas anteriores.' : 'Disponible cuando se complete el envío a IM de las cajas pendientes.'}</p></div>` : ''}`;
+      ${supply && supplyAvailability(rows,tracking,showReception).blocked ? `<div class="req4-supply-lock"><strong>${supplyBlockedMessage}</strong><p>${showReception ? 'Las nuevas solicitudes se habilitan al confirmar la recepción completa en Control de cajas.' : 'Disponible cuando se complete el envío a IM de las cajas pendientes.'}</p></div>` : ''}`;
     delete find('DialogBody').dataset.row;
     cardView = key;
     find('DialogStatus').textContent = '';

@@ -143,7 +143,7 @@ let currentPage = 0;
 let expiryGroups = {today:'', overdue:[], upcoming:[], unknown:[]};
 let activeExpiryGroup = null, expiryPage = 0, expiryReturnButton = '';
 let preparedMonthlyKpi = null;
-let conditioningBatchSources={reception:null,preparedRows:null};
+let conditioningBatchSources={reception:null,preparedRows:null,shippedRows:null};
 let preparedImRows = [], preparedImFetchEpoch = 0;
 let preparedImSummary = null, preparedImSummaryEpoch = 0;
 let requestedIMRows = [], requestedIMData = [], requestedIMError = '', requestedIMFetchEpoch = 0;
@@ -395,8 +395,19 @@ async function refreshData() {
         continue;
       }
       await loadReqs(snapshot);
+      const batchId=reqs.findLast(row=>row.tipo==='Cajas nuevas para acondicionar' && Number(row.cantidadCajas)>0)?.id;
+      const [batchReception,shippedRows]=isAdmin&&receptionEnabled&&batchId
+        ? await Promise.all([
+            receptionData?.id===batchId ? receptionData : repository.reception('estado',batchId).catch(()=>null),
+            repository.conditioningBatchShipments(batchId).catch(()=>null)
+          ])
+        : [receptionData,[]];
+      if (generation !== authGeneration || !currentUserId) {
+        if (currentUserId) refreshRequested = true;
+        continue;
+      }
       requestTracking = detail;
-      conditioningBatchSources={reception:receptionData,preparedRows:Array.isArray(conditioningData?.listado)?conditioningData.listado:null};
+      conditioningBatchSources={reception:batchReception,preparedRows:Array.isArray(conditioningData?.listado)?conditioningData.listado:null,shippedRows};
       annualReference = isolatedRequirements && isAdmin ? snapshot.resumen_anual_referencia ?? null : null;
       const previousDocs = queryResults ? new Map(docs.map(d=>[d.id,d])) : null;
       await loadDocs(snapshot);
@@ -1034,7 +1045,7 @@ function renderDocs(){
     ? new Set((requestTracking.cajas||[]).filter(row=>!row.devolucion)
         .map(row=>physicalBoxKey(row.codigo||row.clave)).filter(Boolean)).size : null;
   const avanceLote=summarizeBoxPreparationBatch(solicitudCajas,requestTracking,
-    conditioningBatchSources.reception,conditioningBatchSources.preparedRows);
+    conditioningBatchSources.reception,conditioningBatchSources.preparedRows,conditioningBatchSources.shippedRows);
 
 
   // Esta tabla agrupa por año del cargo. Los gráficos de cajas usan fechas efectivas.
@@ -2388,7 +2399,8 @@ pickupMailController=attachPickupMail({
 
 // Fase 2: USB-HID en modo teclado, identificación opcional con consentimiento WebHID y consulta sin escrituras.
 boxConditioningController=receptionEnabled
-  ? attachConditioningWorkspace({repository,live:receptionLive,onChanged:refreshData})
+  ? attachConditioningWorkspace({repository,live:receptionLive,onChanged:refreshData,
+      getRequest:()=>reqs.findLast(row=>row.tipo==='Cajas nuevas para acondicionar' && Number(row.cantidadCajas)>0)})
   : attachBoxConditioning({
   supabase,repository,isAdmin:()=>isAdmin,appReady:()=>appReady,isPreview:()=>isPreview,
   isolatedReception:receptionPreview,onChanged:refreshData

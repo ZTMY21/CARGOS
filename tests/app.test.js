@@ -58,6 +58,8 @@ async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recov
   };
   class FakeRepository {
     async conditioning(){return [];}
+    async conditioningBatchShipments(){return [];}
+    async reception(){return null;}
     async requestBoxes(query){return structuredClone(loanMatches[query]||[]);}
     async requestTracking(){return structuredClone(state.tracking || {cajas:[],movimientos:[]});}
     async requestAction(id,action,data){return requestAction(id,action,data,state);}
@@ -362,6 +364,38 @@ test('las cajas recibidas bloquean otras solicitudes hasta su envío completo y 
   assert.equal(calls,1);
   assert.equal(a.node('req4Submit').disabled,true,'Un saldo anterior no permite repetir la solicitud recién creada');
  } finally {a.close();}
+});
+
+test('permite otra solicitud con 100 cajas guardadas al confirmar la recepción, aunque falte acondicionar',async()=>{
+ const row={...reqRow,fecha_recepcion:null,cantidad_cajas:100,estado_v4:'Recibido parcialmente',
+   recibido_v4:99,solicitante_v4:'owner'};
+ const receipt={id:row.id,solicitadas:100,leidas:100,guardadas:99,confirmada:null,pendientes:96};
+ let writes=0;
+ const a=await app({receptionPreview:true,initialReqs:[row],
+   initialTracking:{cajas:[],movimientos:[],suministro:{pendientes:96,solicitudes:[receipt]}},
+   requestAction:async(id,action,data,state)=>{
+     writes++;
+     const saved={...row,id,numero:'REQ-00002',cantidad_cajas:data.cantidad,
+       estado_v4:'Solicitado',recibido_v4:0};
+     state.reqs.push(saved);
+     return reqFromDb(saved);
+   }});
+ try{
+   a.node('workspaceTabRequerimientos').click();
+   assert.equal(a.node('req4Submit').disabled,true);
+   a.state.reqs[0].recibido_v4=100;
+   a.state.tracking.suministro.solicitudes[0].guardadas=100;
+   a.node('btnReconnect').click();await flush();
+   assert.equal(a.node('req4Submit').disabled,true,'Guardar las 100 cajas aún no confirma la recepción');
+   Object.assign(a.state.reqs[0],{fecha_recepcion:'2026-11-13',estado_v4:'Recibido'});
+   a.state.tracking.suministro.solicitudes[0].confirmada='2026-11-13T15:00:00Z';
+   a.node('btnReconnect').click();await flush();
+   assert.equal(a.node('req4Submit').disabled,false);
+   a.node('req4Qty').value='100';
+   a.node('req4Form').dispatchEvent(new a.dom.window.Event('submit',{cancelable:true}));
+   await flush();
+   assert.equal(writes,1);
+ }finally{a.close();}
 });
 
 test('una solicitud concurrente rechazada por el servidor muestra el aviso y actualiza el bloqueo',async()=>{

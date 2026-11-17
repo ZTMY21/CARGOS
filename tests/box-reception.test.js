@@ -6,7 +6,7 @@ import {PGlite} from '@electric-sql/pglite';
 import JSZip from 'jszip';
 import {JSDOM} from 'jsdom';
 import {renderReceptionOverview,requestReception,receptionTime,receptionStatus} from '../src/box-reception-ui.js';
-import {REQ_TYPES} from '../src/rules.js';
+import {REQ_TYPES,limaDate} from '../src/rules.js';
 import {setupRequirements} from '../src/requirements-ui.js';
 import {parseReceptionScan} from '../src/box-scanner.js';
 import {createReceptionFixture,appendReceivedBoxes} from '../server/reception-workbook.js';
@@ -206,6 +206,7 @@ test('Supabase comparte recepción entre administradores, aplica límites, conci
     await migration('20261108001800_recepcion_maestro_drive.sql');
     await migration('20261108090000_acondicionamiento_integral.sql');
     await migration('20261111135000_recepcion_admins_compartida.sql');
+    await migration('20261117030000_avance_acondicionamiento_recepcion.sql');
     await actor(owner);
     await db.exec(`
       insert into private.recepcion_maestro_prueba(archivo,secreto_hash,codigos)
@@ -255,20 +256,26 @@ test('Supabase comparte recepción entre administradores, aplica límites, conci
     assert.equal((await op('estado',id,null)).lecturas.length,1);
     assert.equal((await op('leer',id,codes[1].codigo.toLowerCase())).lecturas[1].codigo,codes[1].codigo.toLowerCase());
     await assert.rejects(op('leer',id,codes[2].codigo),/cantidad solicitada/);
+    await assert.rejects(req('crear',{tipo:'nuevas',cantidad:100}),/No se pueden solicitar/);
     const complete=await commit('completa',id,1,{[codes[1].clave]:902});
     assert.ok(complete.confirmada);
     assert.equal((await commit('completa',id,2,{})).confirmada,complete.confirmada);
-    await assert.rejects(req('crear',{tipo:'nuevas',cantidad:100}),/No se pueden solicitar/);
-    const condition=async({codigo})=>{
-      for(const action of ['iniciar','finalizar'])await one(
-        'select public.kardex_box_conditioning_write($1,$2,$3,$4,$5) result',
-        [action,codigo,['9876540'],'Cajas Nuevas','']);
-    };
-    await condition(codes[0]);
-    await assert.rejects(req('crear',{tipo:'nuevas',cantidad:1}),/No se pueden solicitar/);
-    await condition(codes[1]);
     const live=await req('crear',{tipo:'nuevas',cantidad:100});
     assert.equal(live.cantidad_cajas,100);
+    const shipments=id=>one('select public.kardex_acond_envios_lote($1) result',[id]);
+    const shipmentDate=limaDate();
+    await db.query(`insert into public.im_envios_cargos_live
+      (codigo_caja,codigo_cargo,fecha_envio,fecha_preparacion,clasificacion_caja)
+      values($1,'943',$4,$4,'Cajas Nuevas'),($2,'944',$4,$4,'Cajas Nuevas'),
+      ($3,'945',$4,$4,'Por solicitud')`, [codes[0].codigo,'TD'+codes[0].clave,codes[1].codigo,shipmentDate]);
+    const sent=await shipments(id);
+    assert.equal(sent.length,1);
+    assert.equal(sent[0].clave,codes[0].clave);
+    assert.deepEqual(sent[0].cargos,['943','944']);
+    assert.deepEqual(await shipments(live.id),[]);
+    await actor(user);
+    await assert.rejects(shipments(id),/Solo administradores/);
+    await actor(owner);
     const detail=await one('select public.kardex_req4_detalle() result');
     assert.deepEqual(detail.movimientos.filter(x=>x.requerimiento===id).map(x=>x.tipo),
       ['crear','recepcion_parcial','recepcion_completa']);
