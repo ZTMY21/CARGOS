@@ -298,3 +298,33 @@ mark{background:var(--yellow-bg);color:var(--navy-dark);font-weight:700;border-r
   .req4-request-summary { gap: 12px; padding: 13px; }
   .req4-request-summary > div { align-items: flex-start; flex-direction: column; gap: 4px; }
 }
+
+.req4-supply-saved {
+  display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center;
+  gap: 10px 16px; margin: 12px 0; padding: 14px 16px; border: 1px solid #abdbc4;
+  color: #175139; background: #edf9f2; border-radius: 9px;
+}
+.req4-supply-saved[hidden] { display: none; }
+.req4-supply-saved strong, .req4-supply-saved span { display: block; }
+.req4-supply-saved span { margin-top: 3px; font-size: 12px; }
+.req4-supply-saved-actions, .supply-selector { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.req4-supply-saved-actions button { border-color: #a3cfb9; color: #175139; background: #fff; }
+.supply-selector { margin: 0 0 14px; }
+.supply-selector[hidden], #acondBatchSelectionWrap[hidden] { display: none; }
+.supply-selector button[aria-pressed="true"] { background: #e0f2fe; border-color: #7cbbe0; color: #0d527b; }
+.acond-shipped-label { display: block; font-size: 11px; color: #27624d; }
+
+.summary-reception-batch, .summary-process-batch {
+  border: 1px solid #dae5ec; border-radius: 9px; margin: 0 0 10px; background: #fff;
+}
+.summary-reception-batch { padding: 10px 12px; }
+.summary-process-batch > summary {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 12px; cursor: pointer; color: #173f58; list-style: none;
+}
+.summary-process-batch > summary::-webkit-details-marker { display: none; }
+.summary-process-batch > summary::after { content: "⌄"; margin: 0 2px; }
+.summary-process-batch[open] > summary::after { transform: rotate(180deg); }
+.summary-process-batch > summary > :first-child { flex: 1; }
+.summary-process-batch small { display: block; margin-top: 4px; color: #53697b; }
+.summary-process-batch-body { padding: 0 12px 12px; }

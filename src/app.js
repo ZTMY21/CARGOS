@@ -5,7 +5,7 @@ import './conditioning-workspace.css';
 import {attachBoxScanSheets} from './box-scan-sheet-ui.js';
 import {attachConditioningWorkspace} from './conditioning-workspace.js';
 import {attachPreparedMonthlyKpi} from './prepared-monthly-kpi.js';
-import {summarizeBoxPreparationBatch} from './conditioning-batch-summary.js';
+import {boxSupplyRequests,combineBoxPreparationBatches,loadBoxPreparationBatches,summarizeBoxPreparationBatch} from './conditioning-batch-summary.js';
 import {attachResumenBoxDetails} from './resumen-box-details.js';
 import {inventoryConditioning} from './conditioning-inventory.js';
 import {attachBoxConditioning} from './box-conditioning-ui.js';
@@ -143,7 +143,7 @@ let currentPage = 0;
 let expiryGroups = {today:'', overdue:[], upcoming:[], unknown:[]};
 let activeExpiryGroup = null, expiryPage = 0, expiryReturnButton = '';
 let preparedMonthlyKpi = null;
-let conditioningBatchSources={reception:null,preparedRows:null,shippedRows:null};
+let conditioningBatches=new Map();
 let preparedImRows = [], preparedImFetchEpoch = 0;
 let preparedImSummary = null, preparedImSummaryEpoch = 0;
 let requestedIMRows = [], requestedIMData = [], requestedIMError = '', requestedIMFetchEpoch = 0;
@@ -384,30 +384,25 @@ async function refreshData() {
     do {
       refreshRequested = false;
       const generation = authGeneration;
-      const [snapshot, detail, conditioningData, receptionData] = await Promise.all([
+      const [snapshot, detail, conditioningData] = await Promise.all([
         repository.snapshot(),
         isAdmin ? repository.requestTracking().catch(() => null) : null,
-        isAdmin && receptionEnabled ? repository.conditioning('listar').catch(() => null) : null,
-        isAdmin && receptionEnabled ? repository.reception().catch(() => null) : null
+        isAdmin && receptionEnabled ? repository.conditioning('listar').catch(() => null) : null
       ]);
       if (generation !== authGeneration || !currentUserId) {
         if (currentUserId) refreshRequested = true;
         continue;
       }
       await loadReqs(snapshot);
-      const batchId=reqs.findLast(row=>row.tipo==='Cajas nuevas para acondicionar' && Number(row.cantidadCajas)>0)?.id;
-      const [batchReception,shippedRows]=isAdmin&&receptionEnabled&&batchId
-        ? await Promise.all([
-            receptionData?.id===batchId ? receptionData : repository.reception('estado',batchId).catch(()=>null),
-            repository.conditioningBatchShipments(batchId).catch(()=>null)
-          ])
-        : [receptionData,[]];
+      const batches=isAdmin&&receptionEnabled
+        ? await loadBoxPreparationBatches(repository,boxSupplyRequests(reqs),conditioningData?.listado,detail)
+        : new Map();
       if (generation !== authGeneration || !currentUserId) {
         if (currentUserId) refreshRequested = true;
         continue;
       }
       requestTracking = detail;
-      conditioningBatchSources={reception:batchReception,preparedRows:Array.isArray(conditioningData?.listado)?conditioningData.listado:null,shippedRows};
+      conditioningBatches=batches;
       annualReference = isolatedRequirements && isAdmin ? snapshot.resumen_anual_referencia ?? null : null;
       const previousDocs = queryResults ? new Map(docs.map(d=>[d.id,d])) : null;
       await loadDocs(snapshot);
@@ -1036,17 +1031,15 @@ function renderDocs(){
   const baseAlerta = cargosPorVencer + cargosVencidos;
 
   const pct = (n, base) => base > 0 ? Math.round((n/base)*100) + '%' : '0%';
-  const solicitudCajas = receptionPresentation && isAdmin
-    ? reqs.findLast(row=>row.tipo==='Cajas nuevas para acondicionar' && Number(row.cantidadCajas)>0)
-    : null;
-  const cajasSolicitadas = Number((isAdmin ? reqs.filter(row=>row.tipo==="Cajas nuevas para acondicionar" && Number(row.cantidadCajas)>0).at(-1) : null)?.cantidadCajas)||0;
+  const cajasNuevas=isAdmin?boxSupplyRequests(reqs):[];
+  const cajasSolicitadas=cajasNuevas.reduce((sum,row)=>sum+Number(row.cantidadCajas),0);
   // Resumen de solicitudes a Iron Mountain: préstamo/búsqueda, nunca suministro de cajas nuevas.
   const cajasSolicitadasIM=requestTracking
     ? new Set((requestTracking.cajas||[]).filter(row=>!row.devolucion)
         .map(row=>physicalBoxKey(row.codigo||row.clave)).filter(Boolean)).size : null;
-  const avanceLote=summarizeBoxPreparationBatch(solicitudCajas,requestTracking,
-    conditioningBatchSources.reception,conditioningBatchSources.preparedRows,conditioningBatchSources.shippedRows);
-
+  const avanceLote=receptionPresentation
+    ? combineBoxPreparationBatches(cajasNuevas.map(row=>conditioningBatches.get(row.id)
+      ||summarizeBoxPreparationBatch(row,requestTracking))) : null;
 
   // Esta tabla agrupa por año del cargo. Los gráficos de cajas usan fechas efectivas.
   const referenceYears = annualReference?.anios ?? [];
@@ -1133,14 +1126,14 @@ function renderDocs(){
         <div class="kpi kpi-color kpi-summary-requested">
           <div class="expiry-card-heading"><div class="l">Cajas solicitadas</div><button type="button" class="expiry-detail-button" data-resumen-box="solicitudes" aria-haspopup="dialog" aria-controls="summaryBoxDetailDialog">Ver detalle</button></div>
           <div class="n">${cajasSolicitadas > 0 ? fmtNum(cajasSolicitadas) : "—"}</div>
-          <div class="pct-txt">Última solicitud de cajas nuevas</div>
+          <div class="pct-txt">Total de cajas nuevas solicitadas</div>
         </div>
         ${isAdmin ? requestCards(reqs,requestTracking,avanceLote) : ""}
       <div class="kpi kpi-color kpi-summary-process">
         <div class="expiry-card-heading"><div class="l">En Proceso de Acondicionamiento</div><button type="button" class="expiry-detail-button" data-resumen-box="acondicionamiento" aria-haspopup="dialog" aria-controls="summaryBoxDetailDialog">Ver detalle</button></div>
-        <div class="n">${avanceLote?.prepared == null ? '—' : fmtNum(avanceLote.prepared)+'/'+fmtNum(avanceLote.total)}</div>
+        <div class="n">${!avanceLote?.total || avanceLote.prepared == null ? '—' : fmtNum(avanceLote.prepared)+'/'+fmtNum(avanceLote.total)}</div>
         <div class="pct-txt">${avanceLote?.preparedPct == null ? 'Consultando cajas preparadas' : avanceLote.preparedPct+'% acondicionadas'}</div>
-        ${avanceLote?.prepared != null ? `<progress class="conditioning-batch-progress" value="${avanceLote.prepared}" max="${avanceLote.total}" aria-label="Porcentaje de cajas terminadas de acondicionar"></progress>` : ''}
+        ${avanceLote?.total && avanceLote.prepared != null ? `<progress class="conditioning-batch-progress" value="${avanceLote.prepared}" max="${avanceLote.total}" aria-label="Porcentaje de cajas terminadas de acondicionar"></progress>` : ''}
       </div>
       </div>
       <h4 class="summary-box-subheading">Cajas preparadas para envío</h4>
@@ -1636,10 +1629,7 @@ function openCargoExpiry(group) {
 }
 // Resumen únicamente: detalles de las tres etapas del flujo de cajas.
 const resumenBoxDetails=attachResumenBoxDetails({
-  repository,
-  getState:()=>({requests:reqs,tracking:requestTracking,
-    reception:conditioningBatchSources.reception,
-    preparedRows:conditioningBatchSources.preparedRows,
+  getState:()=>({requests:reqs,tracking:requestTracking,batches:conditioningBatches,
     allowed:appReady&&isAdmin})
 });
 document.getElementById('resumenTablas').addEventListener('click', event => {
@@ -1982,7 +1972,7 @@ async function handleSession(session) {
     clearPreviousCargoCache();
     clearInterval(adminRequestsTimer);adminRequestsTimer=null;adminRequestsEpoch++;setAdminRequestBadge(null);
     appReady = isAdmin = dataReady = false;
-    reqs = []; docs = []; preparedImSummary=null; ++preparedImSummaryEpoch;
+    reqs = []; docs = []; conditioningBatches=new Map(); preparedImSummary=null; ++preparedImSummaryEpoch;
     monthlyShippedSummary=null;monthlyShippedError=''; ++monthlyShippedFetchEpoch;
     requestedIMRows=[];requestedIMData=[];requestedIMLoaded=false;requestedIMError=''; ++requestedIMFetchEpoch;
     renderReqs(); renderDocs(); setAvailability();
@@ -2001,7 +1991,7 @@ async function handleSession(session) {
     clearTimeout(refreshTimer);
     if (realtimeChannel) { await supabase.removeChannel(realtimeChannel); realtimeChannel = null; }
     queryResults=null;queryError='';searchController?.abort();currentPage=0;
-    reqs = []; docs = []; preparedImSummary=null; ++preparedImSummaryEpoch;
+    reqs = []; docs = []; conditioningBatches=new Map(); preparedImSummary=null; ++preparedImSummaryEpoch;
     monthlyShippedSummary=null;monthlyShippedError=''; ++monthlyShippedFetchEpoch;
     requestedIMRows=[];requestedIMData=[];requestedIMLoaded=false;requestedIMError=''; ++requestedIMFetchEpoch;
     cancelarEdicionDoc(); cancelarEdicionReq(); renderReqs(); renderDocs();
@@ -2400,7 +2390,7 @@ pickupMailController=attachPickupMail({
 // Fase 2: USB-HID en modo teclado, identificación opcional con consentimiento WebHID y consulta sin escrituras.
 boxConditioningController=receptionEnabled
   ? attachConditioningWorkspace({repository,live:receptionLive,onChanged:refreshData,
-      getRequest:()=>reqs.findLast(row=>row.tipo==='Cajas nuevas para acondicionar' && Number(row.cantidadCajas)>0)})
+      getRequests:()=>boxSupplyRequests(reqs),getBatchProgress:id=>conditioningBatches.get(id)})
   : attachBoxConditioning({
   supabase,repository,isAdmin:()=>isAdmin,appReady:()=>appReady,isPreview:()=>isPreview,
   isolatedReception:receptionPreview,onChanged:refreshData
@@ -2410,7 +2400,7 @@ boxScanSheetController=attachBoxScanSheets({
 });
 boxScannerController=attachBoxScanner({
   repository,isAdmin:()=>isAdmin,appReady:()=>appReady,
-  reception:receptionEnabled ? attachBoxReception({repository,refresh:refreshData,live:receptionLive}) : null,
+  reception:receptionEnabled ? attachBoxReception({repository,refresh:refreshData,live:receptionLive,getRequests:()=>boxSupplyRequests(reqs)}) : null,
   onScan:event=>{if(!receptionEnabled)boxScanSheetController?.scan(event);}
 });
 

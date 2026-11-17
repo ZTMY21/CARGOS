@@ -19,13 +19,13 @@ import {renderImBarChart} from '../src/im-bar-chart.js';
 import {renderCargoLineChart} from '../src/cargo-line-chart.js';
 import {requestCards,setupRequirements} from '../src/requirements-ui.js';
 import {requestReception,receptionStatus} from '../src/box-reception-ui.js';
-import {summarizeBoxPreparationBatch} from '../src/conditioning-batch-summary.js';
+import {boxSupplyRequests,combineBoxPreparationBatches,loadBoxPreparationBatches,summarizeBoxPreparationBatch} from '../src/conditioning-batch-summary.js';
 
 const flush=()=>new Promise(resolve=>setTimeout(resolve,20));
 const reqRow={id:randomUUID(),numero:'REQ-00001',tipo:'Cajas nuevas para acondicionar',fecha_solicitud:'2026-10-01',cantidad_cajas:2,numeros_cargo:'',fecha_recepcion:'2026-10-02',fecha_devolucion:null,usuario:'Juan',updated_at:'2026-10-13T00:00:00.123456Z'};
 const docRow={id:randomUUID(),kardex:'SA-00001',fecha_registro:'2026-10-13',tipo_doc:'Facturas-Guia',periodo:'2026-01-01',ubicacion:'Santa Anita',folios:30,cargos:['C001'],caja_asignada:reqRow.id,f_envio:null,sustento:'',sustento_imagen:'',usuario:'Juan',facturas:'F-001',obs:'',updated_at:'2026-10-13T00:00:00.123456Z'};
 
-async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recovery=false,adminLink='',loginError=null,isolatedPreview=false,receptionPreview=false,annualReference=null,loanMatches={},requestAction=null,enableSearch=false,username='',previousMapping={},initialDocs=[docRow],initialReqs=[reqRow],initialTracking=null,archiveCounts={},driveFolios={},now=Date.now()}={}) {
+async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recovery=false,adminLink='',loginError=null,isolatedPreview=false,receptionPreview=false,annualReference=null,loanMatches={},requestAction=null,enableSearch=false,username='',previousMapping={},initialDocs=[docRow],initialReqs=[reqRow],initialTracking=null,conditioningView=null,archiveCounts={},driveFolios={},now=Date.now()}={}) {
   const html=await readFile(new URL('../index.html',import.meta.url),'utf8');
   const source=(await readFile(new URL('../src/app.js',import.meta.url),'utf8')).replace(/^import .*;\n/gm,'');
   const dom=new JSDOM(html,{url:'https://kardex.example.test'+adminLink+(recovery?'#type=recovery':''),runScripts:'outside-only'});
@@ -57,9 +57,9 @@ async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recov
       signOut:async()=>{state.signOuts++;state.session=null;state.authCallback('SIGNED_OUT',null);return {error:null};}}
   };
   class FakeRepository {
-    async conditioning(){return [];}
-    async conditioningBatchShipments(){return [];}
-    async reception(){return null;}
+    async conditioning(){return conditioningView?.list??[];}
+    async conditioningBatchShipments(id){return conditioningView?.shipped?.[id]??[];}
+    async reception(action,id){return conditioningView?.receipts?.[id]??null;}
     async requestBoxes(query){return structuredClone(loanMatches[query]||[]);}
     async requestTracking(){return structuredClone(state.tracking || {cajas:[],movimientos:[]});}
     async requestAction(id,action,data){return requestAction(id,action,data,state);}
@@ -113,7 +113,7 @@ async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recov
     attachInterventionExperience:()=>{},attachPreparedMonthlyKpi:()=>null,
     // El modal de Gestión de cajas pertenece solo a Resumen; simulación en pruebas VM.
     attachResumenBoxDetails:()=>({open:()=>{}}),
-    summarizeBoxPreparationBatch,physicalBoxKey,validDate,
+    boxSupplyRequests,combineBoxPreparationBatches,loadBoxPreparationBatches,summarizeBoxPreparationBatch,physicalBoxKey,validDate,
     createClient:(url,key,options)=>{state.authOptions=options?.auth;return client;},KardexRepository:FakeRepository,reqFromDb,docFromDb,reqEstado,docEstado,fmtDate,escapeHtml,invoiceSearchPresentation,buildWorkbook:async(...args)=>{state.exportCalls.push(args);return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},buildCargoWorkbook:async(cargo)=>{state.guestExport=cargo;return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},reportCargoCode,loadExistenciasFolios:async(repo,docs)=>applyExistenciasFolios(await repo.reportDocs(docs),new Map(Object.entries(state.driveFolios))),prepareExistenciasExport:async(repo)=>{const snapshot=await repo.snapshot();state.reportDocs=await repo.reportDocs(snapshot.documentos.map(docFromDb));return {workbook:{},serialize:async()=>{state.serializedReport=true;return new Uint8Array([1]);}};},parseWorkbook,highlightMatch,normalizeSearch,filterDocuments,filterRequirements,assignedBoxCode,cargoYear,invoiceLocation,locationLabel,groupsForCodes,
     __SUPABASE_URL__:'https://example.supabase.co',__SUPABASE_ANON_KEY__:'sb_publishable_test',__REQ4_ISOLATED__:isolatedPreview,__RECEPTION_PREVIEW__:receptionPreview,confirm:()=>true,alert:()=>{}});
   await vm.runInContext(`(async()=>{${source}})()`,context);
@@ -395,6 +395,38 @@ test('permite otra solicitud con 100 cajas guardadas al confirmar la recepción,
    a.node('req4Form').dispatchEvent(new a.dom.window.Event('submit',{cancelable:true}));
    await flush();
    assert.equal(writes,1);
+ }finally{a.close();}
+});
+
+test('Resumen mantiene el avance del REQ 1 y Requerimientos enlaza la solicitud guardada',async()=>{
+ const first={...reqRow,cantidad_cajas:100,estado_v4:'Recibido',recibido_v4:100,solicitante_v4:'owner'};
+ const second={...first,id:randomUUID(),numero:'REQ-00002',fecha_recepcion:null,estado_v4:'Solicitado',recibido_v4:0};
+ const codes=Array.from({length:100},(_,index)=>'T'+String(index+1).padStart(10,'0'));
+ const box=(codigo,index)=>({codigo,solicitud:first.id,origen:'nueva',preparada:'2026-11-13',
+   ...(index>=4?{enviada:'2026-11-13'}:{})});
+ const a=await app({receptionPreview:true,initialReqs:[first,second],initialTracking:{
+   cajas:[],movimientos:[],suministro:{solicitudes:[
+     {id:first.id,guardadas:100,confirmada:'2026-11-13T20:26:58Z'},
+     {id:second.id,guardadas:0,confirmada:null}
+   ]}},
+   conditioningView:{
+     list:{listado:codes.slice(0,4).map(box)},
+     receipts:{[first.id]:{id:first.id,lecturas:codes.map(codigo=>({codigo,guardado:'2026-11-13'}))},
+       [second.id]:{id:second.id,lecturas:[]}},
+     shipped:{[first.id]:codes.slice(4,34).map((code,index)=>box(code,index+4))}
+   }});
+ try{
+   const summary=a.node('resumenTablas');
+   assert.equal(summary.querySelector('.kpi-summary-requested .n').textContent,'200');
+   assert.equal(summary.querySelector('.kpi-summary-to-condition .n').textContent,'100/200');
+   assert.equal(summary.querySelector('.kpi-summary-process .n').textContent,'34/200');
+   a.node('workspaceTabRequerimientos').click();
+   const confirmation=a.node('req4SupplySaved');
+   assert.match(confirmation.textContent,/REQ-00002 registrada/);
+   assert.equal(confirmation.querySelector('[data-req-mail]').textContent,'Ver correo de la solicitud');
+   confirmation.querySelector('[data-req-open]').click();
+   assert.equal(a.node('req4DialogTitle').textContent,'REQ-00002');
+   assert.equal(a.node('req4Submit').disabled,true);
  }finally{a.close();}
 });
 

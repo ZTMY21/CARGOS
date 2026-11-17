@@ -1,4 +1,5 @@
 import {parseReceptionScan} from './box-scanner.js';
+import {renderSupplySelector} from './conditioning-batch-summary.js';
 import {escapeHtml as html,fmtDate,REQ_TYPES} from './rules.js';
 
 const lima = new Intl.DateTimeFormat('es-PE',{timeZone:'America/Lima',dateStyle:'short',timeStyle:'short'});
@@ -35,12 +36,14 @@ export function renderReceptionOverview(root,rows,visible) {
   el('boxReceptionPending').textContent='El guardado de recepción está pendiente de la conciliación de cajas existentes con el Maestro de Iron Mountain.';
 }
 
-export function attachBoxReception({repository,refresh,live=false}) {
+export function attachBoxReception({repository,refresh,live=false,getRequests=()=>[]}) {
   const master=live?'Excel Maestro de Iron Mountain':'Maestro de prueba';
   const el = id => document.getElementById(id);
   const mode = el('boxReceptionMode'), input = el('boxScanInput'), progress = el('boxReceptionProgress');
   const save = el('boxReceptionSave'), confirm = el('boxReceptionConfirm');
   const card = el('boxReceptionCard'), history = el('boxScanHistory'), feedback = el('boxScanFeedback');
+  const selector=el('boxReceptionSelection');
+  let selectedRequestId=null;
   let active=false, state=null, epoch=0, version=0, running=0, job=Promise.resolve(), poll=null, documentMode=false;
   const notify = (message,error=false) => {
     feedback.textContent=message;
@@ -48,6 +51,7 @@ export function attachBoxReception({repository,refresh,live=false}) {
   };
   const refreshSummary=()=>refresh().catch(()=>{});
   const render = () => {
+    renderSupplySelector(selector,getRequests(),selectedRequestId||state?.id,running>0);
     const readings=state?.lecturas||[], total=state?.cantidad||0;
     const saved=readings.filter(row=>row.guardado).length;
     const complete=!!state?.confirmada;
@@ -64,7 +68,7 @@ export function attachBoxReception({repository,refresh,live=false}) {
     confirm.disabled=readOnly||running>0||!full||complete;
     confirm.textContent=physical?'Confirmar registro de todas las cajas':'Confirmar recepción completa';
     el('boxReceptionCount').textContent=readings.length+'/'+total+(physical?' cajas registradas por código':' cajas recepcionadas');
-    el('boxReceptionBadge').textContent=state ? (readOnly?'Modo consulta':receptionStatus(state)) : 'Sin solicitud activa';
+    el('boxReceptionBadge').textContent=state ? (readOnly&&!complete?'Modo consulta':receptionStatus(state)) : 'Sin solicitud activa';
     progress.dataset.state=full?'complete':'pending';
     const bar=el('boxReceptionBar');
     bar.max=total||100;bar.value=readings.length;
@@ -82,7 +86,7 @@ export function attachBoxReception({repository,refresh,live=false}) {
       'Usa Consultar caja para buscar documentos, o activa la recepción para registrar códigos nuevos.';
     el('boxScanCountLabel').textContent=physical?'Códigos únicos':'Lecturas únicas';
     el('boxScanCount').textContent=String(readings.length);
-    if (!state) {card.replaceChildren();return;}
+    if (!state) {card.replaceChildren();if(!documentMode)history.replaceChildren();return;}
     const requested=total===1?'1 caja nueva solicitada':total+' cajas nuevas solicitadas';
     card.innerHTML='<strong>'+html(state.numero)+' · '+requested+'</strong>';
     if (documentMode) return;
@@ -95,10 +99,11 @@ export function attachBoxReception({repository,refresh,live=false}) {
     const call=epoch, revision=version;
     if (running||!active) return;
     try {
-      const data=await repository.reception();
+      const requested=getRequests().find(row=>row.id===selectedRequestId);
+      const data=requested?await repository.reception('estado',requested.id):await repository.reception();
       if (!active||epoch!==call||revision!==version||running) return;
       if (state?.id!==data?.id) mode.checked=false;
-      state=data;render();
+      state=data;selectedRequestId=data?.id??null;render();
     } catch {
       if (active&&epoch===call) notify('No se pudo consultar la recepción. Vuelve a abrir Control de cajas.',true);
     }
@@ -125,6 +130,19 @@ export function attachBoxReception({repository,refresh,live=false}) {
     });
     return job;
   };
+  selector.addEventListener('click',event=>{
+    const id=event.target.closest('button[data-supply-id]')?.dataset.supplyId;
+    if(!id||!active||running||id===selectedRequestId||!getRequests().some(row=>row.id===id))return;
+    selectedRequestId=id;
+    version++;
+    state=null;
+    mode.checked=false;
+    documentMode=false;
+    input.value='';
+    notify('');
+    render();
+    void load();
+  });
   mode.addEventListener('change',()=>{
     documentMode=!mode.checked;
     if (mode.checked) {
@@ -152,7 +170,7 @@ export function attachBoxReception({repository,refresh,live=false}) {
       clearInterval(poll);poll=setInterval(load,5000);
     },
     deactivate(){active=false;mode.checked=false;clearInterval(poll);},
-    reset(){active=false;state=null;running=0;epoch++;mode.checked=false;documentMode=false;clearInterval(poll);render();},
+    reset(){active=false;state=null;selectedRequestId=null;running=0;epoch++;mode.checked=false;documentMode=false;clearInterval(poll);render();},
     stop(){
       if (!mode.checked && !state) return;
       mode.checked=false;documentMode=true;

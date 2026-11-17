@@ -60,13 +60,14 @@ function procedure(kind, current = 0) {
 }
 
 export function requestCards(rows, tracking, batchProgress=null) {
-  const latestSupply=rows.filter(row=>row.tipo===REQ_TYPES[0] && Number(row.cantidadCajas)>0).at(-1);
-  const registeredReceipt=latestSupply?requestReception(latestSupply,tracking):null;
-  const supplyTotal=Number(latestSupply?.cantidadCajas)||0;
-  const inBatch=batchProgress && batchProgress.requestId===String(latestSupply?.id);
-  const fallback=Number(registeredReceipt?.leidas??registeredReceipt?.guardadas??latestSupply?.recibidoV4??0);
-  const registered=latestSupply && (tracking || inBatch)
-    ? Math.min(supplyTotal,Math.max(0,inBatch?batchProgress.registered:Number.isFinite(fallback)?fallback:0))
+  const supplies=rows.filter(row=>row.tipo===REQ_TYPES[0] && Number(row.cantidadCajas)>0);
+  const supplyTotal=batchProgress?.total??supplies.reduce((sum,row)=>sum+Number(row.cantidadCajas),0);
+  const registered=supplyTotal && (tracking || batchProgress)
+    ? batchProgress?.registered??supplies.reduce((sum,row)=>{
+        const receipt=requestReception(row,tracking);
+        const saved=Number(receipt.guardadas??row.recibidoV4)||0;
+        return sum+Math.min(Number(row.cantidadCajas),Math.max(0,saved));
+      },0)
     : null;
   const fraction=supplyTotal&&registered!==null?registered+'/'+supplyTotal:'—';
   const percentage=supplyTotal&&registered!==null?Math.round(100*registered/supplyTotal)+'% registradas':'';
@@ -110,6 +111,7 @@ export function setupRequirements(root, {repository, context, refresh, onKindCha
         <label class="field">Solicitante<input id="req4User" readonly></label>
       </div>
       <section id="req4Supply" role="tabpanel" aria-labelledby="req4TabNuevas">
+        <div id="req4SupplySaved" class="req4-supply-saved" hidden></div>
         <div id="req4SupplyLock" class="req4-supply-lock" role="alert" hidden></div>
         <label class="field" id="req4QtyWrap">Cantidad de cajas<input id="req4Qty" type="number" min="1" max="100" step="1" aria-describedby="req4QtyHelp" required></label>
         <p id="req4QtyHelp" class="req4-help">Máximo 100 cajas por solicitud.</p>
@@ -145,14 +147,29 @@ export function setupRequirements(root, {repository, context, refresh, onKindCha
   let results = [];
   const canRequest = box => !!box?.clave && box.solicitable === true && !box.prestamo;
 
+  function renderSavedSupply() {
+    const panel=find('SupplySaved');
+    const latest=rows.findLast(row=>row.tipo===REQ_TYPES[0] && Number(row.cantidadCajas)>0);
+    panel.hidden=!showReception||!allowed()||!latest;
+    if(panel.hidden){panel.replaceChildren();return;}
+    if(panel.dataset.request===latest.id && panel.hasChildNodes())return;
+    panel.dataset.request=latest.id;
+    panel.innerHTML=`<div><strong>${html(latest.numero)} registrada</strong><span>${Number(latest.cantidadCajas)} cajas solicitadas</span></div>
+      <div class="req4-supply-saved-actions">
+        <button class="secondary" type="button" data-req-open="${html(latest.id)}">Ver detalle de la solicitud</button>
+        <button class="secondary" type="button" data-req-mail="${html(latest.id)}">Ver correo de la solicitud</button>
+      </div>`;
+  }
+
   function renderAvailability() {
     const supply = kind.value === 'nuevas';
     const availability = supplyAvailability(rows,tracking,showReception);
     const blocked = supply && (availability.blocked || supplyRejected);
+    renderSavedSupply();
     const notice = find('SupplyLock');
     notice.hidden = !blocked;
     notice.innerHTML = availability.verified || supplyRejected
-      ? `<strong>${supplyBlockedMessage}</strong><p>${showReception ? 'Confirma la recepción completa de las cajas anteriores en Control de cajas.' : 'Completa el envío a IM de las cajas pendientes para solicitar más.'}${availability.pending ? ` Quedan ${availability.pending} cajas pendientes.` : ''}</p>`
+      ? `<strong>${showReception?'Recepción pendiente en Control de cajas':supplyBlockedMessage}</strong><p>${showReception ? 'Puedes hacer otra solicitud cuando confirmes la recepción completa en Control de cajas.' : 'Completa el envío a IM de las cajas pendientes para solicitar más.'}${availability.pending ? ` Quedan ${availability.pending} cajas pendientes.` : ''}</p>`
       : `<strong>Verificando ${showReception ? 'la recepción' : 'el envío'} de las cajas.</strong><p>Actualiza los datos si no se completa la consulta.</p>`;
     qty.disabled = !supply || blocked || busy;
     find('Submit').disabled = !allowed() || busy || blocked;
@@ -298,7 +315,7 @@ export function setupRequirements(root, {repository, context, refresh, onKindCha
     const status = find('Status');
     const count = Number(qty.value);
     if (!loan && (supplyAvailability(rows,tracking,showReception).blocked || supplyRejected)) {
-      status.textContent = supplyBlockedMessage;
+      if(!showReception)status.textContent = supplyBlockedMessage;
       renderAvailability();
       return;
     }
@@ -315,11 +332,13 @@ export function setupRequirements(root, {repository, context, refresh, onKindCha
       : {tipo:'nuevas',cantidad:count};
     const saved=await write(data,status);
     if (saved) {
-      const mailButton=root.ownerDocument.createElement('button');
-      mailButton.type='button';mailButton.className='secondary req4-mail-after-save';
-      mailButton.dataset.reqMail=saved.id;
-      mailButton.textContent='Generar correo de esta solicitud';
-      status.append(' ',mailButton);
+      if(loan || !showReception){
+        const mailButton=root.ownerDocument.createElement('button');
+        mailButton.type='button';mailButton.className='secondary req4-mail-after-save';
+        mailButton.dataset.reqMail=saved.id;
+        mailButton.textContent='Generar correo de esta solicitud';
+        status.append(' ',mailButton);
+      }else status.textContent='';
       if(loan){
         imMailUI.update(rows,tracking);
         void imMailUI.selectRequest(saved.id,{codes:loanCodes,generate:true});
@@ -402,7 +421,7 @@ export function setupRequirements(root, {repository, context, refresh, onKindCha
         ? [...list].reverse().map(row=>receiptHistory(row)).join('')
         : `<div class="req4-request-list" role="list">${detailsList(list,tracking,supply)}</div>`
         : '<p class="req4-empty">Sin requerimientos registrados.</p>'}
-      ${supply && supplyAvailability(rows,tracking,showReception).blocked ? `<div class="req4-supply-lock"><strong>${supplyBlockedMessage}</strong><p>${showReception ? 'Las nuevas solicitudes se habilitan al confirmar la recepción completa en Control de cajas.' : 'Disponible cuando se complete el envío a IM de las cajas pendientes.'}</p></div>` : ''}`;
+      ${supply && supplyAvailability(rows,tracking,showReception).blocked ? `<div class="req4-supply-lock"><strong>${showReception?'Recepción pendiente en Control de cajas':supplyBlockedMessage}</strong><p>${showReception ? 'Las nuevas solicitudes se habilitan al confirmar la recepción completa en Control de cajas.' : 'Disponible cuando se complete el envío a IM de las cajas pendientes.'}</p></div>` : ''}`;
     delete find('DialogBody').dataset.row;
     cardView = key;
     find('DialogStatus').textContent = '';

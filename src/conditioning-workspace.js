@@ -1,6 +1,6 @@
 import {escapeHtml,fmtDate,limaDate} from './rules.js';
 import {physicalBoxKey} from './search.js';
-import {boxPreparationRows} from './conditioning-batch-summary.js';
+import {boxPreparationRows,renderSupplySelector} from './conditioning-batch-summary.js';
 import {drawBoxBarcode} from './box-code128.js';
 import {scanConditioningBox} from './conditioning-camera.js';
 
@@ -20,7 +20,7 @@ const cargoLabels={
 const date=value=>value?fmtDate(value):'—';
 const badge=origin=>'<span class="acond-tag" data-origin="'+escapeHtml(origin)+'">'+escapeHtml(names[origin]||'—')+'</span>';
 
-export function attachConditioningWorkspace({repository,live=false,onChanged=()=>{},scanCamera=scanConditioningBox,getRequest=()=>null}){
+export function attachConditioningWorkspace({repository,live=false,onChanged=()=>{},scanCamera=scanConditioningBox,getRequests=()=>[],getBatchProgress=()=>null}){
   const el=id=>document.getElementById(id);
   el('grp-acondicionamiento').querySelector('.group-body')
     .replaceWith(el('conditioningWorkspaceTemplate').content.cloneNode(true));
@@ -31,6 +31,8 @@ export function attachConditioningWorkspace({repository,live=false,onChanged=()=
     controls.querySelector('[data-acond-download="maestro"]').textContent='Descargar Excel Maestro';
     controls.querySelector('[data-acond-download="historico"]').textContent='Descargar Histórico IM';
   }
+  const selector=el('acondBatchSelection');
+  let selectedRequestId=null;
   const scan=el('acondScan'),save=el('acondSave'),verified=el('acondVerified'),yearButtons=[...el('acondYears').children];
   const fields=[...el('acondCargoFields').children].map(row=>({
     input:row.querySelector('input'),button:row.querySelector('button'),feedback:row.querySelector('span')
@@ -70,7 +72,7 @@ export function attachConditioningWorkspace({repository,live=false,onChanged=()=
     el('acondEdit').hidden=!confirm;
     save.hidden=mobileMode&&!confirm;
     el('acondDone').hidden=!mobileMode||step!=='done';
-    el('acondKpis').hidden=mobileMode&&step!=='start';
+    el('acondKpis').hidden=el('acondBatchSelectionWrap').hidden=mobileMode&&step!=='start';
   }
   function stopCamera(){
     camera?.abort();
@@ -156,16 +158,23 @@ export function attachConditioningWorkspace({repository,live=false,onChanged=()=
   async function refresh(){
     const version=++listVersion;
     try{
-      const request=getRequest();
+      const requests=getRequests();
+      const request=requests.find(row=>row.id===selectedRequestId)
+        ||requests.find(row=>(getBatchProgress(row.id)?.prepared??0)<Number(row.cantidadCajas))
+        ||requests.at(-1);
+      selectedRequestId=request?.id??null;
+      renderSupplySelector(selector,requests,selectedRequestId);
       const [data,reception]=await Promise.all([call('listar'),repository.reception('estado',request?.id)]);
       const shipped=reception ? await repository.conditioningBatchShipments(reception.id) : [];
       if(!active||version!==listVersion)return;
       const supply=Number(reception?.cantidad)||0;
       const receptionCount=el('acondReceptionCount');
-      let prepared=data.preparadas;
+      let prepared=data.preparadas,visibleRows=data.listado;
       if(supply){
         const readings=reception.lecturas||[];
-        prepared=Math.min(supply,boxPreparationRows(String(reception.id),reception,data.listado,shipped).length);
+        const boxes=boxPreparationRows(String(reception.id),reception,data.listado,shipped);
+        prepared=Math.min(supply,boxes.length);
+        if(request)visibleRows=[...boxes,...data.listado.filter(row=>row.origen!=='nueva')];
         receptionCount.textContent=readings.length+' de '+supply+' registradas · '+
           Math.max(0,supply-readings.length)+' por registrar';
       }
@@ -178,13 +187,24 @@ export function attachConditioningWorkspace({repository,live=false,onChanged=()=
       el('acondProgressTrack').hidden=!supply;
       el('acondProgress').value=percent;
       el('acondPercent').textContent=percent+'%';
-      el('acondList').innerHTML=data.listado.map(row=>'<tr><td><strong>'+escapeHtml(row.codigo)+'</strong></td><td>'+
+      el('acondList').innerHTML=visibleRows.map(row=>'<tr><td><strong>'+escapeHtml(row.codigo)+'</strong>'+
+        (row.enviada?'<small class="acond-shipped-label">Enviada a Iron Mountain</small>':'')+'</td><td>'+
         badge(row.origen)+'</td><td>'+escapeHtml((row.cargos||[]).join('-'))+'</td><td>'+
         date(row.preparada)+'</td><td>'+escapeHtml(row.responsable||'—')+'</td></tr>').join('')
         ||'<tr><td colspan="5">Todavía no hay cajas preparadas.</td></tr>';
       el('acondRetry').hidden=!data.listado.some(row=>row.revision>row.sincronizada);
     }catch{if(active&&version===listVersion)message('No se pudieron consultar los indicadores. Revisa tu conexión.');}
   }
+  selector.addEventListener('click',event=>{
+    const id=event.target.closest('button[data-supply-id]')?.dataset.supplyId;
+    if(!id||id===selectedRequestId||!active||!getRequests().some(row=>row.id===id))return;
+    selectedRequestId=id;
+    el('acondPrepared').textContent='—';
+    el('acondReceptionCount').hidden=true;
+    el('acondProgressTrack').hidden=true;
+    el('acondList').replaceChildren();
+    void refresh();
+  });
   async function sync(){
     try{
       for(let i=0;i<3;i++){
@@ -432,6 +452,6 @@ export function attachConditioningWorkspace({repository,live=false,onChanged=()=
   return {
     activate(){active=true;void refresh();clearInterval(timer);timer=setInterval(refresh,5000);if(!mobileMode)scan.focus();},
     deactivate(){active=false;lookupVersion++;clearInterval(timer);if(camera||(mobileMode&&step==='read'&&!selected))restart();},
-    reset(){active=false;listVersion++;clearInterval(timer);restart();}
+    reset(){active=false;selectedRequestId=null;listVersion++;clearInterval(timer);restart();}
   };
 }

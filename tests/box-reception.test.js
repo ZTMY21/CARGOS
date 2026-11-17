@@ -5,7 +5,7 @@ import {randomUUID} from 'node:crypto';
 import {PGlite} from '@electric-sql/pglite';
 import JSZip from 'jszip';
 import {JSDOM} from 'jsdom';
-import {renderReceptionOverview,requestReception,receptionTime,receptionStatus} from '../src/box-reception-ui.js';
+import {attachBoxReception,renderReceptionOverview,requestReception,receptionTime,receptionStatus} from '../src/box-reception-ui.js';
 import {REQ_TYPES,limaDate} from '../src/rules.js';
 import {setupRequirements} from '../src/requirements-ui.js';
 import {parseReceptionScan} from '../src/box-scanner.js';
@@ -140,6 +140,34 @@ test('Resumen separa el guardado en Excel de la confirmación completa',()=>{
       /100 de 100 cajas registradas en el Excel/);
     assert.deepEqual(icons(),['#iv-box','#iv-box-receive','#iv-check']);
   }finally{dom.window.close();}
+});
+
+test('Control de cajas conserva la recepción completa al seleccionar entre dos requerimientos',async()=>{
+  const markup=await readFile(new URL('../index.html',import.meta.url),'utf8');
+  const dom=new JSDOM(markup);
+  globalThis.document=dom.window.document;
+  const first={id:'one',numero:'REQ-00001',cantidad:100,confirmada:'2026-11-13T20:26:58Z',
+    escritura_habilitada:true,lecturas:[{codigo:'T0000000001',leido:'2026-11-13',guardado:'2026-11-13'}]};
+  const second={id:'two',numero:'REQ-00002',cantidad:100,escritura_habilitada:true,lecturas:[]};
+  const get=id=>document.getElementById(id);
+  const controller=attachBoxReception({live:true,getRequests:()=>[first,second],refresh:async()=>{},
+    repository:{async reception(action,id){return id==='one'?first:second;}}});
+  const settle=()=>new Promise(resolve=>setImmediate(resolve));
+  try{
+    controller.activate();await settle();
+    const buttons=[...get('boxReceptionSelection').children];
+    assert.equal(buttons[1].getAttribute('aria-pressed'),'true');
+    buttons[0].click();await settle();
+    assert.equal(buttons[0].getAttribute('aria-pressed'),'true');
+    assert.match(get('boxScanHistory').textContent,/T0000000001/);
+    assert.equal(get('boxReceptionConfirm').disabled,true);
+    assert.equal(get('boxReceptionMode').disabled,true);
+    buttons[1].click();await settle();
+    assert.equal(get('boxScanHistory').textContent,'');
+    assert.equal(get('boxReceptionMode').disabled,false);
+  }finally{
+    controller.reset();dom.window.close();delete globalThis.document;
+  }
 });
 
 test('la API de recepción queda cerrada fuera de su rama y ante una base no aislada',async()=>{

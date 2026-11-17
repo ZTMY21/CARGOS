@@ -1,7 +1,7 @@
 // Vista previa de Resumen: ventanas de consulta de cajas. No modifica otros módulos ni guarda datos.
 import {escapeHtml as safe,fmtDate,REQ_TYPES} from './rules.js';
 import {physicalBoxKey} from './search.js';
-import {boxPreparationRows,summarizeBoxPreparationBatch} from './conditioning-batch-summary.js';
+import {boxSupplyRequests,combineBoxPreparationBatches,summarizeBoxPreparationBatch} from './conditioning-batch-summary.js';
 
 const formatNumber=value=>new Intl.NumberFormat('es-PE').format(Number(value)||0);
 const numeric=value=>Number.isFinite(Number(value))?Number(value):0;
@@ -21,8 +21,7 @@ const dateTime=value=>{
   return Number.isNaN(date.getTime())?'Fecha y hora no registradas':
     new Intl.DateTimeFormat('es-PE',{timeZone:'America/Lima',dateStyle:'short',timeStyle:'short'}).format(date)+' (Lima)';
 };
-const requestsOf=rows=>(rows||[]).filter(row=>row.tipo===REQ_TYPES[0]&&numeric(row.cantidadCajas)>0);
-const requestCurrent=rows=>requestsOf(rows).at(-1)||null;
+const requestsOf=state=>boxSupplyRequests(state.requests||[]);
 const dateValue=row=>row?.fechaSolicitud||row?.createdAt||'';
 const readMovements=(tracking,id)=>(tracking?.movimientos||[]).filter(row=>String(row.requerimiento||'')===String(id||''));
 const labelCard=(number,label)=>'<div class="summary-detail-stat"><strong>'+safe(String(number))+'</strong><span>'+safe(label)+'</span></div>';
@@ -32,14 +31,14 @@ const eventMarkup=(title,description,stamp,tone,label)=>{
     '<span class="summary-event-tag">'+safe(label)+'</span><time>'+safe(stamp)+'</time></li>';
 };
 function requestMarkup(rows) {
-  const requests=requestsOf(rows);
-  const current=requests.at(-1);
+  const requests=boxSupplyRequests(rows||[]);
+  const total=requests.reduce((sum,row)=>sum+numeric(row.cantidadCajas),0);
   const history=[...requests].reverse().map(row=>
     eventMarkup('Solicitud de cajas nuevas',formatNumber(row.cantidadCajas)+' cajas solicitadas'+
       ' · '+String(row.numero||'Requerimiento sin número'),
       dateOnly(dateValue(row)),'request','Solicitud')
   );
-  return '<div class="summary-detail-stats">'+labelCard(current?formatNumber(current.cantidadCajas):'—','cajas de la solicitud vigente')+
+  return '<div class="summary-detail-stats">'+labelCard(formatNumber(total),'cajas nuevas solicitadas')+
     labelCard(formatNumber(requests.length),'solicitudes registradas')+'</div>'+
     '<h3 class="summary-detail-section-title">Historial de movimientos</h3>'+
     (history.length?'<ol class="summary-detail-timeline">'+history.join('')+'</ol>':
@@ -69,50 +68,46 @@ function loanMarkup(state) {
     (items.length?'<ol class="summary-detail-timeline">'+items.join('')+'</ol>':
       '<p class="summary-detail-empty">No hay solicitudes a Iron Mountain registradas.</p>');
 }
-function receiptMarkup(state) {
-  const request=requestCurrent(state.requests);
-  if(!request)return '<p class="summary-detail-empty">No hay una solicitud de cajas nuevas para consultar.</p>';
-  const total=numeric(request.cantidadCajas);
+const batchOf=(state,request)=>state.batches?.get(request.id)||summarizeBoxPreparationBatch(request,state.tracking);
+const receptionComplete=batch=>batch.registered===batch.total&&!!batch.confirmed;
+const receptionLabel=batch=>receptionComplete(batch)?'Recepción completa':
+  batch.registered===batch.total?'Pendiente de confirmación':
+    (batch.registered||batch.scanned)?'Recepción parcial':'Pendiente de recepción';
+
+function receiptBatchMarkup(state,request,batch) {
+  const {total,registered,confirmed,prepared}=batch;
+  const complete=receptionComplete(batch);
   const events=readMovements(state.tracking,request.id);
-  const partial=events.filter(e=>['recepcion_parcial','recepcion_conciliada'].includes(e.tipo)&&Number.isFinite(Number(e.datos?.cantidad)));
-  const complete=events.filter(e=>e.tipo==='recepcion_completa'&&numeric(e.datos?.cantidad)>=total);
-  const currentTracking=state.tracking?.suministro?.solicitudes?.find(row=>String(row.id)===String(request.id));
-  const batch=summarizeBoxPreparationBatch(request,state.tracking,state.reception,state.preparedRows);
-  const fallback=partial.length?numeric(partial.at(-1).datos.cantidad):numeric(request.recibidoV4);
-  const saved=Math.min(total,Math.max(0,numeric(batch?.registered??currentTracking?.leidas??currentTracking?.guardadas??fallback)));
-  const fullyReceived=!!complete.length || !!currentTracking?.confirmada || !!request.fechaRecepcion;
-  const pending=Math.max(0,total-saved);
-  const percentage=total?Math.round(saved/total*100):0;
-  // El detalle de Resumen es un estado acumulado: no repetir una tarjeta por guardado.
-  // Los movimientos históricos permanecen intactos en su origen; solo mostramos el último.
-  const latestComplete=complete.at(-1);
-  const latestPartial=partial.at(-1);
-  const latest=latestComplete||latestPartial;
-  const timeline=latest
-    ? [eventMarkup(
-        latestComplete?'Recepción completa':'Guardado parcial de recepción',
-        formatNumber(latestComplete?total:numeric(latest.datos?.cantidad))+
-          ' de '+formatNumber(total)+' cajas registradas en el Excel',
-        dateTime(latest.registrado),
-        latestComplete?'complete':'partial',
-        latestComplete?'Completa':'Parcial')]
-    : saved ? [eventMarkup(
-        'Avance registrado',formatNumber(saved)+' de '+formatNumber(total)+' cajas registradas',
-        'Sin fecha de guardado disponible','partial','Avance')] : [];
-  return '<div class="summary-detail-stats">'+
-    labelCard(formatNumber(total),'cajas solicitadas')+
-    labelCard(formatNumber(saved),'cajas registradas')+
-    labelCard(formatNumber(pending),'pendientes de registrar')+
-    '</div><div class="summary-reception-strip"><div><strong>'+
-    safe(formatNumber(saved)+' de '+formatNumber(total)+' cajas registradas')+
-    '</strong><span>'+safe(request.numero||'Requerimiento')+' · Solicitada el '+safe(dateOnly(dateValue(request)))+
-    '</span></div><span class="summary-reception-state '+(fullyReceived?'complete':'partial')+'">'+
-    (fullyReceived?'Recepción completa':'Recepción parcial')+'</span></div>'+
-    '<progress class="summary-detail-progress" value="'+saved+'" max="'+Math.max(total,1)+'" aria-label="Avance de recepción de cajas"></progress>'+
-    '<p class="summary-detail-helper">'+percentage+'% registradas · '+formatNumber(pending)+' cajas pendientes</p>'+
-    '<h3 class="summary-detail-section-title">Último movimiento de recepción</h3>'+
-    (timeline.length?'<ol class="summary-detail-timeline">'+timeline.join('')+'</ol>':
-       '<p class="summary-detail-empty">Todavía no existen movimientos de guardado parcial para este requerimiento.</p>');
+  const latest=events.findLast(event=>['recepcion_completa','recepcion_parcial','recepcion_conciliada'].includes(event.tipo));
+  const date=dateTime(latest?.registrado||confirmed);
+  const saved=formatNumber(registered)+'/'+formatNumber(total)+' cajas registradas';
+  return '<article class="summary-reception-batch"><div class="summary-reception-strip">'+
+    '<div><strong>'+safe(request.numero)+' · '+saved+'</strong>'+
+    '<span>Solicitada el '+safe(dateOnly(dateValue(request)))+'</span></div>'+
+    '<span class="summary-reception-state '+(complete?'complete':'partial')+'">'+receptionLabel(batch)+'</span></div>'+
+    '<progress class="summary-detail-progress" value="'+registered+'" max="'+total+'" aria-label="Recepción de '+safe(request.numero)+'"></progress>'+
+    '<p class="summary-detail-helper">'+batch.registeredPct+'% registradas · '+formatNumber(total-registered)+' por registrar'+
+    (prepared===null?'':' · '+formatNumber(prepared)+' acondicionadas')+'</p>'+
+    (latest||confirmed?'<p class="summary-detail-helper">Último movimiento de recepción: '+safe(date)+'</p>':
+      '<p class="summary-detail-helper">Aún no hay registros de recepción.</p>')+'</article>';
+}
+function receiptMarkup(state) {
+  const requests=requestsOf(state);
+  if(!requests.length)return '<p class="summary-detail-empty">No hay solicitudes de cajas nuevas para consultar.</p>';
+  const batches=requests.map(request=>batchOf(state,request));
+  const {total,registered}=combineBoxPreparationBatches(batches);
+  const pending=[],history=[];
+  requests.forEach((request,index)=>{
+    const batch=batches[index];
+    (receptionComplete(batch)?history:pending).push(receiptBatchMarkup(state,request,batch));
+  });
+  return '<div class="summary-detail-stats">'+labelCard(formatNumber(total),'cajas solicitadas')+
+    labelCard(formatNumber(registered),'cajas registradas')+
+    labelCard(formatNumber(total-registered),'pendientes de registrar')+'</div>'+
+    '<h3 class="summary-detail-section-title">Recepciones pendientes</h3>'+
+    (pending.join('')||'<p class="summary-detail-empty">Todas las recepciones están completas.</p>')+
+    '<h3 class="summary-detail-section-title">Historial de recepciones completas</h3>'+
+    (history.join('')||'<p class="summary-detail-empty">Todavía no hay recepciones completas.</p>');
 }
 function cargoList(row) {
   if(Array.isArray(row.cargos))return row.cargos.map(x=>String(x||'').trim()).filter(Boolean);
@@ -130,33 +125,51 @@ function processRowMarkup(row) {
     (row.enviada?'Enviada a Iron Mountain':'Caja acondicionada')+'</span></td>'+
     '<td><details class="summary-process-details"><summary>Ver cargos</summary><span>'+cargoText+'</span></details></td></tr>';
 }
-function processMarkup(rows,request,reception,shipped) {
-  if(!request)return '<p class="summary-detail-empty">Todavía no se ha registrado un requerimiento de cajas nuevas.</p>';
-  const total=numeric(request.cantidadCajas);
-  const prepared=boxPreparationRows(String(request.id),reception,rows,shipped)
-    .sort((a,b)=>String(b.preparada||'').localeCompare(String(a.preparada||'')));
-  const count=prepared.length;
-  const pct=total?Math.round(100*count/total):0;
-  return '<div class="summary-detail-stats">'+labelCard(formatNumber(total),'cajas solicitadas')+
-    labelCard(formatNumber(count),'cajas acondicionadas con cargos')+
-    labelCard(formatNumber(Math.max(0,total-count)),'aún no acondicionadas')+'</div>'+
-    '<div class="summary-reception-strip"><div><strong>Avance de acondicionamiento · '+formatNumber(count)+
-    ' / '+formatNumber(total)+'</strong><span>Requerimiento '+safe(request.numero||'vigente')+
-    '</span></div><span class="summary-reception-state complete">'+pct+'%</span></div>'+
-    '<progress class="summary-detail-progress process" value="'+Math.min(count,total)+'" max="'+Math.max(total,1)+'" aria-label="Avance de cajas acondicionadas"></progress>'+
-    '<p class="summary-detail-helper">Solo cajas nuevas de la solicitud vigente, con cargos asociados y preparación registrada.</p>'+
-    '<h3 class="summary-detail-section-title">Relación de cajas acondicionadas</h3>'+
-    (prepared.length?'<div class="summary-process-toolbar"><label for="summaryProcessSearch">Buscar por caja, cargo o responsable</label>'+
-      '<input id="summaryProcessSearch" type="search" autocomplete="off" placeholder="Código de caja, cargo o responsable"></div>'+
+function processBatchMarkup(request,batch,expanded) {
+  const {prepared,total,preparedPct,registered,boxes}=batch;
+  const progress=prepared===null?'Avance no disponible':formatNumber(prepared)+'/'+formatNumber(total)+' acondicionadas';
+  const countText=prepared===null?receptionLabel(batch):
+    registered===0?receptionLabel(batch):
+      formatNumber(Math.max(0,registered-prepared))+' cajas registradas por acondicionar'+
+      (registered<total?' · '+formatNumber(total-registered)+' por registrar':'');
+  const preparedBoxes=boxes?.slice().sort((a,b)=>String(b.preparada||'').localeCompare(String(a.preparada||'')));
+  return '<details class="summary-process-batch"'+(expanded?' open':'')+'>'+
+    '<summary><span><strong>'+safe(request.numero)+' · '+progress+'</strong><small>'+countText+'</small></span>'+
+    '<span class="summary-reception-state '+(prepared===total?'complete':'partial')+'">'+
+    (preparedPct===null?'—':preparedPct+'%')+'</span></summary>'+
+    '<div class="summary-process-batch-body">'+
+    (prepared===null?'': '<progress class="summary-detail-progress process" value="'+prepared+'" max="'+total+
+      '" aria-label="Acondicionamiento de '+safe(request.numero)+'"></progress>')+
+    (preparedBoxes?.length?
+      '<label class="summary-process-toolbar">Buscar por caja, cargo o responsable'+
+      '<input data-summary-process-search type="search" autocomplete="off" placeholder="Código de caja, cargo o responsable"></label>'+
       '<div class="summary-process-table-wrap"><table class="summary-process-table"><thead><tr>'+
       '<th>Código de caja</th><th>N.° de cargos</th><th>Fecha de preparación</th><th>Responsable</th>'+
       '<th>Estado</th><th>Cargos asociados</th></tr></thead><tbody>'+
-      prepared.map(processRowMarkup).join('')+'</tbody></table></div>'+
-      '<p id="summaryProcessEmptyFilter" class="summary-detail-empty" hidden>No se encontraron cajas con ese filtro.</p>'+
-      '<p class="summary-detail-helper">Puedes desplegar «Ver cargos» para conocer los números asociados a cada caja.</p>'
-      :'<p class="summary-detail-empty">No hay cajas nuevas con preparación confirmada y cargos asociados para este requerimiento.</p>');
+      preparedBoxes.map(processRowMarkup).join('')+'</tbody></table></div>'+
+      '<p data-summary-process-empty class="summary-detail-empty" hidden>No se encontraron cajas con ese filtro.</p>':
+      '<p class="summary-detail-empty">'+(prepared===null?'Actualiza el Resumen para consultar las cajas de este requerimiento.':
+        'Todavía no hay cajas acondicionadas para este requerimiento.')+'</p>')+'</div></details>';
 }
-export function attachResumenBoxDetails({repository,getState}) {
+function processMarkup(state) {
+  const requests=requestsOf(state);
+  if(!requests.length)return '<p class="summary-detail-empty">Todavía no se han registrado requerimientos de cajas nuevas.</p>';
+  const batches=requests.map(request=>batchOf(state,request));
+  const {total,registered,prepared}=combineBoxPreparationBatches(batches);
+  const pending=[],finished=[];
+  requests.forEach((request,index)=>{
+    const batch=batches[index];
+    const destination=batch.prepared===batch.total?finished:pending;
+    destination.push(processBatchMarkup(request,batch,destination===pending&&!pending.length));
+  });
+  return '<div class="summary-detail-stats">'+labelCard(formatNumber(total),'cajas solicitadas')+
+    labelCard(prepared===null?'—':formatNumber(prepared),'cajas acondicionadas')+
+    labelCard(prepared===null?'—':formatNumber(Math.max(0,registered-prepared)),'registradas por acondicionar')+'</div>'+
+    '<h3 class="summary-detail-section-title">Avance por requerimiento</h3>'+
+    (pending.join('')||'<p class="summary-detail-empty">Todos los requerimientos están acondicionados.</p>')+
+    (finished.length?'<h3 class="summary-detail-section-title">Historial de acondicionamiento completo</h3>'+finished.join(''):'');
+}
+export function attachResumenBoxDetails({getState}) {
   const modal=document.createElement('dialog');
   modal.id='summaryBoxDetailDialog';
   modal.className='summary-detail-dialog';
@@ -168,53 +181,27 @@ export function attachResumenBoxDetails({repository,getState}) {
     '<div class="summary-detail-content" id="summaryBoxDetailContent" aria-live="polite"></div>';
   document.body.append(modal);
   const content=modal.querySelector('#summaryBoxDetailContent');
-  let active='',currentRequest=null,returnTo=null,version=0;
+  let returnTo=null;
   const titles={solicitudes:['Cajas solicitadas','Historial de solicitudes de cajas nuevas'],
     recepcion:['Cajas para acondicionar','Recepción y registro de cajas nuevas'],
     solicitudesIM:['Solicitudes a Iron Mountain','Préstamos y búsquedas de cajas almacenadas en IM'],
-    acondicionamiento:['En proceso de acondicionamiento','Cajas nuevas acondicionadas de la solicitud vigente']};
-  function applyProcessFilter() {
-    const field=content.querySelector('#summaryProcessSearch');
-    if(!field)return;
-    const term=field.value.trim().toLowerCase();
-    let count=0;
-    content.querySelectorAll('[data-summary-process-item]').forEach(row=>{
+    acondicionamiento:['En proceso de acondicionamiento','Cajas nuevas acondicionadas por requerimiento']};
+  content.addEventListener('input',event=>{
+    if(!event.target.matches('[data-summary-process-search]'))return;
+    const batch=event.target.closest('.summary-process-batch');
+    const term=event.target.value.trim().toLowerCase();
+    let visible=0;
+    batch.querySelectorAll('[data-summary-process-item]').forEach(row=>{
       row.hidden=!!term&&!row.dataset.search.includes(term);
-      if(!row.hidden)count++;
+      if(!row.hidden)visible++;
     });
-    const empty=content.querySelector('#summaryProcessEmptyFilter');
-    if(empty)empty.hidden=count>0;
-  }
-  content.addEventListener('input',event=>{if(event.target.id==='summaryProcessSearch')applyProcessFilter();});
+    batch.querySelector('[data-summary-process-empty]').hidden=visible>0;
+  });
   modal.querySelector('.summary-detail-close').addEventListener('click',()=>modal.close());
-  modal.addEventListener('close',()=>{version++; active='';returnTo?.focus?.();});
-  async function loadProcess(call) {
-    const state=getState(),request=requestCurrent(state.requests);
-    content.innerHTML='<p class="summary-detail-empty">Consultando cajas acondicionadas de la solicitud vigente…</p>';
-    try{
-      if(!request){
-        content.innerHTML=processMarkup([],null,null,[]);
-        return;
-      }
-      const [live,reception,shipped]=await Promise.all([
-        repository.conditioning('listar'),
-        repository.reception('estado',request.id).catch(()=>state.reception),
-        repository.conditioningBatchShipments(request.id)
-      ]);
-      if(call!==version||!modal.open||active!=='acondicionamiento')return;
-      if(!Array.isArray(live?.listado))throw Error('Sin listado de acondicionamiento disponible');
-      content.innerHTML=processMarkup(live.listado,request,reception||state.reception,shipped);
-    }catch(error){
-      if(call!==version||!modal.open)return;
-      content.innerHTML='<p class="summary-detail-empty">No se pudo consultar el listado de acondicionamiento. '+safe(error.message||'Revisa la conexión e inténtalo otra vez.')+'</p>'+
-        '<button type="button" class="summary-detail-retry">Reintentar consulta</button>';
-      content.querySelector('.summary-detail-retry')?.addEventListener('click',()=>void loadProcess(++version));
-    }
-  }
+  modal.addEventListener('close',()=>returnTo?.focus?.());
   function open(type,trigger=null) {
     if(!Object.hasOwn(titles,type) || !getState().allowed)return;
     returnTo=trigger||document.activeElement;
-    active=type;
     const [title,subtitle]=titles[type];
     modal.querySelector('#summaryBoxDetailTitle').textContent=title;
     modal.querySelector('#summaryBoxDetailSubtitle').textContent=subtitle;
@@ -223,7 +210,7 @@ export function attachResumenBoxDetails({repository,getState}) {
     if(type==='solicitudes')content.innerHTML=requestMarkup(state.requests);
     if(type==='recepcion')content.innerHTML=receiptMarkup(state);
     if(type==='solicitudesIM')content.innerHTML=loanMarkup(state);
-    if(type==='acondicionamiento')void loadProcess(++version);
+    if(type==='acondicionamiento')content.innerHTML=processMarkup(state);
   }
   return {open};
 }
