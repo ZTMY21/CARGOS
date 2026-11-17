@@ -235,9 +235,11 @@ test('sin remitente configurado abre el borrador en Outlook web en otra pestaña
   assert.equal(opened.target,'_blank');
   assert.equal(opened.rel,'noopener noreferrer');
   assert.doesNotMatch(opened.url.search,/\+/);
-  assert.match(opened.url.search,/%0D%0A%0D%0A/);
-  const query=opened.url.searchParams;
-  assert.deepEqual(query.get('to').split(';'),[
+  const draft=new URL(opened.url.searchParams.get('to'));
+  assert.equal(draft.protocol,'mailto:');
+  assert.match(draft.search,/%0D%0A%0D%0A/);
+  const query=draft.searchParams;
+  assert.deepEqual(draft.pathname.split(','),[
     'joramos@farmaciasperuanas.pe','alopezv@farmaciasperuanas.pe','bsalvador@farmaciasperuanas.pe'
   ]);
   assert.equal(query.get('cc'),'fp-qs-liquidaciones@intercorpretail.pe');
@@ -262,9 +264,10 @@ test('el enlace de Outlook preserva espacios, tildes y cantidades distintas',asy
   await flush();
   document.querySelector('#req4MailOutlook').click();
   assert.doesNotMatch(url,/\+/);
-  assert.match(url,/subject=Solicitud%20de%2032%20cajas%20nuevas%20a%20IM/);
-  assert.match(url,/Quedamos%20atentos%20a%20su%20confirmaci%C3%B3n/);
-  const parsed=new URL(url).searchParams;
+  const draft=new URL(url).searchParams.get('to');
+  assert.match(draft,/subject=Solicitud%20de%2032%20cajas%20nuevas%20a%20IM/);
+  assert.match(draft,/Quedamos%20atentos%20a%20su%20confirmaci%C3%B3n/);
+  const parsed=new URL(draft).searchParams;
   assert.match(parsed.get('body'),/Por medio del presente, solicitamos 32 cajas nuevas/);
   assert.match(parsed.get('body'),/\r\n\r\n/);
 });

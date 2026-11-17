@@ -160,12 +160,13 @@ export function setupRequirementsMail(root,{repository,context}){
     if(!context().mailAccess||!currentDraft||currentDraft.sent||busy)return;
     if(!previewMode()&&!currentDraft.mail.senderConfigured){
       const mail=currentDraft.mail;
-      const query='to='+encodeURIComponent(mail.to.join(';'))+
-        '&cc='+encodeURIComponent(mail.cc.join(';'))+
+      const query='cc='+encodeURIComponent(mail.cc.join(','))+
         '&subject='+encodeURIComponent(mail.subject)+
         '&body='+encodeURIComponent(mail.text);
+      // Outlook web recibe la URI completa para conservar los encabezados del borrador.
+      const draft='mailto:'+mail.to.join(',')+'?'+query;
       const link=doc.createElement('a');
-      link.href='https://outlook.office.com/mail/deeplink/compose?'+query;
+      link.href='https://outlook.office.com/mail/deeplink/compose?to='+encodeURIComponent(draft);
       link.target='_blank';
       link.rel='noopener noreferrer';
       doc.body.append(link);link.click();link.remove();
