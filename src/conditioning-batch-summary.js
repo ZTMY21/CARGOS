@@ -23,6 +23,19 @@ export function renderSupplySelector(container,requests,currentId,busy=false) {
   }
 }
 
+export function renderSupplyHistory(container,requests,unit) {
+  container.hidden=requests.length===0;
+  const signature=JSON.stringify(requests.map(({numero,cantidadCajas})=>[numero,cantidadCajas]));
+  if(container.dataset.requests===signature)return;
+  const list=container.querySelector('ul');
+  list.replaceChildren(...requests.map(({numero,cantidadCajas})=>{
+    const item=container.ownerDocument.createElement('li');
+    item.textContent=numero+' · '+cantidadCajas+'/'+cantidadCajas+' '+unit;
+    return item;
+  }));
+  container.dataset.requests=signature;
+}
+
 export async function loadBoxPreparationBatches(repository,requests,preparedRows,tracking) {
   const batches=await Promise.all(requests.map(async request=>{
     const [reception,shipped]=await Promise.all([

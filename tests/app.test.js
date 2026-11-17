@@ -404,22 +404,27 @@ test('Resumen mantiene el avance del REQ 1 y Requerimientos enlaza la solicitud 
  const codes=Array.from({length:100},(_,index)=>'T'+String(index+1).padStart(10,'0'));
  const box=(codigo,index)=>({codigo,solicitud:first.id,origen:'nueva',preparada:'2026-11-13',
    ...(index>=4?{enviada:'2026-11-13'}:{})});
+ const conditioningView={
+   list:{listado:codes.slice(0,4).map(box)},
+   receipts:{[first.id]:{id:first.id,lecturas:codes.map(codigo=>({codigo,guardado:'2026-11-13'}))},
+     [second.id]:{id:second.id,lecturas:[]}},
+   shipped:{[first.id]:codes.slice(4,34).map((code,index)=>box(code,index+4))}
+ };
  const a=await app({receptionPreview:true,initialReqs:[first,second],initialTracking:{
    cajas:[],movimientos:[],suministro:{solicitudes:[
      {id:first.id,guardadas:100,confirmada:'2026-11-13T20:26:58Z'},
      {id:second.id,guardadas:0,confirmada:null}
-   ]}},
-   conditioningView:{
-     list:{listado:codes.slice(0,4).map(box)},
-     receipts:{[first.id]:{id:first.id,lecturas:codes.map(codigo=>({codigo,guardado:'2026-11-13'}))},
-       [second.id]:{id:second.id,lecturas:[]}},
-     shipped:{[first.id]:codes.slice(4,34).map((code,index)=>box(code,index+4))}
-   }});
+   ]}},conditioningView});
  try{
    const summary=a.node('resumenTablas');
    assert.equal(summary.querySelector('.kpi-summary-requested .n').textContent,'200');
    assert.equal(summary.querySelector('.kpi-summary-to-condition .n').textContent,'100/200');
    assert.equal(summary.querySelector('.kpi-summary-process .n').textContent,'34/200');
+   conditioningView.shipped[first.id]=codes.slice(4).map((code,index)=>box(code,index+4));
+   a.node('btnReconnect').click();await flush();
+   assert.equal(summary.querySelector('.kpi-summary-requested .n').textContent,'200');
+   assert.equal(summary.querySelector('.kpi-summary-to-condition .n').textContent,'100/200');
+   assert.equal(summary.querySelector('.kpi-summary-process .n').textContent,'100/200');
    a.node('workspaceTabRequerimientos').click();
    const confirmation=a.node('req4SupplySaved');
    assert.match(confirmation.textContent,/REQ-00002 registrada/);

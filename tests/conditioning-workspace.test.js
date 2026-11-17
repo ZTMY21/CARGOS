@@ -183,6 +183,37 @@ test('avance de preparación usa la misma solicitud y el total del Centro de esc
   }
 });
 
+test('Acondicionamiento deja como historial el requerimiento al preparar la última caja',async()=>{
+  const markup=await readFile(new URL('../index.html',import.meta.url),'utf8');
+  const dom=new JSDOM(markup);
+  globalThis.document=dom.window.document;
+  const first={id:'first',numero:'REQ-00001',cantidadCajas:100};
+  const second={id:'second',numero:'REQ-00002',cantidadCajas:100};
+  const saved=Array.from({length:100},(_,i)=>({codigo:'T'+String(i+1).padStart(10,'0'),
+    guardado:'2026-11-13',origen:'nueva',solicitud:first.id,preparada:'2026-11-15'}));
+  const work=saved.slice(0,69);
+  const control=attachConditioningWorkspace({getRequests:()=>[first,second],repository:{
+    async conditioning(){return {nuevas:100,solicitadas:0,preparadas:work.length,listado:work};},
+    async reception(action,id){return {id,cantidad:100,lecturas:id===first.id?saved:[]};},
+    async conditioningBatchShipments(id){return id===first.id?saved.slice(70).map(row=>({...row,enviada:'2026-11-16'})):[];}
+  }});
+  const settle=()=>new Promise(resolve=>setImmediate(resolve));
+  const el=id=>document.getElementById(id);
+  try{
+    control.activate();await settle();
+    assert.equal(el('acondPrepared').textContent,'99 de 100');
+    assert.equal(el('acondBatchSelection').children.length,2);
+    work.push(saved[69]);
+    control.activate();await settle();
+    assert.equal(el('acondBatchSelection').children.length,1);
+    assert.equal(el('acondBatchSelection').firstElementChild.textContent,'REQ-00002');
+    assert.match(el('acondClosed').textContent,/REQ-00001 · 100\/100 cajas acondicionadas/);
+    assert.equal(el('acondPrepared').textContent,'0 de 100');
+  }finally{
+    control.reset();dom.window.close();delete globalThis.document;
+  }
+});
+
 test('modo celular corta lecturas repetidas, valida las filas y confirma solo después del guardado',async()=>{
   const html=await readFile(new URL('../index.html',import.meta.url),'utf8');
   const dom=new JSDOM(html);

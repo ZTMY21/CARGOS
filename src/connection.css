@@ -328,3 +328,12 @@ mark{background:var(--yellow-bg);color:var(--navy-dark);font-weight:700;border-r
 .summary-process-batch > summary > :first-child { flex: 1; }
 .summary-process-batch small { display: block; margin-top: 4px; color: #53697b; }
 .summary-process-batch-body { padding: 0 12px 12px; }
+
+
+.supply-history {
+  margin: 0 0 12px; padding: 8px 12px; border: 1px solid #d9e7df;
+  border-radius: 8px; color: #315448; background: #f5faf7; font-size: 12px;
+}
+.supply-history[hidden] { display: none; }
+.supply-history > summary { cursor: pointer; font-weight: 650; }
+.supply-history > ul { margin: 6px 0 1px; padding-inline-start: 22px; }

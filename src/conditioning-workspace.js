@@ -1,6 +1,6 @@
 import {escapeHtml,fmtDate,limaDate} from './rules.js';
 import {physicalBoxKey} from './search.js';
-import {boxPreparationRows,renderSupplySelector} from './conditioning-batch-summary.js';
+import {boxPreparationRows,renderSupplyHistory,renderSupplySelector} from './conditioning-batch-summary.js';
 import {drawBoxBarcode} from './box-code128.js';
 import {scanConditioningBox} from './conditioning-camera.js';
 
@@ -31,7 +31,9 @@ export function attachConditioningWorkspace({repository,live=false,onChanged=()=
     controls.querySelector('[data-acond-download="maestro"]').textContent='Descargar Excel Maestro';
     controls.querySelector('[data-acond-download="historico"]').textContent='Descargar Histórico IM';
   }
-  const selector=el('acondBatchSelection');
+  const selector=el('acondBatchSelection'),closedHistory=el('acondClosed');
+  const recentlyClosed=new Set();
+  const isClosed=row=>recentlyClosed.has(row.id) || getBatchProgress(row.id)?.prepared>=Number(row.cantidadCajas);
   let selectedRequestId=null;
   const scan=el('acondScan'),save=el('acondSave'),verified=el('acondVerified'),yearButtons=[...el('acondYears').children];
   const fields=[...el('acondCargoFields').children].map(row=>({
@@ -159,21 +161,27 @@ export function attachConditioningWorkspace({repository,live=false,onChanged=()=
     const version=++listVersion;
     try{
       const requests=getRequests();
-      const request=requests.find(row=>row.id===selectedRequestId)
-        ||requests.find(row=>(getBatchProgress(row.id)?.prepared??0)<Number(row.cantidadCajas))
-        ||requests.at(-1);
+      const pending=requests.filter(row=>!isClosed(row));
+      const request=pending.find(row=>row.id===selectedRequestId)||pending[0];
       selectedRequestId=request?.id??null;
-      renderSupplySelector(selector,requests,selectedRequestId);
-      const [data,reception]=await Promise.all([call('listar'),repository.reception('estado',request?.id)]);
+      renderSupplySelector(selector,pending,selectedRequestId);
+      renderSupplyHistory(closedHistory,requests.filter(isClosed),'cajas acondicionadas');
+      const [data,reception]=await Promise.all([call('listar'),
+        request||!requests.length ? repository.reception('estado',request?.id) : null]);
       const shipped=reception ? await repository.conditioningBatchShipments(reception.id) : [];
       if(!active||version!==listVersion)return;
       const supply=Number(reception?.cantidad)||0;
       const receptionCount=el('acondReceptionCount');
-      let prepared=data.preparadas,visibleRows=data.listado;
+      let prepared=data.preparadas,visibleRows=requests.length&&!request
+        ? data.listado.filter(row=>row.origen!=='nueva') : data.listado;
       if(supply){
         const readings=reception.lecturas||[];
         const boxes=boxPreparationRows(String(reception.id),reception,data.listado,shipped);
         prepared=Math.min(supply,boxes.length);
+        if(request && prepared===supply){
+          recentlyClosed.add(request.id);
+          return refresh();
+        }
         if(request)visibleRows=[...boxes,...data.listado.filter(row=>row.origen!=='nueva')];
         receptionCount.textContent=readings.length+' de '+supply+' registradas · '+
           Math.max(0,supply-readings.length)+' por registrar';
@@ -181,9 +189,10 @@ export function attachConditioningWorkspace({repository,live=false,onChanged=()=
       const percent=supply?Math.round(prepared/supply*100):0;
       receptionCount.hidden=!supply;
       el('acondNewLabel').textContent=supply?'Cajas nuevas solicitadas':'Cajas nuevas registradas';
-      el('acondNew').textContent=String(supply||data.nuevas);
+      const allComplete=requests.length>0&&!request;
+      el('acondNew').textContent=String(supply||(allComplete?0:data.nuevas));
       el('acondRequested').textContent=String(data.solicitadas);
-      el('acondPrepared').textContent=supply?prepared+' de '+supply:String(prepared);
+      el('acondPrepared').textContent=supply?prepared+' de '+supply:allComplete?'—':String(prepared);
       el('acondProgressTrack').hidden=!supply;
       el('acondProgress').value=percent;
       el('acondPercent').textContent=percent+'%';
@@ -197,7 +206,7 @@ export function attachConditioningWorkspace({repository,live=false,onChanged=()=
   }
   selector.addEventListener('click',event=>{
     const id=event.target.closest('button[data-supply-id]')?.dataset.supplyId;
-    if(!id||id===selectedRequestId||!active||!getRequests().some(row=>row.id===id))return;
+    if(!id||id===selectedRequestId||!active||!getRequests().some(row=>row.id===id&&!isClosed(row)))return;
     selectedRequestId=id;
     el('acondPrepared').textContent='—';
     el('acondReceptionCount').hidden=true;
@@ -452,6 +461,6 @@ export function attachConditioningWorkspace({repository,live=false,onChanged=()=
   return {
     activate(){active=true;void refresh();clearInterval(timer);timer=setInterval(refresh,5000);if(!mobileMode)scan.focus();},
     deactivate(){active=false;lookupVersion++;clearInterval(timer);if(camera||(mobileMode&&step==='read'&&!selected))restart();},
-    reset(){active=false;selectedRequestId=null;listVersion++;clearInterval(timer);restart();}
+    reset(){active=false;selectedRequestId=null;recentlyClosed.clear();listVersion++;clearInterval(timer);restart();}
   };
 }

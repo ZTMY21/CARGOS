@@ -142,28 +142,37 @@ test('Resumen separa el guardado en Excel de la confirmación completa',()=>{
   }finally{dom.window.close();}
 });
 
-test('Control de cajas conserva la recepción completa al seleccionar entre dos requerimientos',async()=>{
+test('Control de cajas permite confirmar 100 lecturas y archiva el requerimiento cerrado',async()=>{
   const markup=await readFile(new URL('../index.html',import.meta.url),'utf8');
   const dom=new JSDOM(markup);
   globalThis.document=dom.window.document;
-  const first={id:'one',numero:'REQ-00001',cantidad:100,confirmada:'2026-11-13T20:26:58Z',
-    escritura_habilitada:true,lecturas:[{codigo:'T0000000001',leido:'2026-11-13',guardado:'2026-11-13'}]};
-  const second={id:'two',numero:'REQ-00002',cantidad:100,escritura_habilitada:true,lecturas:[]};
+  const first={id:'one',numero:'REQ-00001',cantidad:100,cantidadCajas:100,
+    escritura_habilitada:true,lecturas:Array.from({length:100},(_,i)=>({
+      codigo:'T'+String(i+1).padStart(10,'0'),leido:'2026-11-13',guardado:'2026-11-13'
+    }))};
+  const second={id:'two',numero:'REQ-00002',cantidad:100,cantidadCajas:100,escritura_habilitada:true,lecturas:[]};
   const get=id=>document.getElementById(id);
   const controller=attachBoxReception({live:true,getRequests:()=>[first,second],refresh:async()=>{},
-    repository:{async reception(action,id){return id==='one'?first:second;}}});
+    repository:{
+      async reception(action,id){return id==='one'?first:second;},
+      async receptionExcel(action,id){
+        assert.equal(action,'completa');assert.equal(id,'one');
+        return {...first,confirmada:'2026-11-13T20:26:58Z'};
+      }
+    }});
   const settle=()=>new Promise(resolve=>setImmediate(resolve));
   try{
     controller.activate();await settle();
-    const buttons=[...get('boxReceptionSelection').children];
-    assert.equal(buttons[1].getAttribute('aria-pressed'),'true');
-    buttons[0].click();await settle();
-    assert.equal(buttons[0].getAttribute('aria-pressed'),'true');
-    assert.match(get('boxScanHistory').textContent,/T0000000001/);
-    assert.equal(get('boxReceptionConfirm').disabled,true);
-    assert.equal(get('boxReceptionMode').disabled,true);
-    buttons[1].click();await settle();
-    assert.equal(get('boxScanHistory').textContent,'');
+    const [a,b]=get('boxReceptionSelection').children;
+    assert.equal(b.getAttribute('aria-pressed'),'true');
+    a.click();await settle();
+    assert.equal(get('boxScanHistory').children.length,100);
+    assert.equal(get('boxReceptionConfirm').disabled,false,'El cierre sigue disponible tras escanear las 100 cajas');
+    get('boxReceptionConfirm').click();await settle();
+    assert.equal(get('boxReceptionSelection').children.length,1);
+    assert.equal(get('boxReceptionSelection').firstElementChild.textContent,'REQ-00002');
+    assert.match(get('boxReceptionClosed').textContent,/REQ-00001 · 100\/100 cajas registradas/);
+    assert.equal(get('boxScanHistory').children.length,0);
     assert.equal(get('boxReceptionMode').disabled,false);
   }finally{
     controller.reset();dom.window.close();delete globalThis.document;

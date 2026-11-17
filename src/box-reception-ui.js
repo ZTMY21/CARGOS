@@ -1,5 +1,5 @@
 import {parseReceptionScan} from './box-scanner.js';
-import {renderSupplySelector} from './conditioning-batch-summary.js';
+import {renderSupplyHistory,renderSupplySelector} from './conditioning-batch-summary.js';
 import {escapeHtml as html,fmtDate,REQ_TYPES} from './rules.js';
 
 const lima = new Intl.DateTimeFormat('es-PE',{timeZone:'America/Lima',dateStyle:'short',timeStyle:'short'});
@@ -42,7 +42,16 @@ export function attachBoxReception({repository,refresh,live=false,getRequests=()
   const mode = el('boxReceptionMode'), input = el('boxScanInput'), progress = el('boxReceptionProgress');
   const save = el('boxReceptionSave'), confirm = el('boxReceptionConfirm');
   const card = el('boxReceptionCard'), history = el('boxScanHistory'), feedback = el('boxScanFeedback');
-  const selector=el('boxReceptionSelection');
+  const selector=el('boxReceptionSelection'), closedHistory=el('boxReceptionClosed');
+  const recentlyClosed=new Set();
+  const isClosed=row=>recentlyClosed.has(row.id) ||
+    (!!row.fechaRecepcion&&Number(row.recibidoV4)>=Number(row.cantidadCajas));
+  const keepPending=data=>{
+    if(!data?.confirmada || !(Number(data.cantidad)>0) ||
+      data.lecturas.filter(row=>row.guardado).length<Number(data.cantidad))return data;
+    recentlyClosed.add(data.id);
+    return null;
+  };
   let selectedRequestId=null;
   let active=false, state=null, epoch=0, version=0, running=0, job=Promise.resolve(), poll=null, documentMode=false;
   const notify = (message,error=false) => {
@@ -51,7 +60,9 @@ export function attachBoxReception({repository,refresh,live=false,getRequests=()
   };
   const refreshSummary=()=>refresh().catch(()=>{});
   const render = () => {
-    renderSupplySelector(selector,getRequests(),selectedRequestId||state?.id,running>0);
+    const requests=getRequests();
+    renderSupplySelector(selector,requests.filter(row=>!isClosed(row)),selectedRequestId||state?.id,running>0);
+    renderSupplyHistory(closedHistory,requests.filter(isClosed),'cajas registradas');
     const readings=state?.lecturas||[], total=state?.cantidad||0;
     const saved=readings.filter(row=>row.guardado).length;
     const complete=!!state?.confirmada;
@@ -99,11 +110,15 @@ export function attachBoxReception({repository,refresh,live=false,getRequests=()
     const call=epoch, revision=version;
     if (running||!active) return;
     try {
-      const requested=getRequests().find(row=>row.id===selectedRequestId);
-      const data=requested?await repository.reception('estado',requested.id):await repository.reception();
+      const requests=getRequests();
+      const pending=requests.filter(row=>!isClosed(row));
+      const requested=pending.find(row=>row.id===selectedRequestId)||pending.at(-1);
+      const data=requested ? await repository.reception('estado',requested.id) :
+        requests.length ? null : await repository.reception();
       if (!active||epoch!==call||revision!==version||running) return;
       if (state?.id!==data?.id) mode.checked=false;
-      state=data;selectedRequestId=data?.id??null;render();
+      state=keepPending(data);selectedRequestId=state?.id??null;render();
+      if(requested && data && !state)void load();
     } catch {
       if (active&&epoch===call) notify('No se pudo consultar la recepción. Vuelve a abrir Control de cajas.',true);
     }
@@ -117,7 +132,7 @@ export function attachBoxReception({repository,refresh,live=false,getRequests=()
         if (epoch!==call) return;
         const next=await operation(id);
         if (epoch!==call) return;
-        state=next;
+        state=keepPending(next);
         if (active) notify(success(next));
       } catch(error) {
         if (active&&epoch===call) notify(error.message,true);
@@ -132,7 +147,7 @@ export function attachBoxReception({repository,refresh,live=false,getRequests=()
   };
   selector.addEventListener('click',event=>{
     const id=event.target.closest('button[data-supply-id]')?.dataset.supplyId;
-    if(!id||!active||running||id===selectedRequestId||!getRequests().some(row=>row.id===id))return;
+    if(!id||!active||running||id===selectedRequestId||!getRequests().some(row=>row.id===id&&!isClosed(row)))return;
     selectedRequestId=id;
     version++;
     state=null;
@@ -160,7 +175,8 @@ export function attachBoxReception({repository,refresh,live=false,getRequests=()
   confirm.addEventListener('click',()=>{
     if (confirm.disabled) return;
     void enqueue(id=>repository.receptionExcel('completa',id),next=>
-      receptionStatus(next)+': '+next.cantidad+'/'+next.cantidad+' · '+receptionTime(next.confirmada))?.then(refreshSummary);
+      receptionStatus(next)+': '+next.cantidad+'/'+next.cantidad+' · '+receptionTime(next.confirmada))
+      ?.then(async()=>{await refreshSummary();await load();});
   });
   el('boxReceptionModeLabel').hidden=false;
   return {
@@ -170,7 +186,7 @@ export function attachBoxReception({repository,refresh,live=false,getRequests=()
       clearInterval(poll);poll=setInterval(load,5000);
     },
     deactivate(){active=false;mode.checked=false;clearInterval(poll);},
-    reset(){active=false;state=null;selectedRequestId=null;running=0;epoch++;mode.checked=false;documentMode=false;clearInterval(poll);render();},
+    reset(){active=false;state=null;selectedRequestId=null;recentlyClosed.clear();running=0;epoch++;mode.checked=false;documentMode=false;clearInterval(poll);render();},
     stop(){
       if (!mode.checked && !state) return;
       mode.checked=false;documentMode=true;
