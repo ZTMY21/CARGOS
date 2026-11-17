@@ -160,13 +160,14 @@ export function setupRequirementsMail(root,{repository,context}){
     if(!context().mailAccess||!currentDraft||currentDraft.sent||busy)return;
     if(!previewMode()&&!currentDraft.mail.senderConfigured){
       const mail=currentDraft.mail;
-      const query='cc='+encodeURIComponent(mail.cc.join(','))+
+      // Outlook corporativo interpreta los campos de composición directamente.
+      // No anidar un mailto: en «to», porque rompe la navegación al borrador.
+      const query='to='+encodeURIComponent(mail.to.join(';'))+
+        '&cc='+encodeURIComponent(mail.cc.join(';'))+
         '&subject='+encodeURIComponent(mail.subject)+
-        '&body='+encodeURIComponent(mail.text);
-      // Outlook web recibe la URI completa para conservar los encabezados del borrador.
-      const draft='mailto:'+mail.to.join(',')+'?'+query;
+        '&body='+encodeURIComponent(mail.text.replace(/\r?\n/g,'\r\n'));
       const link=doc.createElement('a');
-      link.href='https://outlook.office.com/mail/deeplink/compose?to='+encodeURIComponent(draft);
+      link.href='https://outlook.office.com/mail/0/deeplink/compose?'+query;
       link.target='_blank';
       link.rel='noopener noreferrer';
       doc.body.append(link);link.click();link.remove();
