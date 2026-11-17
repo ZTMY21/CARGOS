@@ -160,15 +160,16 @@ export function setupRequirementsMail(root,{repository,context}){
     if(!context().mailAccess||!currentDraft||currentDraft.sent||busy)return;
     if(!previewMode()&&!currentDraft.mail.senderConfigured){
       const mail=currentDraft.mail;
-      // mailto (RFC 6068) needs percent-encoding. URLSearchParams emits
-      // '+' for spaces, which Outlook can display literally in the draft.
-      const query='cc='+encodeURIComponent(mail.cc.join(','))+
+      const query='to='+encodeURIComponent(mail.to.join(';'))+
+        '&cc='+encodeURIComponent(mail.cc.join(';'))+
         '&subject='+encodeURIComponent(mail.subject)+
-        '&body='+encodeURIComponent(mail.text.replace(/\r?\n/g,'\r\n'));
+        '&body='+encodeURIComponent(mail.text);
       const link=doc.createElement('a');
-      link.href='mailto:'+mail.to.join(',')+'?'+query;
+      link.href='https://outlook.office.com/mail/deeplink/compose?'+query;
+      link.target='_blank';
+      link.rel='noopener noreferrer';
       doc.body.append(link);link.click();link.remove();
-      setStatus('Se preparó el mensaje para abrirlo en Outlook. Verifica la cuenta remitente, revisa el borrador y envíalo manualmente.');
+      setStatus('Continúa en la nueva pestaña de Outlook para revisar el borrador y enviarlo manualmente.');
       return;
     }
     const safe=previewMode()
