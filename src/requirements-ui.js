@@ -65,7 +65,7 @@ export function requestCards(rows, tracking, batchProgress=null) {
   const registered=supplyTotal && (tracking || batchProgress)
     ? batchProgress?.registered??supplies.reduce((sum,row)=>{
         const receipt=requestReception(row,tracking);
-        const saved=Number(receipt.guardadas??row.recibidoV4)||0;
+        const saved=Number(receipt.guardadas??receipt.leidas??row.recibidoV4)||0;
         return sum+Math.min(Number(row.cantidadCajas),Math.max(0,saved));
       },0)
     : null;

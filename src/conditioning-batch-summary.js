@@ -75,7 +75,7 @@ export function summarizeBoxPreparationBatch(request, tracking=null, reception=n
   const readings=activeReception?.lecturas;
   const countCodes=rows=>new Set(rows.map(row=>physicalBoxKey(row.codigo)).filter(Boolean)).size;
   const bound=value=>Math.min(total,Math.max(0,Number(value)||0));
-  const registered=bound(readings?countCodes(readings.filter(row=>row.guardado)):status?.guardadas??request.recibidoV4);
+  const registered=bound(readings?countCodes(readings.filter(row=>row.guardado)):status?.guardadas??status?.leidas??request.recibidoV4);
   const scanned=bound(readings?countCodes(readings):status?.leidas??registered);
   const boxes=Array.isArray(preparedRows)&&Array.isArray(shippedRows)
     ? boxPreparationRows(requestId,activeReception,preparedRows,shippedRows) : null;
