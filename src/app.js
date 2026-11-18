@@ -849,6 +849,24 @@ document.getElementById('monthlyCreatedSheet').addEventListener('click',event=>{
   if(event.target===sheet)sheet.close();
 });
 
+function historicalImCargoYears(){
+  // Históricos sin relación de cajas: sumar cargos únicos solo como contexto.
+  const byYear=new Map();
+  for(const doc of docs||[]){
+    if(!usesHistoricalImDecision(doc)||doc.imHistoricalDecision!=='historico'||
+       docEstado(doc).estado!=='Histórico')continue;
+    const year=Number(cargoYear(doc));
+    if(!Number.isInteger(year)||year<2020||year>2024)continue;
+    if(!byYear.has(year))byYear.set(year,new Set());
+    for(const raw of doc.cargos||[]){
+      const code=String(raw??'').trim().replace(/\.0+$/,'')
+        .replace(/^0+(?=\d)/,'').toUpperCase();
+      if(code)byYear.get(year).add(code);
+    }
+  }
+  return new Map([...byYear].map(([year,codes])=>[year,codes.size]));
+}
+
 let monthlyShippedSummary=null;
 let monthlyShippedFetchEpoch=0;
 let monthlyShippedError='';
@@ -866,12 +884,14 @@ function renderMonthlyShippedDetail(){
     document.getElementById('imShippedTotalValue').textContent='—';
     document.getElementById('imShippedAverage').textContent='—';
     document.getElementById('imShippedLast').textContent='—';
+    document.getElementById('imShippedHistoricalContext').hidden=true;
     return;
   }
   loadStatus.hidden=true;
   const stats=monthlyShippedSummary;
+  const historicalUnknown=historicalImCargoYears();
   const yearSelect=document.getElementById('imShippedYearSelect');
-  const allowedYears=stats.annual.filter(row=>row.count>0||row.year===stats.currentYear).map(row=>row.year);
+  const allowedYears=stats.annual.filter(row=>row.count>0||historicalUnknown.has(row.year)||row.year===stats.currentYear).map(row=>row.year);
   if(!allowedYears.includes(monthlyShippedSelectedYear))
     monthlyShippedSelectedYear=stats.annual.filter(item=>item.count>0).at(-1)?.year
       ?? stats.currentYear;
@@ -898,7 +918,15 @@ function renderMonthlyShippedDetail(){
     'Cajas enviadas por año (2020–'+stats.currentYear+')';
   renderImBarChart(document.getElementById('imShippedYearChart'),
     stats.annual.map(item=>String(item.year)),stats.annual.map(item=>item.count),
-    {accent:'#3b9b62',emptyLabel:'No hay envíos IM con fecha registrada'});
+    {accent:'#3b9b62',emptyLabel:'Sin cajas con fecha de envío registrada',
+     historicalUnknown:stats.annual.map(item=>historicalUnknown.get(item.year)||0)});
+  const historicalCount=historicalUnknown.get(row.year)||0;
+  const historicalContext=document.getElementById('imShippedHistoricalContext');
+  historicalContext.hidden=!historicalCount;
+  historicalContext.textContent=historicalCount
+    ? fmtNum(historicalCount)+' cargos históricos de '+row.year+
+      ' sin relación de cajas físicas. El signo morado (?) no equivale a una cantidad de cajas ni acredita el año de traslado.'
+    : '';
   document.getElementById('imShippedTotalLabel').textContent='Total del año ('+row.year+')';
   document.getElementById('imShippedTotalValue').textContent=fmtNum(row.count);
   const periods=current?stats.currentMonth:12;
@@ -911,11 +939,13 @@ function renderMonthlyShippedDetail(){
     {timeZone:'America/Lima',day:'numeric',month:'short',year:'numeric'}):'—';
   document.getElementById('imShippedLast').textContent=last;
   document.getElementById('imShippedLastNote').textContent=
-    row.latest?'Última fecha de envío registrada':'Sin envíos registrados';
+    row.latest?'Última fecha de envío registrada':
+      historicalCount?'Sin fecha de envío verificable':'Sin envíos registrados';
   document.getElementById('imShippedMethodNote').textContent=
-    'Se cuenta una caja física única por mes de envío a Iron Mountain, no sus cargos. '+
-    'Se incluyen envíos históricos y envíos actuales de Google Sheets. Prefijos T, TD y P no duplican una caja. '+
-    'Las cajas sin fecha de envío no suman y los datos se recalculan tras sincronizar la hoja.';
+    'Las barras verdes cuentan cajas físicas con fecha de envío registrada, no cargos. '+
+    'El signo morado (?) identifica cargos históricos sin relación de cajas físicas: no se inventa su cantidad ni fecha de traslado. '+
+    'El total anual, el promedio mensual y el último envío mantienen sus cálculos sobre fechas registradas. '+
+    'Los datos se actualizan tras sincronizar la hoja.';
 }
 document.getElementById('btnMonthlyShippedDetail').addEventListener('click',()=>{
   if(!appReady||!isAdmin)return;
