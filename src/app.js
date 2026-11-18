@@ -850,7 +850,7 @@ document.getElementById('monthlyCreatedSheet').addEventListener('click',event=>{
 });
 
 function historicalImCargoYears(){
-  // Históricos sin relación de cajas: sumar cargos únicos solo como contexto.
+  // Históricos por año del cargo. Comparar aparte de cajas para no sumar unidades distintas.
   const byYear=new Map();
   for(const doc of docs||[]){
     if(!usesHistoricalImDecision(doc)||doc.imHistoricalDecision!=='historico'||
@@ -884,14 +884,13 @@ function renderMonthlyShippedDetail(){
     document.getElementById('imShippedTotalValue').textContent='—';
     document.getElementById('imShippedAverage').textContent='—';
     document.getElementById('imShippedLast').textContent='—';
-    document.getElementById('imShippedHistoricalContext').hidden=true;
     return;
   }
   loadStatus.hidden=true;
   const stats=monthlyShippedSummary;
-  const historicalUnknown=historicalImCargoYears();
+  const historicalValues=historicalImCargoYears();
   const yearSelect=document.getElementById('imShippedYearSelect');
-  const allowedYears=stats.annual.filter(row=>row.count>0||historicalUnknown.has(row.year)||row.year===stats.currentYear).map(row=>row.year);
+  const allowedYears=stats.annual.filter(row=>row.count>0||historicalValues.has(row.year)||row.year===stats.currentYear).map(row=>row.year);
   if(!allowedYears.includes(monthlyShippedSelectedYear))
     monthlyShippedSelectedYear=stats.annual.filter(item=>item.count>0).at(-1)?.year
       ?? stats.currentYear;
@@ -915,18 +914,11 @@ function renderMonthlyShippedDetail(){
     row.months.slice(0,monthlyLabels.length),
     {accent:'#2da66b',emptyLabel:'Sin envíos IM registrados en '+row.year});
   document.getElementById('imShippedYearTitle').textContent=
-    'Cajas enviadas por año (2020–'+stats.currentYear+')';
+    'Cajas enviadas e históricos por año (2020–'+stats.currentYear+')';
   renderImBarChart(document.getElementById('imShippedYearChart'),
     stats.annual.map(item=>String(item.year)),stats.annual.map(item=>item.count),
-    {accent:'#3b9b62',emptyLabel:'Sin cajas con fecha de envío registrada',
-     historicalUnknown:stats.annual.map(item=>historicalUnknown.get(item.year)||0)});
-  const historicalCount=historicalUnknown.get(row.year)||0;
-  const historicalContext=document.getElementById('imShippedHistoricalContext');
-  historicalContext.hidden=!historicalCount;
-  historicalContext.textContent=historicalCount
-    ? fmtNum(historicalCount)+' cargos históricos de '+row.year+
-      ' sin relación de cajas físicas. El signo morado (?) no equivale a una cantidad de cajas ni acredita el año de traslado.'
-    : '';
+    {accent:'#3b9b62',emptyLabel:'Sin envíos registrados ni históricos',
+     historicalValues:stats.annual.map(item=>historicalValues.get(item.year)||0)});
   document.getElementById('imShippedTotalLabel').textContent='Total del año ('+row.year+')';
   document.getElementById('imShippedTotalValue').textContent=fmtNum(row.count);
   const periods=current?stats.currentMonth:12;
@@ -939,13 +931,10 @@ function renderMonthlyShippedDetail(){
     {timeZone:'America/Lima',day:'numeric',month:'short',year:'numeric'}):'—';
   document.getElementById('imShippedLast').textContent=last;
   document.getElementById('imShippedLastNote').textContent=
-    row.latest?'Última fecha de envío registrada':
-      historicalCount?'Sin fecha de envío verificable':'Sin envíos registrados';
+    row.latest?'Última fecha de envío registrada':'Sin envíos registrados';
   document.getElementById('imShippedMethodNote').textContent=
-    'Las barras verdes cuentan cajas físicas con fecha de envío registrada, no cargos. '+
-    'El signo morado (?) identifica cargos históricos sin relación de cajas físicas: no se inventa su cantidad ni fecha de traslado. '+
-    'El total anual, el promedio mensual y el último envío mantienen sus cálculos sobre fechas registradas. '+
-    'Los datos se actualizan tras sincronizar la hoja.';
+    'Envíos con registro: cajas físicas por fecha de envío. Históricos: cargos identificados por su año de origen. '+
+    'Los totales y promedios mensuales siguen contando únicamente las cajas con fecha registrada.';
 }
 document.getElementById('btnMonthlyShippedDetail').addEventListener('click',()=>{
   if(!appReady||!isAdmin)return;

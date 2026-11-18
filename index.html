@@ -662,8 +662,6 @@
   #monthlyShippedSheet .im-shipped-legend span{display:inline-flex;align-items:center;gap:5px;}
   #monthlyShippedSheet .im-shipped-legend i{display:inline-block;width:10px;height:10px;flex:none;border-radius:3px;background:#3b9b62;}
   #monthlyShippedSheet .im-shipped-legend i.historical{background:#9561d8;}
-  #monthlyShippedSheet .im-shipped-historical-context{margin:8px 0 0;color:#7655a4;font-size:10px;line-height:1.45;}
-  #monthlyShippedSheet .im-shipped-historical-context[hidden]{display:none;}
   #monthlyShippedSheet .im-shipped-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-top:14px;padding:17px 10px;border:1px solid #dcefe6;border-radius:12px;background:#f0faf5;}
   #monthlyShippedSheet .im-shipped-kpi{display:flex;align-items:center;gap:12px;padding:6px 13px;min-width:0;}
   #monthlyShippedSheet .im-shipped-kpi:not(:last-child){border-right:1px solid #cce6d8;}
@@ -1403,10 +1401,9 @@
           </div>
           <div id="imShippedYearChart" class="im-shipped-chart" aria-live="polite"></div>
           <div class="im-shipped-legend" aria-label="Leyenda del gráfico anual">
-            <span><i aria-hidden="true"></i>Cajas con fecha registrada</span>
-            <span><i class="historical" aria-hidden="true"></i>Históricos sin caja identificada (?)</span>
+            <span><i aria-hidden="true"></i>Envíos con registro</span>
+            <span><i class="historical" aria-hidden="true"></i>Históricos</span>
           </div>
-          <p id="imShippedHistoricalContext" class="im-shipped-historical-context" hidden></p>
         </section>
       </div>
       <div class="im-shipped-kpis">
