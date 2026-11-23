@@ -492,3 +492,37 @@
 #grp-correos #pickupPdfViewDialog.pickup-pdf-expanded .pickup-pdf-frame-wrap{height:84vh}
 #grp-correos .pickup-pdf-help{margin:9px 0 0}
 @media(max-width:650px){#grp-correos .pickup-pdf-frame-wrap{height:65vh;min-height:300px}#grp-correos #pickupPdfViewDialog{padding:12px}#grp-correos .pickup-pdf-actions>*{flex:1}}
+
+/* Requerimientos V2: ajustes visuales circunscritos a este espacio.
+   No se altera ninguna pantalla operativa ni los indicadores de cajas. */
+#req4Workspace>.req4-intro{display:none}
+#req4Workspace .req4-tabs{margin:13px 0 16px;gap:10px}
+#req4Workspace .req4-steps{margin:12px auto 23px;max-width:590px}
+#req4Workspace .req4-form{border:1px solid #d6e3ec;background:#fff;border-radius:12px;padding:20px 21px;box-shadow:0 3px 14px rgba(24,49,72,.055)}
+#req4Workspace .req4-form h3{color:#123d5b;margin:0 0 4px;font-size:17px}
+#req4Workspace .req4-form .req4-meta{margin:14px 0 15px;gap:11px 14px}
+#req4Workspace .req4-form .field{color:#26465e;font-size:12px}
+#req4Workspace .req4-form .field input{border-radius:7px;border-color:#d1dfe8;max-width:100%}
+#req4Workspace .req4-supply-quantity-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:15px;margin:14px 0 16px}
+#req4Workspace .req4-supply-quantity-field{min-width:0}
+#req4Workspace .req4-supply-quantity-field .field{display:block;width:100%;margin-bottom:3px}
+#req4Workspace .req4-supply-quantity-field input{display:block;width:100%;margin-top:7px;min-height:39px}
+#req4Workspace .req4-supply-quantity-field .req4-help{margin:5px 0 0;font-size:11px;line-height:1.5;color:#667e90}
+#req4Workspace #req4Precintos{background:#f9fcfe}
+#req4Workspace .req4-supply-saved{margin:15px 0 10px;background:#eaf7ef;border-color:#b4e0c4;border-radius:9px}
+#req4Workspace .req4-supply-lock{margin:9px 0 12px;background:#fff7e9;border-color:#efcd94;border-radius:9px}
+#req4Workspace .req4-supply-saved-actions{gap:8px;flex-wrap:wrap}
+#req4Workspace .req4-supply-saved-actions button{border-radius:7px}
+#req4Workspace .req4-note[hidden]{display:none}
+#req4Workspace .req4-form-footer{margin-top:14px}
+#req4Workspace .req4-mail-panel{margin:16px 0;padding:19px 20px;border-radius:12px}
+#req4Workspace .req4-mail-heading h3{font-size:17px}
+#req4Workspace .req4-mail-heading p{font-size:12px}
+#req4Workspace .req4-mail-controls{margin:17px 0 8px}
+#req4Workspace .req4-mail-buttons button{border-radius:7px}
+#req4Workspace .req4-mail-content{border-radius:8px}
+#req4Workspace .req4-mail-content pre{font-size:13px;line-height:1.75}
+@media(max-width:680px){
+  #req4Workspace .req4-form{padding:15px}
+  #req4Workspace .req4-supply-quantity-row{grid-template-columns:1fr;gap:12px}
+}
