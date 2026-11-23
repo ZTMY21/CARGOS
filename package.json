@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0",
-    "build": "node --test tests/requirements-mail.test.js tests/requirements-im-mail.test.js tests/requirements-supplies.test.js tests/requirements-visual-ui.test.js && vite build",
+    "build": "vite build",
     "preview": "vite preview --host 0.0.0.0",
     "test": "node --test tests/*.test.js",
     "test:conditioning": "node --test tests/conditioning-workspace.test.js tests/im-history-workbook.test.js tests/box-reception.test.js tests/box-scanner.test.js tests/pickup-mail.test.js tests/pickup-workflow.test.js"
