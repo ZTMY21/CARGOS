@@ -23,7 +23,7 @@ test('Requerimientos: 200 precintos visibles en correo sin crear ni modificar ca
  const dialog=dom.window.document.getElementById('req4Dialog');
  dialog.showModal=()=>dialog.setAttribute('open','');
  dialog.close=()=>dialog.removeAttribute('open');
- const track={suministro:{solicitudes:[{id:row.id,guardadas:0,confirmada:null,pendientes:100}]},movimientos:[
+ const track={cajas:[],suministro:{solicitudes:[{id:row.id,guardadas:0,confirmada:null,pendientes:100}]},movimientos:[
   {requerimiento:row.id,tipo:'crear',datos:{tipo:'nuevas',cantidad:100}}
  ]};
  api.update([row],track);
