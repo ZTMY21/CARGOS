@@ -21,8 +21,10 @@ test('Correo de 100 cajas nuevas conserva destinatarios, copias y firma y NO adj
   assert.deepEqual(mail.to,[...REQUEST_MAIL_TO]);
   assert.deepEqual(mail.cc,[...REQUEST_MAIL_CC]);
   assert.equal(mail.from,config.sender);
-  assert.match(mail.text,/Responsable de archivo/);
-  assert.match(mail.text,/Agradeceremos confirmar la disponibilidad y la fecha programada de entrega/);
+  assert.match(mail.text,/Estimado @Jorge Ramos/);
+  assert.match(mail.text,/Tu apoyo en solicitar los siguientes suministros a IM\./);
+  assert.match(mail.text,/• 100 Cajas nuevas/);
+  assert.doesNotMatch(mail.text,/Responsable de archivo|Agradeceremos confirmar|Saludos cordiales/);
   assert.match(mail.eml,/X-Unsent: 1/);
   assert.doesNotMatch(mail.eml,/spreadsheet|\.xlsx|Content-Disposition: attachment/i);
 });
@@ -70,7 +72,7 @@ test('La preview muestra los destinatarios reales indicados incluso si no hay cu
 test('La cantidad solicitada cambia automáticamente en el asunto',()=>{
   const mail=composeRequirementsMail({...newBoxes,cantidadCajas:32},[],config);
   assert.equal(mail.subject,'Solicitud de 32 cajas nuevas a IM | CD Santa Anita |');
-  assert.match(mail.text,/solicitamos 32 cajas nuevas/);
+  assert.match(mail.text,/• 32 Cajas nuevas/);
   assert.doesNotMatch(mail.text,/Cantidad solicitada:/);
 });
 
@@ -82,8 +84,8 @@ test('No muestra firma provisional, empresa aislada ni metadatos internos en la 
   assert.doesNotMatch(mail.text,hidden);
   assert.doesNotMatch(mail.html,hidden);
   assert.doesNotMatch(mail.text,/Farmacias Peruanas/);
-  assert.match(mail.text,/solicitamos 100 cajas nuevas/);
-  assert.match(mail.text,/Agradeceremos confirmar la disponibilidad/);
+  assert.match(mail.text,/• 100 Cajas nuevas/);
+  assert.doesNotMatch(mail.text,/Agradeceremos confirmar la disponibilidad|Firma pendiente/);
 });
 test('El HTML y el texto de Outlook omiten todos los campos eliminados, incluso con firma configurada',()=>{
   const mail=composeRequirementsMail({
@@ -92,13 +94,49 @@ test('El HTML y el texto de Outlook omiten todos los campos eliminados, incluso 
   for(const body of [mail.text,mail.html]){
     assert.doesNotMatch(body,/Requerimiento: REQ-00001|Fecha de solicitud: 2026-10-15|Solicitante: Juan Alexis|Cantidad solicitada: 100 cajas|Firma pendiente de confirmar/);
   }
-  assert.match(mail.text,/Responsable de archivo/);
+  assert.doesNotMatch(mail.text,/Responsable de archivo/);
 });
 
 test('El HTML del correo empieza con el saludo, sin cabecera de empresa ni asunto repetido',()=>{
   const mail=composeRequirementsMail(newBoxes,[],{},{preview:true});
   assert.doesNotMatch(mail.html,/<h[1-6]\b|Gestión documental · CD Santa Anita|<[^>]+>Farmacias Peruanas<\/h2>/);
   assert.doesNotMatch(mail.html,/Solicitud de 100 cajas nuevas a IM \| CD Santa Anita \|/);
-  assert.match(mail.html,/<p>Buenas tardes, estimados:<\/p>/);
+  assert.match(mail.html,/<p>Estimado @Jorge Ramos<\/p>/);
   assert.equal(mail.subject,'Solicitud de 100 cajas nuevas a IM | CD Santa Anita |');
+});
+
+test('Precintos opcionales de 0 a 250 aparecen solo como cantidad en correo de cajas nuevas',()=>{
+  const mail=composeRequirementsMail(newBoxes,[],config,{precintos:200});
+  assert.equal(mail.count,100);
+  assert.equal(mail.precintos,200);
+  assert.equal(mail.text,'Estimado @Jorge Ramos\\r\\n\\r\\n'+
+    'Tu apoyo en solicitar los siguientes suministros a IM.\\r\\n\\r\\n'+
+    '• 100 Cajas nuevas\\r\\n• 200 precintos');
+  assert.match(mail.html,/<li>200 precintos<\/li>/);
+  assert.deepEqual(mail.to,[...REQUEST_MAIL_TO]);
+  assert.deepEqual(mail.cc,[...REQUEST_MAIL_CC]);
+  assert.equal(mail.subject,'Solicitud de 100 cajas nuevas a IM | CD Santa Anita |');
+  assert.doesNotMatch(mail.eml,/\.xlsx|Content-Disposition: attachment/i);
+});
+test('Sin precintos, no agrega una línea vacía ni inventa precintos históricos',()=>{
+  const mail=composeRequirementsMail(newBoxes,[],config);
+  assert.equal(mail.precintos,0);
+  assert.doesNotMatch(mail.text,/precintos/);
+  assert.doesNotMatch(mail.html,/precintos/);
+});
+test('Precintos rechaza cantidades fuera del máximo y fracciones',()=>{
+  for(const precintos of [-1,251,2.5,'abc',Infinity]){
+    assert.throws(()=>composeRequirementsMail(newBoxes,[],config,{precintos}),/0 y 250/i);
+  }
+  const accepted=composeRequirementsMail(newBoxes,[],config,{precintos:250});
+  assert.match(accepted.text,/• 250 precintos/);
+});
+test('El correo de préstamos conserva su texto y no admite precintos',()=>{
+  const loan={...newBoxes,tipo:REQ_TYPES[1]};
+  const email=composeRequirementsMail(loan,[{codigo:'T00012',cargos:['234']}],config,{precintos:250});
+  assert.match(email.text,/Buenas tardes, estimados:/);
+  assert.match(email.text,/Por medio del presente, solicitamos el préstamo de 1 caja/);
+  assert.match(email.text,/Caja T00012 · Cargos: 234/);
+  assert.match(email.text,/Saludos cordiales/);
+  assert.doesNotMatch(email.text,/precintos/);
 });
