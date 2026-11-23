@@ -133,7 +133,7 @@ export function setupRequirements(root, {repository, context, refresh, onKindCha
         </div>
         <p id="req4LoanHelp" class="req4-note">Solicitud a Iron Mountain. Selecciona cajas con envío confirmado y sin una solicitud activa.</p>
         <div id="req4Results" aria-live="polite"></div>
-        <h4>Cajas seleccionadas</h4><div id="req4Selected" aria-live="polite"></div>
+        <h4 class="req4-loan-heading">Cajas seleccionadas</h4><div id="req4Selected" aria-live="polite"></div>
       </section>
       <div class="req4-form-footer">
         <span id="req4SelectionCount" class="req4-help" hidden></span>
@@ -204,12 +204,15 @@ export function setupRequirements(root, {repository, context, refresh, onKindCha
       <div><strong>${html(box.codigo)}</strong><span class="req4-box-meta">Cargos ${html(box.cargos.join(', '))}</span>
       ${!canRequest(box) ? '<span class="req4-unavailable">No disponible para solicitud a IM</span>' : ''}</div>
       <button class="link" data-req-remove="${html(box.clave)}" type="button" aria-label="Retirar caja ${html(box.codigo)}">Retirar</button>
-    </li>`).join('')}</ul>` : '<p class="req4-empty">Agrega las cajas que deseas solicitar.</p>';
+    </li>`).join('')}</ul>` : '<div class="req4-empty req4-loan-empty"><span class="req4-loan-empty-icon" aria-hidden="true">▧</span><strong>Agrega las cajas que deseas solicitar.</strong><small>Busca un documento o código de caja y selecciona las cajas con envío confirmado.</small></div>';
     find('SelectionCount').textContent = `${selected.size} ${selected.size === 1 ? 'caja seleccionada' : 'cajas seleccionadas'}`;
     if (kind.value === 'prestamo') find('Steps').innerHTML = procedure('prestamo',selected.size ? 1 : 0);
   }
   function changeKind() {
     const loan = kind.value === 'prestamo';
+    root.classList.toggle('req4-is-loan',loan);
+    root.closest('#grp-requerimientos')?.classList.toggle('req4-loan-active',loan);
+    if(!loan)imMailUI.closePreview?.();
     find('Loan').hidden = !loan;
     find('Supply').hidden = loan;
     find('Mail').hidden = loan;

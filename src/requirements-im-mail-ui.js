@@ -43,6 +43,46 @@ export function setupRequirementsImMail(root,{repository,context}){
       '</div>'+
     '</section>';
   const el=suffix=>root.querySelector('#req4ImMail'+suffix);
+
+  // Ventana de consulta solamente: no mueve ni sustituye los botones operativos
+  // de Outlook, registro de correo enviado o selección del requerimiento.
+  const mailDialog=doc.createElement('dialog');
+  mailDialog.id='req4ImMailDialog';
+  mailDialog.className='req4-im-mail-dialog';
+  mailDialog.setAttribute('aria-labelledby','req4ImModalTitle');
+  mailDialog.innerHTML='<div class="req4-im-modal-head">'+
+    '<h3 id="req4ImModalTitle">Ver correo generado</h3>'+
+    '<button id="req4ImModalClose" class="secondary" type="button">Cerrar</button></div>'+
+    '<div id="req4ImModalBody" class="req4-im-modal-body"></div>';
+  doc.body.append(mailDialog);
+  const closePreview=()=>{
+    if(mailDialog.open&&typeof mailDialog.close==='function')mailDialog.close();
+    else mailDialog.removeAttribute('open');
+  };
+  doc.getElementById('req4ImModalClose').addEventListener('click',closePreview);
+  function viewGeneratedMail(){
+    if(!draft)return;
+    const {mail,sent}=draft;
+    const body=doc.getElementById('req4ImModalBody');
+    body.replaceChildren();
+    const label=doc.createElement('p');
+    label.className='req4-mail-info';
+    label.textContent=sent?'Correo registrado como enviado.':'Borrador de correo. No se ha enviado automáticamente.';
+    body.append(label);
+    const fields=doc.createElement('dl');fields.className='req4-im-modal-fields';
+    for(const [key,value] of [['Para',mail.to.join('; ')],['CC',mail.cc.join('; ')],['Asunto',mail.subject]]){
+      const dt=doc.createElement('dt'),dd=doc.createElement('dd');
+      dt.textContent=key;dd.textContent=value;fields.append(dt,dd);
+    }
+    body.append(fields);
+    const pre=doc.createElement('pre');pre.textContent=mail.text;
+    body.append(pre);
+    if(!mailDialog.open){
+      if(typeof mailDialog.showModal==='function')mailDialog.showModal();
+      else mailDialog.setAttribute('open','');
+    }
+  }
+
   const available=()=>rows.filter(row=>row.tipo===REQ_TYPES[1]);
   function status(message='',error=false){
     el('Status').textContent=message;
@@ -154,7 +194,7 @@ export function setupRequirementsImMail(root,{repository,context}){
   el('Generate').addEventListener('click',()=>void generate());
   el('Example').addEventListener('click',()=>void generate({example:true}));
   el('ViewTop').addEventListener('click',()=>{
-    if(draft){renderDraft();el('Result').scrollIntoView?.({behavior:'smooth',block:'nearest'});}
+    if(draft){renderDraft();viewGeneratedMail();}
   });
   el('Outlook').addEventListener('click',openOutlook);
   el('Mark').addEventListener('click',()=>void markSent());
@@ -164,6 +204,7 @@ export function setupRequirementsImMail(root,{repository,context}){
   return {
     update(records=[],detail=null){
       if(viewer!==context().id){
+        closePreview();
         ++epoch;viewer=context().id;selectedId='';draft=null;demoStarted=false;overrideCodes.clear();status('');
       }
       rows=records;tracking=detail;
@@ -174,6 +215,7 @@ export function setupRequirementsImMail(root,{repository,context}){
         void generate({example:true,scroll:false});
       }
     },
-    selectRequest
+    selectRequest,
+    closePreview
   };
 }

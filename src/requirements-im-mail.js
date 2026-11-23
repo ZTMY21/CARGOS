@@ -27,9 +27,7 @@ export function composeImMail(items=[]){
     '',
     'Agradeceremos confirmar la disponibilidad y la fecha programada de entrega.',
     '',
-    'Quedamos atentos a su confirmación.',
-    '',
-    'Saludos cordiales.'
+    'Quedamos atentos a su confirmación.'
   ].join('\r\n');
   return {codes,count:qty,subject,text,to:[...REQUEST_MAIL_TO],cc:[...REQUEST_MAIL_CC]};
 }
