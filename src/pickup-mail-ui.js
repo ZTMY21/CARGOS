@@ -8,6 +8,17 @@ export function attachPickupMail({supabase,isAdmin,appReady,isPreview,mailReques
   previewMeta=el('pickupMailPreviewMeta'),
   previewDetails=el('pickupPreviewDetails'),
   previewEmpty=el('pickupMailPreviewEmpty');
+ const mailViewDialog=el('pickupMailViewDialog'),mailViewContent=el('pickupMailViewContent');
+ const legacyPreviewBody=previewDetails?.querySelector('.intervention-preview-inner');
+ const previewNodes=()=>[previewMeta,el('pickupDraftCard'),preview,el('pickupDraftFooter')].filter(Boolean);
+ const restorePreviewNodes=()=>{if(legacyPreviewBody)legacyPreviewBody.append(...previewNodes());};
+ if(mailViewDialog){
+  el('pickupMailViewClose')?.addEventListener('click',()=>{
+   if(typeof mailViewDialog.close==='function')mailViewDialog.close();
+   else{mailViewDialog.removeAttribute('open');restorePreviewNodes();}
+  });
+  mailViewDialog.addEventListener('close',restorePreviewNodes);
+ }
  let active=false,busy=false,items=[],lastReady=null,flow=null;
  const allowed=()=>appReady()&&isAdmin();
  const notify=(text,error=false)=>{
@@ -21,8 +32,13 @@ export function attachPickupMail({supabase,isAdmin,appReady,isPreview,mailReques
   preview.hidden=false;
   if(previewEmpty)previewEmpty.hidden=true;
   previewMeta.textContent=meta;
-  if(previewDetails){
-   previewDetails.open=true;
+  if(previewDetails)previewDetails.open=true;
+  if(mailViewDialog&&mailViewContent){
+   mailViewContent.replaceChildren(...previewNodes());
+   if(typeof mailViewDialog.showModal==='function'){
+    if(!mailViewDialog.open)mailViewDialog.showModal();
+   }else mailViewDialog.setAttribute('open','');
+  }else if(previewDetails){
    const reveal=()=>previewDetails.scrollIntoView?.({behavior:'smooth',block:'start'});
    if(typeof window!=='undefined'&&typeof window.requestAnimationFrame==='function')
     window.requestAnimationFrame(reveal);
