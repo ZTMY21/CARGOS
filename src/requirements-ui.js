@@ -361,7 +361,7 @@ export function setupRequirements(root, {repository, context, refresh, onKindCha
     // La cantidad de precintos queda solo como referencia dentro del
     // historial de la solicitud; no forma parte del conteo de cajas.
     const data = loan ? {tipo:'prestamo',cajas:loanCodes}
-      : {tipo:'nuevas',cantidad:count,precintos};
+      : {tipo:'nuevas',cantidad:count,...(precintos>0?{precintos}:{})};
     const saved=await write(data,status);
     if (saved) {
       if(loan || !showReception){
