@@ -154,3 +154,52 @@ test('demo busca y solicita cajas solo en memoria; el correo muestra los código
   assert.doesNotMatch(doc.getElementById('req4ImMailBody').textContent,/Cargos|300|301/);
   assert.equal(doc.getElementById('req4ImMailOutlook').disabled,true);
 });
+
+test('El correo de IM termina en la confirmación, sin Saludos cordiales',()=>{
+  const msg=composeImMail(['T00045','TD00046']);
+  assert.match(msg.text,/Quedamos atentos a su confirmación\.$/);
+  assert.doesNotMatch(msg.text,/Saludos cordiales/i);
+  assert.match(msg.text,/T00045\r\nTD00046/);
+  assert.deepEqual(msg.to,['joramos@farmaciasperuanas.pe','alopezv@farmaciasperuanas.pe','bsalvador@farmaciasperuanas.pe']);
+  assert.deepEqual(msg.cc,['fp-qs-liquidaciones@intercorpretail.pe']);
+});
+
+test('Ver correo generado abre un cuadro de lectura con el mismo texto, sin escribir ni enviar',async()=>{
+  const doc=mount('<div id="root"></div>','https://kardex-digital-santa-anita.vercel.app/');
+  let writes=0;
+  const ui=setupRequirementsImMail(doc.getElementById('root'),{
+    repository:{requirementsMail:async(action)=>{
+      if(action==='estado')return {estado:'NO_ENVIADO'};
+      writes++;return {estado:'ENVIADO'};
+    }},
+    context:()=>({...config,mailPreviewMode:false})
+  });
+  ui.update([loan],tracking);
+  doc.getElementById('req4ImMailGenerate').click();await flush();
+  doc.getElementById('req4ImMailViewTop').click();
+  const modal=doc.getElementById('req4ImMailDialog');
+  assert.equal(modal.open,true);
+  assert.match(doc.getElementById('req4ImModalBody').textContent,/T00045/);
+  assert.match(doc.getElementById('req4ImModalBody').textContent,/Quedamos atentos a su confirmación\./);
+  assert.doesNotMatch(doc.getElementById('req4ImModalBody').textContent,/Saludos cordiales/);
+  assert.equal(doc.getElementById('req4ImMailOutlook').disabled,false);
+  assert.equal(writes,0);
+  doc.getElementById('req4ImModalClose').click();
+  assert.equal(modal.open,false);
+});
+
+test('La organización visual afecta solo a Solicitudes a IM, nunca Cajas nuevas',()=>{
+  const doc=mount('<details id="grp-requerimientos"><div id="root"></div></details>');
+  const root=doc.getElementById('root');
+  const ui=setupRequirements(root,{repository:{pickupMailConfig:async()=>({})},context:ctx,refresh:async()=>{}});
+  ui.update([newBoxes,loan],tracking);
+  const group=doc.getElementById('grp-requerimientos');
+  assert.equal(root.classList.contains('req4-is-loan'),true);
+  assert.equal(group.classList.contains('req4-loan-active'),true);
+  assert.match(doc.getElementById('req4Selected').textContent,/Busca un documento o código de caja/);
+  doc.getElementById('req4TabNuevas').click();
+  assert.equal(root.classList.contains('req4-is-loan'),false);
+  assert.equal(group.classList.contains('req4-loan-active'),false);
+  assert.equal(doc.getElementById('req4Supply').hidden,false);
+  assert.equal(doc.getElementById('req4ImMail').hidden,true);
+});
