@@ -2,6 +2,7 @@ import { escapeHtml as html, fmtDate, limaDate, REQ_TYPES } from './rules.js';
 import {receptionTime,requestReception} from './box-reception-ui.js';
 import {setupRequirementsMail} from './requirements-mail-ui.js';
 import {setupRequirementsImMail} from './requirements-im-mail-ui.js';
+import {validarPrecintos,precintosRegistrados} from './requirements-supplies.js';
 
 const kinds = {nuevas: 'Cajas nuevas', prestamo: 'Solicitudes a IM'};
 const steps = {nuevas: ['Cantidad', 'Solicitar'], prestamo: ['Buscar', 'Seleccionar', 'Solicitar']};
@@ -111,10 +112,18 @@ export function setupRequirements(root, {repository, context, refresh, onKindCha
         <label class="field">Solicitante<input id="req4User" readonly></label>
       </div>
       <section id="req4Supply" role="tabpanel" aria-labelledby="req4TabNuevas">
+        <div class="req4-supply-quantity-row">
+          <div class="req4-supply-quantity-field">
+            <label class="field" id="req4QtyWrap">Cantidad de cajas<input id="req4Qty" type="number" min="1" max="100" step="1" aria-describedby="req4QtyHelp" required></label>
+            <p id="req4QtyHelp" class="req4-help">Máximo 100 cajas por solicitud.</p>
+          </div>
+          <div class="req4-supply-quantity-field">
+            <label class="field" id="req4PrecintosWrap">Precintos para solicitar<input id="req4Precintos" type="number" min="0" max="250" step="1" value="0" aria-describedby="req4PrecintosHelp"></label>
+            <p id="req4PrecintosHelp" class="req4-help">Opcional · Máximo 250. Solo cantidad para el correo, sin escaneo ni indicadores.</p>
+          </div>
+        </div>
         <div id="req4SupplySaved" class="req4-supply-saved" hidden></div>
         <div id="req4SupplyLock" class="req4-supply-lock" role="alert" hidden></div>
-        <label class="field" id="req4QtyWrap">Cantidad de cajas<input id="req4Qty" type="number" min="1" max="100" step="1" aria-describedby="req4QtyHelp" required></label>
-        <p id="req4QtyHelp" class="req4-help">Máximo 100 cajas por solicitud.</p>
         <p id="req4ReceiptWrap" class="req4-note">${receptionOverview ? 'El seguimiento está disponible en Control de cajas. El guardado de la recepción está pendiente de conciliación.' : 'La confirmación y recepción corresponden a Control de cajas.'}</p>
       </section>
       <section id="req4Loan" role="tabpanel" aria-labelledby="req4TabPrestamo" hidden>
@@ -140,8 +149,18 @@ export function setupRequirements(root, {repository, context, refresh, onKindCha
     </dialog>`;
   const find = id => root.ownerDocument.getElementById(`req4${id}`);
   const allowed = () => context().allowed;
-  const form = find('Form'), kind = find('Kind'), qty = find('Qty'), dialog = find('Dialog');
-  const mailUI=setupRequirementsMail(find('Mail'),{repository,context});
+  const form = find('Form'), kind = find('Kind'), qty = find('Qty'), seals = find('Precintos'), dialog = find('Dialog');
+  const mailUI=setupRequirementsMail(find('Mail'),{
+    repository,context,
+    getPrecintos(row){
+      const stored=precintosRegistrados(row,tracking);
+      if(stored!==null)return stored;
+      // Para una solicitud anterior sin precintos registrados, usar solo
+      // el número editable en pantalla al preparar el correo de la más reciente.
+      const latest=rows.findLast(item=>item.tipo===REQ_TYPES[0]&&Number(item.cantidadCajas)>0);
+      return latest?.id===row?.id ? validarPrecintos(seals.value) : 0;
+    }
+  });
   const imMailUI=setupRequirementsImMail(find('ImMail'),{repository,context});
   root.ownerDocument.body.append(dialog);
   let results = [];
@@ -154,7 +173,8 @@ export function setupRequirements(root, {repository, context, refresh, onKindCha
     if(panel.hidden){panel.replaceChildren();return;}
     if(panel.dataset.request===latest.id && panel.hasChildNodes())return;
     panel.dataset.request=latest.id;
-    panel.innerHTML=`<div><strong>${html(latest.numero)} registrada</strong><span>${Number(latest.cantidadCajas)} cajas solicitadas</span></div>
+    const recordedSeals=precintosRegistrados(latest,tracking);
+    panel.innerHTML=`<div><strong>${html(latest.numero)} registrada</strong><span>${Number(latest.cantidadCajas)} cajas solicitadas</span>${recordedSeals!==null?'<span>'+recordedSeals+' precintos solicitados (referencia)</span>':''}</div>
       <div class="req4-supply-saved-actions">
         <button class="secondary" type="button" data-req-open="${html(latest.id)}">Ver detalle de la solicitud</button>
         <button class="secondary" type="button" data-req-mail="${html(latest.id)}">Ver correo de la solicitud</button>
@@ -172,6 +192,9 @@ export function setupRequirements(root, {repository, context, refresh, onKindCha
       ? `<strong>${showReception?'Recepción pendiente en Control de cajas':supplyBlockedMessage}</strong><p>${showReception ? 'Puedes hacer otra solicitud cuando confirmes la recepción completa en Control de cajas.' : 'Completa el envío a IM de las cajas pendientes para solicitar más.'}${availability.pending ? ` Quedan ${availability.pending} cajas pendientes.` : ''}</p>`
       : `<strong>Verificando ${showReception ? 'la recepción' : 'el envío'} de las cajas.</strong><p>Actualiza los datos si no se completa la consulta.</p>`;
     qty.disabled = !supply || blocked || busy;
+    // No bloquear los precintos del correo de una solicitud ya registrada.
+    seals.disabled = !supply || busy || !(allowed()||context().mailAccess);
+    find('ReceiptWrap').hidden = !supply || blocked;
     find('Submit').disabled = !allowed() || busy || blocked;
   }
 
@@ -216,6 +239,7 @@ export function setupRequirements(root, {repository, context, refresh, onKindCha
   qty.addEventListener('input',() => {
     if (kind.value === 'nuevas') find('Steps').innerHTML = procedure('nuevas',qty.value ? 1 : 0);
   });
+  seals.addEventListener('input',()=>mailUI.invalidate?.());
   root.querySelector('[role="tablist"]').addEventListener('keydown',event => {
     if (!event.target.matches('[data-req-kind]')) return;
     let next;
@@ -328,8 +352,15 @@ export function setupRequirements(root, {repository, context, refresh, onKindCha
       status.textContent = 'Ingresa entre 1 y 100 cajas enteras.'; return;
     }
     const loanCodes=loan?[...selected.values()].map(box=>box.codigo):[];
+    let precintos=0;
+    if(!loan){
+      try{precintos=validarPrecintos(seals.value);}
+      catch(error){status.textContent=error.message;return;}
+    }
+    // La cantidad de precintos queda solo como referencia dentro del
+    // historial de la solicitud; no forma parte del conteo de cajas.
     const data = loan ? {tipo:'prestamo',cajas:loanCodes}
-      : {tipo:'nuevas',cantidad:count};
+      : {tipo:'nuevas',cantidad:count,precintos};
     const saved=await write(data,status);
     if (saved) {
       if(loan || !showReception){
@@ -350,7 +381,7 @@ export function setupRequirements(root, {repository, context, refresh, onKindCha
         find('Results').textContent = '';
         find('Query').value = '';
         renderSelection();
-      } else qty.value = '';
+      } else { qty.value = ''; seals.value = '0'; }
       find('Steps').innerHTML = procedure(kind.value,steps[kind.value].length - 1);
     }
   });
@@ -436,12 +467,23 @@ export function setupRequirements(root, {repository, context, refresh, onKindCha
     cardView = null;
     find('DialogTitle').textContent = row.numero;
     find('DialogIntro').textContent = 'Consulta de la solicitud';
+    const recordedSeals=supply?precintosRegistrados(row,tracking):null;
+    const latest=rows.findLast(item=>item.tipo===REQ_TYPES[0]&&Number(item.cantidadCajas)>0);
+    let draftSeals=0;
+    if(supply&&recordedSeals===null&&latest?.id===row.id){
+      try{draftSeals=validarPrecintos(seals.value);}catch{/* Se valida al guardar o generar el correo. */}
+    }
+    const sealLabel=recordedSeals!==null
+      ? String(recordedSeals)+' (referencia de la solicitud)'
+      : draftSeals ? String(draftSeals)+' (solo borrador del correo; sin registrar)'
+        : 'Sin cantidad histórica registrada';
     find('DialogBody').innerHTML = `${procedure(key,steps[key].length - 1)}
       <p><strong>${html(kinds[key])}</strong> · ${html(row.estadoV4)}</p>
       <dl class="prepared-im-fields">
         <div><dt>Fecha de solicitud</dt><dd>${fmtDate(row.fechaSolicitud)}</dd></div>
         <div><dt>Solicitante</dt><dd>${html(row.usuario)}</dd></div>
         <div><dt>Cajas solicitadas</dt><dd>${Number(row.cantidadCajas)}</dd></div>
+        ${supply?'<div><dt>Precintos</dt><dd>'+html(sealLabel)+'</dd></div>':''}
       </dl>
       ${supply ? showReception ? receiptHistory(row) : '' : `<h3 class="req4-history-heading">Cajas de la solicitud</h3>
         <ul>${boxes.map(box => `<li><strong>${html(box.codigo)}</strong> · cargos ${html(box.cargos.join(', '))}</li>`).join('')}</ul>`}`;
@@ -509,6 +551,7 @@ export function setupRequirements(root, {repository, context, refresh, onKindCha
         find('Query').value = '';
         find('Status').textContent = '';
         qty.value = '';
+        seals.value = '0';
         const startIm=current.mailPreviewMode &&
           new URLSearchParams(root.ownerDocument.defaultView.location.search).get('reqMail')==='im';
         kind.value=startIm?'prestamo':'nuevas';
