@@ -109,9 +109,11 @@ test('Precintos opcionales de 0 a 250 aparecen solo como cantidad en correo de c
   const mail=composeRequirementsMail(newBoxes,[],config,{precintos:200});
   assert.equal(mail.count,100);
   assert.equal(mail.precintos,200);
-  assert.equal(mail.text,'Estimado @Jorge Ramos\\r\\n\\r\\n'+
-    'Tu apoyo en solicitar los siguientes suministros a IM.\\r\\n\\r\\n'+
-    '• 100 Cajas nuevas\\r\\n• 200 precintos');
+  assert.deepEqual(mail.text.split(String.fromCharCode(13,10)),[
+    'Estimado @Jorge Ramos','',
+    'Tu apoyo en solicitar los siguientes suministros a IM.','',
+    '• 100 Cajas nuevas','• 200 precintos'
+  ]);
   assert.match(mail.html,/<li>200 precintos<\/li>/);
   assert.deepEqual(mail.to,[...REQUEST_MAIL_TO]);
   assert.deepEqual(mail.cc,[...REQUEST_MAIL_CC]);
