@@ -171,9 +171,10 @@ export function setupRequirements(root, {repository, context, refresh, onKindCha
     const latest=rows.findLast(row=>row.tipo===REQ_TYPES[0] && Number(row.cantidadCajas)>0);
     panel.hidden=!showReception||!allowed()||!latest;
     if(panel.hidden){panel.replaceChildren();return;}
-    if(panel.dataset.request===latest.id && panel.hasChildNodes())return;
-    panel.dataset.request=latest.id;
     const recordedSeals=precintosRegistrados(latest,tracking);
+    const signature=latest.id+':'+(recordedSeals===null?'sin-dato':recordedSeals);
+    if(panel.dataset.request===signature && panel.hasChildNodes())return;
+    panel.dataset.request=signature;
     panel.innerHTML=`<div><strong>${html(latest.numero)} registrada</strong><span>${Number(latest.cantidadCajas)} cajas solicitadas</span>${recordedSeals!==null?'<span>'+recordedSeals+' precintos solicitados (referencia)</span>':''}</div>
       <div class="req4-supply-saved-actions">
         <button class="secondary" type="button" data-req-open="${html(latest.id)}">Ver detalle de la solicitud</button>
