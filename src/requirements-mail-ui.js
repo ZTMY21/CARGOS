@@ -3,7 +3,7 @@ import {composeRequirementsMail} from './requirements-mail-template.js';
 
 // La preview no hace escrituras: descargará EML con destinatarios ficticios.
 // En producción, solo una confirmación manual registra el envío, nunca lo realiza.
-export function setupRequirementsMail(root,{repository,context}){
+export function setupRequirementsMail(root,{repository,context,getPrecintos=()=>0}){
   let rows=[],tracking=null,selectedId='',currentDraft=null,busy=false,userId=null,generationEpoch=0,previewAutoloaded=false;
   const example={
     id:'ejemplo-sin-guardar',numero:'SIMULACIÓN-100',tipo:REQ_TYPES[0],
@@ -123,11 +123,13 @@ export function setupRequirementsMail(root,{repository,context}){
       }
       if(epoch!==generationEpoch||!context().mailAccess||context().id!==actor)return;
       const needsOutlookSender=!config.sender||!config.name||!config.company;
-      const mail=composeRequirementsMail(row,boxes,config||{},{preview:preview||needsOutlookSender});
+      const precintos=sample?200:getPrecintos(row);
+      const mail=composeRequirementsMail(row,boxes,config||{},
+        {preview:preview||needsOutlookSender,precintos});
       const state=preview?null:await repository.requirementsMail('estado',row.id);
       if(epoch!==generationEpoch||!context().mailAccess||context().id!==actor)return;
       const sent=state?.estado==='ENVIADO';
-      const draft={row,boxes,config:config||{},mail,simulation:sample,sent};
+      const draft={row,boxes,config:config||{},mail,precintos,simulation:sample,sent};
       currentDraft=draft;
       renderDraft();
       setStatus(sent
@@ -138,7 +140,7 @@ export function setupRequirementsMail(root,{repository,context}){
       if(preview&&typeof repository.pickupMailConfig==='function'){
         void Promise.resolve().then(()=>repository.pickupMailConfig()).then(settings=>{
           if(epoch!==generationEpoch||context().id!==actor||!context().mailAccess||currentDraft!==draft)return;
-          const configured=composeRequirementsMail(row,boxes,settings||{},{preview:true});
+          const configured=composeRequirementsMail(row,boxes,settings||{},{preview:true,precintos});
           draft.config=settings||{};draft.mail=configured;
           renderDraft();
           if(configured.senderConfigured)
@@ -175,7 +177,8 @@ export function setupRequirementsMail(root,{repository,context}){
       return;
     }
     const safe=previewMode()
-      ?composeRequirementsMail(currentDraft.row,currentDraft.boxes,currentDraft.config,{simulation:true})
+      ?composeRequirementsMail(currentDraft.row,currentDraft.boxes,currentDraft.config,
+        {simulation:true,precintos:currentDraft.precintos})
       :currentDraft.mail;
     const blob=new Blob([safe.eml],{type:'message/rfc822;charset=utf-8'});
     const url=win.URL.createObjectURL(blob),link=doc.createElement('a');
@@ -229,6 +232,13 @@ export function setupRequirementsMail(root,{repository,context}){
     if(autoGenerate)await generate();
   }
   return {
+    invalidate(){
+      generationEpoch++;
+      currentDraft=null;
+      result.hidden=true;
+      setStatus('');
+      renderRows();
+    },
     update(records,detail){
       if(userId!==context().id){generationEpoch++;userId=context().id;selectedId='';currentDraft=null;result.hidden=true;setStatus('');previewAutoloaded=false;}
       rows=records;tracking=detail;
