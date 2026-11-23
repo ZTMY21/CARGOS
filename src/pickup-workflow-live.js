@@ -25,7 +25,15 @@ export function createLivePickupWorkflow(client,{onChanged,refreshMaster}={}){
     const response=await fetch(path,{method:'POST',credentials:'same-origin',
       headers:{Authorization:'Bearer '+credentials.access_token,'Content-Type':binary?'application/octet-stream':'application/json'},
       body:binary||JSON.stringify(body||{})});
-    if(response.ok&&blob)return response.blob();
+    if(response.ok&&blob){
+      if(blob==='pickup-pdf'&&response.headers.get('content-type')?.includes('application/json')){
+        const data=await response.json();
+        if(!/^https:\/\/drive\.google\.com\/file\/d\/[\w-]{10,200}\/view$/.test(data.driveUrl||''))
+          throw Error('No se pudo obtener un enlace seguro al sustento.');
+        return {driveUrl:data.driveUrl};
+      }
+      return response.blob();
+    }
     const data=await response.json().catch(()=>({}));
     if(!response.ok)throw Object.assign(Error(data.message||data.error||'No se pudo completar la operación.'),{
       code:data.code||data.error||data.message
@@ -96,6 +104,6 @@ export function createLivePickupWorkflow(client,{onChanged,refreshMaster}={}){
       await onChanged?.().catch(()=>{});
       return result;
     },
-    pdf:(id,visit)=>pickup('pdf',id,{visit},true)
+    pdf:(id,visit)=>pickup('pdf',id,{visit},'pickup-pdf')
   };
 }

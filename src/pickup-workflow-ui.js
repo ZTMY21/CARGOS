@@ -435,7 +435,14 @@ export function attachPickupWorkflow({workflow,showPreview,notify}){
       if(!pdf)throw Error('No se pudo abrir el archivo PDF.');
       releasePdf();
       let previewUrl,originalUrl;
-      if(typeof pdf==='string'){
+      const fallback=typeof pdf==='object'&&typeof pdf.driveUrl==='string';
+      if(fallback){
+        if(!/^https:\/\/drive\.google\.com\/file\/d\/[\w-]{10,200}\/view$/.test(pdf.driveUrl))
+          throw Error('El enlace del sustento no es seguro.');
+        originalUrl=pdf.driveUrl;
+        previewUrl=originalUrl.replace(/\/view$/,'/preview');
+        el('pickupPdfMeta').textContent+=' · Vista alternativa de Drive: usa una cuenta con acceso al archivo. No se ha podido comprobar la revisión archivada.';
+      }else if(typeof pdf==='string'){
         const parsed=new URL(pdf);
         if(parsed.protocol!=='https:')throw Error('El enlace del sustento no es seguro.');
         originalUrl=pdf;
@@ -450,6 +457,8 @@ export function attachPickupWorkflow({workflow,showPreview,notify}){
       const openLink=el('pickupPdfOpen'),downLink=el('pickupPdfDownload');
       openLink.href=originalUrl;downLink.href=originalUrl;
       downLink.download=visit.name||'sustento_recojo.pdf';
+      downLink.style.display=fallback?'none':'';
+      openLink.textContent=fallback?'Abrir PDF en Google Drive':'Abrir PDF en otra pestaña';
       el('pickupPdfFrame').src=previewUrl;
       if(typeof pdfDialog.showModal==='function'){
         if(!pdfDialog.open)pdfDialog.showModal();

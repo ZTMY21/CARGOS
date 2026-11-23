@@ -18,8 +18,16 @@ export async function pickupVisit({env,fetcher,rpc,raw,actor}){
   const client=new DriveClient(env,{fetcher});
   if(raw.action==='pdf'){
     const proof=await visit('pdf');
-    const file=await client.media(proof.fileId,proof.revision);
-    return {file,name:proof.name};
+    try{
+      const file=await client.media(proof.fileId,proof.revision);
+      return {file,name:proof.name};
+    }catch(error){
+      // Only the already authorized visit may expose its private Drive link.
+      // This alternative does not claim to verify the archived revision.
+      if(!(error instanceof ArchiveError)||error.code!=='DRIVE_REAUTH_REQUIRED'||
+        !/^[\w-]{10,200}$/.test(proof.fileId||'')||!proof.revision)throw error;
+      return {driveUrl:'https://drive.google.com/file/d/'+encodeURIComponent(proof.fileId)+'/view'};
+    }
   }
   if(raw.action==='confirm'){
     if(!uuid.test(raw.job||'')||!Array.isArray(raw.codes)||!raw.codes.length||raw.codes.length>60)

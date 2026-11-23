@@ -334,3 +334,45 @@ test('Simular correo sin enviar abre Ver correo generado con ambos Excel y todas
     dom.window.close();
   }
 });
+
+
+test('Ver PDF conserva revisión y permite abrir el archivo privado si Google revoca OAuth',async()=>{
+  const {pickupVisit}=await import('../server/pickup-drive.js');
+  const folder='fixtureFolder123';
+  const env={VERCEL_ENV:'production',KARDEX_PICKUP_WORKFLOW_ENABLED:'true',
+    KARDEX_PICKUP_DRIVE_FOLDER_ID:folder,KARDEX_PICKUP_DRIVE_OWNER_EMAIL:'owner@example.com',
+    GOOGLE_DRIVE_OWNER_EMAIL:'owner@example.com',KARDEX_DRIVE_ENABLED:'true',
+    KARDEX_DRIVE_AUTHORIZATION_REF:'fixture',KARDEX_DRIVE_RELEASE_APPROVED:'true',
+    KARDEX_RECEPCION_PROD_SECRET:'fixture',KARDEX_DRIVE_METADATA_KEY:'fixture',
+    GOOGLE_DRIVE_REFRESH_TOKEN:'fixture',GOOGLE_DRIVE_CLIENT_ID:'fixture',
+    GOOGLE_DRIVE_CLIENT_SECRET:'fixture',GOOGLE_DRIVE_ROOT_FOLDER_ID:'fixtureRoot123',
+    KARDEX_DRIVE_SESSION_KEY:Buffer.alloc(32).toString('base64'),
+    GOOGLE_DRIVE_FOLDER_IDS_JSON:JSON.stringify({scans:folder,originals:'fixtureOriginal123',backups:'fixtureBackup123',history:'fixtureHistory123',manifests:'fixtureManifest123'})};
+  const proof={fileId:'fixturePdf123',revision:'rev1',name:'sustento.pdf'};
+  const raw={action:'pdf',id:'11111111-1111-1111-1111-111111111111',visit:'22222222-2222-2222-2222-222222222222'};
+  const rpc=async(name,args)=>{assert.equal(name,'kardex_pickup_visit');assert.equal(args.p_action,'pdf');return proof;};
+  const expired=await pickupVisit({env,raw,rpc,fetcher:async()=>Response.json({error:'invalid_grant'},{status:400})});
+  assert.deepEqual(expired,{driveUrl:'https://drive.google.com/file/d/fixturePdf123/view'});
+  const file=await pickupVisit({env,raw,rpc,fetcher:async url=>{
+    if(url.includes('oauth2.googleapis.com'))return Response.json({access_token:'fixture',expires_in:3600});
+    assert.match(url,/\/files\/fixturePdf123\/revisions\/rev1\?alt=media$/);
+    return new Response('PDF');
+  }});
+  assert.equal(await file.file.text(),'PDF');
+  assert.equal(file.name,proof.name);
+  await assert.rejects(pickupVisit({env,raw,rpc,fetcher:async()=>Response.json({error:'invalid_client'},{status:400})}),/DRIVE_AUTH_FAILED/);
+  await assert.rejects(pickupVisit({env,raw,rpc:async()=>{throw Error('DENIED');},fetcher:async()=>{throw Error('unexpected fetch');}}),/DENIED/);
+});
+test('Ver PDF distingue el enlace alternativo del contenido PDF',async()=>{
+  const {createLivePickupWorkflow}=await import('../src/pickup-workflow-live.js');
+  const previousFetch=globalThis.fetch;
+  const flow=createLivePickupWorkflow({auth:{getSession:async()=>({data:{session:{access_token:'fixture'}}})}});
+  try{
+    globalThis.fetch=async()=>Response.json({driveUrl:'https://drive.google.com/file/d/fixturePdf123/view'});
+    assert.deepEqual(await flow.pdf('id','visit'),{driveUrl:'https://drive.google.com/file/d/fixturePdf123/view'});
+    globalThis.fetch=async()=>new Response('PDF',{headers:{'Content-Type':'application/pdf'}});
+    assert.equal(await (await flow.pdf('id','visit')).text(),'PDF');
+    globalThis.fetch=async()=>Response.json({driveUrl:'https://example.com/file'});
+    await assert.rejects(flow.pdf('id','visit'),/enlace seguro/);
+  }finally{globalThis.fetch=previousFetch;}
+});
