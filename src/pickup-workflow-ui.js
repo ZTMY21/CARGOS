@@ -33,6 +33,22 @@ export function attachPickupWorkflow({workflow,showPreview,notify}){
   const selectionSummary=el('pickupSelectionSummary');
   const register=el('pickupRegisterSent');
   const chosen=new Set(),expanded=new Set();
+  const viewFilters=el('pickupViewFilters'),pdfDialog=el('pickupPdfViewDialog');
+  let viewFilter='TODOS',showAllAvisos=false,pdfObjectUrl=null;
+  function releasePdf(){
+    el('pickupPdfFrame')?.removeAttribute('src');
+    if(pdfObjectUrl){URL.revokeObjectURL(pdfObjectUrl);pdfObjectUrl=null;}
+    pdfDialog?.classList.remove('pickup-pdf-expanded');
+    if(el('pickupPdfZoom'))el('pickupPdfZoom').textContent='Ampliar vista';
+  }
+  if(pdfDialog){
+    el('pickupPdfClose')?.addEventListener('click',()=>pdfDialog.close());
+    pdfDialog.addEventListener('close',releasePdf);
+    el('pickupPdfZoom')?.addEventListener('click',()=>{
+      const big=pdfDialog.classList.toggle('pickup-pdf-expanded');
+      el('pickupPdfZoom').textContent=big?'Reducir vista':'Ampliar vista';
+    });
+  }
   let state={available:[],batches:[]},active=false,busy=false,requestId,requestKeys,draftId,loaded=false,loading=false,sourcePending=false;
   async function refresh(){
     if(!active)return;
@@ -325,6 +341,122 @@ export function attachPickupWorkflow({workflow,showPreview,notify}){
     };
     dialog.append(grid);
   }
+
+  // Proyección visual por tipo; jamás modifica el aviso ni sus funciones operativas.
+  const boxesOf=(batch,type)=>batch.boxes.filter(box=>box.type===type);
+  const visitsOf=(batch,type)=>{
+    const codes=new Set(boxesOf(batch,type).map(box=>box.code));
+    return batch.visits.filter(visit=>visit.codes.some(code=>codes.has(code)));
+  };
+  function typeProgress(batch,type){
+    const boxes=boxesOf(batch,type),withdrawn=new Set(batch.visits.flatMap(visit=>visit.codes));
+    const done=boxes.filter(box=>withdrawn.has(box.code)).length;
+    if(batch.status==='CONFIRMADO'){
+      if(done===boxes.length)return {label:'Recojo confirmado',kind:'done',priority:3,done};
+      if(done>0)return {label:'Recojo parcial',kind:'programmed',priority:1,done};
+      if(batch.schedule?.[type])return {label:'Recojo programado',kind:'programmed',priority:1,done};
+      return {label:'Retiro pendiente',kind:'pending',priority:0,done};
+    }
+    if(batch.status==='PREPARADO')return {label:'Correo generado',kind:'pending',priority:0,done};
+    if(batch.status==='CANCELADO')return {label:'Cancelado',kind:'pending',priority:2,done};
+    return {label:'Borrador',kind:'pending',priority:0,done};
+  }
+  function filterMatches(batch,term,key){
+    return !term||reference(batch).toLowerCase().includes(term)||
+      Boolean(key&&batch.boxes.some(box=>pickupBoxKey(box.code).includes(key)))||
+      batch.boxes.some(box=>box.code.toLowerCase().includes(term));
+  }
+  function detailOf(batch,type){
+    open('Detalle del aviso '+reference(batch)+' · '+groupNames[type]);
+    const progress=typeProgress(batch,type);
+    const grid=create('div',null,'pickup-columns');
+    const info=create('section',null,'pickup-stage-card');
+    info.append(create('h4',groupNames[type]+' · '+boxesOf(batch,type).length+' cajas'),
+      create('p','Estado: '+progress.label,'hint'),
+      create('p','Fecha programada: '+(batch.schedule?.[type]?displayDate(batch.schedule[type]):'No registrada'),'hint'),
+      create('p','Retiradas: '+progress.done+' de '+boxesOf(batch,type).length,'hint'));
+    const proofs=visitsOf(batch,type);
+    for(const visit of proofs){
+      const row=create('p',displayDate(visit.date)+' · '+visit.codes.filter(code=>boxesOf(batch,type).some(box=>box.code===code)).length+
+        ' cajas · PDF '+(visit.synced?'sincronizado':'pendiente'),'hint');
+      info.append(row,button('Ver PDF',()=>{void showPdf(batch,visit);}));
+    }
+    if(!proofs.length)info.append(create('p','No hay constancia PDF registrada todavía para este tipo de cajas.','hint'));
+    const codes=create('section',null,'pickup-stage-card');
+    codes.append(create('h4','Códigos del aviso · '+boxesOf(batch,type).length));
+    const list=create('ul',null,'pickup-detail-codes');
+    for(const box of boxesOf(batch,type))list.append(create('li',box.code));
+    codes.append(list);grid.append(info,codes);
+    dialog.append(grid,button('Cerrar detalle',close));
+  }
+  function showScheduleHistory(batch,type){
+    open('Historial de programación · '+reference(batch)+' · '+groupNames[type]);
+    const events=(batch.events||[]).filter(event=>
+      event.next?.[type]||event.previous?.[type]);
+    if(!events.length)dialog.append(create('p','Todavía no hay cambios de programación registrados para este tipo de cajas.','hint'));
+    for(const event of events){
+      const card=create('section',null,'pickup-stage-card');
+      const date=event.date?new Date(event.date).toLocaleString('es-PE',{timeZone:'America/Lima'}):'Sin fecha';
+      card.append(create('h4',event.previous?.[type]?'Reprogramación':'Programación inicial'),
+        create('p','Registrado: '+date,'hint'),
+        create('p','Fecha anterior: '+(event.previous?.[type]?displayDate(event.previous[type]):'Sin registrar'),'hint'),
+        create('p','Fecha registrada: '+(event.next?.[type]?displayDate(event.next[type]):'Sin registrar'),'hint'));
+      if(event.actor)card.append(create('p','Responsable: '+event.actor,'hint'));
+      dialog.append(card);
+    }
+    dialog.append(button('Cerrar',close));
+  }
+  function showEmailRecords(){
+    open('Ver correos registrados');
+    const batches=[...state.batches].sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
+    if(!batches.length)dialog.append(create('p','No existen correos registrados.','hint'));
+    for(const batch of batches){
+      const card=create('section',null,'pickup-stage-card');
+      const status=batch.status==='CONFIRMADO'?'Correo enviado':batch.status==='PREPARADO'?'Correo generado':'Borrador';
+      card.append(create('h4',reference(batch)+' · '+countsLabel(batch.boxes)),
+        create('p','Estado: '+status,'hint'),
+        create('p','Asunto: '+(batch.subject||'Solicitud de recojo'),'hint'));
+      if(!batch.external_mail)card.append(button('Ver correo generado',()=>{
+        close();void act(()=>showMail(batch,'preview'));
+      },busy));
+      else card.append(create('p','Solicitud enviada fuera del aplicativo.','hint'));
+      dialog.append(card);
+    }
+    dialog.append(button('Cerrar',close));
+  }
+  async function showPdf(batch,visit){
+    if(!pdfDialog)return;
+    const title=reference(batch)+' · '+displayDate(visit.date);
+    el('pickupPdfViewTitle').textContent='Vista previa del PDF · '+title;
+    el('pickupPdfMeta').textContent='Sustento del recojo · '+countsLabel(batch.boxes.filter(box=>
+      visit.codes.includes(box.code)))+' · '+(visit.name||'PDF firmado');
+    try{
+      const pdf=await workflow.pdf(batch.id,visit.id);
+      if(!pdf)throw Error('No se pudo abrir el archivo PDF.');
+      releasePdf();
+      let previewUrl,originalUrl;
+      if(typeof pdf==='string'){
+        const parsed=new URL(pdf);
+        if(parsed.protocol!=='https:')throw Error('El enlace del sustento no es seguro.');
+        originalUrl=pdf;
+        const drive=pdf.match(/^https:\/\/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)\/view/);
+        previewUrl=drive?'https://drive.google.com/file/d/'+drive[1]+'/preview':pdf;
+      }else{
+        const blob=pdf.type==='application/pdf'?pdf:new Blob([pdf],{type:'application/pdf'});
+        pdfObjectUrl=URL.createObjectURL(blob);
+        previewUrl=pdfObjectUrl;
+        originalUrl=pdfObjectUrl;
+      }
+      const openLink=el('pickupPdfOpen'),downLink=el('pickupPdfDownload');
+      openLink.href=originalUrl;downLink.href=originalUrl;
+      downLink.download=visit.name||'sustento_recojo.pdf';
+      el('pickupPdfFrame').src=previewUrl;
+      if(typeof pdfDialog.showModal==='function'){
+        if(!pdfDialog.open)pdfDialog.showModal();
+      }else pdfDialog.setAttribute('open','');
+    }catch(error){notify(error.message||'No se pudo mostrar el PDF.',true);}
+  }
+
   function render(){
     panel.hidden=false;search.hidden=!loaded;
     if(!loaded){
@@ -368,53 +500,74 @@ export function attachPickupWorkflow({workflow,showPreview,notify}){
       el('pickupDraftFooter').hidden=true;
     }
     history.replaceChildren();
-    const key=pickupBoxKey(search.value);
-    for(const batch of state.batches.filter(item=>!search.value||(key&&item.boxes.some(box=>pickupBoxKey(box.code).includes(key))))){
-      const article=create('div',null,'prepared-im-box');
-      const withdrawals=batch.visits.reduce((total,visit)=>total+visit.codes.length,0);
-      const counts=countsLabel(batch.boxes);
-      const label=batch.status==='CONFIRMADO'?(withdrawals===batch.boxes.length?'Recojo confirmado':withdrawals?'Recojo parcial':Object.values(batch.schedule||{}).some(Boolean)?'Recojo programado':'Esperando fecha'):batch.status==='PREPARADO'?'Preparado para Outlook':
-        batch.status==='CANCELADO'?'Cancelado':'Borrador';
-      const head=create('div',null,'pickup-stage-heading');
-      head.append(create('strong',reference(batch)+' · '+counts),
-        create('span',label,'pickup-badge '+(label==='Esperando fecha'?'pickup-wait':label==='Recojo confirmado'?'pickup-done':'')));
-      article.append(head);
-      if(batch.workflow!==false&&batch.status==='CONFIRMADO'){
-        article.append(create('p',pickupGroups.filter(type=>batch.boxes.some(box=>box.type===type))
-          .map(type=>names[type]+': '+(batch.schedule?.[type]?displayDate(batch.schedule[type]):'Esperando fecha')).join(' · '),'hint'));
-        article.append(create('p',withdrawals===batch.boxes.length?'Recojo confirmado':
-          withdrawals?'Retiro parcial · '+withdrawals+' de '+batch.boxes.length+' cajas retiradas':'Retiro pendiente','hint'));
-      }
+    const term=search.value.trim().toLowerCase(),key=pickupBoxKey(search.value);
+    const visibleBatches=state.batches.filter(batch=>filterMatches(batch,term,key));
+    const cards=visibleBatches.flatMap(batch=>pickupGroups.filter(type=>boxesOf(batch,type).length)
+      .map(type=>({batch,type,progress:typeProgress(batch,type)})))
+      .filter(item=>viewFilter==='TODOS'||item.type===viewFilter||
+        viewFilter==='PROGRAMADOS'&&item.progress.kind==='programmed');
+    cards.sort((a,b)=>a.progress.priority-b.progress.priority||
+      new Date(b.batch.created_at)-new Date(a.batch.created_at)||
+      pickupGroups.indexOf(a.type)-pickupGroups.indexOf(b.type));
+    if(viewFilters){
+      viewFilters.replaceChildren(...[['TODOS','Todos'],['NUEVAS','Nuevas'],['DEVOLUCION','Devolución'],
+        ['PROGRAMADOS','Programados']].map(([value,label])=>{
+        const filter=button(label,()=>{viewFilter=value;showAllAvisos=false;render();});
+        filter.setAttribute('aria-pressed',String(viewFilter===value));
+        return filter;
+      }));
+    }
+    const limited=showAllAvisos?cards:cards.slice(0,5);
+    for(const {batch,type,progress} of limited){
+      const article=create('article',null,'prepared-im-box pickup-card-'+progress.kind);
+      const heading=create('div',null,'pickup-stage-heading');
+      heading.append(create('strong',reference(batch)+' · '+boxesOf(batch,type).length+' '+names[type].toLowerCase()),
+        create('span',progress.label,'pickup-badge '+
+          (progress.kind==='done'?'pickup-done':progress.kind==='pending'?'pickup-pending':'pickup-programmed')));
+      article.append(heading);
+      article.append(create('p','Programación: '+(batch.schedule?.[type]?displayDate(batch.schedule[type]):'Sin fecha')+
+        ' · Recojo físico: '+(visitsOf(batch,type).length?visitsOf(batch,type).map(visit=>displayDate(visit.date)).join(', '):'Pendiente'),'pickup-card-meta'));
+      const note=batch.status==='CONFIRMADO'?'Correo registrado como enviado':
+        batch.status==='PREPARADO'?'Correo preparado para Outlook':'Estado del correo: '+batch.status.toLowerCase();
+      article.append(create('p',note+' · '+progress.done+' / '+boxesOf(batch,type).length+' cajas retiradas','pickup-card-status'));
       const actions=create('div',null,'actions');
+      actions.append(button('Ver detalle',()=>detailOf(batch,type),busy));
       if(batch.external_mail)article.append(create('p','Solicitud enviada fuera del aplicativo.','hint'));
       else actions.append(button('Ver correo generado',()=>act(()=>showMail(batch,'preview')),busy));
-      if(batch.workflow===false&&batch.status!=='CANCELADO'&&batch.status!=='CONFIRMADO')actions.append(button('Abrir borrador',()=>act(()=>showMail(batch,'download')),busy));
-      if(batch.status==='PREPARADO')actions.append(button(state.simulation?'Simular correo enviado':'Registrar correo enviado',()=>act(async()=>{
+      if(batch.workflow===false&&batch.status!=='CANCELADO'&&batch.status!=='CONFIRMADO'&&type===pickupGroups.find(x=>boxesOf(batch,x).length))
+        actions.append(button('Abrir borrador',()=>act(()=>showMail(batch,'download')),busy));
+      const primary=type===pickupGroups.find(x=>boxesOf(batch,x).length);
+      if(primary&&batch.status==='PREPARADO')actions.append(button(state.simulation?'Simular correo enviado':'Registrar correo enviado',()=>act(async()=>{
         if(state.simulation||confirm('¿Ya enviaste este correo desde Outlook?'))await workflow.mark(batch.id,'CONFIRMADO');
       }),busy));
-      if(batch.workflow!==false&&['PREPARADO','PENDIENTE'].includes(batch.status))actions.append(button('Cancelar aviso',()=>act(async()=>{
-        if(confirm('¿Cancelar el aviso y liberar las cajas?'))await workflow.mark(batch.id,'CANCELADO');
-      }),busy));
-      if(batch.workflow!==false&&batch.status==='CONFIRMADO'&&withdrawals<batch.boxes.length){
-        actions.append(button(Object.values(batch.schedule||{}).some(Boolean)?'Reprogramar':'Registrar fecha de recojo',()=>schedule(batch),busy));
-        const removed=new Set(batch.visits.flatMap(visit=>visit.codes));
-        if(batch.boxes.some(box=>batch.schedule?.[box.type]&&!removed.has(box.code)))
+      if(primary&&batch.workflow!==false&&['PREPARADO','PENDIENTE'].includes(batch.status))
+        actions.append(button('Cancelar aviso',()=>act(async()=>{
+          if(confirm('¿Cancelar el aviso y liberar las cajas?'))await workflow.mark(batch.id,'CANCELADO');
+        }),busy));
+      if(batch.workflow!==false&&batch.status==='CONFIRMADO'&&progress.done<boxesOf(batch,type).length){
+        actions.append(button(batch.schedule?.[type]?'Reprogramar':'Registrar fecha de recojo',
+          ()=>schedule(batch),busy));
+        if(boxesOf(batch,type).some(box=>batch.schedule?.[type]&&
+          !batch.visits.some(visit=>visit.codes.includes(box.code))))
           actions.append(button('Adjuntar sustento PDF',()=>pickup(batch),busy));
       }
+      for(const visit of visitsOf(batch,type))
+        actions.append(button('Ver PDF',()=>{void showPdf(batch,visit);},busy));
+      actions.append(button('Historial de programación',()=>showScheduleHistory(batch,type),busy));
       article.append(actions);
-      if(batch.events?.length){
-        const audit=create('details');audit.append(create('summary','Historial de programación'));
-        for(const event of batch.events)audit.append(create('p',event.date+' · '+event.actor+' · '+
-          pickupGroups.filter(type=>event.next[type]).map(type=>names[type]+' '+event.next[type]).join(' · '),'hint'));
-        article.append(audit);
-      }
       history.append(article);
     }
-    if(!history.children.length)history.textContent=search.value?'Sin avisos para ese código.':'Sin correos preparados.';
+    if(cards.length>5){
+      const more=button(showAllAvisos?'Ver menos avisos':'Ver más avisos ('+(cards.length-5)+')',
+        ()=>{showAllAvisos=!showAllAvisos;render();});
+      more.classList.add('pickup-more-button');
+      history.append(more);
+    }
+    if(!cards.length)history.textContent=term?'Sin avisos para esa búsqueda.':'Sin correos preparados.';
     const log=el('pickupVisitHistory');
     log.hidden=false;
-    log.replaceChildren(create('h4','Historial de recojos'));
-    renderVisits(log,state.batches.filter(item=>!search.value||(key&&item.boxes.some(box=>pickupBoxKey(box.code).includes(key)))));
+    log.replaceChildren(create('h4','Historial de sustentos'));
+    renderVisits(log,visibleBatches);
     for(const file of workflow.excel?.()||[]){
       log.append(button('Descargar '+file.name,()=>{
         const bytes=Uint8Array.from(atob(file.base64),c=>c.charCodeAt(0));
@@ -423,37 +576,37 @@ export function attachPickupWorkflow({workflow,showPreview,notify}){
     }
   }
   function renderVisits(target,batches){
-    if(!batches.some(batch=>batch.visits.length)){
-      target.append(create('p','Aún no hay retiros confirmados.','hint'));
+    const pairs=batches.flatMap(batch=>batch.visits.map(visit=>({batch,visit})))
+      .sort((a,b)=>String(b.visit.date).localeCompare(String(a.visit.date)));
+    if(!pairs.length){
+      target.append(create('p','Aún no hay retiros confirmados.','hint pickup-history-empty'));
       return;
     }
-    for(const batch of batches){
-      for(const visit of batch.visits){
-        const row=create('article',null,'pickup-visit');
-        const item=create('details');
-        item.open=expanded.has(visit.id);
-        item.ontoggle=()=>{if(item.open)expanded.add(visit.id);else expanded.delete(visit.id);};
-        item.append(create('summary',reference(batch)+' · '+displayDate(visit.date)+' · '+countsLabel(batch.boxes.filter(box=>visit.codes.includes(box.code)))),
-          create('p',visit.codes.join(', '),'hint'),create('p','Confirmó '+visit.actor,'hint'),
-          create('p','Registro en Excel: '+(visit.synced?'Sincronizado':'Pendiente de sincronización'),'hint'));
-        if(!state.simulation)item.append(create('p',
-          'Maestro: '+(visit.master?'verificado':'pendiente')+' · Registro de envíos: '+(visit.history?'verificado':'pendiente'),'hint'));
-        if(visit.error)item.append(create('p',visit.error,'hint'));
-        const pdfButton=button('Ver PDF',async()=>{
-          try{
-            const pdf=await workflow.pdf(batch.id,visit.id);
-            if(typeof pdf==='string')window.open(pdf,'_blank','noopener,noreferrer');
-            else if(pdf)download(pdf,visit.name);
-          }catch(error){notify(error.message,true);}
-        },busy);
-        pdfButton.classList.add('pickup-done');
-        row.append(item,pdfButton);
-        if(!visit.synced)item.append(button('Reintentar sincronización',()=>act(async()=>{
-          const result=await workflow.retry(batch.id,visit.id);
-          notify(result?.verified?'Recojo confirmado · Sincronizado.':'Recojo confirmado · Sincronización pendiente.');
-        }),busy));
-        target.append(row);
-      }
+    for(const {batch,visit} of pairs){
+      const row=create('article',null,'pickup-visit');
+      const item=create('details');
+      item.open=expanded.has(visit.id);
+      item.ontoggle=()=>{if(item.open)expanded.add(visit.id);else expanded.delete(visit.id);};
+      const taken=batch.boxes.filter(box=>visit.codes.includes(box.code));
+      item.append(create('summary',reference(batch)+' · '+displayDate(visit.date)+' · '+countsLabel(taken)));
+      item.append(create('small','PDF de sustento · '+(visit.synced?'Sincronizado':'Sincronización pendiente')));
+      item.append(create('p',visit.codes.join(', '),'hint'),
+        create('p','Confirmó '+visit.actor,'hint'),
+        create('p','Registro en Excel: '+(visit.synced?'Sincronizado':'Pendiente de sincronización'),'hint'));
+      if(!state.simulation)item.append(create('p',
+        'Maestro: '+(visit.master?'verificado':'pendiente')+
+        ' · Registro de envíos: '+(visit.history?'verificado':'pendiente'),'hint'));
+      if(visit.error)item.append(create('p',visit.error,'hint'));
+      const actions=create('div',null,'pickup-file-actions');
+      const pdfButton=button('Ver PDF',()=>{void showPdf(batch,visit);},busy);
+      pdfButton.classList.add('pickup-done');
+      actions.append(pdfButton);
+      if(!visit.synced)actions.append(button('Reintentar sincronización',()=>act(async()=>{
+        const result=await workflow.retry(batch.id,visit.id);
+        notify(result?.verified?'Recojo confirmado · Sincronizado.':'Recojo confirmado · Sincronización pendiente.');
+      }),busy));
+      row.append(item,actions);
+      target.append(row);
     }
   }
   const prepareBatch=(external=false)=>act(async()=>{
@@ -470,6 +623,7 @@ export function attachPickupWorkflow({workflow,showPreview,notify}){
     else await showMail(batch,'preview');
   });
   register?.addEventListener('click',()=>prepareBatch(true));
+  el('pickupViewEmails')?.addEventListener('click',showEmailRecords);
   search.oninput=render;
   return {async activate(){active=true;await refresh();},deactivate(){active=false;},
     reset(){active=false;loaded=false;state={available:[],batches:[]};chosen.clear();expanded.clear();search.value='';if(dialog.open)close();},
