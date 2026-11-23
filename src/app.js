@@ -875,6 +875,9 @@ function renderMonthlyShippedDetail(){
   const sheet=document.getElementById('monthlyShippedSheet');
   if(!sheet.open)return;
   const loadStatus=document.getElementById('imShippedLoadStatus');
+  document.getElementById('imShippedMonthTitle').textContent='Cajas nuevas enviadas por mes';
+  document.querySelector('#imShippedMonthPanel .im-shipped-chart-heading p').textContent=
+    'Solo cajas nuevas con envío registrado durante el año seleccionado';
   if(!monthlyShippedSummary){
     loadStatus.hidden=false;
     loadStatus.textContent=monthlyShippedError ||
@@ -909,10 +912,11 @@ function renderMonthlyShippedDetail(){
   const names=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
   const current=row.year===stats.currentYear;
   const monthlyLabels=names.slice(0,current?stats.currentMonth:12);
-  document.getElementById('imShippedMonthTitle').textContent='Cajas enviadas por mes ('+row.year+')';
+  const newRow=stats.newAnnual?.find(item=>item.year===row.year);
+  document.getElementById('imShippedMonthTitle').textContent='Cajas nuevas enviadas por mes ('+row.year+')';
   renderImBarChart(document.getElementById('imShippedMonthChart'),monthlyLabels,
-    row.months.slice(0,monthlyLabels.length),
-    {accent:'#2da66b',emptyLabel:'Sin envíos IM registrados en '+row.year});
+    newRow?newRow.months.slice(0,monthlyLabels.length):monthlyLabels.map(()=>null),
+    {accent:'#2da66b',emptyLabel:newRow?'Sin envíos de cajas nuevas identificados en '+row.year:'Clasificación de cajas nuevas no disponible'});
   document.getElementById('imShippedYearTitle').textContent=
     'Cajas enviadas e históricos por año (2020–'+stats.currentYear+')';
   renderImBarChart(document.getElementById('imShippedYearChart'),
@@ -934,7 +938,8 @@ function renderMonthlyShippedDetail(){
     row.latest?'Última fecha de envío registrada':'Sin envíos registrados';
   document.getElementById('imShippedMethodNote').textContent=
     'Envíos con registro: cajas físicas por fecha de envío. Históricos: cargos identificados por su año de origen. '+
-    'Los totales y promedios mensuales siguen contando únicamente las cajas con fecha registrada.';
+    'El gráfico mensual incluye solo cajas clasificadas como nuevas; los registros sin clasificación no se incluyen en él. '+
+    'El gráfico anual y los indicadores inferiores conservan todos los envíos con fecha registrada.';
 }
 document.getElementById('btnMonthlyShippedDetail').addEventListener('click',()=>{
   if(!appReady||!isAdmin)return;
@@ -964,7 +969,12 @@ async function reloadShippedBoxesSummary(){
     const rows=await repository.shippedIMBoxesMonthly();
     if(epoch!==monthlyShippedFetchEpoch||generation!==authGeneration||!appReady||!isAdmin)return;
     if(!Array.isArray(rows))throw new Error('Respuesta inválida de envíos mensuales IM');
-    monthlyShippedSummary=summarizeShippedBoxes(rows,new Date());
+    const now=new Date();
+    monthlyShippedSummary=summarizeShippedBoxes(rows,now);
+    // Serie exclusiva del gráfico mensual. No modifica el total anual ni el KPI general.
+    monthlyShippedSummary.newAnnual=rows.every(record=>Number.isSafeInteger(record.new_count)&&record.new_count>=0)
+      ? summarizeShippedBoxes(rows.map(record=>({...record,count:record.new_count})),now).annual
+      : null;
     monthlyShippedError='';
   }catch(error){
     if(epoch!==monthlyShippedFetchEpoch||generation!==authGeneration||!appReady||!isAdmin)return;
