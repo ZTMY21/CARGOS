@@ -212,6 +212,7 @@ export function setupRequirements(root, {repository, context, refresh, onKindCha
     const loan = kind.value === 'prestamo';
     root.classList.toggle('req4-is-loan',loan);
     root.closest('#grp-requerimientos')?.classList.toggle('req4-loan-active',loan);
+    if(!loan)imMailUI.closePreview?.();
     find('Loan').hidden = !loan;
     find('Supply').hidden = loan;
     find('Mail').hidden = loan;
