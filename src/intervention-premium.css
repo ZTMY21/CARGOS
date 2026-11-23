@@ -526,3 +526,146 @@
   #req4Workspace .req4-form{padding:15px}
   #req4Workspace .req4-supply-quantity-row{grid-template-columns:1fr;gap:12px}
 }
+
+
+/* Solicitudes a IM (Requerimientos): propuesta visual aprobada.
+   La clase req4-loan-active se aplica exclusivamente a la pestaña de préstamos. */
+#req4Workspace.req4-is-loan .req4-form{
+  padding:20px 21px 18px;
+  background:linear-gradient(180deg,#f5f9fd 0,#fff 72px);
+  border-color:#cbdde9;
+}
+#req4Workspace.req4-is-loan .req4-form h3{
+  display:flex;align-items:center;gap:11px;
+  margin:0 0 5px;color:#153d5b;font-size:17px;
+}
+#req4Workspace.req4-is-loan .req4-form h3:before{
+  content:"▣";display:inline-grid;place-items:center;width:35px;height:35px;flex:none;
+  background:#e1effb;color:#195f92;border-radius:9px;font-size:22px;font-weight:650;
+}
+#req4Workspace.req4-is-loan #req4FormHelp{color:#688093;font-size:12px;margin:0 0 16px}
+#req4Workspace.req4-is-loan .req4-meta{max-width:860px;gap:13px 15px}
+#req4Workspace.req4-is-loan .req4-search{
+  align-items:end;gap:9px;margin-top:18px;margin-bottom:12px;
+}
+#req4Workspace.req4-is-loan .req4-search input{
+  min-height:40px;background:#fff;border:1px solid #c7dbe8;
+  border-radius:7px;padding:9px 11px;
+}
+#req4Workspace.req4-is-loan #req4Search,
+#req4Workspace.req4-is-loan #req4Submit{
+  background:#0b5484;border:1px solid #0b5484;color:#fff;border-radius:7px;
+  font-weight:750;min-height:39px;padding:9px 15px;
+}
+#req4Workspace.req4-is-loan #req4LoanHelp{
+  border:0;background:#eaf3fb;border-radius:8px;
+  padding:11px 13px;color:#365f7e;font-size:12px;line-height:1.5;margin:8px 0 16px;
+}
+#req4Workspace.req4-is-loan #req4LoanHelp:before{
+  content:"ⓘ";font-size:15px;font-weight:800;color:#1c6d9b;margin-right:8px;
+}
+#req4Workspace.req4-is-loan .req4-loan-heading{
+  display:flex;align-items:center;gap:8px;margin:15px 0 10px;
+  font-size:14px;font-weight:800;color:#193f59;
+}
+#req4Workspace.req4-is-loan .req4-loan-heading:before{
+  content:"▱";display:grid;place-items:center;width:22px;height:22px;
+  color:#2772a3;font-size:21px;line-height:1;
+}
+#req4Workspace.req4-is-loan #req4Selected .req4-box-list,
+#req4Workspace.req4-is-loan #req4Results .req4-box-list{
+  background:#fff;border:1px solid #d7e3eb;border-radius:9px;padding:6px 12px;
+}
+#req4Workspace.req4-is-loan #req4Selected .req4-box-list li,
+#req4Workspace.req4-is-loan #req4Results .req4-box-list li{
+  padding:11px 8px;border-bottom-color:#e5edf3;
+}
+#req4Workspace.req4-is-loan .req4-loan-empty{
+  border:1px dashed #b9d0e4;border-radius:9px;
+  background:#f9fcff;text-align:center;padding:22px 15px;
+  display:flex;flex-direction:column;align-items:center;gap:5px;color:#5e7990;
+}
+#req4Workspace.req4-is-loan .req4-loan-empty-icon{
+  height:43px;width:43px;display:grid;place-items:center;
+  background:#e8f2fb;border-radius:50%;font-size:24px;color:#4b8fc3;
+}
+#req4Workspace.req4-is-loan .req4-loan-empty strong{font-size:12px;color:#31516a}
+#req4Workspace.req4-is-loan .req4-loan-empty small{font-size:11px;line-height:1.5}
+#req4Workspace.req4-is-loan .req4-form-footer{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  margin-top:12px;
+}
+#req4Workspace.req4-is-loan #req4SelectionCount{
+  display:inline-flex;align-items:center;width:auto;
+  padding:7px 12px;border-radius:999px;background:#eaf2f9;
+  color:#3d6a88;font-size:11px;font-weight:750;
+}
+#req4Workspace.req4-is-loan #req4SelectionCount[hidden]{display:none}
+#req4Workspace.req4-is-loan #req4Submit:disabled{opacity:.52}
+#req4Workspace.req4-is-loan #req4ImMail .req4-mail-panel{
+  margin:15px 0;padding:19px 20px 17px;border-color:#cfdfe9;border-radius:12px;
+  background:linear-gradient(180deg,#f6fafe 0,#fff 70px);
+}
+#req4Workspace.req4-is-loan #req4ImMail .req4-mail-controls{margin:14px 0 10px}
+#req4Workspace.req4-is-loan #req4ImMail .req4-mail-controls select{min-height:41px}
+#req4Workspace.req4-is-loan #req4ImMail .req4-mail-buttons{gap:9px}
+#req4Workspace.req4-is-loan #req4ImMail .req4-mail-buttons button{border-radius:7px}
+#req4Workspace.req4-is-loan #req4ImMail .req4-mail-result{border-radius:10px}
+#grp-requerimientos.req4-loan-active .req4-history-heading{
+  display:flex;align-items:center;padding:11px 13px;margin:16px 0 9px;
+  border:1px solid #d8e6ef;border-radius:9px 9px 0 0;
+  background:#f0f6fb;color:#173c56;
+}
+#grp-requerimientos.req4-loan-active .req4-history-heading:before{
+  content:"☷";display:grid;place-items:center;margin-right:10px;
+  width:28px;height:28px;border-radius:7px;
+  background:#e1eef8;color:#236b9a;font-size:20px;font-weight:800;
+}
+#grp-requerimientos.req4-loan-active .req4-history-heading h3{margin:0;font-size:15px}
+#grp-requerimientos.req4-loan-active .quick-requirements{display:flex;justify-content:space-between;gap:11px;align-items:center;margin:10px 0}
+#grp-requerimientos.req4-loan-active .quick-requirements input{max-width:520px;border-radius:7px}
+#grp-requerimientos.req4-loan-active #conteoReq{
+  background:#eaf1f7;border-radius:99px;color:#536f85;
+  font-size:11px;padding:6px 11px;white-space:nowrap;
+}
+#grp-requerimientos.req4-loan-active .table-wrap{
+  border:1px solid #dbe5ee;border-radius:9px;overflow:auto;
+}
+#grp-requerimientos.req4-loan-active .table-wrap thead{
+  background:#eaf1f7;color:#4c6c83;
+}
+#grp-requerimientos.req4-loan-active #tbodyReq>tr>td[colspan]{
+  padding:28px 15px;color:#668398;text-align:center;font-size:12px;
+}
+#grp-requerimientos.req4-loan-active #tbodyReq>tr>td[colspan]:before{
+  content:"▤";display:block;font-size:28px;line-height:1;margin-bottom:11px;color:#7ba5c2;
+}
+/* Vista flotante de correo, solo lectura. Outlook y su registro siguen en el panel original. */
+.req4-im-mail-dialog{width:min(770px,96vw);max-height:92vh;overflow:auto;padding:0;border-radius:14px;border:1px solid #c8dce9;box-shadow:0 25px 80px #12375366}
+.req4-im-mail-dialog::backdrop{background:#0f3045aa}
+.req4-im-mail-dialog .req4-im-modal-head{
+  display:flex;justify-content:space-between;gap:12px;align-items:center;
+  background:#eff6fa;padding:15px 19px;border-bottom:1px solid #d8e5ed;
+}
+.req4-im-mail-dialog h3{font-size:17px;margin:0;color:#143c57}
+.req4-im-mail-dialog .req4-im-modal-body{padding:19px 21px}
+.req4-im-mail-dialog .req4-im-modal-fields{
+  display:grid;grid-template-columns:65px minmax(0,1fr);gap:7px 12px;
+  font-size:12px;line-height:1.5;background:#f6f9fb;border-radius:8px;
+  padding:12px 14px;overflow-wrap:anywhere;
+}
+.req4-im-mail-dialog .req4-im-modal-fields dt{font-weight:750;color:#5d778a}
+.req4-im-mail-dialog .req4-im-modal-fields dd{margin:0;color:#2e5069}
+.req4-im-mail-dialog .req4-im-modal-body pre{
+  white-space:pre-wrap;overflow-wrap:anywhere;
+  border:1px solid #dae5ed;border-top:4px solid #b50917;
+  border-radius:8px;padding:20px;font:13px/1.75 Arial,Helvetica,sans-serif;
+}
+@media(max-width:670px){
+  #req4Workspace.req4-is-loan .req4-search{flex-wrap:wrap}
+  #req4Workspace.req4-is-loan .req4-form{padding:15px}
+  #grp-requerimientos.req4-loan-active .quick-requirements{flex-wrap:wrap}
+  #grp-requerimientos.req4-loan-active .quick-requirements input{max-width:none}
+  #req4Workspace.req4-is-loan .req4-form-footer{flex-wrap:wrap}
+  .req4-im-mail-dialog .req4-im-modal-body{padding:12px}
+}
