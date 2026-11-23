@@ -1920,16 +1920,29 @@
         <section class="iv-panel iv-mail-history" aria-label="Correos de recojo pendientes y anteriores">
           <h3 class="iv-panel-title">Correos y seguimiento</h3>
           <p class="iv-panel-hint">Correo, programación, retiro físico e historial de sustentos.</p>
-          <input id="pickupHistorySearch" type="search" placeholder="Buscar aviso por código de caja" aria-label="Buscar aviso por código de caja" hidden>
+          <input id="pickupHistorySearch" type="search" placeholder="Buscar por aviso o código de caja" aria-label="Buscar aviso o código de caja" hidden>
+          <div id="pickupViewFilters" class="pickup-filter-tabs" role="group" aria-label="Filtrar avisos de recojo"></div>
           <div id="pickupMailBatches">Sin correos preparados.</div>
           <section id="pickupVisitHistory" class="pickup-history" hidden></section>
           <div class="actions intervention-actions">
-            <button id="ivMailSimShortcut" type="button" class="secondary"><svg class="iv-icon" aria-hidden="true"><use href="#iv-mail"></use></svg> Simular correo sin enviar</button>
+            <button id="pickupViewEmails" type="button" class="secondary"><svg class="iv-icon" aria-hidden="true"><use href="#iv-mail"></use></svg> Ver correos registrados</button>
+             <button id="ivMailSimShortcut" type="button" hidden aria-hidden="true">Simulación interna de compatibilidad</button>
           </div>
         </section>
       </div>
       <dialog id="pickupDialog" class="iv-panel" aria-labelledby="pickupDialogTitle"></dialog>
-      <details id="pickupPreviewDetails" class="intervention-preview-panel iv-mail-preview">
+      <dialog id="pickupMailViewDialog" class="iv-panel pickup-mail-modal" aria-labelledby="pickupMailViewTitle">
+        <div class="pickup-modal-head"><h3 id="pickupMailViewTitle">Ver correo generado</h3><button id="pickupMailViewClose" type="button" class="secondary">Cerrar</button></div>
+        <div id="pickupMailViewContent" class="pickup-mail-modal-content"></div>
+      </dialog>
+      <dialog id="pickupPdfViewDialog" class="iv-panel pickup-pdf-modal" aria-labelledby="pickupPdfViewTitle">
+        <div class="pickup-modal-head"><h3 id="pickupPdfViewTitle">Vista previa del PDF</h3><button id="pickupPdfClose" type="button" class="secondary">Cerrar</button></div>
+        <div class="pickup-pdf-meta" id="pickupPdfMeta"></div>
+        <div class="pickup-pdf-actions"><button type="button" id="pickupPdfZoom" class="secondary">Ampliar vista</button><a id="pickupPdfOpen" class="pickup-link-button" target="_blank" rel="noopener noreferrer">Abrir PDF en otra pestaña</a><a id="pickupPdfDownload" class="pickup-link-button" download>Descargar PDF</a></div>
+        <div class="pickup-pdf-frame-wrap"><iframe id="pickupPdfFrame" title="Documento PDF del recojo" loading="lazy"></iframe></div>
+        <p class="hint pickup-pdf-help">Puedes desplazarte y utilizar el zoom del visor para ver el documento completo. Si el navegador no lo muestra, abre o descarga el PDF.</p>
+      </dialog>
+      <details id="pickupPreviewDetails" class="intervention-preview-panel iv-mail-preview" hidden>
         <summary><svg class="iv-icon" aria-hidden="true"><use href="#iv-mail"></use></svg> Ver correo generado</summary>
         <div class="intervention-preview-inner">
           <p id="pickupMailPreviewMeta" class="hint">Selecciona un aviso preparado o simula un correo para revisar su formato.</p>
