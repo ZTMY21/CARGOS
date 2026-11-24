@@ -1406,6 +1406,39 @@
   #appShell > .kardex-header-clean > .session-profile > summary{padding:7px;gap:6px;max-width:160px;}
   #appShell > .kardex-header-clean #sessionUser{font-size:12px;}
 }
+
+/* Ajuste visual aprobado: cabecera alineada al panel central y pestañas centradas. */
+#appShell > .kardex-header-clean{
+  width:100%;max-width:100%;left:auto;transform:none;
+  padding:14px 20px;min-height:82px;margin:0 0 18px;
+  gap:18px;grid-template-columns:minmax(0,1fr) max-content max-content;
+}
+#appShell > .kardex-header-clean > .header-row{gap:16px;}
+#appShell > .kardex-header-clean .header-row > .header-logo{width:56px;height:45px;}
+#appShell > .kardex-header-clean .header-row h1{
+  font-size:20px;line-height:1.25;padding-left:16px;
+}
+#appShell > .kardex-header-clean .kardex-header-status{padding-right:18px;gap:10px;}
+#appShell > .kardex-header-clean #connectionStatus{width:150px;font-size:12px;}
+#appShell > .kardex-header-clean > .session-profile > summary{padding:8px 10px;}
+#appShell > #googleSyncPanel #workspaceTabs.workspace-tabs{
+  justify-content:center;justify-content:safe center;
+}
+@media(max-width:1000px){
+  #appShell > .kardex-header-clean{gap:12px;padding:12px 15px;}
+  #appShell > .kardex-header-clean .header-row h1{font-size:17px;}
+  #appShell > .kardex-header-clean .header-row > .header-logo{width:48px;height:39px;}
+  #appShell > .kardex-header-clean #connectionStatus{width:120px;}
+  #appShell > .kardex-header-clean .kardex-header-status{padding-right:12px;}
+}
+@media(max-width:700px){
+  #appShell > .kardex-header-clean{grid-template-columns:minmax(0,1fr) max-content;gap:10px;padding:12px;}
+  #appShell > .kardex-header-clean > .header-row{grid-column:1/-1;gap:10px;}
+  #appShell > .kardex-header-clean .header-row h1{font-size:15px;padding-left:10px;}
+  #appShell > .kardex-header-clean .kardex-header-status{padding:0;}
+  #appShell > .kardex-header-clean #connectionStatus{width:auto;}
+  #appShell > .kardex-header-clean > .session-profile > summary{padding:7px;}
+}
 </style>
 </head>
 <body>
