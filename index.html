@@ -1216,6 +1216,103 @@
 </style>
 <link rel="stylesheet" href="/src/intervention-ui.css">
 <link rel="stylesheet" href="/src/intervention-premium.css">
+<style>
+/* Cabecera opción 1: solo la franja superior del aplicativo. */
+#appShell > .kardex-header-clean{
+  display:flex;align-items:center;gap:18px;flex-wrap:wrap;
+  padding:17px 20px;margin:0 0 18px;
+  background:linear-gradient(180deg,#fff 0%,#f9fbfd 100%);
+  border:1px solid #dbe5ef;border-radius:14px;
+  box-shadow:0 3px 9px rgba(18,50,77,.075);
+}
+#appShell > .kardex-header-clean > .header-row{
+  display:flex;align-items:center;flex:1 1 340px;min-width:0;
+  gap:18px;margin:0;flex-wrap:nowrap;
+}
+#appShell > .kardex-header-clean .header-row > .header-logo{
+  width:62px;height:49px;flex:0 0 62px;object-fit:contain;
+}
+#appShell > .kardex-header-clean .header-row h1{
+  border-left:1px solid #c6d3e2;padding-left:18px;
+  font-size:clamp(15px,1.2vw,22px);line-height:1.3;
+  font-weight:750;letter-spacing:-.018em;color:#12324d;
+  margin:0;min-width:0;overflow-wrap:break-word;
+}
+#appShell > .kardex-header-clean > .connection-row{
+  display:flex;align-items:center;justify-content:flex-end;gap:12px;
+  margin:0;flex:0 1 auto;flex-wrap:wrap;min-width:0;
+}
+#appShell > .kardex-header-clean .kardex-header-status{
+  display:flex;align-items:center;gap:9px;min-width:0;
+  padding:2px 16px;border-left:1px solid #d5dfeb;border-right:1px solid #d5dfeb;
+}
+#appShell > .kardex-header-clean .kardex-header-status .connection-dot{
+  width:9px;height:9px;flex:0 0 9px;
+}
+#appShell > .kardex-header-clean #connectionStatus{
+  display:block;max-width:156px;white-space:normal;
+  overflow-wrap:anywhere;line-height:1.4;font-size:12px;font-weight:600;color:#314c67;
+}
+#appShell > .kardex-header-clean .connection-row #btnTopAdminRequests{
+  min-height:38px;border-radius:9px;padding:8px 12px;font-size:12px;gap:8px;
+}
+#appShell > .kardex-header-clean button#btnRefreshNewCargos.secondary,
+#appShell > .kardex-header-clean button#btnSignOut.secondary{
+  min-height:38px;border-radius:9px;padding:8px 12px;font-size:12px;
+  white-space:nowrap;
+}
+#appShell > .kardex-header-clean button#btnSignOut.secondary{
+  background:#c51f30;border-color:#c51f30;
+}
+#appShell > .kardex-header-clean button#btnSignOut.secondary:hover{
+  background:#a91627;border-color:#a91627;
+}
+#appShell > .kardex-header-clean #btnTopAdminRequests::before,
+#appShell > .kardex-header-clean #btnSignOut::before{
+  content:"";display:inline-block;flex:none;width:17px;height:17px;
+  vertical-align:middle;background:currentColor;
+  -webkit-mask:var(--header-action-icon) center/contain no-repeat;
+  mask:var(--header-action-icon) center/contain no-repeat;
+}
+#appShell > .kardex-header-clean #btnTopAdminRequests{
+  --header-action-icon:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z'/%3E%3Cpath d='M14 2v6h6M8 12h8M8 16h8'/%3E%3C/svg%3E");
+}
+#appShell > .kardex-header-clean #btnSignOut{
+  --header-action-icon:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M10 17l5-5-5-5M15 12H3M15 3h5a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1h-5'/%3E%3C/svg%3E");
+}
+#appShell > .kardex-header-clean #btnSignOut::before{margin-right:6px;}
+#appShell > .kardex-header-clean > .session-profile{
+  flex:0 1 auto;display:flex;align-items:center;gap:9px;
+  border-left:1px solid #d5dfeb;padding-left:16px;
+  margin:0;min-width:0;max-width:210px;
+}
+#appShell > .kardex-header-clean > .session-profile svg{width:28px;height:28px;}
+#appShell > .kardex-header-clean > .session-profile .session-profile-email{
+  font-size:12px;line-height:1.3;color:#12324d;
+}
+#appShell > .kardex-header-clean [hidden]{display:none!important;}
+@media(max-width:1350px){
+  #appShell > .kardex-header-clean{gap:14px;padding:15px 16px;}
+  #appShell > .kardex-header-clean > .header-row{flex-basis:290px;}
+  #appShell > .kardex-header-clean > .connection-row{gap:8px;}
+  #appShell > .kardex-header-clean .kardex-header-status{padding:2px 10px;}
+}
+@media(max-width:1080px){
+  #appShell > .kardex-header-clean > .header-row{flex:1 1 100%;}
+  #appShell > .kardex-header-clean > .connection-row{flex:1 1 auto;justify-content:flex-start;}
+  #appShell > .kardex-header-clean .kardex-header-status{border-left:0;padding-left:0;}
+}
+@media(max-width:650px){
+  #appShell > .kardex-header-clean{padding:13px;gap:12px;}
+  #appShell > .kardex-header-clean > .header-row{gap:12px;}
+  #appShell > .kardex-header-clean .header-row > .header-logo{width:48px;height:40px;flex-basis:48px;}
+  #appShell > .kardex-header-clean .header-row h1{padding-left:12px;font-size:15px;}
+  #appShell > .kardex-header-clean > .connection-row{flex:1 1 100%;gap:8px;justify-content:flex-start;}
+  #appShell > .kardex-header-clean .kardex-header-status{flex:1 1 100%;border-right:0;padding:0;}
+  #appShell > .kardex-header-clean #connectionStatus{max-width:none;}
+  #appShell > .kardex-header-clean > .session-profile{border-left:0;padding-left:0;max-width:100%;}
+}
+</style>
 </head>
 <body>
 <style>
@@ -1237,20 +1334,16 @@
   <span class="loading-only-a11y">Cargando…</span>
 </div>
 <div class="wrap" id="appShell" hidden inert>
+  <div class="kardex-header-clean">
   <div class="header-row">
     <img src="/farmacias-heart.svg" alt="Farmacias Peruanas" class="header-logo" width="62" height="49">
     <h1>Kardex Digital — Control de Existencias Documentos Contables (CD Santa Anita)</h1>
-    <div id="sessionProfile" class="session-profile" hidden aria-label="Cuenta conectada">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="8.5" r="3.2"></circle><path d="M5.6 19a7.1 7.1 0 0 1 12.8 0"></path>
-      </svg>
-      <span id="sessionUser" class="session-profile-email"></span>
-    </div>
   </div>
-
   <div class="connection-row" aria-live="polite">
-    <span id="connectionDot" class="connection-dot"></span>
-    <span id="connectionStatus">Conexión pendiente</span>
+    <div class="kardex-header-status">
+      <span id="connectionDot" class="connection-dot"></span>
+      <span id="connectionStatus">Conexión pendiente</span>
+    </div>
     <button id="btnReconnect" class="secondary connection-action" hidden aria-hidden="true" tabindex="-1">Actualizar</button>
     <button id="btnTopAdminRequests" type="button" class="secondary connection-action admin-requests-top-button" data-status="unknown" aria-controls="grp-solicitudes" aria-label="Consultar solicitudes de cuentas administrativas" hidden>
       <span class="admin-requests-top-label">Solicitudes de Cuentas Adm.</span>
@@ -1258,6 +1351,13 @@
     </button>
     <button id="btnRefreshNewCargos" type="button" class="secondary connection-action" hidden title="Actualizar cargos y reportes desde Supabase">↻ Actualizar datos</button>
     <button id="btnSignOut" class="secondary connection-action signout-action" hidden>Salir</button>
+  </div>
+    <div id="sessionProfile" class="session-profile" hidden aria-label="Cuenta conectada">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="8.5" r="3.2"></circle><path d="M5.6 19a7.1 7.1 0 0 1 12.8 0"></path>
+      </svg>
+      <span id="sessionUser" class="session-profile-email"></span>
+    </div>
   </div>
   <section id="googleSyncPanel" hidden class="sync-panel" aria-labelledby="googleSyncTitle">
     <nav id="workspaceTabs" class="workspace-tabs" role="tablist" aria-label="Navegación administrativa">
