@@ -238,7 +238,19 @@ function message(id, value, error = false) {
   node.style.color = error ? 'var(--red)' : 'var(--green)';
 }
 function setStatus(value, state = '') {
-  document.getElementById('connectionStatus').textContent = value;
+  const statusNode=document.getElementById('connectionStatus');
+  // Presentación exclusiva de la cabecera: no cambia el estado real ni la sincronización.
+  if(value==='Conectado en línea — Sincronizado'){
+    const primary=document.createElement('span');
+    primary.className='kardex-status-primary';primary.textContent='Conectado en línea';
+    const secondary=document.createElement('span');
+    secondary.className='kardex-status-secondary';secondary.textContent='Sincronizado';
+    statusNode.replaceChildren(primary,secondary);
+    statusNode.setAttribute('aria-label',value);
+  }else{
+    statusNode.textContent=value;
+    statusNode.removeAttribute('aria-label');
+  }
   document.getElementById('connectionDot').className = `connection-dot ${state}`;
 }
 // Navegación entre apartados sin desmontar formularios ni desconectar Supabase.
