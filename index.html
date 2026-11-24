@@ -1217,49 +1217,77 @@
 <link rel="stylesheet" href="/src/intervention-ui.css">
 <link rel="stylesheet" href="/src/intervention-premium.css">
 <style>
-/* Cabecera opción 1: solo la franja superior del aplicativo. */
+/* Cabecera opción 1 — proporciones del diseño aprobado; aislada del resto. */
 #appShell > .kardex-header-clean{
-  display:flex;align-items:center;gap:18px;flex-wrap:wrap;
-  padding:17px 20px;margin:0 0 18px;
-  background:linear-gradient(180deg,#fff 0%,#f9fbfd 100%);
-  border:1px solid #dbe5ef;border-radius:14px;
+  --header-gap:clamp(10px,.83vw,15px);
+  --header-button-height:clamp(36px,2.45vw,44px);
+  display:grid;grid-template-columns:minmax(0,1fr) max-content max-content;
+  align-items:center;gap:var(--header-gap);
+  width:calc(100vw - 32px);max-width:none;
+  position:relative;left:50%;transform:translateX(-50%);
+  box-sizing:border-box;padding:clamp(13px,1.2vw,21px) clamp(16px,1.8vw,32px);
+  min-height:clamp(76px,5.3vw,95px);margin:0 0 18px;
+  background:linear-gradient(180deg,#fff,#f8fafc);
+  border:1px solid #d9e4ee;border-radius:16px;
   box-shadow:0 3px 9px rgba(18,50,77,.075);
 }
 #appShell > .kardex-header-clean > .header-row{
-  display:flex;align-items:center;flex:1 1 340px;min-width:0;
-  gap:18px;margin:0;flex-wrap:nowrap;
+  display:grid;grid-template-columns:max-content minmax(0,1fr);
+  align-items:center;gap:clamp(12px,1.2vw,22px);
+  min-width:0;margin:0;flex-wrap:nowrap;
 }
 #appShell > .kardex-header-clean .header-row > .header-logo{
-  width:62px;height:49px;flex:0 0 62px;object-fit:contain;
+  width:clamp(47px,3.7vw,66px);height:clamp(38px,2.8vw,50px);
+  object-fit:contain;
 }
 #appShell > .kardex-header-clean .header-row h1{
-  border-left:1px solid #c6d3e2;padding-left:18px;
-  font-size:clamp(15px,1.2vw,22px);line-height:1.3;
-  font-weight:750;letter-spacing:-.018em;color:#12324d;
-  margin:0;min-width:0;overflow-wrap:break-word;
+  border-left:1px solid #aebdcc;padding-left:clamp(12px,1.2vw,22px);
+  font-size:clamp(14px,1.19vw,21px);line-height:1.23;
+  font-weight:700;letter-spacing:-.02em;color:#12324d;
+  margin:0;min-width:0;overflow-wrap:normal;
 }
+#appShell > .kardex-header-clean .header-row h1 .kardex-header-site{display:block;}
 #appShell > .kardex-header-clean > .connection-row{
-  display:flex;align-items:center;justify-content:flex-end;gap:12px;
-  margin:0;flex:0 1 auto;flex-wrap:wrap;min-width:0;
+  display:flex;align-items:center;justify-content:flex-end;
+  gap:var(--header-gap);margin:0;flex-wrap:nowrap;min-width:0;
 }
 #appShell > .kardex-header-clean .kardex-header-status{
-  display:flex;align-items:center;gap:9px;min-width:0;
-  padding:2px 16px;border-left:1px solid #d5dfeb;border-right:1px solid #d5dfeb;
+  display:flex;align-items:center;gap:clamp(8px,.8vw,14px);min-width:0;
+  padding:0 clamp(12px,1.75vw,31px);
+  border-left:1px solid #e2e8f0;border-right:1px solid #aebdcc;
+  margin-right:clamp(0px,.55vw,10px);
 }
 #appShell > .kardex-header-clean .kardex-header-status .connection-dot{
-  width:9px;height:9px;flex:0 0 9px;
+  width:clamp(9px,.76vw,13px);height:clamp(9px,.76vw,13px);
+  flex:none;
 }
+#appShell > .kardex-header-clean .kardex-header-status .connection-dot.online{background:#0cab30;}
 #appShell > .kardex-header-clean #connectionStatus{
-  display:block;max-width:156px;white-space:normal;
-  overflow-wrap:anywhere;line-height:1.4;font-size:12px;font-weight:600;color:#314c67;
+  display:block;width:clamp(110px,7.3vw,132px);white-space:normal;
+  overflow-wrap:anywhere;line-height:1.3;
+  font-size:clamp(11px,.83vw,15px);font-weight:700;color:#12324d;
 }
-#appShell > .kardex-header-clean .connection-row #btnTopAdminRequests{
-  min-height:38px;border-radius:9px;padding:8px 12px;font-size:12px;gap:8px;
-}
+#appShell > .kardex-header-clean #connectionStatus .kardex-status-primary,
+#appShell > .kardex-header-clean #connectionStatus .kardex-status-secondary{display:block;}
+#appShell > .kardex-header-clean #connectionStatus .kardex-status-secondary{color:#64748b;font-weight:400;}
+#appShell > .kardex-header-clean .connection-row #btnTopAdminRequests,
 #appShell > .kardex-header-clean button#btnRefreshNewCargos.secondary,
 #appShell > .kardex-header-clean button#btnSignOut.secondary{
-  min-height:38px;border-radius:9px;padding:8px 12px;font-size:12px;
-  white-space:nowrap;
+  display:inline-flex;align-items:center;justify-content:center;
+  min-height:var(--header-button-height);height:var(--header-button-height);
+  border-radius:10px;padding:0 clamp(10px,.94vw,17px);
+  font-size:clamp(11px,.79vw,14px);font-weight:700;line-height:1;
+  white-space:nowrap;flex:none;gap:clamp(6px,.5vw,9px);
+}
+#appShell > .kardex-header-clean .connection-row #btnTopAdminRequests[data-status="empty"]{
+  background:#c51f30;border-color:#c51f30;
+}
+#appShell > .kardex-header-clean .connection-row .admin-requests-top-count{
+  min-width:clamp(23px,1.6vw,29px);height:clamp(23px,1.6vw,29px);
+  font-size:clamp(11px,.78vw,14px);
+}
+#appShell > .kardex-header-clean button#btnRefreshNewCargos.secondary{
+  color:#145483;background:#eaf4fd;border-color:#b4d8f6;
 }
 #appShell > .kardex-header-clean button#btnSignOut.secondary{
   background:#c51f30;border-color:#c51f30;
@@ -1269,8 +1297,8 @@
 }
 #appShell > .kardex-header-clean #btnTopAdminRequests::before,
 #appShell > .kardex-header-clean #btnSignOut::before{
-  content:"";display:inline-block;flex:none;width:17px;height:17px;
-  vertical-align:middle;background:currentColor;
+  content:"";display:inline-block;flex:none;width:clamp(15px,1.05vw,19px);height:clamp(15px,1.05vw,19px);
+  background:currentColor;
   -webkit-mask:var(--header-action-icon) center/contain no-repeat;
   mask:var(--header-action-icon) center/contain no-repeat;
 }
@@ -1280,37 +1308,34 @@
 #appShell > .kardex-header-clean #btnSignOut{
   --header-action-icon:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M10 17l5-5-5-5M15 12H3M15 3h5a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1h-5'/%3E%3C/svg%3E");
 }
-#appShell > .kardex-header-clean #btnSignOut::before{margin-right:6px;}
 #appShell > .kardex-header-clean > .session-profile{
-  flex:0 1 auto;display:flex;align-items:center;gap:9px;
-  border-left:1px solid #d5dfeb;padding-left:16px;
-  margin:0;min-width:0;max-width:210px;
+  display:flex;align-items:center;gap:clamp(8px,.7vw,13px);
+  padding-left:clamp(7px,.6vw,11px);margin:0;
+  min-width:0;max-width:clamp(110px,10vw,180px);
 }
-#appShell > .kardex-header-clean > .session-profile svg{width:28px;height:28px;}
+#appShell > .kardex-header-clean > .session-profile svg{
+  width:clamp(23px,1.7vw,30px);height:clamp(23px,1.7vw,30px);
+}
 #appShell > .kardex-header-clean > .session-profile .session-profile-email{
-  font-size:12px;line-height:1.3;color:#12324d;
+  font-size:clamp(11px,.79vw,14px);font-weight:700;line-height:1.3;color:#12324d;
 }
 #appShell > .kardex-header-clean [hidden]{display:none!important;}
-@media(max-width:1350px){
-  #appShell > .kardex-header-clean{gap:14px;padding:15px 16px;}
-  #appShell > .kardex-header-clean > .header-row{flex-basis:290px;}
-  #appShell > .kardex-header-clean > .connection-row{gap:8px;}
-  #appShell > .kardex-header-clean .kardex-header-status{padding:2px 10px;}
-}
-@media(max-width:1080px){
-  #appShell > .kardex-header-clean > .header-row{flex:1 1 100%;}
-  #appShell > .kardex-header-clean > .connection-row{flex:1 1 auto;justify-content:flex-start;}
+@media(max-width:1100px){
+  #appShell > .kardex-header-clean{
+    grid-template-columns:minmax(0,1fr) max-content;
+    width:100%;left:auto;transform:none;row-gap:14px;
+  }
+  #appShell > .kardex-header-clean > .header-row{grid-column:1/-1;}
+  #appShell > .kardex-header-clean > .connection-row{justify-content:flex-start;flex-wrap:wrap;}
   #appShell > .kardex-header-clean .kardex-header-status{border-left:0;padding-left:0;}
 }
 @media(max-width:650px){
-  #appShell > .kardex-header-clean{padding:13px;gap:12px;}
-  #appShell > .kardex-header-clean > .header-row{gap:12px;}
-  #appShell > .kardex-header-clean .header-row > .header-logo{width:48px;height:40px;flex-basis:48px;}
-  #appShell > .kardex-header-clean .header-row h1{padding-left:12px;font-size:15px;}
-  #appShell > .kardex-header-clean > .connection-row{flex:1 1 100%;gap:8px;justify-content:flex-start;}
-  #appShell > .kardex-header-clean .kardex-header-status{flex:1 1 100%;border-right:0;padding:0;}
-  #appShell > .kardex-header-clean #connectionStatus{max-width:none;}
-  #appShell > .kardex-header-clean > .session-profile{border-left:0;padding-left:0;max-width:100%;}
+  #appShell > .kardex-header-clean{grid-template-columns:minmax(0,1fr);padding:13px;gap:12px;}
+  #appShell > .kardex-header-clean .header-row h1{font-size:15px;}
+  #appShell > .kardex-header-clean > .connection-row{flex-wrap:wrap;gap:8px;}
+  #appShell > .kardex-header-clean .kardex-header-status{flex:1 1 100%;border:0;padding:0;}
+  #appShell > .kardex-header-clean #connectionStatus{width:auto;}
+  #appShell > .kardex-header-clean > .session-profile{padding:0;max-width:100%;}
 }
 </style>
 </head>
@@ -1337,7 +1362,7 @@
   <div class="kardex-header-clean">
   <div class="header-row">
     <img src="/farmacias-heart.svg" alt="Farmacias Peruanas" class="header-logo" width="62" height="49">
-    <h1>Kardex Digital — Control de Existencias Documentos Contables (CD Santa Anita)</h1>
+    <h1>Kardex Digital — Control de Existencias Documentos Contables <span class="kardex-header-site">(CD Santa Anita)</span></h1>
   </div>
   <div class="connection-row" aria-live="polite">
     <div class="kardex-header-status">
