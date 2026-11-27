@@ -74,3 +74,26 @@ test('dos años por caja y asociación exacta en existencias',async()=>{
     assert.equal(bound({id:'doc-other',cargos:['0350'],anioOrigen:2025}).acondicionamiento,undefined);
   }finally{controller.reset();dom.window.close();delete globalThis.document;}
 });
+
+test('preview conserva la cabecera y pestañas reales del aplicativo',async()=>{
+  const html=await readFile(new URL('../index.html',import.meta.url),'utf8');
+  const script=await readFile(new URL('../src/conditioning-preview.js',import.meta.url),'utf8');
+  const dom=new JSDOM(html);
+  globalThis.document=dom.window.document;
+  let workspace;
+  try{
+    const runnable=script.replace(/^import .*;$/gm,'');
+    workspace=new Function('document','attachConditioningWorkspace',runnable+'\nreturn workspace;')(document,attachConditioningWorkspace);
+    const shell=document.getElementById('appShell');
+    assert.equal(shell.hidden,false);
+    assert.equal(shell.inert,false);
+    assert.equal(document.getElementById('sessionLoading').hidden,true);
+    assert.equal(document.getElementById('grp-acondicionamiento').parentElement,shell);
+    assert.equal(document.getElementById('workspaceTabAcondicionamiento').getAttribute('aria-selected'),'true');
+    assert.equal(document.getElementById('grp-cajas').hidden,true);
+    assert.equal(document.getElementById('googleSyncPanel').hidden,false);
+    assert.ok(document.querySelector('#appShell .kardex-header-clean .header-logo'));
+    assert.ok(document.querySelector('#grp-acondicionamiento #acondYears'));
+    assert.ok(document.querySelector('#grp-acondicionamiento #acondCargoFields select'));
+  }finally{workspace?.reset();dom.window.close();delete globalThis.document;}
+});

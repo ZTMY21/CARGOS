@@ -3,18 +3,33 @@ import {attachConditioningWorkspace} from './conditioning-workspace.js';
 
 // Preview aislada: nunca inicializa Supabase ni hace solicitudes a Drive.
 const group=document.getElementById('grp-acondicionamiento');
-const controls=document.getElementById('grp-cajas');
-const icons=[...document.querySelectorAll('svg')].find(el=>el.querySelector('#iv-box'));
-const stage=document.createElement('main');
-stage.className='wrap';
+const shell=document.getElementById('appShell');
+document.getElementById('sessionLoading').hidden=true;
+shell.hidden=false;
+shell.inert=false;
+document.getElementById('connectionDot').className='connection-dot online';
+document.getElementById('connectionStatus').textContent='Vista previa · datos de ejemplo';
+document.getElementById('sessionProfile').hidden=false;
+document.getElementById('sessionUser').textContent='Vista previa';
+const tabs=document.getElementById('workspaceTabs');
+const tab=document.getElementById('workspaceTabAcondicionamiento');
+document.getElementById('googleSyncPanel').hidden=false;
+document.getElementById('googleSyncPanel').classList.add('workspace-tabs-only');
+document.getElementById('googleSyncContent').hidden=true;
+for(const button of tabs.querySelectorAll('[data-workspace]')){
+  const active=button===tab;
+  button.setAttribute('aria-selected',String(active));
+  button.tabIndex=active?0:-1;
+  if(!active)button.addEventListener('click',()=>banner.textContent=
+    'Esta vista previa muestra únicamente Acondicionamiento con datos de ejemplo.');
+}
+document.getElementById('resumenHeaderShell').hidden=true;
+for(const section of shell.querySelectorAll('details.group'))section.hidden=section!==group;
+group.hidden=false;group.open=true;
 const banner=document.createElement('p');
 banner.className='notice';
 banner.textContent='Vista previa de Acondicionamiento · datos ficticios. No registra cargos ni modifica Excel o Supabase.';
-stage.append(banner,group);
-controls.hidden=true;
-document.body.replaceChildren(...(icons?[icons]:[]),stage,controls);
-document.body.className='';
-group.hidden=false;group.open=true;
+group.before(banner);
 
 const cargos=new Map([
   ['2024:350',{codigo:'0350',historico:true}],
