@@ -20,7 +20,8 @@ export default defineConfig(({ mode }) => {
     if (payload.role !== 'anon') throw new Error('La clave service_role nunca puede publicarse.');
   }
   const pickupPreview = process.env.VERCEL_GIT_COMMIT_REF === 'preview/avisos-recojo-iron-mountain';
-  if (mode === 'production' && !pickupPreview && (!url || !key)) {
+  const acondReviewPreview = process.env.VERCEL_GIT_COMMIT_REF === 'feat/acondicionamiento-historicos-dos-anios';
+  if (mode === 'production' && !pickupPreview && !acondReviewPreview && (!url || !key)) {
     throw new Error('Faltan SUPABASE_URL y SUPABASE_ANON_KEY.');
   }
   const receptionLive=process.env.VERCEL_ENV==='production' && url==='https://uhjwhamzjxhjqlrhgxho.supabase.co' &&
@@ -41,6 +42,7 @@ export default defineConfig(({ mode }) => {
     }] : [],
     define: {
       __PICKUP_PREVIEW__: JSON.stringify(pickupPreview),
+      __ACOND_REVIEW_PREVIEW__: JSON.stringify(acondReviewPreview),
       __PICKUP_LIVE__: JSON.stringify(receptionLive && env.KARDEX_PICKUP_WORKFLOW_ENABLED==='true'),
       __SUPABASE_URL__: JSON.stringify(url),
       __SUPABASE_ANON_KEY__: JSON.stringify(key),
