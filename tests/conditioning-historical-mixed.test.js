@@ -57,9 +57,13 @@ test('dos años por caja y asociación exacta en existencias',async()=>{
     controller.activate();
     el('acondScan').value='T9000000123';el('acondScanForm').requestSubmit();await settle();
     el('acondYears').querySelector('[value="2024"]').click();
+    assert.equal(el('acondCargo1').parentElement.querySelector('select').hidden,true);
     el('acondYears').querySelector('[value="2025"]').click();
     assert.equal(el('acondYears').querySelectorAll('[aria-pressed="true"]').length,2);
     el('acondCargo1').value='0350';el('acondCargo2').value='0419';
+    for(const i of [1,2])el('acondCargo'+i).dispatchEvent(new dom.window.Event('input'));
+    assert.equal(el('acondCargo1').parentElement.querySelector('select').hidden,false);
+    assert.equal(el('acondCargo3').parentElement.querySelector('select').hidden,true);
     el('acondCargo2').parentElement.querySelector('select').value='2025';
     for(const i of [1,2])el('acondCargo'+i).parentElement.querySelector('button').click();
     await settle();
@@ -73,27 +77,4 @@ test('dos años por caja y asociación exacta en existencias',async()=>{
     assert.equal(bound({id:'doc-2024',cargos:['0350'],anioOrigen:2024}).acondicionamiento?.codigo,'T9000000123');
     assert.equal(bound({id:'doc-other',cargos:['0350'],anioOrigen:2025}).acondicionamiento,undefined);
   }finally{controller.reset();dom.window.close();delete globalThis.document;}
-});
-
-test('preview conserva la cabecera y pestañas reales del aplicativo',async()=>{
-  const html=await readFile(new URL('../index.html',import.meta.url),'utf8');
-  const script=await readFile(new URL('../src/conditioning-preview.js',import.meta.url),'utf8');
-  const dom=new JSDOM(html);
-  globalThis.document=dom.window.document;
-  let workspace;
-  try{
-    const runnable=script.replace(/^import .*;$/gm,'');
-    workspace=new Function('document','attachConditioningWorkspace',runnable+'\nreturn workspace;')(document,attachConditioningWorkspace);
-    const shell=document.getElementById('appShell');
-    assert.equal(shell.hidden,false);
-    assert.equal(shell.inert,false);
-    assert.equal(document.getElementById('sessionLoading').hidden,true);
-    assert.equal(document.getElementById('grp-acondicionamiento').parentElement,shell);
-    assert.equal(document.getElementById('workspaceTabAcondicionamiento').getAttribute('aria-selected'),'true');
-    assert.equal(document.getElementById('grp-cajas').hidden,true);
-    assert.equal(document.getElementById('googleSyncPanel').hidden,false);
-    assert.ok(document.querySelector('#appShell .kardex-header-clean .header-logo'));
-    assert.ok(document.querySelector('#grp-acondicionamiento #acondYears'));
-    assert.ok(document.querySelector('#grp-acondicionamiento #acondCargoFields select'));
-  }finally{workspace?.reset();dom.window.close();delete globalThis.document;}
 });

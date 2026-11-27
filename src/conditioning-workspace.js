@@ -128,6 +128,13 @@ export function attachConditioningWorkspace({repository,live=false,onChanged=()=
     fields.forEach((_,i)=>{cargoVersions[i]++;mark(i);});
     updateButtons();
   }
+  function renderRowYears(){
+    for(const field of fields){
+      const visible=years.length===2&&Boolean(field.input.value.trim());
+      field.year.hidden=!visible;
+      field.input.parentElement.dataset.yearChoice=String(visible);
+    }
+  }
   function renderYears(){
     for(const button of yearButtons)button.setAttribute('aria-pressed',String(years.includes(Number(button.value))));
     for(const field of fields){
@@ -137,6 +144,7 @@ export function attachConditioningWorkspace({repository,live=false,onChanged=()=
       }));
       field.year.value=String(years.includes(before)?before:years[0]);
     }
+    renderRowYears();
   }
   function chooseYear(next){
     if(years.includes(next)){
@@ -157,11 +165,13 @@ export function attachConditioningWorkspace({repository,live=false,onChanged=()=
     selected=record;
     validations=Array(3).fill(null);
     verified.checked=false;
-    if(record?.anios?.length===1){years=[record.anios[0]];yearTouched=false;renderYears();}
+    if(record?.anios?.length>=1){years=record.anios.slice(0,2);yearTouched=false;renderYears();}
     fields.forEach(({input},i)=>{
       input.value=record?.cargos?.[i]||'';
+      if(years.includes(record?.cargo_anios?.[i]))fields[i].year.value=String(record.cargo_anios[i]);
       mark(i,input.value?'disponible':'');
     });
+    renderRowYears();
     const extra=el('acondExtraCargos');
     extra.hidden=!(record?.cargos?.length>3);
     extra.textContent=extra.hidden?'':'Cargos adicionales: '+record.cargos.slice(3).join('-');
@@ -269,7 +279,7 @@ export function attachConditioningWorkspace({repository,live=false,onChanged=()=
   }
   for(const button of yearButtons)button.addEventListener('click',()=>chooseYear(Number(button.value)));
   fields.forEach(({input,year,button},i)=>{
-    input.addEventListener('input',()=>{cargoVersions[i]++;validations[i]=null;mark(i);updateButtons();});
+    input.addEventListener('input',()=>{cargoVersions[i]++;validations[i]=null;mark(i);renderRowYears();updateButtons();});
     year.addEventListener('change',()=>{cargoVersions[i]++;validations[i]=null;mark(i);updateButtons();});
     input.addEventListener('blur',()=>{if(mobileMode&&step==='detail'&&!validations[i])void validate(i);});
     input.addEventListener('keydown',event=>{if(event.key==='Enter'){event.preventDefault();void validate(i);}});
