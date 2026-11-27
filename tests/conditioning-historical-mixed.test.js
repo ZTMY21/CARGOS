@@ -9,9 +9,9 @@ import {inventoryConditioning} from '../src/conditioning-inventory.js';
 test('histórico físico disponible; envío y otra caja bloqueados por documento',async()=>{
   const db=new PGlite();
   try{
-    await db.exec("create schema private; create table documentos(id uuid default gen_random_uuid(),cargos text[],ubicacion text,caja_asignada uuid,f_envio date,sustento text,sustento_imagen text,fecha_origen date,anio_origen int,periodo date); create table private.acond_movimientos(origen text,clave text,solicitud uuid,anios int[],cargos text[],documentos_ids uuid[]); create table private.kardex_im_historical_audit(documento_id uuid,revoked_at timestamptz,decision text); create table private.im_envios_confirmados(documento_id uuid); create table private.im_cajas_preparadas(documento_id uuid); create table im_envios_cargos(codigo_cargo text); create table im_envios_cargos_live(codigo_cargo text,fecha_envio date,fecha_preparacion date); create function private.req4_cargo(v text) returns text language sql immutable as 'select ltrim(upper(trim(v)),''0'')';");
+    await db.exec("create schema private; create table documentos(id uuid default gen_random_uuid(),cargos text[],ubicacion text,caja_asignada uuid,f_envio date,sustento text,sustento_imagen text,fecha_origen date,anio_origen int,periodo date); create table private.acond_movimientos(origen text,clave text,solicitud uuid,anios int[],cargos text[],documentos_ids uuid[]); create table private.kardex_im_historical_audit(documento_id uuid,revoked_at timestamptz,decision text); create table private.im_envios_confirmados(documento_id uuid); create table private.im_cajas_preparadas(documento_id uuid); create table im_envios_cargos(codigo_cargo text); create table im_envios_cargos_live(codigo_cargo text,codigo_caja text,fecha_envio date,fecha_preparacion date); create function private.req4_cargo(v text) returns text language sql immutable as 'select ltrim(upper(trim(v)),''0'')';");
     const base=await readFile(new URL('../supabase/migrations/20261108090000_acondicionamiento_integral.sql',import.meta.url),'utf8');
-    await db.exec(base.slice(base.indexOf('create function private.acond_cargo_clave('),base.indexOf('create view private.acond_cajas')));
+    await db.exec(base.slice(base.indexOf('create function private.acond_clave('),base.indexOf('create view private.acond_cajas')));
     const migration=await readFile(new URL('../supabase/migrations/20261127010000_acond_historicos_dos_anios.sql',import.meta.url),'utf8');
     await db.exec(migration.slice(migration.indexOf('create or replace function private.acond_cargo('),migration.indexOf('create or replace function private.acond_operacion(')));
     await db.exec(migration.slice(migration.indexOf('create or replace function private.acond_operacion('),migration.indexOf('create or replace view public.kardex_documentos_resumen')));
@@ -27,9 +27,13 @@ test('histórico físico disponible; envío y otra caja bloqueados por documento
     await db.query('update documentos set caja_asignada=gen_random_uuid() where id=$1',[docs[0].id]);
     assert.equal((await lookup('350',2024)).status,'no_disponible');
     await db.query('update documentos set caja_asignada=null where id=$1',[docs[0].id]);
-    await db.query("insert into private.acond_movimientos values ('nueva','123',gen_random_uuid(),'{2024}','{0350}',array[$1::uuid])",[docs[0].id]);
+    await db.query("insert into private.acond_movimientos values ('nueva','9000000123',gen_random_uuid(),'{2024}','{0350}',array[$1::uuid])",[docs[0].id]);
     assert.equal((await lookup('350',2024)).status,'no_disponible');
     assert.equal((await lookup('350',2025)).status,'disponible');
+    await db.exec("insert into im_envios_cargos_live values ('350','T9000000123','2026-11-20','2026-11-19')");
+    assert.equal((await lookup('350',2025)).status,'disponible');
+    await db.exec("update im_envios_cargos_live set codigo_caja='T9000000999'");
+    assert.equal((await lookup('350',2025)).status,'no_disponible');
   }finally{await db.close();}
 });
 

@@ -22,7 +22,13 @@ returns jsonb language sql stable set search_path='' as $$
         where private.acond_cargo_clave(h.codigo_cargo)=private.acond_cargo_clave(c.cargo))
       and not exists (select 1 from public.im_envios_cargos_live l
         where private.acond_cargo_clave(l.codigo_cargo)=private.acond_cargo_clave(c.cargo)
-          and (l.fecha_envio is not null or l.fecha_preparacion is not null)) disponible
+          and (l.fecha_envio is not null or l.fecha_preparacion is not null)
+          -- Una línea del Maestro vinculada a OTRO documento/año no ocupa este cargo.
+          and not exists(select 1 from private.acond_movimientos am
+            where am.origen='nueva' and am.documentos_ids is not null
+              and am.clave=private.acond_clave(l.codigo_caja)
+              and private.acond_cargo_clave(l.codigo_cargo)=any(private.acond_cargos_claves(am.cargos))
+              and not d.id=any(am.documentos_ids))) disponible
     from public.documentos d cross join lateral unnest(d.cargos) c(cargo)
     where coalesce(extract(year from d.fecha_origen)::int,d.anio_origen,extract(year from d.periodo)::int)=p_anio
       and private.acond_cargo_clave(c.cargo)=private.acond_cargo_clave(p_cargo)

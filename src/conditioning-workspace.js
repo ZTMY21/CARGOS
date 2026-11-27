@@ -366,18 +366,24 @@ export function attachConditioningWorkspace({repository,live=false,onChanged=()=
       await Promise.all(filled.map(i=>validate(i,true)));
       validatingFinal=false;
       if(!active||step!=='detail'||selected!==box){updateButtons();return;}
-      const seen=new Set();
+      const seen=new Map();
+      let repeatedAcrossYears=false;
       const invalid=filled.filter(i=>{
         const result=validations[i];
         if(result?.status!=='disponible')return true;
         const code=String(result.codigo||result.value).trim().toLowerCase().replace(/^cargo[\s-]+|\.0+$/g,'')
           .replace(/[^a-z0-9]/g,'').replace(/^0+(?=\d)/,'');
-        if(seen.has(code)){mark(i,'duplicado');return true;}
-        seen.add(code);
+        if(seen.has(code)){
+          repeatedAcrossYears ||= seen.get(code)!==result.year;
+          mark(i,'duplicado');return true;
+        }
+        seen.set(code,result.year);
         return false;
       });
       if(invalid.length){
-        message('Revisa '+(invalid.length===1?'la fila ':'las filas ')+invalid.map(i=>i+1).join(', ')+' antes de continuar.');
+        message(repeatedAcrossYears
+          ? 'El Maestro no admite el mismo número de cargo dos veces en una caja, aunque pertenezca a años diferentes.'
+          : 'Revisa '+(invalid.length===1?'la fila ':'las filas ')+invalid.map(i=>i+1).join(', ')+' antes de continuar.');
         updateButtons();
         return;
       }
