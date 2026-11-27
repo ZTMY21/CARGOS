@@ -37,11 +37,11 @@ export function attachConditioningWorkspace({repository,live=false,onChanged=()=
   let selectedRequestId=null;
   const scan=el('acondScan'),save=el('acondSave'),verified=el('acondVerified'),yearButtons=[...el('acondYears').children];
   const fields=[...el('acondCargoFields').children].map(row=>({
-    input:row.querySelector('input'),button:row.querySelector('button'),feedback:row.querySelector('span')
+    input:row.querySelector('input'),year:row.querySelector('select'),button:row.querySelector('button'),feedback:row.querySelector('span')
   }));
   const workspace=scan.closest('.acond-workspace');
   const laptop=el('acondLaptop'),mobile=el('acondMobile'),scanForm=el('acondScanForm');
-  let selected=null,year=2026,active=false,busy=false,lookupVersion=0,listVersion=0,timer;
+  let selected=null,years=[2026],yearTouched=false,active=false,busy=false,lookupVersion=0,listVersion=0,timer;
   let mobileMode=false,step='start',camera,validatingFinal=false;
   const cargoVersions=fields.map(()=>0);
   let validations=Array(3).fill(null);
@@ -112,7 +112,7 @@ export function attachConditioningWorkspace({repository,live=false,onChanged=()=
     }
     const filled=fields.map(({input},i)=>[input.value.trim(),validations[i]]).filter(([value])=>value);
     const locked=busy||(mobileMode&&(step==='confirm'||validatingFinal));
-    for(const {input,button} of fields){input.readOnly=!editing||locked;button.disabled=!editing||locked;}
+    for(const {input,year,button} of fields){input.readOnly=!editing||locked;year.disabled=!editing||locked;button.disabled=!editing||locked;}
     for(const button of yearButtons)button.disabled=locked||(mobileMode&&selected?.origen==='solicitada');
     verified.disabled=locked;
     laptop.disabled=mobile.disabled=busy||validatingFinal;
@@ -123,19 +123,55 @@ export function attachConditioningWorkspace({repository,live=false,onChanged=()=
     save.disabled=busy||!(checking?verified.checked:editing&&filled.length>0&&
       filled.every(([value,result])=>result?.value===value&&result.status==='disponible'));
   }
+  function invalidateCargos(){
+    validations.fill(null);
+    fields.forEach((_,i)=>{cargoVersions[i]++;mark(i);});
+    updateButtons();
+  }
+  function renderRowYears(){
+    for(const field of fields){
+      const visible=years.length===2&&Boolean(field.input.value.trim());
+      field.year.hidden=!visible;
+      field.input.parentElement.dataset.yearChoice=String(visible);
+    }
+  }
+  function renderYears(){
+    for(const button of yearButtons)button.setAttribute('aria-pressed',String(years.includes(Number(button.value))));
+    for(const field of fields){
+      const before=Number(field.year.value);
+      field.year.replaceChildren(...years.map(y=>{
+        const option=document.createElement('option');option.value=String(y);option.textContent=String(y);return option;
+      }));
+      field.year.value=String(years.includes(before)?before:years[0]);
+    }
+    renderRowYears();
+  }
   function chooseYear(next){
-    year=next;
-    for(const button of yearButtons)button.setAttribute('aria-pressed',String(Number(button.value)===year));
+    if(years.includes(next)){
+      if(years.length===1)return;
+      years=years.filter(y=>y!==next);
+    }else if(!yearTouched){
+      years=[next];
+    }else if(years.length<2){
+      years=[...years,next];
+    }else{
+      message('Selecciona como máximo dos años. Desmarca uno para cambiarlo.');
+      return;
+    }
+    yearTouched=true;
+    renderYears();invalidateCargos();
   }
   function select(record){
     selected=record;
     validations=Array(3).fill(null);
     verified.checked=false;
-    if(record?.anios?.length===1)chooseYear(record.anios[0]);
+    if(record?.anios?.length>=1){years=record.anios.slice(0,2);yearTouched=false;renderYears();}
     fields.forEach(({input},i)=>{
       input.value=record?.cargos?.[i]||'';
+      if(years.includes(record?.cargo_anios?.[i]))fields[i].year.value=String(record.cargo_anios[i]);
       mark(i,input.value?'disponible':'');
     });
+    renderRowYears();
     const extra=el('acondExtraCargos');
     extra.hidden=!(record?.cargos?.length>3);
     extra.textContent=extra.hidden?'':'Cargos adicionales: '+record.cargos.slice(3).join('-');
@@ -226,32 +262,25 @@ export function attachConditioningWorkspace({repository,live=false,onChanged=()=
     return false;
   }
   async function validate(index,final=false){
-    const field=fields[index],value=field.input.value.trim(),box=selected,currentYear=year;
+    const field=fields[index],value=field.input.value.trim(),box=selected,currentYear=Number(field.year.value);
     if(!value||!box||(!final&&field.input.readOnly))return;
     const version=++cargoVersions[index];
     validations[index]=null;
     field.feedback.textContent='Validando…';
     updateButtons();
-    const current=()=>version===cargoVersions[index]&&box===selected&&year===currentYear&&field.input.value.trim()===value;
+    const current=()=>version===cargoVersions[index]&&box===selected&&Number(field.year.value)===currentYear&&field.input.value.trim()===value;
     try{
       const result=await call('cargo',{p_codigo:box.codigo,p_anio:currentYear,p_cargos:[value]});
       if(!current())return;
-      validations[index]={value,...result};
+      validations[index]={value,year:currentYear,...result};
       mark(index,result.status);
       updateButtons();
     }catch{if(current())field.feedback.textContent='No se pudo validar. Reintenta.';}
   }
-  for(const button of yearButtons)button.addEventListener('click',()=>{
-    chooseYear(Number(button.value));
-    if(selected?.origen==='nueva'&&selected.status==='disponible'){
-      validations.fill(null);
-      fields.forEach((_,i)=>cargoVersions[i]++);
-      fields.forEach((_,i)=>mark(i));
-      updateButtons();
-    }
-  });
-  fields.forEach(({input,button},i)=>{
-    input.addEventListener('input',()=>{cargoVersions[i]++;validations[i]=null;mark(i);updateButtons();});
+  for(const button of yearButtons)button.addEventListener('click',()=>chooseYear(Number(button.value)));
+  fields.forEach(({input,year,button},i)=>{
+    input.addEventListener('input',()=>{cargoVersions[i]++;validations[i]=null;mark(i);renderRowYears();updateButtons();});
+    year.addEventListener('change',()=>{cargoVersions[i]++;validations[i]=null;mark(i);updateButtons();});
     input.addEventListener('blur',()=>{if(mobileMode&&step==='detail'&&!validations[i])void validate(i);});
     input.addEventListener('keydown',event=>{if(event.key==='Enter'){event.preventDefault();void validate(i);}});
     button.addEventListener('click',()=>void validate(i));
@@ -347,18 +376,24 @@ export function attachConditioningWorkspace({repository,live=false,onChanged=()=
       await Promise.all(filled.map(i=>validate(i,true)));
       validatingFinal=false;
       if(!active||step!=='detail'||selected!==box){updateButtons();return;}
-      const seen=new Set();
+      const seen=new Map();
+      let repeatedAcrossYears=false;
       const invalid=filled.filter(i=>{
         const result=validations[i];
         if(result?.status!=='disponible')return true;
         const code=String(result.codigo||result.value).trim().toLowerCase().replace(/^cargo[\s-]+|\.0+$/g,'')
           .replace(/[^a-z0-9]/g,'').replace(/^0+(?=\d)/,'');
-        if(seen.has(code)){mark(i,'duplicado');return true;}
-        seen.add(code);
+        if(seen.has(code)){
+          repeatedAcrossYears ||= seen.get(code)!==result.year;
+          mark(i,'duplicado');return true;
+        }
+        seen.set(code,result.year);
         return false;
       });
       if(invalid.length){
-        message('Revisa '+(invalid.length===1?'la fila ':'las filas ')+invalid.map(i=>i+1).join(', ')+' antes de continuar.');
+        message(repeatedAcrossYears
+          ? 'El Maestro no admite el mismo número de cargo dos veces en una caja, aunque pertenezca a años diferentes.'
+          : 'Revisa '+(invalid.length===1?'la fila ':'las filas ')+invalid.map(i=>i+1).join(', ')+' antes de continuar.');
         updateButtons();
         return;
       }
@@ -383,8 +418,10 @@ export function attachConditioningWorkspace({repository,live=false,onChanged=()=
     busy=true;updateButtons();message('Registrando preparación…');
     const box=selected;
     try{
-      const record=await call('preparar',{p_codigo:box.codigo,p_anio:year,
-        p_cargos:fields.map(f=>f.input.value.trim()).filter(Boolean),p_datos:{verificada:verified.checked}});
+      const filled=fields.filter(f=>f.input.value.trim());
+      const record=await call('preparar',{p_codigo:box.codigo,p_anio:Number(filled[0]?.year.value||years[0]),
+        p_cargos:filled.map(f=>f.input.value.trim()),
+        p_datos:{verificada:verified.checked,anios_cargos:filled.map(f=>Number(f.year.value))}});
       if(selected!==box)return;
       if(mobileMode){
         el('acondDoneText').textContent='La caja '+record.codigo+' ha sido registrada correctamente.';
@@ -457,7 +494,7 @@ export function attachConditioningWorkspace({repository,live=false,onChanged=()=
       }catch{controlMessage('No se pudo descargar el archivo de Excel.');}
     });
   }
-  chooseYear(year);select(null);showStep();
+  renderYears();select(null);showStep();
   return {
     activate(){active=true;void refresh();clearInterval(timer);timer=setInterval(refresh,5000);if(!mobileMode)scan.focus();},
     deactivate(){active=false;lookupVersion++;clearInterval(timer);if(camera||(mobileMode&&step==='read'&&!selected))restart();},
