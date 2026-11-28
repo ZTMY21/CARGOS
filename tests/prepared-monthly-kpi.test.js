@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {limaDay,summarizeConditionedBoxes,mergeConditionedHistory,timeline,groupedChartSvg} from '../src/prepared-monthly-kpi.js';
+import {limaDay,formatConditionedMonth,summarizeConditionedBoxes,mergeConditionedHistory,timeline,groupedChartSvg} from '../src/prepared-monthly-kpi.js';
 
 const today=new Date('2026-11-09T20:00:00-05:00');
 test('solo cuenta cajas preparadas del mes sin fecha de envío',()=>{
@@ -29,6 +29,13 @@ test('una caja solicitada nuevamente tiene ciclo de preparación separado',()=>{
 });
 test('usa el calendario de Lima y no el UTC para el día',()=>{
   assert.equal(limaDay(new Date('2026-11-10T02:00:00Z')),'2026-11-09');
+});
+test('la etiqueta del mes no retrocede a octubre al mostrar noviembre en Lima',()=>{
+  assert.equal(formatConditionedMonth('2026-11'),'noviembre de 2026');
+  assert.equal(formatConditionedMonth('2026-12'),'diciembre de 2026');
+  const rows=[{codigo:'T123',origen:'nueva',preparada:'2026-11-26'}];
+  assert.equal(summarizeConditionedBoxes(rows,new Date('2026-11-27T12:00:00-05:00')).mesPreparadas,1);
+  assert.equal(summarizeConditionedBoxes(rows,new Date('2026-12-01T12:00:00-05:00')).mesPreparadas,0);
 });
 test('completa 2026 desde el Maestro sin duplicar cajas del módulo',()=>{
   const primary=[{codigo:'TD000123',origen:'nueva',preparada:'2026-11-09',enviada:null}];
