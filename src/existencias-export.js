@@ -32,7 +32,7 @@ function driveFolioIndex(folios){
 
 export async function loadExistenciasFolios(repository,docs){
   const [source,result]=await Promise.all([
-    repository.folioDocs(docs),fetchDriveSources(repository,'?view=folios').then(response=>response.json())
+    repository.reportDocs(docs),fetchDriveSources(repository,'?view=folios').then(response=>response.json())
   ]);
   return applyExistenciasFolios(source,driveFolioIndex(result.folios));
 }
