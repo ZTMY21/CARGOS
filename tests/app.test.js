@@ -2279,7 +2279,7 @@ test('regularización histórica en Existencias para administrador e invitado',a
       await flush();
       const cells=[...a.node('tbody').querySelectorAll('tr td')].map(td=>td.textContent.trim());
       assert.ok(cells.includes('15/05/2023'), JSON.stringify(cells));
-      assert.ok(cells.includes('15/11/2023 (aprox.)'));
+      assert.ok(cells.includes('15/11/2023'));
       assert.deepEqual([...a.node('tbody').querySelectorAll('.b-historico')].map(x=>x.textContent),['Caja histórica','Histórico Iron Mountain']);
       const historicalBadge=a.node('tbody').querySelector('summary.b-historico');
       assert.deepEqual([...historicalBadge.children].map(x=>x.textContent),['Histórico','Iron Mountain']);
@@ -2287,7 +2287,7 @@ test('regularización histórica en Existencias para administrador e invitado',a
       assert.equal(historicalBadge.parentElement.open,true);
       const summary=a.node('resumenTablas');
       assert.equal(summary.querySelector('.kpi-summary-sent .pct-txt').textContent,'50%');
-      assert.deepEqual([...a.node('tbody').querySelectorAll('.historical-im-missing')].map(x=>x.textContent),['15/11/2023 (aprox.)','No identificado']);
+      assert.deepEqual([...a.node('tbody').querySelectorAll('.historical-im-missing')].map(x=>x.textContent),['15/11/2023','No identificado']);
       assert.equal(a.node('historicalApproximateHead'),null);
       assert.equal(a.node('realShipmentDateHead').textContent,'Fecha de envío');
       assert.equal([...a.node('docsTable').querySelectorAll('th')].filter(x=>x.textContent==='Fecha de envío').length,1);
@@ -2316,7 +2316,7 @@ test('Existencias muestra fecha real y fecha histórica aproximada en una sola c
     assert.ok(index>=0);
     assert.equal(headers.filter(th=>/Fecha .*envío/.test(th.textContent)).length,1);
     const rows=[...a.node('tbody').querySelectorAll('tr')];
-    assert.equal(rows.find(row=>row.textContent.includes('4300')).children[index].textContent.trim(),'15/11/2023 (aprox.)');
+    assert.equal(rows.find(row=>row.textContent.includes('4300')).children[index].textContent.trim(),'15/11/2023');
     assert.equal(rows.find(row=>row.textContent.includes('9900')).children[index].textContent.trim(),'03/11/2026');
   }finally{a.close();}
 });
@@ -2330,7 +2330,7 @@ test('la sincronización sustituye la caja y fecha históricas en una búsqueda 
     a.node('btnBuscar').click();
     await flush();
     assert.equal(a.node('historicalApproximateHead'),null);
-    assert.match(a.node('tbody').textContent,/15\/11\/2023 \(aprox\.\)/);
+    assert.match(a.node('tbody').textContent,/15\/11\/2023/);
     const notify=a.state.events.find(x=>x.filter.table==='kardex_eventos').callback;
     Object.assign(a.state.docs[0],{im_historical_decision:null,im_live_codigo_caja:'T1234567890'});
     notify();

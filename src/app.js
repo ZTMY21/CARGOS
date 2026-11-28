@@ -1362,7 +1362,7 @@ function renderDocs(){
         || d.imFechaEnvio || d.fEnvio;
       const fechaAproximada=historical ? fmtDate(shipment?.approximateDate) : '';
       const fechaEnvioCell=fechaEnvioTxt ? fmtDate(fechaEnvioTxt)
-        : fechaAproximada ? `<span class="historical-im-missing" title="Fecha aproximada de envío a Iron Mountain">${fechaAproximada} <small>(aprox.)</small></span>`
+        : fechaAproximada ? `<span class="historical-im-missing" title="Fecha aproximada de envío a Iron Mountain">${fechaAproximada}</span>`
         : historical ? 'No disponible'
         : '';
       const responsableOrigen = d.acondicionamiento?.entrega || (d.imLiveFechaEnvio && d.imLiveResponsableEntrega) ||
