@@ -70,6 +70,9 @@ async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recov
       return rows.filter(d=>year===null||cargoYear(d)===String(year))
         .map(doc=>({...doc,cantidadRegistros:state.archiveCounts[doc.id]??null}));
     }
+    async folioDocs(rows){
+      return rows.map(doc=>({...doc,cantidadRegistros:state.archiveCounts[doc.id]??null}));
+    }
     async fetchDoc(id){state.fetchedId=id;return docFromDb({...state.docs.find(d=>d.id===id),facturas:'F-001, F-002, F-003, F-004'});}
     async access(){state.loadingDuringAccess={loading:!dom.window.document.getElementById('sessionLoading').hidden,login:!dom.window.document.getElementById('authOverlay').hidden};if(accessFailures-->0)throw {code:'57014',message:'canceling statement due to statement timeout'};return {allowed,is_admin:isAdmin};}
     async preparedImDetails(){state.preparedImCalls=(state.preparedImCalls||0)+1;return structuredClone(state.preparedImRows||[]);}
@@ -117,7 +120,7 @@ async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recov
     // El modal de Gestión de cajas pertenece solo a Resumen; simulación en pruebas VM.
     attachResumenBoxDetails:()=>({open:()=>{}}),
     boxSupplyRequests,combineBoxPreparationBatches,loadBoxPreparationBatches,summarizeBoxPreparationBatch,physicalBoxKey,validDate,
-    createClient:(url,key,options)=>{state.authOptions=options?.auth;return client;},KardexRepository:FakeRepository,reqFromDb,docFromDb,reqEstado,docEstado,fmtDate,escapeHtml,invoiceSearchPresentation,buildWorkbook:async(...args)=>{state.exportCalls.push(args);return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},buildCargoWorkbook:async(cargo)=>{state.guestExport=cargo;return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},reportCargoCode,loadExistenciasFolios:async(repo,docs)=>applyExistenciasFolios(await repo.reportDocs(docs),new Map(Object.entries(state.driveFolios))),prepareExistenciasExport:async(repo)=>{const snapshot=await repo.snapshot();state.reportDocs=await repo.reportDocs(snapshot.documentos.map(docFromDb));return {workbook:{},serialize:async()=>{state.serializedReport=true;return new Uint8Array([1]);}};},parseWorkbook,highlightMatch,normalizeSearch,filterDocuments,filterRequirements,assignedBoxCode,cargoYear,invoiceLocation,locationLabel,groupsForCodes,
+    createClient:(url,key,options)=>{state.authOptions=options?.auth;return client;},KardexRepository:FakeRepository,reqFromDb,docFromDb,reqEstado,docEstado,fmtDate,escapeHtml,invoiceSearchPresentation,buildWorkbook:async(...args)=>{state.exportCalls.push(args);return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},buildCargoWorkbook:async(cargo)=>{state.guestExport=cargo;return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},reportCargoCode,loadExistenciasFolios:async(repo,docs)=>applyExistenciasFolios(await repo.folioDocs(docs),new Map(Object.entries(state.driveFolios))),prepareExistenciasExport:async(repo)=>{const snapshot=await repo.snapshot();state.reportDocs=await repo.reportDocs(snapshot.documentos.map(docFromDb));return {workbook:{},serialize:async()=>{state.serializedReport=true;return new Uint8Array([1]);}};},parseWorkbook,highlightMatch,normalizeSearch,filterDocuments,filterRequirements,assignedBoxCode,cargoYear,invoiceLocation,locationLabel,groupsForCodes,
     __SUPABASE_URL__:'https://example.supabase.co',__SUPABASE_ANON_KEY__:'sb_publishable_test',__REQ4_ISOLATED__:isolatedPreview,__RECEPTION_PREVIEW__:receptionPreview,confirm:()=>true,alert:()=>{}});
   await vm.runInContext(`(async()=>{${source}})()`,context);
   const node=id=>dom.window.document.getElementById(id);
@@ -1197,6 +1200,18 @@ test('Existencias suma los folios verificados de todos los resultados filtrados'
     a.node('btnBuscar').click();
     await flush();
     assert.match(a.node('conteoResultados').textContent,/1 registros · 70 folios registrados/);
+    assert.equal(a.node('btnImportar'),null);
+    assert.equal(a.node('btnReset'),null);
+  }finally{a.close();}
+});
+
+test('la cuenta de consulta ve folios verificados sin controles de importación',async()=>{
+  const historical={...docRow,id:randomUUID(),kardex:'SA-8800',cargos:['8800'],
+    periodo:'2025-01-01',fecha_origen:'2025-01-01',anio_origen:2025,folios:null};
+  const a=await app({isAdmin:false,initialDocs:[historical],archiveCounts:{[historical.id]:300}});
+  try {
+    await flush();
+    assert.match(a.node('conteoResultados').textContent,/1 registros · 300 folios registrados/);
     assert.equal(a.node('btnImportar'),null);
     assert.equal(a.node('btnReset'),null);
   }finally{a.close();}

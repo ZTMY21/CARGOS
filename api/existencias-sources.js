@@ -165,8 +165,8 @@ export function createExistenciasSourcesHandler({env=process.env,fetcher=fetch}=
     res.setHeader('X-Content-Type-Options','nosniff');
     try{
       if(req.method!=='GET')throw new ArchiveError('Método no permitido.',405);
-      await authorize(req,env,{admin:true,fetcher});
       const foliosOnly=new URL(req.url,'http://localhost').searchParams.get('view')==='folios';
+      await authorize(req,env,{admin:!foliosOnly,fetcher});
       const {rows,...reportSources}=await readSources({foliosOnly});
       res.statusCode=200;
       if(foliosOnly){

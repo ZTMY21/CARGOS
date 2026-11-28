@@ -487,7 +487,7 @@ async function refreshData() {
       }
       populateYearOptions();
       renderReqs(); renderDocs();
-      if(isAdmin)loadSummaryFolioMetadata();
+      loadSummaryFolioMetadata();
       if(isAdmin) {
         if (document.getElementById('preparedImSheet').open) void reloadPreparedImDetail();
         if(appReady) {
@@ -591,20 +591,20 @@ function updateSummaryFolioLabels(){
   updateExistenciasCount();
 }
 async function loadSummaryFolioMetadata(){
-  if(!isAdmin||!currentUserId)return;
+  if(!currentUserId)return;
   resumenFolioRefreshRequested=true;
   if(resumenFolioLoading)return;
   resumenFolioLoading=true;
   try{
-    while(resumenFolioRefreshRequested&&isAdmin&&currentUserId){
+    while(resumenFolioRefreshRequested&&currentUserId){
       resumenFolioRefreshRequested=false;
       const generation=authGeneration;
       try{
         const rows=await loadExistenciasFolios(repository,docs);
-        if(generation!==authGeneration||!isAdmin)continue;
+        if(generation!==authGeneration)continue;
         resumenFolioSnapshot={generation,byDoc:new Map(rows.map(doc=>[doc.id,doc]))};
       }catch{
-        if(generation!==authGeneration||!isAdmin)continue;
+        if(generation!==authGeneration)continue;
         resumenFolioSnapshot={generation,byDoc:null};
       }
       updateSummaryFolioLabels();
@@ -1092,7 +1092,6 @@ function renderMonthlyCargoStats(){
   // El KPI de Acondicionamiento consulta solamente cajas realmente preparadas.
 }
 function existenciasFoliosTexto(){
-  if(!isAdmin)return 'folios sin verificar';
   let selected=lastFiltered;
   if(queryResults){
     if(!Array.isArray(queryResults.matched_ids))return 'calculando folios';
