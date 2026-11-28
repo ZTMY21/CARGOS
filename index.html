@@ -2061,28 +2061,6 @@
 </table></div></section>
 </div>
 </template>
-<template id="conditioningControlTemplate">
-<section class="iv-panel acond-control">
-  <details><summary>Recibir caja solicitada</summary>
-    <form id="acondReceive"><label>Código de caja <input name="codigo" autocomplete="off" maxlength="80" required></label><button>Confirmar recepción física</button></form>
-  </details>
-  <details><summary>Registrar despacho a Iron Mountain</summary>
-    <form id="acondDispatch">
-      <label>Código de caja <input name="codigo" autocomplete="off" maxlength="80" required></label>
-      <label>Fecha real de salida <input type="date" name="fecha" required></label>
-      <label>Placa <input name="placa" maxlength="30"></label>
-      <label>Responsable de entrega <input name="entrega" maxlength="150"></label>
-      <label>Responsable de recepción <input name="recibe" maxlength="150"></label>
-      <button>Confirmar despacho físico</button>
-    </form>
-  </details>
-  <p id="acondControlMessage" role="status"></p>
-  <button class="secondary" type="button" data-acond-download="maestro">Descargar Maestro de prueba</button>
-  <button class="secondary" type="button" data-acond-download="historico">Descargar Histórico de prueba</button>
-  <button class="secondary" type="button" id="acondControlRetry">Reintentar sincronización</button>
-</section>
-</template>
-
 <!-- ================= EXISTENCIAS ================= -->
   <details class="group" id="grp-existencias" open>
     <summary><span class="stitle">Existencias<small id="existenciasSubtitulo">Consulta, búsqueda y exportación de documentos</small></span><span class="chev">▶</span></summary>
