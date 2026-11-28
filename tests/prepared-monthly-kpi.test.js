@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {limaDay,summarizeConditionedBoxes,mergeConditionedHistory,timeline,groupedChartSvg} from '../src/prepared-monthly-kpi.js';
+import {readFile} from 'node:fs/promises';
+import {JSDOM} from 'jsdom';
+import {limaDay,formatConditionedMonth,summarizeConditionedBoxes,mergeConditionedHistory,timeline,groupedChartSvg,attachPreparedMonthlyKpi} from '../src/prepared-monthly-kpi.js';
 
 const today=new Date('2026-11-09T20:00:00-05:00');
 test('solo cuenta cajas preparadas del mes sin fecha de envío',()=>{
@@ -29,6 +31,38 @@ test('una caja solicitada nuevamente tiene ciclo de preparación separado',()=>{
 });
 test('usa el calendario de Lima y no el UTC para el día',()=>{
   assert.equal(limaDay(new Date('2026-11-10T02:00:00Z')),'2026-11-09');
+});
+test('la etiqueta del mes no retrocede a octubre al mostrar noviembre en Lima',()=>{
+  assert.equal(formatConditionedMonth('2026-11'),'noviembre de 2026');
+  assert.equal(formatConditionedMonth('2026-12'),'diciembre de 2026');
+  const rows=[{codigo:'T123',origen:'nueva',preparada:'2026-11-26'}];
+  assert.equal(summarizeConditionedBoxes(rows,new Date('2026-11-27T12:00:00-05:00')).mesPreparadas,1);
+  assert.equal(summarizeConditionedBoxes(rows,new Date('2026-12-01T12:00:00-05:00')).mesPreparadas,0);
+});
+test('el panel muestra el mes de las cajas junto al total',async()=>{
+  const dom=new JSDOM(await readFile(new URL('../index.html',import.meta.url),'utf8'),
+    {url:'https://kardex-digital-santa-anita.vercel.app/'});
+  const previousWindow=globalThis.window,previousDocument=globalThis.document;
+  globalThis.window=dom.window;globalThis.document=dom.window.document;
+  const modal=document.getElementById('conditionedMonthlySheet');
+  modal.showModal=()=>modal.setAttribute('open','');
+  try{
+    // La fecha del sistema puede variar; el dato se construye para el mes actual de Lima.
+    const month=limaDay().slice(0,7),label=formatConditionedMonth(month);
+    const repository={
+      conditioning:async()=>({listado:[{codigo:'T123',origen:'nueva',preparada:month+'-01'}]}),
+      conditionedHistoricalBoxes:async()=>({listado:[],historicos:[]})
+    };
+    attachPreparedMonthlyKpi({repository,isAdmin:()=>true,appReady:()=>true}).open();
+    await new Promise(resolve=>setImmediate(resolve));
+    assert.equal(document.getElementById('conditionedMonthlyPending').textContent,'1');
+    assert.equal(document.getElementById('conditionedPeriodLabel').textContent,
+      label+' · Total acondicionado');
+    assert.equal(document.getElementById('conditionedMonthlyNote').textContent,
+      'Cajas acondicionadas en '+label);
+  }finally{
+    dom.window.close();globalThis.window=previousWindow;globalThis.document=previousDocument;
+  }
 });
 test('completa 2026 desde el Maestro sin duplicar cajas del módulo',()=>{
   const primary=[{codigo:'TD000123',origen:'nueva',preparada:'2026-11-09',enviada:null}];

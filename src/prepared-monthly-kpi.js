@@ -8,6 +8,13 @@ export function limaDay(value=new Date()) {
   const part=key=>parts.find(item=>item.type===key)?.value||'';
   return part('year')+'-'+part('month')+'-'+part('day');
 }
+export function formatConditionedMonth(value) {
+  const [year,month]=value.split('-').map(Number);
+  // value ya representa el mes de Lima; volver a convertir medianoche UTC
+  // a Lima retrocede al último día del mes anterior.
+  return new Intl.DateTimeFormat('es-PE',{month:'long',year:'numeric',timeZone:'UTC'})
+    .format(new Date(Date.UTC(year,month-1,1)));
+}
 function boxKey(value) {
   const raw=String(value??'').toUpperCase().replace(/^[A-Z\s]+/,'').replace(/\D/g,'');
   return raw.replace(/^0+(?=\d)/,'');
@@ -163,10 +170,6 @@ export function attachPreparedMonthlyKpi({repository,isAdmin,appReady}) {
     && !['kardex-digital-santa-anita-ztmy1.vercel.app','kardex-digital-santa-anita-git-main-ztmy1.vercel.app'].includes(window.location.hostname);
   let view='semana',summary=null,request=0;
   const format=n=>new Intl.NumberFormat('es-PE').format(n);
-  const formatMonth=value=>{
-    const [year,month]=value.split('-').map(Number);
-    return new Intl.DateTimeFormat('es-PE',{month:'long',year:'numeric',timeZone:'America/Lima'}).format(new Date(Date.UTC(year,month-1,1)));
-  };
   function render(){
     if(!modal.open)return;
     for(const button of modal.querySelectorAll('[data-prepared-period]')) {
@@ -185,7 +188,7 @@ export function attachPreparedMonthlyKpi({repository,isAdmin,appReady}) {
     el('conditionedMonthlyNew').textContent=format(summary.mesNuevas)+' cajas nuevas acondicionadas';
     el('conditionedMonthlyRequested').textContent=format(summary.mesSolicitadas)+' cajas por solicitud acondicionadas';
     el('conditionedPeriodLabel').textContent=
-      formatMonth(summary.currentMonth)+' · Total acondicionado';
+      formatConditionedMonth(summary.currentMonth)+' · Total acondicionado';
     const buckets=timeline(summary,view);
     // La productividad cuenta solamente cajas con fecha real de acondicionamiento.
     // No sumar los envíos históricos que carecen de fecha de preparación.
@@ -237,7 +240,7 @@ export function attachPreparedMonthlyKpi({repository,isAdmin,appReady}) {
       summary=summarizeConditionedBoxes(mergeConditionedHistory(data.listado,archive.listado),
         demo?new Date('2026-11-09T20:00:00-05:00'):new Date(),archive.historicos);
       metric.textContent=format(summary.mesPreparadas);
-      note.textContent='Cajas acondicionadas en '+formatMonth(summary.currentMonth);
+      note.textContent='Cajas acondicionadas en '+formatConditionedMonth(summary.currentMonth);
       render();
     } catch {
       if(current!==request)return;
