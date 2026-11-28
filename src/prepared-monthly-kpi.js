@@ -63,10 +63,11 @@ export function timeline(summary,period) {
   const {registros,currentDay,currentMonth,currentYear}=summary;
   const data=[];
   if(period==='dia'){
-    const max=number(currentDay.slice(8));
-    for(let i=1;i<=max;i++){
-      const key=currentMonth+'-'+String(i).padStart(2,'0');
-      data.push({key,label:String(i).padStart(2,'0')+'/'+currentMonth.slice(5),match:r=>r.preparada===key});
+    // Mostrar únicamente las fechas del mes con preparación registrada.
+    const activeDays=[...new Set(registros.map(r=>r.preparada)
+      .filter(date=>date.startsWith(currentMonth)&&date<=currentDay))].sort();
+    for(const key of activeDays){
+      data.push({key,label:key.slice(8)+'/'+currentMonth.slice(5),match:r=>r.preparada===key});
     }
   }else if(period==='semana'){
     const weeks=new Map();
@@ -236,7 +237,7 @@ export function attachPreparedMonthlyKpi({repository,isAdmin,appReady}) {
       summary=summarizeConditionedBoxes(mergeConditionedHistory(data.listado,archive.listado),
         demo?new Date('2026-11-09T20:00:00-05:00'):new Date(),archive.historicos);
       metric.textContent=format(summary.mesPreparadas);
-      note.textContent='Cajas acondicionadas durante el mes';
+      note.textContent='Cajas acondicionadas en '+formatMonth(summary.currentMonth);
       render();
     } catch {
       if(current!==request)return;
