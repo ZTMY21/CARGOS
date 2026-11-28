@@ -98,7 +98,8 @@ async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recov
     state.searchCalls.push({...filters});
     const found=filterDocuments(state.docs.map(docFromDb),state.reqs.map(reqFromDb),filters);
     const selected=found.slice(offset,offset+limit);
-    return {rows:selected.map(row=>({...state.docs.find(d=>d.id===row.id)})),total:found.length,folios:found.reduce((n,d)=>n+(Number(d.folios)||0),0)};
+    return {rows:selected.map(row=>({...state.docs.find(d=>d.id===row.id)})),total:found.length,
+      matched_ids:found.map(d=>d.id),folios:found.reduce((n,d)=>n+(Number(d.folios)||0),0)};
   };
   const context=dom.getInternalVMContext();
   const scheduleInterval=dom.window.setInterval.bind(dom.window);
@@ -645,7 +646,7 @@ test('unauthorized accounts remain blocked and editor cannot reset/import',async
   const denied=await app({allowed:false});
   try {assert.equal(denied.node('authOverlay').hidden,false);assert.equal(denied.node('btnGuardar').disabled,true);assert.ok(denied.node('authMessage').textContent.includes('no está autorizada'));}finally{denied.close();}
   const editor=await app({isAdmin:false});
-  try {assert.equal(editor.node('btnGuardar').disabled,true);assert.equal(editor.node('grp-documentos').hidden,true);assert.equal(editor.node('tbody').querySelector('[data-edit]'),null);assert.ok(editor.node('tbody').textContent.includes('F-001'));assert.equal(editor.node('btnReset').disabled,true);assert.equal(editor.node('btnImportar').disabled,true);}finally{editor.close();}
+  try {assert.equal(editor.node('btnGuardar').disabled,true);assert.equal(editor.node('grp-documentos').hidden,true);assert.equal(editor.node('tbody').querySelector('[data-edit]'),null);assert.ok(editor.node('tbody').textContent.includes('F-001'));assert.equal(editor.node('btnReset'),null);assert.equal(editor.node('btnImportar'),null);}finally{editor.close();}
 });
 test('repository update always filters by the original timestamp and asks Supabase to confirm the result',async()=>{
   const calls=[];
@@ -1158,6 +1159,7 @@ test('Resumen suma el mismo respaldo histórico en total, enviados y pendientes 
     const root=a.node('resumenTablas');
     const value=id=>root.querySelector('#'+id)?.textContent?.trim();
     assert.equal(value('summaryTotalFolios'),'(470 folios)');
+    assert.match(a.node('conteoResultados').textContent,/3 registros · 470 folios registrados/);
     assert.equal(value('summarySentSource'),'(100 folios)');
     assert.equal(value('summaryPendingFolios'),'(370 folios)');
     assert.equal(value('summaryUpcomingFolios'),'(70 folios)');
@@ -1175,8 +1177,28 @@ test('Resumen suma el mismo respaldo histórico en total, enviados y pendientes 
     a.dom.window.dispatchEvent(new a.dom.window.Event('focus'));
     await new Promise(resolve=>setTimeout(resolve,250));
     assert.equal(a.node('summaryTotalFolios').textContent.trim(),'(485 folios)');
+    assert.match(a.node('conteoResultados').textContent,/3 registros · 485 folios registrados/);
     assert.equal(a.node('summaryPendingFolios').textContent.trim(),'(385 folios)');
     assert.equal(a.node('summaryUpcomingFolios').textContent.trim(),'(85 folios)');
+  }finally{a.close();}
+});
+
+test('Existencias suma los folios verificados de todos los resultados filtrados',async()=>{
+  const historical={...docRow,id:randomUUID(),kardex:'SA-8800',cargos:['8800'],
+    periodo:'2025-01-01',fecha_origen:'2025-01-01',anio_origen:2025,folios:null};
+  const current={...docRow,id:randomUUID(),kardex:'SA-9900',cargos:['9900'],
+    periodo:'2026-01-01',fecha_origen:'2026-01-01',anio_origen:2026,folios:35};
+  const a=await app({enableSearch:true,initialDocs:[historical,current],
+    driveFolios:{'2026:9900':70},archiveCounts:{[historical.id]:300}});
+  try {
+    await flush();
+    assert.match(a.node('conteoResultados').textContent,/2 registros · 370 folios registrados/);
+    a.node('filtroAnio').value='2026';
+    a.node('btnBuscar').click();
+    await flush();
+    assert.match(a.node('conteoResultados').textContent,/1 registros · 70 folios registrados/);
+    assert.equal(a.node('btnImportar'),null);
+    assert.equal(a.node('btnReset'),null);
   }finally{a.close();}
 });
 
