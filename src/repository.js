@@ -182,15 +182,6 @@ export class KardexRepository {
         imLiveResponsableEntrega:extra.responsable_entrega||''};
     });
   }
-  async folioDocs(snapshotDocs) {
-    const rows=checked(await this.client.rpc('kardex_existencias_folio_meta'));
-    const byId=new Map(rows.map(row=>[row.id,row]));
-    return snapshotDocs.map(doc=>{
-      const extra=byId.get(doc.id);
-      if(!extra)throw new Error('No se pudo consultar el resumen de folios.');
-      return {...doc,cantidadRegistros:extra.cantidad_registros};
-    });
-  }
   async *reportOriginalRows(year,sourceDocs) {
     const relevant=sourceDocs
       .filter(d=>cargoYear(d)===String(year))

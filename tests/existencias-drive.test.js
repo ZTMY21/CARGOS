@@ -100,14 +100,12 @@ test('la ruta exige administrador, comprueba integridad y vuelve a leer al cambi
   try{
     assert.equal((await get()).status,403);
     assert.equal(driveReads.size,0);
+    assert.equal((await get('/?view=folios')).status,403);
+    allow=true;
     let response=await get('/?view=folios');
     assert.equal(response.status,200);
     const summary=await response.json();
     assert.deepEqual(summary,{folios:[['2026:933',5],['2026:934',1],['2025:931',4]]});
-    allow=true;
-    response=await get('/?view=folios');
-    assert.equal(response.status,200);
-    assert.deepEqual(await response.json(),summary);
     assert.deepEqual([...metadataReads],[original]);
     assert.deepEqual([...downloadOperations],[original]);
     assert.deepEqual([...driveReads],[[original,1]]);

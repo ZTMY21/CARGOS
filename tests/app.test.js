@@ -70,9 +70,6 @@ async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recov
       return rows.filter(d=>year===null||cargoYear(d)===String(year))
         .map(doc=>({...doc,cantidadRegistros:state.archiveCounts[doc.id]??null}));
     }
-    async folioDocs(rows){
-      return rows.map(doc=>({...doc,cantidadRegistros:state.archiveCounts[doc.id]??null}));
-    }
     async fetchDoc(id){state.fetchedId=id;return docFromDb({...state.docs.find(d=>d.id===id),facturas:'F-001, F-002, F-003, F-004'});}
     async access(){state.loadingDuringAccess={loading:!dom.window.document.getElementById('sessionLoading').hidden,login:!dom.window.document.getElementById('authOverlay').hidden};if(accessFailures-->0)throw {code:'57014',message:'canceling statement due to statement timeout'};return {allowed,is_admin:isAdmin};}
     async preparedImDetails(){state.preparedImCalls=(state.preparedImCalls||0)+1;return structuredClone(state.preparedImRows||[]);}
@@ -102,7 +99,7 @@ async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recov
     const found=filterDocuments(state.docs.map(docFromDb),state.reqs.map(reqFromDb),filters);
     const selected=found.slice(offset,offset+limit);
     return {rows:selected.map(row=>({...state.docs.find(d=>d.id===row.id)})),total:found.length,
-      matched_ids:found.map(d=>d.id),folios:found.reduce((n,d)=>n+(Number(d.folios)||0),0)};
+      folios:found.reduce((n,d)=>n+(Number(d.folios)||0),0)};
   };
   const context=dom.getInternalVMContext();
   const scheduleInterval=dom.window.setInterval.bind(dom.window);
@@ -120,7 +117,7 @@ async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recov
     // El modal de Gestión de cajas pertenece solo a Resumen; simulación en pruebas VM.
     attachResumenBoxDetails:()=>({open:()=>{}}),
     boxSupplyRequests,combineBoxPreparationBatches,loadBoxPreparationBatches,summarizeBoxPreparationBatch,physicalBoxKey,validDate,
-    createClient:(url,key,options)=>{state.authOptions=options?.auth;return client;},KardexRepository:FakeRepository,reqFromDb,docFromDb,reqEstado,docEstado,fmtDate,escapeHtml,invoiceSearchPresentation,buildWorkbook:async(...args)=>{state.exportCalls.push(args);return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},buildCargoWorkbook:async(cargo)=>{state.guestExport=cargo;return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},reportCargoCode,loadExistenciasFolios:async(repo,docs)=>applyExistenciasFolios(await repo.folioDocs(docs),new Map(Object.entries(state.driveFolios))),prepareExistenciasExport:async(repo)=>{const snapshot=await repo.snapshot();state.reportDocs=await repo.reportDocs(snapshot.documentos.map(docFromDb));return {workbook:{},serialize:async()=>{state.serializedReport=true;return new Uint8Array([1]);}};},parseWorkbook,highlightMatch,normalizeSearch,filterDocuments,filterRequirements,assignedBoxCode,cargoYear,invoiceLocation,locationLabel,groupsForCodes,
+    createClient:(url,key,options)=>{state.authOptions=options?.auth;return client;},KardexRepository:FakeRepository,reqFromDb,docFromDb,reqEstado,docEstado,fmtDate,escapeHtml,invoiceSearchPresentation,buildWorkbook:async(...args)=>{state.exportCalls.push(args);return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},buildCargoWorkbook:async(cargo)=>{state.guestExport=cargo;return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},reportCargoCode,loadExistenciasFolios:async(repo,docs)=>applyExistenciasFolios(await repo.reportDocs(docs),new Map(Object.entries(state.driveFolios))),prepareExistenciasExport:async(repo)=>{const snapshot=await repo.snapshot();state.reportDocs=await repo.reportDocs(snapshot.documentos.map(docFromDb));return {workbook:{},serialize:async()=>{state.serializedReport=true;return new Uint8Array([1]);}};},parseWorkbook,highlightMatch,normalizeSearch,filterDocuments,filterRequirements,assignedBoxCode,cargoYear,invoiceLocation,locationLabel,groupsForCodes,
     __SUPABASE_URL__:'https://example.supabase.co',__SUPABASE_ANON_KEY__:'sb_publishable_test',__REQ4_ISOLATED__:isolatedPreview,__RECEPTION_PREVIEW__:receptionPreview,confirm:()=>true,alert:()=>{}});
   await vm.runInContext(`(async()=>{${source}})()`,context);
   const node=id=>dom.window.document.getElementById(id);
@@ -790,7 +787,7 @@ test('Existencias muestra 2026 una sola vez y reúne cargos del Excel histórico
   assert.equal([...select.options].filter(option=>option.value==='2026').length,1);
   select.value='2026';
   a.node('btnBuscar').click();await flush();
-  assert.match(a.node('conteoResultados').textContent,/3 registros/);
+  assert.equal(a.node('conteoResultados').textContent,'Total de cargos: 3');
   assert.equal(a.node('filtroAnio').value,'2026');
  }finally{a.close();}
 });
@@ -811,7 +808,7 @@ test('clicking the annual cargo count opens the filtered cargo list in Existenci
   assert.equal(a.node('workspaceTabExistencias').getAttribute('aria-selected'),'true');
   assert.equal(a.node('filtroTipo').value,'solo-cargos');
   assert.equal(a.node('filtroAnio').value,'2026');
-  assert.match(a.node('conteoResultados').textContent,/1 registro/);
+  assert.equal(a.node('conteoResultados').textContent,'Total de cargos: 1');
  } finally {a.close();}
 });
 
@@ -886,15 +883,15 @@ test('top scrollbar stays synchronized with the retained bottom scrollbar',async
  }finally{a.close();}
 });
 
- test('unfiltered browsing shows random cargos and searching keeps real match results',async()=>{
+ test('Existencias muestra solo el total de cargos y la búsqueda conserva los resultados',async()=>{
  const a=await app();
  try {
-  assert.match(a.node('conteoResultados').textContent,/Cargos aleatorios/);
+  assert.equal(a.node('conteoResultados').textContent,'Total de cargos: 1');
   a.node('buscar').value='NO-EXISTE-999';a.node('buscar').dispatchEvent(new a.dom.window.Event('input'));await flush();
-  assert.match(a.node('conteoResultados').textContent,/Cargos aleatorios/);
+  assert.equal(a.node('conteoResultados').textContent,'Total de cargos: 1');
   assert.equal(a.state.searchCalls.length,0);
   a.node('btnBuscar').click();await flush();
-  assert.doesNotMatch(a.node('conteoResultados').textContent,/Cargos aleatorios/);
+  assert.equal(a.node('conteoResultados').textContent,'Total de cargos: 0');
   assert.match(a.node('tbody').textContent,/Sin registros/);
  }finally{a.close();}
 });
@@ -1162,7 +1159,7 @@ test('Resumen suma el mismo respaldo histórico en total, enviados y pendientes 
     const root=a.node('resumenTablas');
     const value=id=>root.querySelector('#'+id)?.textContent?.trim();
     assert.equal(value('summaryTotalFolios'),'(470 folios)');
-    assert.match(a.node('conteoResultados').textContent,/3 registros · 470 folios registrados/);
+    assert.equal(a.node('conteoResultados').textContent,'Total de cargos: 3');
     assert.equal(value('summarySentSource'),'(100 folios)');
     assert.equal(value('summaryPendingFolios'),'(370 folios)');
     assert.equal(value('summaryUpcomingFolios'),'(70 folios)');
@@ -1180,13 +1177,13 @@ test('Resumen suma el mismo respaldo histórico en total, enviados y pendientes 
     a.dom.window.dispatchEvent(new a.dom.window.Event('focus'));
     await new Promise(resolve=>setTimeout(resolve,250));
     assert.equal(a.node('summaryTotalFolios').textContent.trim(),'(485 folios)');
-    assert.match(a.node('conteoResultados').textContent,/3 registros · 485 folios registrados/);
+    assert.equal(a.node('conteoResultados').textContent,'Total de cargos: 3');
     assert.equal(a.node('summaryPendingFolios').textContent.trim(),'(385 folios)');
     assert.equal(a.node('summaryUpcomingFolios').textContent.trim(),'(85 folios)');
   }finally{a.close();}
 });
 
-test('Existencias suma los folios verificados de todos los resultados filtrados',async()=>{
+test('Existencias conserva el total de cargos al filtrar sin consultar folios',async()=>{
   const historical={...docRow,id:randomUUID(),kardex:'SA-8800',cargos:['8800'],
     periodo:'2025-01-01',fecha_origen:'2025-01-01',anio_origen:2025,folios:null};
   const current={...docRow,id:randomUUID(),kardex:'SA-9900',cargos:['9900'],
@@ -1195,23 +1192,23 @@ test('Existencias suma los folios verificados de todos los resultados filtrados'
     driveFolios:{'2026:9900':70},archiveCounts:{[historical.id]:300}});
   try {
     await flush();
-    assert.match(a.node('conteoResultados').textContent,/2 registros · 370 folios registrados/);
+    assert.equal(a.node('conteoResultados').textContent,'Total de cargos: 2');
     a.node('filtroAnio').value='2026';
     a.node('btnBuscar').click();
     await flush();
-    assert.match(a.node('conteoResultados').textContent,/1 registros · 70 folios registrados/);
+    assert.equal(a.node('conteoResultados').textContent,'Total de cargos: 1');
     assert.equal(a.node('btnImportar'),null);
     assert.equal(a.node('btnReset'),null);
   }finally{a.close();}
 });
 
-test('la cuenta de consulta ve folios verificados sin controles de importación',async()=>{
+test('la cuenta de consulta ve total de cargos sin controles de importación',async()=>{
   const historical={...docRow,id:randomUUID(),kardex:'SA-8800',cargos:['8800'],
     periodo:'2025-01-01',fecha_origen:'2025-01-01',anio_origen:2025,folios:null};
   const a=await app({isAdmin:false,initialDocs:[historical],archiveCounts:{[historical.id]:300}});
   try {
     await flush();
-    assert.match(a.node('conteoResultados').textContent,/1 registros · 300 folios registrados/);
+    assert.equal(a.node('conteoResultados').textContent,'Total de cargos: 1');
     assert.equal(a.node('btnImportar'),null);
     assert.equal(a.node('btnReset'),null);
   }finally{a.close();}
@@ -1502,7 +1499,7 @@ test('admin and guest filter only pending red and sent green via the full synchr
         assert.equal(a.node('tbody').rows.length,1);
         assert.match(a.node('tbody').textContent,new RegExp(kardex));
         assert.match(a.node('tbody').querySelector('.badge').className,new RegExp(badge));
-        assert.match(a.node('conteoResultados').textContent,new RegExp(count+' registros'));
+        assert.equal(a.node('conteoResultados').textContent,'Total de cargos: '+count);
       };
       filter.value='Pendiente de Envío';
       filter.dispatchEvent(new a.dom.window.Event('change'));
@@ -1549,7 +1546,7 @@ test('only Buscar runs the query; typing, Enter and filter changes wait for the 
   a.node('filtroEstado').dispatchEvent(new a.dom.window.Event('change'));
   await new Promise(resolve=>setTimeout(resolve,180));
   assert.match(a.node('tbody').textContent,/SA-00001/);
-  assert.match(a.node('conteoResultados').textContent,/Cargos aleatorios/);
+  assert.equal(a.node('conteoResultados').textContent,'Total de cargos: 1');
   assert.equal(a.state.searchCalls.length,0);
   a.node('btnBuscar').click();await flush();
   assert.match(a.node('tbody').textContent,/Sin registros/);
@@ -1567,7 +1564,7 @@ test('only Buscar runs the query; typing, Enter and filter changes wait for the 
   assert.equal(a.state.searchCalls.length,2);
   assert.equal(a.node('buscar').value,'');
   assert.match(a.node('tbody').textContent,/SA-00001/);
-  assert.match(a.node('conteoResultados').textContent,/Cargos aleatorios/);
+  assert.equal(a.node('conteoResultados').textContent,'Total de cargos: 1');
  }finally{a.close();}
 });
 
@@ -2282,7 +2279,7 @@ test('regularización histórica en Existencias para administrador e invitado',a
       await flush();
       const cells=[...a.node('tbody').querySelectorAll('tr td')].map(td=>td.textContent.trim());
       assert.ok(cells.includes('15/05/2023'), JSON.stringify(cells));
-      assert.ok(cells.includes('No disponible'));
+      assert.ok(cells.includes('15/11/2023 (aprox.)'));
       assert.deepEqual([...a.node('tbody').querySelectorAll('.b-historico')].map(x=>x.textContent),['Caja histórica','Histórico Iron Mountain']);
       const historicalBadge=a.node('tbody').querySelector('summary.b-historico');
       assert.deepEqual([...historicalBadge.children].map(x=>x.textContent),['Histórico','Iron Mountain']);
@@ -2290,9 +2287,10 @@ test('regularización histórica en Existencias para administrador e invitado',a
       assert.equal(historicalBadge.parentElement.open,true);
       const summary=a.node('resumenTablas');
       assert.equal(summary.querySelector('.kpi-summary-sent .pct-txt').textContent,'50%');
-      assert.equal(summary.querySelector('.kpi-summary-process .pct-txt').textContent,'0%');
-      assert.deepEqual([...a.node('tbody').querySelectorAll('.historical-im-missing')].map(x=>x.textContent),['15/11/2023','No identificado']);
-      assert.equal(a.node('historicalApproximateHead').textContent,'Fecha de envío aproximada');
+      assert.deepEqual([...a.node('tbody').querySelectorAll('.historical-im-missing')].map(x=>x.textContent),['15/11/2023 (aprox.)','No identificado']);
+      assert.equal(a.node('historicalApproximateHead'),null);
+      assert.equal(a.node('realShipmentDateHead').textContent,'Fecha de envío');
+      assert.equal([...a.node('docsTable').querySelectorAll('th')].filter(x=>x.textContent==='Fecha de envío').length,1);
       assert.match(a.node('tbody').textContent,/relación original se extravió/);
       assert.doesNotMatch(a.node('tbody').textContent,/ESTIMADA/);
       assert.equal(a.node('tbody').querySelectorAll('button[data-edit]').length,Number(isAdmin));
@@ -2304,6 +2302,25 @@ test('regularización histórica en Existencias para administrador e invitado',a
   }
 });
 
+test('Existencias muestra fecha real y fecha histórica aproximada en una sola columna',async()=>{
+  const historical={...docRow,id:randomUUID(),kardex:'SA-2023',cargos:['4300'],
+    caja_asignada:null,fecha_origen:'2023-05-15',anio_origen:2023,
+    im_historical_decision:'historico'};
+  const sent={...docRow,id:randomUUID(),kardex:'SA-2026',cargos:['9900'],
+    caja_asignada:null,fecha_origen:'2026-05-15',anio_origen:2026,
+    im_live_codigo_caja:'T1234567890',im_live_fecha_envio:'2026-11-03'};
+  const a=await app({initialDocs:[historical,sent]});
+  try {
+    const headers=[...a.node('docsTable').querySelectorAll('thead th')];
+    const index=headers.findIndex(th=>th.textContent==='Fecha de envío');
+    assert.ok(index>=0);
+    assert.equal(headers.filter(th=>/Fecha .*envío/.test(th.textContent)).length,1);
+    const rows=[...a.node('tbody').querySelectorAll('tr')];
+    assert.equal(rows.find(row=>row.textContent.includes('4300')).children[index].textContent.trim(),'15/11/2023 (aprox.)');
+    assert.equal(rows.find(row=>row.textContent.includes('9900')).children[index].textContent.trim(),'03/11/2026');
+  }finally{a.close();}
+});
+
 test('la sincronización sustituye la caja y fecha históricas en una búsqueda abierta',async()=>{
   const row={...docRow,cargos:['4123'],facturas:'01-0FF01-0217573',
     fecha_origen:'2023-05-15',anio_origen:2023,im_historical_decision:'historico'};
@@ -2312,7 +2329,8 @@ test('la sincronización sustituye la caja y fecha históricas en una búsqueda 
     a.node('buscar').value='217573';
     a.node('btnBuscar').click();
     await flush();
-    assert.ok(a.node('historicalApproximateHead'));
+    assert.equal(a.node('historicalApproximateHead'),null);
+    assert.match(a.node('tbody').textContent,/15\/11\/2023 \(aprox\.\)/);
     const notify=a.state.events.find(x=>x.filter.table==='kardex_eventos').callback;
     Object.assign(a.state.docs[0],{im_historical_decision:null,im_live_codigo_caja:'T1234567890'});
     notify();

@@ -487,7 +487,7 @@ async function refreshData() {
       }
       populateYearOptions();
       renderReqs(); renderDocs();
-      loadSummaryFolioMetadata();
+      if(isAdmin)loadSummaryFolioMetadata();
       if(isAdmin) {
         if (document.getElementById('preparedImSheet').open) void reloadPreparedImDetail();
         if(appReady) {
@@ -588,23 +588,22 @@ function updateSummaryFolioLabels(){
     const node=document.getElementById(id);
     if(node)node.textContent=' ('+foliosResumenTexto(rows)+')';
   }
-  updateExistenciasCount();
 }
 async function loadSummaryFolioMetadata(){
-  if(!currentUserId)return;
+  if(!isAdmin||!currentUserId)return;
   resumenFolioRefreshRequested=true;
   if(resumenFolioLoading)return;
   resumenFolioLoading=true;
   try{
-    while(resumenFolioRefreshRequested&&currentUserId){
+    while(resumenFolioRefreshRequested&&isAdmin&&currentUserId){
       resumenFolioRefreshRequested=false;
       const generation=authGeneration;
       try{
         const rows=await loadExistenciasFolios(repository,docs);
-        if(generation!==authGeneration)continue;
+        if(generation!==authGeneration||!isAdmin)continue;
         resumenFolioSnapshot={generation,byDoc:new Map(rows.map(doc=>[doc.id,doc]))};
       }catch{
-        if(generation!==authGeneration)continue;
+        if(generation!==authGeneration||!isAdmin)continue;
         resumenFolioSnapshot={generation,byDoc:null};
       }
       updateSummaryFolioLabels();
@@ -1091,25 +1090,10 @@ function renderMonthlyCargoStats(){
   renderMonthlyShippedDetail();
   // El KPI de Acondicionamiento consulta solamente cajas realmente preparadas.
 }
-function existenciasFoliosTexto(){
-  let selected=lastFiltered;
-  if(queryResults){
-    if(!Array.isArray(queryResults.matched_ids))return 'calculando folios';
-    const ids=new Set(queryResults.matched_ids);
-    selected=docs.filter(doc=>ids.has(doc.id));
-    if(selected.length!==ids.size)return 'calculando folios';
-  }
-  if(!selected.length)return '0 folios registrados';
-  const unique=uniqueCargoDocuments([...selected].sort((a,b)=>
-    Number(isSentInSummary(b))-Number(isSentInSummary(a))));
-  const value=foliosResumenTexto(unique);
-  return /^\d/.test(value) ? value+' registrados' : value;
-}
 function updateExistenciasCount(){
   const total=queryResults?.total??lastFiltered.length;
-  const pendingCargo=docs.filter(d=>!d.cargos?.length).length;
   document.getElementById('conteoResultados').textContent=queryError
-    || `${showRandomCargos(appliedFilters)?'Cargos aleatorios · ':''}${fmtNum(total)} registros${pendingCargo?` · ${fmtNum(pendingCargo)} registros pendientes de cargo`:''} · ${existenciasFoliosTexto()}`;
+    || `Total de cargos: ${fmtNum(total)}`;
 }
 function renderDocs(){
   const filters=appliedFilters;
@@ -1361,27 +1345,26 @@ function renderDocs(){
   document.getElementById('paginaActual').textContent=`Página ${currentPage+1} de ${Math.max(1,Math.ceil(total/PAGE_SIZE))}`;
   if(!queryResults)filtered=filtered.slice(currentPage*PAGE_SIZE,(currentPage+1)*PAGE_SIZE);
 
-  const showHistoricalDate = filtered.some(d=>d.estado==='Histórico');
-  const approximateHead = document.getElementById('historicalApproximateHead');
-  if(showHistoricalDate && !approximateHead){
-    const head = document.createElement('th');
-    head.id = 'historicalApproximateHead';
-    head.textContent = 'Fecha de envío aproximada';
-    tableHead.insertBefore(head,document.getElementById('realShipmentDateHead'));
-  } else if(!showHistoricalDate) approximateHead?.remove();
-  document.getElementById('cargoDateHead').textContent = showHistoricalDate ? 'Fecha del cargo / registro' : 'Fecha Reg.';
-  document.getElementById('realShipmentDateHead').textContent = showHistoricalDate ? 'Fecha real de envío' : 'F. Envío';
+  const hasHistorical=filtered.some(d=>d.estado==='Histórico');
+  document.getElementById('historicalApproximateHead')?.remove();
+  document.getElementById('cargoDateHead').textContent = hasHistorical ? 'Fecha del cargo / registro' : 'Fecha Reg.';
+  document.getElementById('realShipmentDateHead').textContent = 'Fecha de envío';
   const tbody = document.getElementById('tbody');
   if(filtered.length === 0){
-    tbody.innerHTML = `<tr><td colspan="${12+Number(showLocationColumn)+Number(showHistoricalDate)}" class="empty">${escapeHtml(queryError||'Sin registros que coincidan con la consulta actual.')}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="${12+Number(showLocationColumn)}" class="empty">${escapeHtml(queryError||'Sin registros que coincidan con la consulta actual.')}</td></tr>`;
   } else {
     tbody.innerHTML = filtered.map(d=>{
       const historical = d.estado==='Histórico';
       const reviewedShipment = usesHistoricalImDecision(d) && isSentIm(d.estado);
       const shipment = reviewedShipment ? historicalShipmentDetails(d) : null;
       const cajaTxt = d.acondicionamiento?.codigo || (shipment ? shipment.box : assignedBoxCode(d,reqs)) || (historical ? 'Caja histórica' : '—');
-      const fechaEnvioTxt = d.acondicionamiento ? d.acondicionamiento.enviada : shipment ? shipment.realDate : d.imLiveCodigoCaja ? d.imLiveFechaEnvio
-        : d.imConfirmado ? d.imFechaEnvio : d.fEnvio;
+      const fechaEnvioTxt = d.acondicionamiento?.enviada || shipment?.realDate || d.imLiveFechaEnvio
+        || d.imFechaEnvio || d.fEnvio;
+      const fechaAproximada=historical ? fmtDate(shipment?.approximateDate) : '';
+      const fechaEnvioCell=fechaEnvioTxt ? fmtDate(fechaEnvioTxt)
+        : fechaAproximada ? `<span class="historical-im-missing" title="Fecha aproximada de envío a Iron Mountain">${fechaAproximada} <small>(aprox.)</small></span>`
+        : historical ? 'No disponible'
+        : '';
       const responsableOrigen = d.acondicionamiento?.entrega || (d.imLiveFechaEnvio && d.imLiveResponsableEntrega) ||
         (shipment ? shipment.responsible : d.imConfirmado ? d.imResponsable
         : d.imPreparado && d.imResponsablePreparacion ? d.imResponsablePreparacion : d.usuario);
@@ -1423,8 +1406,7 @@ function renderDocs(){
         <td>${highlightMatch((d.cargos||[]).join(', ')||'Sin cargo asignado',search)}</td>
         <td class="invoice-results">${invoiceCell}</td>
         <td>${historical && !shipment.box ? '<span class="badge b-historico">Caja histórica</span>' : highlightMatch(cajaTxt,search)}</td>
-        ${showHistoricalDate ? `<td>${historical ? `<span class="historical-im-missing">${fmtDate(shipment.approximateDate)||'No disponible'}</span>` : ''}</td>` : ''}
-        <td>${fmtDate(fechaEnvioTxt)||(historical?'No disponible':'')}</td>
+        <td>${fechaEnvioCell}</td>
         <td class="shipment-state">
           ${historical ? `<details class="historical-im-note">
             <summary class="badge b-historico"><span>${escapeHtml(estadoTxt)}</span> <span class="historical-im-destination">Iron Mountain</span></summary>
