@@ -54,3 +54,18 @@ test('2024 y 2025 se muestran aparte como envíos sin fecha de preparación',()=
   assert.match(groupedChartSvg(annual),/conditioned-bar-historical/);
   assert.equal(timeline(summary,'mes').every(r=>r.historicas===0),true);
 });
+
+test('noviembre no acumula octubre y el gráfico diario omite días sin cajas',()=>{
+  const summary=summarizeConditionedBoxes([
+    {codigo:'T101',origen:'nueva',preparada:'2026-10-28'},
+    {codigo:'T102',origen:'nueva',preparada:'2026-11-02'},
+    {codigo:'P103',origen:'solicitada',preparada:'2026-11-02'},
+    {codigo:'T104',origen:'nueva',preparada:'2026-11-26'}
+  ],new Date('2026-11-27T20:00:00-05:00'));
+  assert.equal(summary.currentMonth,'2026-11');
+  assert.equal(summary.mesPreparadas,3);
+  assert.deepEqual(timeline(summary,'dia').map(({label,total})=>[label,total]),
+    [['02/11',2],['26/11',1]]);
+  assert.equal(timeline(summary,'mes').find(row=>row.label==='oct').total,1);
+  assert.equal(timeline(summary,'mes').find(row=>row.label==='nov').total,3);
+});
