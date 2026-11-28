@@ -25,7 +25,7 @@ const flush=()=>new Promise(resolve=>setTimeout(resolve,20));
 const reqRow={id:randomUUID(),numero:'REQ-00001',tipo:'Cajas nuevas para acondicionar',fecha_solicitud:'2026-10-01',cantidad_cajas:2,numeros_cargo:'',fecha_recepcion:'2026-10-02',fecha_devolucion:null,usuario:'Juan',updated_at:'2026-10-13T00:00:00.123456Z'};
 const docRow={id:randomUUID(),kardex:'SA-00001',fecha_registro:'2026-10-13',tipo_doc:'Facturas-Guia',periodo:'2026-01-01',ubicacion:'Santa Anita',folios:30,cargos:['C001'],caja_asignada:reqRow.id,f_envio:null,sustento:'',sustento_imagen:'',usuario:'Juan',facturas:'F-001',obs:'',updated_at:'2026-10-13T00:00:00.123456Z'};
 
-async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recovery=false,adminLink='',loginError=null,isolatedPreview=false,receptionPreview=false,annualReference=null,loanMatches={},requestAction=null,enableSearch=false,username='',previousMapping={},initialDocs=[docRow],initialReqs=[reqRow],initialTracking=null,conditioningView=null,archiveCounts={},driveFolios={},now=Date.now()}={}) {
+async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recovery=false,adminLink='',loginError=null,isolatedPreview=false,receptionPreview=false,annualReference=null,loanMatches={},requestAction=null,enableSearch=false,username='',previousMapping={},initialDocs=[docRow],initialReqs=[reqRow],initialTracking=null,conditioningView=null,archiveCounts={},driveFolios={},now=Date.now(),snapshotFailures=0,accessFailures=0,sessionFailures=0}={}) {
   const html=await readFile(new URL('../index.html',import.meta.url),'utf8');
   const source=(await readFile(new URL('../src/app.js',import.meta.url),'utf8')).replace(/^import .*;\n/gm,'');
   const dom=new JSDOM(html,{url:'https://kardex.example.test'+adminLink+(recovery?'#type=recovery':''),runScripts:'outside-only'});
@@ -47,7 +47,9 @@ async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recov
     removeChannel:async()=>{},
     from:()=>({select(){return this;},eq(){return this;},update(next){Object.assign(state.syncRow,next);return this;},async single(){return {data:structuredClone(state.syncRow),error:null};}}),
     rpc:async()=>({data:[],error:null}),
-    auth:{getSession:async()=>({data:{session:state.session},error:null}),
+    auth:{getSession:async()=>sessionFailures-->0
+      ? {data:null,error:{code:'PGRST000',message:'Failed to fetch'}}
+      : {data:{session:state.session},error:null},
       onAuthStateChange:callback=>{state.authCallback=callback;},
       signInWithPassword:async input=>{state.authCalls.push(['login',input]);if(loginError)return {error:loginError};state.session={user:{id:'owner',email:input.email}};state.authCallback('SIGNED_IN',state.session);return {data:{session:state.session},error:null};},
       signUp:async input=>{state.authCalls.push(['signup',input]);return {error:null};},
@@ -69,7 +71,7 @@ async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recov
         .map(doc=>({...doc,cantidadRegistros:state.archiveCounts[doc.id]??null}));
     }
     async fetchDoc(id){state.fetchedId=id;return docFromDb({...state.docs.find(d=>d.id===id),facturas:'F-001, F-002, F-003, F-004'});}
-    async access(){state.loadingDuringAccess={loading:!dom.window.document.getElementById('sessionLoading').hidden,login:!dom.window.document.getElementById('authOverlay').hidden};return {allowed,is_admin:isAdmin};}
+    async access(){state.loadingDuringAccess={loading:!dom.window.document.getElementById('sessionLoading').hidden,login:!dom.window.document.getElementById('authOverlay').hidden};if(accessFailures-->0)throw {code:'57014',message:'canceling statement due to statement timeout'};return {allowed,is_admin:isAdmin};}
     async preparedImDetails(){state.preparedImCalls=(state.preparedImCalls||0)+1;return structuredClone(state.preparedImRows||[]);}
     async requestedIMDetails(){state.requestedImCalls=(state.requestedImCalls||0)+1;return structuredClone(state.requestedImRows||[]);}
     async shippedIMBoxesMonthly(){state.shippedImCalls=(state.shippedImCalls||0)+1;return structuredClone(state.shippedIMRows||[]);}
@@ -80,7 +82,7 @@ async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recov
     async requestAdminAccess(){state.adminApplications=(state.adminApplications||0)+1;return {estado:'pendiente'};}
     async pendingAdminRequests(){if(state.adminRequestsError)throw new Error('Sin conexión');return state.adminPendingRequests||[];}
     async reviewAdminRequest(id,approved){(state.adminDecisions??=[]).push({id,approved});state.adminPendingRequests=(state.adminPendingRequests||[]).filter(req=>req.id!==id);return {estado:approved?'aprobado':'rechazado'};}
-    async snapshot(){state.snapshots++;return structuredClone({requerimientos:state.reqs,documentos:state.docs,resumen_anual_referencia:annualReference});}
+    async snapshot(){state.snapshots++;if(snapshotFailures-->0)throw {code:'57014',message:'canceling statement due to statement timeout'};return structuredClone({requerimientos:state.reqs,documentos:state.docs,resumen_anual_referencia:annualReference});}
     async saveDoc(data,editing){
       state.updates.push({data,editing});if(failSave)throw new Error('Servidor no disponible');
       if(editing){const existing=state.docs.find(r=>r.id===editing.id);if(existing.updated_at!==editing.updatedAt)throw new Error('Otro usuario modificó el registro');}
@@ -133,6 +135,56 @@ test('blank login page hides the entire Kardex until successful authentication a
   assert.equal(a.node('authPassword').value,'');assert.equal(a.node('appShell').hidden,false);
   a.node('btnSignOut').click();await flush();
   assert.equal(a.node('appShell').hidden,true);assert.equal(a.node('authOverlay').hidden,false);
+ }finally{a.close();}
+});
+
+test('un timeout al cargar datos conserva la sesión y recupera la sincronización',async()=>{
+ const a=await app({snapshotFailures:1});
+ try {
+  assert.equal(a.node('authOverlay').hidden,true);
+  assert.equal(a.node('appShell').hidden,false);
+  assert.match(a.node('connectionStatus').textContent,/Sincronización pendiente/);
+  assert.equal(a.state.signOuts,0);
+  await new Promise(resolve=>setTimeout(resolve,1250));
+  assert.equal(a.node('connectionStatus').textContent,'Conectado en líneaSincronizado');
+  assert.ok(a.state.snapshots>=2);
+  assert.equal(a.state.signOuts,0);
+ }finally{a.close();}
+});
+
+test('un timeout al verificar acceso reintenta sin mostrar un rechazo de permisos',async()=>{
+ const a=await app({accessFailures:1});
+ try {
+  assert.equal(a.node('authOverlay').hidden,true);
+  assert.equal(a.node('sessionLoading').hidden,false);
+  await new Promise(resolve=>setTimeout(resolve,1250));
+  assert.equal(a.node('appShell').hidden,false);
+  assert.equal(a.node('authOverlay').hidden,true);
+  assert.equal(a.state.signOuts,0);
+ }finally{a.close();}
+});
+
+test('un fallo transitorio al restaurar la sesión no muestra el formulario de login',async()=>{
+ const a=await app({sessionFailures:1});
+ try {
+  assert.equal(a.node('sessionLoading').hidden,false);
+  assert.equal(a.node('authOverlay').hidden,true);
+  await new Promise(resolve=>setTimeout(resolve,1250));
+  assert.equal(a.node('appShell').hidden,false);
+  assert.equal(a.node('authOverlay').hidden,true);
+  assert.equal(a.state.signOuts,0);
+ }finally{a.close();}
+});
+
+test('la conciliación sin cambios reutiliza la consulta de cargos anteriores',async()=>{
+ const a=await app();
+ try {
+  await flush();
+  const calls=a.state.previousCalls.length;
+  assert.ok(calls>0);
+  a.state.status('SUBSCRIBED');
+  await new Promise(resolve=>setTimeout(resolve,400));
+  assert.equal(a.state.previousCalls.length,calls);
  }finally{a.close();}
 });
 

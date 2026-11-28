@@ -61,6 +61,7 @@ let adminEmailLinkReviewed = false;
 let dataReady = false, realtimeChannel = null, refreshTimer = null, refreshPromise = null;
 let refreshRequested = false;
 let authGeneration = 0, currentUserId = null;
+let connectionRetryTimer = null, connectionRetryCount = 0;
 let pendingReqId = null, pendingDocId = null;
 let requestTracking = null;
 let annualReference = null;
@@ -78,10 +79,14 @@ const requestUI = setupRequirements(document.getElementById('req4Workspace'), {
 });
 let queryResults = null, queryError = '', searchEpoch = 0, searchController = null;
 
-const previousCargoCache=new Map(),previousCargoPending=new Map();
+const previousCargoCache=new Map(),previousCargoPending=new Map(),previousCargoFailed=new Map();
 let previousCargoEpoch=0;
+let previousCargoBusy=false,previousCargoRows=[];
+let previousCargoDataSignature='';
 function clearPreviousCargoCache(){
-  previousCargoCache.clear();previousCargoPending.clear();previousCargoEpoch++;
+  previousCargoCache.clear();previousCargoPending.clear();previousCargoFailed.clear();previousCargoEpoch++;
+  previousCargoRows=[];previousCargoBusy=false;
+  previousCargoDataSignature='';
 }
 function previousCargoSignature(doc){
   return [doc.id,doc.updatedAt||'',doc.fechaOrigen||'',(doc.cargos||[]).join('|')].join('~');
@@ -110,9 +115,13 @@ function previousCargoMarkup(items,invoiceCodes=[]){
 }
 function fetchPreviousCargos(rows){
   if(!repository?.previousCargos||!currentUserId||!rows.length)return;
+  previousCargoRows=rows;
+  if(previousCargoBusy)return;
   const pending=rows.filter(d=>previousCargoCache.get(d.id)?.signature!==previousCargoSignature(d)
-    && !previousCargoPending.has(d.id)).slice(0,100);
+    && !previousCargoPending.has(d.id)
+    && Date.now()-(previousCargoFailed.get(d.id)||0)>30000).slice(0,15);
   if(!pending.length)return;
+  previousCargoBusy=true;
   const epoch=previousCargoEpoch,generation=authGeneration;
   const ids=pending.map(d=>d.id),signatures=new Map(pending.map(d=>[d.id,previousCargoSignature(d)]));
   ids.forEach(id=>previousCargoPending.set(id,epoch));
@@ -130,13 +139,21 @@ function fetchPreviousCargos(rows){
     });
   }).catch(()=>{
     if(epoch!==previousCargoEpoch||generation!==authGeneration)return;
+    ids.forEach(id=>previousCargoFailed.set(id,Date.now()));
     document.querySelectorAll('[data-previous-cargo-id]').forEach(cell=>{
       if(ids.includes(cell.dataset.previousCargoId))
         cell.innerHTML='<span class="previous-cargo-error">No disponible</span>';
     });
-  }).finally(()=>ids.forEach(id=>{
-    if(previousCargoPending.get(id)===epoch)previousCargoPending.delete(id);
-  }));
+  }).finally(()=>{
+    ids.forEach(id=>{
+      if(previousCargoPending.get(id)===epoch)previousCargoPending.delete(id);
+    });
+    if(epoch!==previousCargoEpoch)return;
+    previousCargoBusy=false;
+    setTimeout(()=>{
+      if(epoch===previousCargoEpoch)fetchPreviousCargos(previousCargoRows);
+    },250);
+  });
 }
 
 let currentPage = 0;
@@ -387,7 +404,36 @@ function readableError(error) {
   if (authErrors[error?.code]) return authErrors[error.code];
   if (error?.code === '42501') return 'Tu cuenta no tiene permisos para esta operación.';
   if (error?.code === '23505') return 'El identificador ya existe. Actualiza los datos y vuelve a intentarlo.';
+  if (error?.code === '57014') return 'El servidor tardó demasiado en responder. Se reintentará la conexión.';
   return error?.message || 'No se pudo conectar. Revisa tu conexión y vuelve a intentarlo.';
+}
+function transientConnectionError(error) {
+  return error?.code === '57014' || error?.code === 'PGRST000' ||
+    error?.code === 'PGRST001' || [502,503,504].includes(Number(error?.status)) ||
+    error instanceof TypeError || /fetch failed|failed to fetch|networkerror/i.test(error?.message||'');
+}
+function resetConnectionRetry() {
+  clearTimeout(connectionRetryTimer);
+  connectionRetryTimer = null;
+  connectionRetryCount = 0;
+}
+function scheduleConnectionRetry(recheckAccess = false) {
+  if (!currentUserId || connectionRetryTimer || !navigator.onLine) return;
+  const userId = currentUserId;
+  const delay = Math.min(30000, 1000 * 2 ** Math.min(connectionRetryCount++, 5));
+  connectionRetryTimer = setTimeout(async () => {
+    connectionRetryTimer = null;
+    if (currentUserId !== userId) return;
+    if (recheckAccess) {
+      const {data,error} = await supabase.auth.getSession();
+      if (error || !data?.session || data.session.user.id !== userId) {
+        if (error) scheduleConnectionRetry(true);
+        else if (!data?.session) await handleSession(null);
+        return;
+      }
+      await handleSession(data.session);
+    } else scheduleRefresh();
+  }, delay);
 }
 async function refreshData() {
   refreshRequested = true;
@@ -432,7 +478,13 @@ async function refreshData() {
           continue;
         }
       }
-      clearPreviousCargoCache();
+      // La conciliación periódica puede devolver exactamente los mismos cargos.
+      // Conservar la búsqueda ya resuelta evita volver a consultar 100 cargos por página.
+      const cargoDataSignature=docs.map(d=>`${d.id}:${d.updatedAt||''}`).join('|');
+      if(cargoDataSignature!==previousCargoDataSignature){
+        clearPreviousCargoCache();
+        previousCargoDataSignature=cargoDataSignature;
+      }
       populateYearOptions();
       renderReqs(); renderDocs();
       if(isAdmin)loadSummaryFolioMetadata();
@@ -448,6 +500,7 @@ async function refreshData() {
       const selected = document.getElementById('f_cajaAsignada').value;
       populateCajaAsignadaOptions(selected);
       dataReady = true;
+      resetConnectionRetry();
       if (channelReady) setStatus('Conectado en línea — Sincronizado', 'online');
       else setStatus('Datos actualizados — Conectando en tiempo real');
       setAvailability();
@@ -460,7 +513,10 @@ function scheduleRefresh() {
   clearTimeout(refreshTimer);
   refreshTimer = setTimeout(async () => {
     try { await refreshData(); }
-    catch (error) { dataReady = false; setStatus(`Sincronización pendiente: ${readableError(error)}`, 'error'); }
+    catch (error) {
+      setStatus(`Sincronización pendiente: ${readableError(error)}`, 'error');
+      if (transientConnectionError(error)) scheduleConnectionRetry();
+    }
   }, 200);
 }
 async function runMutation(button, action, messageId = 'msgGuardado') {
@@ -2020,6 +2076,7 @@ async function handleSession(session) {
     showSessionLoading();
   }
   if (!user) {
+    resetConnectionRetry();
     clearPreviousCargoCache();
     clearInterval(adminRequestsTimer);adminRequestsTimer=null;adminRequestsEpoch++;setAdminRequestBadge(null);
     document.getElementById('adminRequestsPanel').hidden=true;
@@ -2066,8 +2123,26 @@ async function handleSession(session) {
         adminRequestStatus='error';
       }
     }
-    await refreshData();
+    let loadError = null;
+    try { await refreshData(); }
+    catch (error) {
+      if (!transientConnectionError(error)) throw error;
+      loadError = error;
+    }
     if (generation !== authGeneration) return;
+    if (loadError) {
+      // La cuenta ya fue autorizada, pero aún no hay datos seguros para operar.
+      appReady = false;
+      document.getElementById('sessionUser').textContent =
+        (typeof user.user_metadata?.kardex_username === 'string' && user.user_metadata.kardex_username.trim()) || user.email || '';
+      document.getElementById('sessionProfile').hidden = !user.email;
+      document.getElementById('btnSignOut').hidden = false;
+      showAuthPage(false);
+      setStatus(`Sincronización pendiente: ${readableError(loadError)}`, 'error');
+      setAvailability();
+      scheduleConnectionRetry(true);
+      return;
+    }
     appReady = true;
     if(isAdmin) {
       void reloadPreparedImSummary();
@@ -2091,6 +2166,11 @@ async function handleSession(session) {
     document.getElementById('btnSignOut').hidden = false;
     await subscribeRealtime(); setAvailability();
   } catch (error) {
+    if (transientConnectionError(error)) {
+      setStatus(`Conexión pendiente: ${readableError(error)}`, 'error');
+      scheduleConnectionRetry(true);
+      return;
+    }
     appReady = false; setAvailability();
     showAuthPage(true);
     message('authMessage',readableError(error),true);
@@ -2203,7 +2283,7 @@ document.getElementById('btnRefreshNewCargos').addEventListener('click',async ev
   }
 });
 window.addEventListener('offline',()=>{channelReady=false;setStatus('Sin conexión — Los cambios requieren conexión en línea','error');});
-window.addEventListener('online',()=>{if(currentUserId){subscribeRealtime();scheduleRefresh();if(isAdmin)void refreshAdminRequests();}});
+window.addEventListener('online',()=>{if(currentUserId){resetConnectionRetry();if(appReady){subscribeRealtime();scheduleRefresh();if(isAdmin)void refreshAdminRequests();}else scheduleConnectionRetry(true);}});
 document.addEventListener('visibilitychange',()=>{
   if(!document.hidden && currentUserId && appReady) {
     scheduleRefresh();
@@ -2229,11 +2309,27 @@ if (!supabase) {
     if (event === 'SIGNED_IN' && (passwordSignInPending || (appReady && currentUserId === session?.user?.id && !passwordRecovery))) return;
     setTimeout(()=>handleSession(session),0);
   });
-  try {
-    const {data,error} = await supabase.auth.getSession();
-    if(error)throw error;
-    if(!currentUserId)await handleSession(data.session);
-  }catch(error){showAuthPage(true);message('authMessage',readableError(error),true);}
+  async function restoreSession() {
+    try {
+      const {data,error} = await supabase.auth.getSession();
+      if(error)throw error;
+      if(!currentUserId)await handleSession(data.session);
+    } catch(error) {
+      if (!transientConnectionError(error)) {
+        showAuthPage(true);
+        message('authMessage',readableError(error),true);
+        return;
+      }
+      setStatus(`Conexión pendiente: ${readableError(error)}`, 'error');
+      if (connectionRetryTimer) return;
+      const delay = Math.min(30000, 1000 * 2 ** Math.min(connectionRetryCount++, 5));
+      connectionRetryTimer = setTimeout(() => {
+        connectionRetryTimer = null;
+        if (!currentUserId) void restoreSession();
+      },delay);
+    }
+  }
+  await restoreSession();
 }
 
 
