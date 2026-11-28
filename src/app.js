@@ -16,7 +16,7 @@ import {attachInterventionExperience} from './intervention-experience.js';
 import { createClient } from '@supabase/supabase-js';
 import { computeReqEstado as reqEstado, computeDocEstado as docEstado, fmtDate, escapeHtml, limaDate, validDate, isSentIm, usesHistoricalImDecision, historicalShipmentDetails, HISTORICAL_IM_NOTE } from './rules.js';
 import { KardexRepository, reqFromDb, docFromDb } from './repository.js';
-import { buildCargoWorkbook, parseWorkbook } from './excel-api.js';
+import { buildCargoWorkbook } from './excel-api.js';
 import { loadExistenciasFolios, prepareExistenciasExport } from './existencias-export.js';
 import { reportCargoCode } from './existencias-data.js';
 import { highlightMatch, normalizeSearch, filterDocuments, filterRequirements, invoiceSearchPresentation, assignedBoxCode, physicalBoxKey } from './search.js';
@@ -361,7 +361,7 @@ function setAvailability() {
   if (!appReady || !isAdmin) { closeCargoExpiry(); closePreparedIm(); closeRequestedIM(); boxScannerController?.reset();boxConditioningController?.reset();boxScanSheetController?.reset();pickupMailController?.reset(); }
   document.getElementById('btnExportar').hidden=!isAdmin;
   document.getElementById('appShell').classList.toggle('read-only', !isAdmin);
-  ['googleSyncPanel','btnImportar','btnReset'].forEach(id=>document.getElementById(id).hidden=!isAdmin);
+  document.getElementById('googleSyncPanel').hidden=!isAdmin;
   updateWorkspaceVisibility();
   // El formulario antiguo de «Documentos (Nuevos Ingresos)» queda oculto.
   // Se conservan sus nodos para no afectar los controles existentes del Kardex.
@@ -375,7 +375,7 @@ function setAvailability() {
 
   document.querySelectorAll('.group button:not([data-reception-action])').forEach(b => b.disabled = !appReady || mutationBusy);
   document.getElementById('scanSave').disabled = !appReady || !isAdmin || isPreview || mutationBusy || document.getElementById('scanSave').dataset.valid!=='1';
-  ['btnExportar','btnReset','btnImportar','btnGuardar','btnGuardarReq'].forEach(id => document.getElementById(id).disabled = !appReady || !isAdmin || mutationBusy || (isPreview && id!=='btnExportar'));
+  ['btnExportar','btnGuardar','btnGuardarReq'].forEach(id => document.getElementById(id).disabled = !appReady || !isAdmin || mutationBusy || (isPreview && id!=='btnExportar'));
   const total=queryResults?.total??lastFiltered.length;
   document.getElementById('btnPaginaAnterior').disabled=!appReady||mutationBusy||currentPage===0;
   document.getElementById('btnPaginaSiguiente').disabled=!appReady||mutationBusy||total<=(currentPage+1)*PAGE_SIZE;
@@ -487,7 +487,7 @@ async function refreshData() {
       }
       populateYearOptions();
       renderReqs(); renderDocs();
-      if(isAdmin)loadSummaryFolioMetadata();
+      loadSummaryFolioMetadata();
       if(isAdmin) {
         if (document.getElementById('preparedImSheet').open) void reloadPreparedImDetail();
         if(appReady) {
@@ -588,22 +588,23 @@ function updateSummaryFolioLabels(){
     const node=document.getElementById(id);
     if(node)node.textContent=' ('+foliosResumenTexto(rows)+')';
   }
+  updateExistenciasCount();
 }
 async function loadSummaryFolioMetadata(){
-  if(!isAdmin||!currentUserId)return;
+  if(!currentUserId)return;
   resumenFolioRefreshRequested=true;
   if(resumenFolioLoading)return;
   resumenFolioLoading=true;
   try{
-    while(resumenFolioRefreshRequested&&isAdmin&&currentUserId){
+    while(resumenFolioRefreshRequested&&currentUserId){
       resumenFolioRefreshRequested=false;
       const generation=authGeneration;
       try{
-        const rows=await loadExistenciasFolios(repository,resumenSummaryDocs);
-        if(generation!==authGeneration||!isAdmin)continue;
+        const rows=await loadExistenciasFolios(repository,docs);
+        if(generation!==authGeneration)continue;
         resumenFolioSnapshot={generation,byDoc:new Map(rows.map(doc=>[doc.id,doc]))};
       }catch{
-        if(generation!==authGeneration||!isAdmin)continue;
+        if(generation!==authGeneration)continue;
         resumenFolioSnapshot={generation,byDoc:null};
       }
       updateSummaryFolioLabels();
@@ -1090,6 +1091,26 @@ function renderMonthlyCargoStats(){
   renderMonthlyShippedDetail();
   // El KPI de Acondicionamiento consulta solamente cajas realmente preparadas.
 }
+function existenciasFoliosTexto(){
+  let selected=lastFiltered;
+  if(queryResults){
+    if(!Array.isArray(queryResults.matched_ids))return 'calculando folios';
+    const ids=new Set(queryResults.matched_ids);
+    selected=docs.filter(doc=>ids.has(doc.id));
+    if(selected.length!==ids.size)return 'calculando folios';
+  }
+  if(!selected.length)return '0 folios registrados';
+  const unique=uniqueCargoDocuments([...selected].sort((a,b)=>
+    Number(isSentInSummary(b))-Number(isSentInSummary(a))));
+  const value=foliosResumenTexto(unique);
+  return /^\d/.test(value) ? value+' registrados' : value;
+}
+function updateExistenciasCount(){
+  const total=queryResults?.total??lastFiltered.length;
+  const pendingCargo=docs.filter(d=>!d.cargos?.length).length;
+  document.getElementById('conteoResultados').textContent=queryError
+    || `${showRandomCargos(appliedFilters)?'Cargos aleatorios · ':''}${fmtNum(total)} registros${pendingCargo?` · ${fmtNum(pendingCargo)} registros pendientes de cargo`:''} · ${existenciasFoliosTexto()}`;
+}
 function renderDocs(){
   const filters=appliedFilters;
   const search=filters.query;
@@ -1322,9 +1343,7 @@ function renderDocs(){
   let filtered=queryResults?.rows?.map(d=>({...d,...computeDocEstado(d)}))
     ?? filterDocuments(docs,reqs,filters).sort(showRandomCargos(filters)?randomCargoOrder:(a,b)=>b.kardex.localeCompare(a.kardex));
   lastFiltered=filtered;
-  const pendingCargo=docs.filter(d=>!d.cargos?.length).length;
   const total=queryResults?.total??filtered.length;
-  const folios=queryResults?.folios??filtered.reduce((sum,d)=>sum+(Number(d.folios)||0),0);
   // Solo cargos, Caja asignada y la lista inicial no muestran Ubicación.
   const showLocationColumn=!['solo-cargos','solo-cajas'].includes(filters.type) && !!search && !(filtered.length>0 &&
     filtered.every(d=>invoiceSearchPresentation(d,search).kind==='cargo'));
@@ -1338,8 +1357,7 @@ function renderDocs(){
   } else if(!showLocationColumn && existingLocationHead){
     existingLocationHead.remove();
   }
-  document.getElementById('conteoResultados').textContent=queryError
-    || `${showRandomCargos(filters)?'Cargos aleatorios · ':''}${fmtNum(total)} registros${pendingCargo?` · ${fmtNum(pendingCargo)} registros pendientes de cargo`:''} · ${fmtNum(folios)} folios registrados`;
+  updateExistenciasCount();
   document.getElementById('paginaActual').textContent=`Página ${currentPage+1} de ${Math.max(1,Math.ceil(total/PAGE_SIZE))}`;
   if(!queryResults)filtered=filtered.slice(currentPage*PAGE_SIZE,(currentPage+1)*PAGE_SIZE);
 
@@ -1912,16 +1930,6 @@ document.getElementById('btnGuardar').addEventListener('click', async ev => {
   });
 });
 
-document.getElementById('btnReset').addEventListener('click', async ev => {
-  if (!isAdmin || !confirm('¿Borrar TODOS los documentos y requerimientos de la base de datos compartida y reiniciar sus correlativos? Afectará a todas las computadoras. Esta acción no se puede deshacer.')) return;
-  await runMutation(ev.currentTarget, async () => {
-    await repository.reset();
-    pendingReqId = pendingDocId = null;
-    cancelarEdicionDoc(); cancelarEdicionReq();
-    message('msgGuardado', 'Datos compartidos restablecidos.');
-  });
-});
-
 async function exportCargo(id,button) {
   if(!appReady)return;
   button.disabled=true;
@@ -1958,28 +1966,6 @@ document.getElementById('btnExportar').addEventListener('click',async event=>{
     await downloadExcel(workbook,`Kardex_Santa_Anita_${limaDate()}.xlsx`,serialize);
   } catch(error) { alert(`No se pudo exportar el reporte: ${readableError(error)}`); }
   finally { labelNode.textContent=label;button.disabled=false; }
-});
-document.getElementById('btnImportar').addEventListener('click', ()=>document.getElementById('fileImportar').click());
-document.getElementById('fileImportar').addEventListener('change', async ev => {
-  const input = ev.target, file = input.files[0];
-  if (!file || !isAdmin || !appReady || isPreview) { input.value = ''; return; }
-  const button = document.getElementById('btnImportar');
-  button.disabled = true;
-  try {
-    document.getElementById('importProgress').textContent='Leyendo el archivo Excel…';
-    const imported = await parseWorkbook(await file.arrayBuffer());
-    if (!confirm(`Se agregarán o actualizarán ${imported.reqs.length} requerimientos y ${imported.docs.length} documentos. Los registros que no figuran en el archivo se conservarán. El Excel original se guardará y verificará en Google Drive; Supabase conservará los registros de consulta. ¿Importar?`)) return;
-    await runMutation(button, async () => {
-      const result = await repository.importFile(file,imported,value=>document.getElementById('importProgress').textContent=value);
-      if (result.requerimientos !== imported.reqs.length || result.documentos !== imported.docs.length) {
-        throw new Error('La confirmación de la base de datos no coincide. Actualiza los datos.');
-      }
-      pendingReqId = pendingDocId = null;
-      cancelarEdicionReq(); cancelarEdicionDoc();
-      alert(`Importación completa: Excel original verificado en Google Drive y ${result.requerimientos} requerimientos y ${result.documentos} documentos registrados en Supabase.`);
-    });
-  } catch (error) { alert(`No se pudo importar. ${readableError(error)}`); }
-  finally { input.value = ''; document.getElementById('importProgress').textContent=''; setAvailability(); }
 });
 function searchNow(){
   appliedFilters=currentFilters();currentPage=0;

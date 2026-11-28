@@ -70,6 +70,9 @@ async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recov
       return rows.filter(d=>year===null||cargoYear(d)===String(year))
         .map(doc=>({...doc,cantidadRegistros:state.archiveCounts[doc.id]??null}));
     }
+    async folioDocs(rows){
+      return rows.map(doc=>({...doc,cantidadRegistros:state.archiveCounts[doc.id]??null}));
+    }
     async fetchDoc(id){state.fetchedId=id;return docFromDb({...state.docs.find(d=>d.id===id),facturas:'F-001, F-002, F-003, F-004'});}
     async access(){state.loadingDuringAccess={loading:!dom.window.document.getElementById('sessionLoading').hidden,login:!dom.window.document.getElementById('authOverlay').hidden};if(accessFailures-->0)throw {code:'57014',message:'canceling statement due to statement timeout'};return {allowed,is_admin:isAdmin};}
     async preparedImDetails(){state.preparedImCalls=(state.preparedImCalls||0)+1;return structuredClone(state.preparedImRows||[]);}
@@ -98,7 +101,8 @@ async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recov
     state.searchCalls.push({...filters});
     const found=filterDocuments(state.docs.map(docFromDb),state.reqs.map(reqFromDb),filters);
     const selected=found.slice(offset,offset+limit);
-    return {rows:selected.map(row=>({...state.docs.find(d=>d.id===row.id)})),total:found.length,folios:found.reduce((n,d)=>n+(Number(d.folios)||0),0)};
+    return {rows:selected.map(row=>({...state.docs.find(d=>d.id===row.id)})),total:found.length,
+      matched_ids:found.map(d=>d.id),folios:found.reduce((n,d)=>n+(Number(d.folios)||0),0)};
   };
   const context=dom.getInternalVMContext();
   const scheduleInterval=dom.window.setInterval.bind(dom.window);
@@ -116,7 +120,7 @@ async function app({allowed=true,isAdmin=true,failSave=false,signedIn=true,recov
     // El modal de Gestión de cajas pertenece solo a Resumen; simulación en pruebas VM.
     attachResumenBoxDetails:()=>({open:()=>{}}),
     boxSupplyRequests,combineBoxPreparationBatches,loadBoxPreparationBatches,summarizeBoxPreparationBatch,physicalBoxKey,validDate,
-    createClient:(url,key,options)=>{state.authOptions=options?.auth;return client;},KardexRepository:FakeRepository,reqFromDb,docFromDb,reqEstado,docEstado,fmtDate,escapeHtml,invoiceSearchPresentation,buildWorkbook:async(...args)=>{state.exportCalls.push(args);return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},buildCargoWorkbook:async(cargo)=>{state.guestExport=cargo;return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},reportCargoCode,loadExistenciasFolios:async(repo,docs)=>applyExistenciasFolios(await repo.reportDocs(docs),new Map(Object.entries(state.driveFolios))),prepareExistenciasExport:async(repo)=>{const snapshot=await repo.snapshot();state.reportDocs=await repo.reportDocs(snapshot.documentos.map(docFromDb));return {workbook:{},serialize:async()=>{state.serializedReport=true;return new Uint8Array([1]);}};},parseWorkbook,highlightMatch,normalizeSearch,filterDocuments,filterRequirements,assignedBoxCode,cargoYear,invoiceLocation,locationLabel,groupsForCodes,
+    createClient:(url,key,options)=>{state.authOptions=options?.auth;return client;},KardexRepository:FakeRepository,reqFromDb,docFromDb,reqEstado,docEstado,fmtDate,escapeHtml,invoiceSearchPresentation,buildWorkbook:async(...args)=>{state.exportCalls.push(args);return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},buildCargoWorkbook:async(cargo)=>{state.guestExport=cargo;return {xlsx:{writeBuffer:async()=>new Uint8Array([1])}};},reportCargoCode,loadExistenciasFolios:async(repo,docs)=>applyExistenciasFolios(await repo.folioDocs(docs),new Map(Object.entries(state.driveFolios))),prepareExistenciasExport:async(repo)=>{const snapshot=await repo.snapshot();state.reportDocs=await repo.reportDocs(snapshot.documentos.map(docFromDb));return {workbook:{},serialize:async()=>{state.serializedReport=true;return new Uint8Array([1]);}};},parseWorkbook,highlightMatch,normalizeSearch,filterDocuments,filterRequirements,assignedBoxCode,cargoYear,invoiceLocation,locationLabel,groupsForCodes,
     __SUPABASE_URL__:'https://example.supabase.co',__SUPABASE_ANON_KEY__:'sb_publishable_test',__REQ4_ISOLATED__:isolatedPreview,__RECEPTION_PREVIEW__:receptionPreview,confirm:()=>true,alert:()=>{}});
   await vm.runInContext(`(async()=>{${source}})()`,context);
   const node=id=>dom.window.document.getElementById(id);
@@ -645,7 +649,7 @@ test('unauthorized accounts remain blocked and editor cannot reset/import',async
   const denied=await app({allowed:false});
   try {assert.equal(denied.node('authOverlay').hidden,false);assert.equal(denied.node('btnGuardar').disabled,true);assert.ok(denied.node('authMessage').textContent.includes('no está autorizada'));}finally{denied.close();}
   const editor=await app({isAdmin:false});
-  try {assert.equal(editor.node('btnGuardar').disabled,true);assert.equal(editor.node('grp-documentos').hidden,true);assert.equal(editor.node('tbody').querySelector('[data-edit]'),null);assert.ok(editor.node('tbody').textContent.includes('F-001'));assert.equal(editor.node('btnReset').disabled,true);assert.equal(editor.node('btnImportar').disabled,true);}finally{editor.close();}
+  try {assert.equal(editor.node('btnGuardar').disabled,true);assert.equal(editor.node('grp-documentos').hidden,true);assert.equal(editor.node('tbody').querySelector('[data-edit]'),null);assert.ok(editor.node('tbody').textContent.includes('F-001'));assert.equal(editor.node('btnReset'),null);assert.equal(editor.node('btnImportar'),null);}finally{editor.close();}
 });
 test('repository update always filters by the original timestamp and asks Supabase to confirm the result',async()=>{
   const calls=[];
@@ -1158,6 +1162,7 @@ test('Resumen suma el mismo respaldo histórico en total, enviados y pendientes 
     const root=a.node('resumenTablas');
     const value=id=>root.querySelector('#'+id)?.textContent?.trim();
     assert.equal(value('summaryTotalFolios'),'(470 folios)');
+    assert.match(a.node('conteoResultados').textContent,/3 registros · 470 folios registrados/);
     assert.equal(value('summarySentSource'),'(100 folios)');
     assert.equal(value('summaryPendingFolios'),'(370 folios)');
     assert.equal(value('summaryUpcomingFolios'),'(70 folios)');
@@ -1175,8 +1180,40 @@ test('Resumen suma el mismo respaldo histórico en total, enviados y pendientes 
     a.dom.window.dispatchEvent(new a.dom.window.Event('focus'));
     await new Promise(resolve=>setTimeout(resolve,250));
     assert.equal(a.node('summaryTotalFolios').textContent.trim(),'(485 folios)');
+    assert.match(a.node('conteoResultados').textContent,/3 registros · 485 folios registrados/);
     assert.equal(a.node('summaryPendingFolios').textContent.trim(),'(385 folios)');
     assert.equal(a.node('summaryUpcomingFolios').textContent.trim(),'(85 folios)');
+  }finally{a.close();}
+});
+
+test('Existencias suma los folios verificados de todos los resultados filtrados',async()=>{
+  const historical={...docRow,id:randomUUID(),kardex:'SA-8800',cargos:['8800'],
+    periodo:'2025-01-01',fecha_origen:'2025-01-01',anio_origen:2025,folios:null};
+  const current={...docRow,id:randomUUID(),kardex:'SA-9900',cargos:['9900'],
+    periodo:'2026-01-01',fecha_origen:'2026-01-01',anio_origen:2026,folios:35};
+  const a=await app({enableSearch:true,initialDocs:[historical,current],
+    driveFolios:{'2026:9900':70},archiveCounts:{[historical.id]:300}});
+  try {
+    await flush();
+    assert.match(a.node('conteoResultados').textContent,/2 registros · 370 folios registrados/);
+    a.node('filtroAnio').value='2026';
+    a.node('btnBuscar').click();
+    await flush();
+    assert.match(a.node('conteoResultados').textContent,/1 registros · 70 folios registrados/);
+    assert.equal(a.node('btnImportar'),null);
+    assert.equal(a.node('btnReset'),null);
+  }finally{a.close();}
+});
+
+test('la cuenta de consulta ve folios verificados sin controles de importación',async()=>{
+  const historical={...docRow,id:randomUUID(),kardex:'SA-8800',cargos:['8800'],
+    periodo:'2025-01-01',fecha_origen:'2025-01-01',anio_origen:2025,folios:null};
+  const a=await app({isAdmin:false,initialDocs:[historical],archiveCounts:{[historical.id]:300}});
+  try {
+    await flush();
+    assert.match(a.node('conteoResultados').textContent,/1 registros · 300 folios registrados/);
+    assert.equal(a.node('btnImportar'),null);
+    assert.equal(a.node('btnReset'),null);
   }finally{a.close();}
 });
 
