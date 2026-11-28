@@ -1,4 +1,4 @@
-import {escapeHtml,fmtDate,limaDate} from './rules.js';
+import {escapeHtml,fmtDate} from './rules.js';
 import {physicalBoxKey} from './search.js';
 import {boxPreparationRows,renderSupplyHistory,renderSupplySelector} from './conditioning-batch-summary.js';
 import {drawBoxBarcode} from './box-code128.js';
@@ -24,13 +24,7 @@ export function attachConditioningWorkspace({repository,live=false,onChanged=()=
   const el=id=>document.getElementById(id);
   el('grp-acondicionamiento').querySelector('.group-body')
     .replaceWith(el('conditioningWorkspaceTemplate').content.cloneNode(true));
-  const controls=el('grp-cajas').querySelector('.group-body');
-  controls.append(el('conditioningControlTemplate').content.cloneNode(true));
   const excelLabel=live?'Excel Maestro':'Excel de prueba';
-  if(live){
-    controls.querySelector('[data-acond-download="maestro"]').textContent='Descargar Excel Maestro';
-    controls.querySelector('[data-acond-download="historico"]').textContent='Descargar Histórico IM';
-  }
   const selector=el('acondBatchSelection'),closedHistory=el('acondClosed');
   const recentlyClosed=new Set();
   const isClosed=row=>recentlyClosed.has(row.id) || getBatchProgress(row.id)?.prepared>=Number(row.cantidadCajas);
@@ -46,7 +40,6 @@ export function attachConditioningWorkspace({repository,live=false,onChanged=()=
   const cargoVersions=fields.map(()=>0);
   let validations=Array(3).fill(null);
   const message=text=>{el('acondMessage').textContent=text;};
-  const controlMessage=text=>{el('acondControlMessage').textContent=text;};
   const call=(action,data)=>repository.conditioning(action,data);
   const lookup=code=>call('buscar',{p_codigo:code});
   const eligible=()=>selected?.status==='disponible'&&['nueva','solicitada'].includes(selected.origen);
@@ -447,53 +440,6 @@ export function attachConditioningWorkspace({repository,live=false,onChanged=()=
     message(await sync()?excelLabel+' verificado.':'La sincronización sigue pendiente.');
     await refresh();
   });
-  const dispatch=el('acondDispatch');
-  dispatch.elements.fecha.value=limaDate();
-  for(const [form,action] of [[el('acondReceive'),'recibir'],[dispatch,'enviar']]){
-    form.addEventListener('submit',async event=>{
-      event.preventDefault();
-      const button=form.querySelector('button');
-      if(button.disabled)return;
-      button.disabled=true;
-      const data=Object.fromEntries(new FormData(form));
-      try{
-        if(!physicalBoxKey(data.codigo))throw Error(boxLabels.inexistente);
-        const record=await lookup(data.codigo);
-        if(action==='enviar'){
-          if(!record.id)throw Error(boxLabels[record.status]||'Primero prepara la caja.');
-          if(record.enviada)throw Error('El despacho ya está registrado.');
-          await call(action,{p_datos:{...data,id:record.id}});
-          controlMessage(await sync()?'Despacho verificado en el '+excelLabel+' y en el Histórico IM.':'Despacho registrado. Sincronización pendiente.');
-        }else{
-          if(record.status!=='no_recibida'||record.origen!=='solicitada')
-            throw Error(record.recibida?'La caja ya está recepcionada.':boxLabels[record.status]);
-          const received=await call(action,{p_codigo:record.codigo});
-          if(!received.recibida)throw Error('No se pudo verificar la recepción.');
-          controlMessage('Recepción física confirmada.');
-        }
-        form.elements.codigo.value='';
-        await onChanged();
-      }catch(error){controlMessage(error.message||'No se pudo completar el movimiento.');}
-      finally{button.disabled=false;}
-    });
-  }
-  el('acondControlRetry').addEventListener('click',async()=>{
-    controlMessage(await sync()?excelLabel+' verificado.':'La sincronización sigue pendiente.');
-  });
-  for(const button of controls.querySelectorAll('[data-acond-download]')){
-    button.addEventListener('click',async()=>{
-      try{
-        const type=button.dataset.acondDownload,file=await repository.conditioningExcel(type);
-        const link=document.createElement('a');
-        link.href=URL.createObjectURL(file);
-        link.download=live?(type==='maestro'?'CARGOS_ENVIADOS_IRON_MOUNTAIN_MAESTRO'+
-          (file.type.includes('macroenabled')?'.xlsm':'.xlsx'):'REGISTRO_DE_FACTURAS_ENVIADOS_A_IRON_MOUNTAIN.xlsx'):
-          type+'_acondicionamiento_preview.xlsx';
-        link.click();
-        setTimeout(()=>URL.revokeObjectURL(link.href),30000);
-      }catch{controlMessage('No se pudo descargar el archivo de Excel.');}
-    });
-  }
   renderYears();select(null);showStep();
   return {
     activate(){active=true;void refresh();clearInterval(timer);timer=setInterval(refresh,5000);if(!mobileMode)scan.focus();},
